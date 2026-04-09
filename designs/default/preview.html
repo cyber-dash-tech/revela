@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aurora Theme — Preview</title>
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@600,700&f[]=satoshi@400,500&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+/* ===========================================
+   CSS CUSTOM PROPERTIES — Aurora Theme
+   =========================================== */
+:root {
+  --bg-primary:    #030712;
+  --bg-secondary:  #0f172a;
+  --bg-card:       rgba(30, 41, 59, 0.6);
+  --text-primary:  #f8fafc;
+  --text-secondary:#94a3b8;
+  --accent:        #22d3ee;
+  --accent-2:      #a78bfa;
+  --accent-3:      #34d399;
+  --border:        rgba(34, 211, 238, 0.15);
+  --glow:          rgba(34, 211, 238, 0.25);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scroll-snap-type: y mandatory;
+  overflow-y: scroll;
+  height: 100%;
+}
+
+/* ===========================================
+   BACKGROUND LAYERS — Aurora ribbons + noise + stars
+   =========================================== */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse 120% 80% at 50% 0%, #1e1b4b 0%, #030712 60%);
+  z-index: -3;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  z-index: -2;
+  pointer-events: none;
+}
+
+.aurora-1, .aurora-2, .aurora-3 {
+  position: fixed;
+  width: 150%;
+  height: 60%;
+  filter: blur(80px);
+  opacity: 0.6;
+  animation: aurora-drift 25s ease-in-out infinite alternate;
+  z-index: -1;
+  pointer-events: none;
+}
+.aurora-1 {
+  top: -10%; left: -25%;
+  background: linear-gradient(135deg, #22d3ee 0%, transparent 60%);
+  animation-duration: 28s;
+}
+.aurora-2 {
+  top: 20%; right: -30%;
+  background: linear-gradient(225deg, #a78bfa 0%, transparent 50%);
+  animation-duration: 35s;
+  animation-delay: -10s;
+}
+.aurora-3 {
+  top: 40%; left: 10%;
+  background: linear-gradient(90deg, #34d399 0%, transparent 40%);
+  animation-duration: 22s;
+  animation-delay: -5s;
+  opacity: 0.4;
+}
+@keyframes aurora-drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(30px, -20px) scale(1.1); }
+  100% { transform: translate(-20px, 20px) scale(0.95); }
+}
+
+.stars {
+  position: fixed; inset: 0;
+  background-image: radial-gradient(1px 1px at 20% 30%, white 50%, transparent),
+                    radial-gradient(1px 1px at 40% 70%, white 50%, transparent),
+                    radial-gradient(1.5px 1.5px at 60% 20%, white 50%, transparent),
+                    radial-gradient(1px 1px at 80% 60%, white 50%, transparent);
+  opacity: 0.7;
+  z-index: -1;
+  pointer-events: none;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Satoshi', ui-sans-serif, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  height: 100%;
+}
+
+/* ===========================================
+   PROGRESS BAR & NAV DOTS
+   =========================================== */
+.progress-bar {
+  position: fixed; top: 0; left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  width: 0%;
+  z-index: 100;
+  transition: width 0.2s ease;
+  box-shadow: 0 0 8px var(--glow);
+}
+
+.nav-dots {
+  position: fixed;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 100;
+}
+.nav-dots button {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  border: 1px solid rgba(34, 211, 238, 0.4);
+  background: transparent;
+  cursor: pointer; padding: 0;
+  transition: background 0.2s, border-color 0.2s;
+}
+.nav-dots button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 6px var(--glow);
+}
+
+/* ===========================================
+   SLIDE BASE — 1920x1080 fixed canvas, scaled by JS
+   =========================================== */
+.slide {
+  height: 100vh; height: 100dvh;
+  scroll-snap-align: start;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+.slide-canvas {
+  width: 1920px;
+  height: 1080px;
+  flex-shrink: 0;
+  transform-origin: center center;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 60px 80px;
+}
+
+/* ===========================================
+   DECORATIVE FILLS — aurora blobs & shapes inside canvas
+   =========================================== */
+.deco-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+}
+.deco-line {
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+}
+/* Ensure content stacks above decorative fills */
+.slide-canvas > *:not(.deco-blob):not(.deco-line) {
+  position: relative;
+  z-index: 1;
+}
+
+/* ===========================================
+   REVEAL ANIMATIONS
+   =========================================== */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal:nth-child(1) { transition-delay: 0s; }
+.reveal:nth-child(2) { transition-delay: 0.1s; }
+.reveal:nth-child(3) { transition-delay: 0.1s; }
+.reveal:nth-child(4) { transition-delay: 0.2s; }
+.reveal:nth-child(5) { transition-delay: 0.3s; }
+.reveal:nth-child(6) { transition-delay: 0.4s; }
+.reveal:nth-child(7) { transition-delay: 0.5s; }
+.reveal:nth-child(8) { transition-delay: 0.6s; }
+
+/* Cover title special animation */
+.title-reveal {
+  opacity: 0;
+  transform: translateY(24px) scale(0.97);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.title-reveal.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .title-reveal {
+    transition: opacity 0.4s ease;
+    transform: none !important;
+  }
+  .aurora-1, .aurora-2, .aurora-3 {
+    animation: none;
+    opacity: 0.3;
+  }
+}
+
+/* ===========================================
+   TYPOGRAPHY — fixed px for 1920x1080 canvas
+   =========================================== */
+h1 {
+  font-family: 'Clash Display', ui-sans-serif, sans-serif;
+  font-size: 80px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 40px rgba(34, 211, 238, 0.3);
+}
+h2 {
+  font-family: 'Clash Display', ui-sans-serif, sans-serif;
+  font-size: 38px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.subtitle {
+  font-size: 24px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.label {
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 500;
+}
+.gradient-text {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.accent-line {
+  width: 48px; height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: 2px;
+  margin: 20px 0;
+}
+.accent-line-wide {
+  width: 200px; height: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  border-radius: 2px;
+}
+
+/* ===========================================
+   LAYOUT VARIANT: Feature Cards (3-col grid)
+   =========================================== */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  max-width: 1600px;
+  margin: 0 auto;
+  flex: 1;
+  align-content: stretch;
+}
+.card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 36px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.4), 0 0 0 1px var(--glow);
+  border-color: var(--glow);
+}
+.card-icon {
+  width: 32px; height: 32px;
+  color: var(--accent);
+  margin-bottom: 16px;
+  transition: transform 0.2s ease;
+}
+.card:hover .card-icon { transform: scale(1.15); }
+.card-label {
+  font-size: 12px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--accent);
+  margin-bottom: 10px; font-weight: 500;
+}
+.card-title {
+  font-family: 'Clash Display', sans-serif;
+  font-size: 22px;
+  margin-bottom: 12px; font-weight: 600;
+}
+.card-body {
+  font-size: 17px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  flex: 1;
+}
+
+/* ===========================================
+   LAYOUT VARIANT: Stats Row
+   =========================================== */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+.stat-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 48px 40px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+.stat-number {
+  font-family: 'Clash Display', sans-serif;
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  margin-bottom: 12px;
+}
+.stat-label {
+  font-size: 15px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+.stat-desc {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  opacity: 0.7;
+}
+
+/* ===========================================
+   LAYOUT VARIANT: Two-Column
+   =========================================== */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: stretch;
+  max-width: 1600px;
+  margin: 0 auto;
+  flex: 1;
+}
+.two-col-main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.two-col-main h2 {
+  font-size: 36px;
+  margin-bottom: 16px;
+}
+.two-col-main p {
+  font-size: 18px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+.two-col > div:last-child {
+  display: flex;
+  flex-direction: column;
+}
+.two-col > div:last-child .card {
+  flex: 1;
+}
+.evidence-list {
+  list-style: none; padding: 0;
+  display: flex; flex-direction: column;
+  gap: 12px;
+}
+.evidence-list li {
+  padding-left: 18px; position: relative;
+  font-size: 18px;
+  color: var(--text-primary); line-height: 1.5;
+}
+.evidence-list li::before {
+  content: '';
+  position: absolute; left: 0; top: 0.55em;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* ===========================================
+   LAYOUT VARIANT: Step Flow
+   =========================================== */
+.step-flow {
+  display: flex;
+  align-items: flex-start;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+.step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+}
+.step-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+  font-family: 'Clash Display', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 20px -8px rgba(34, 211, 238, 0.5);
+  flex-shrink: 0;
+}
+.step-connector {
+  flex: 0 0 32px;
+  height: 2px;
+  background: var(--border);
+  margin-top: 32px;
+  align-self: flex-start;
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.1);
+}
+.step-title {
+  font-size: 20px;
+  font-weight: 600;
+}
+.step-desc {
+  font-size: 16px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-width: 200px;
+}
+
+/* ===========================================
+   LAYOUT VARIANT: Quote Block
+   =========================================== */
+.quote-block {
+  border-left: 3px solid var(--accent);
+  padding: 24px 32px;
+  background: rgba(34, 211, 238, 0.06);
+  border-radius: 0 8px 8px 0;
+  max-width: 1200px;
+}
+.quote-block blockquote {
+  font-size: 36px;
+  font-style: italic;
+  line-height: 1.5;
+  margin-bottom: 16px;
+  text-shadow: 0 0 30px rgba(34, 211, 238, 0.15);
+}
+.quote-block cite {
+  font-size: 14px;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-style: normal;
+}
+/* Large decorative quotation mark */
+.quote-deco {
+  position: absolute;
+  font-family: 'Clash Display', sans-serif;
+  font-size: 300px;
+  line-height: 1;
+  color: var(--accent);
+  opacity: 0.06;
+  pointer-events: none;
+  z-index: 0;
+}
+</style>
+</head>
+<body>
+
+<!-- Aurora background layers -->
+<div class="aurora-1"></div>
+<div class="aurora-2"></div>
+<div class="aurora-3"></div>
+<div class="stars"></div>
+
+<div class="progress-bar" id="progressBar"></div>
+<nav class="nav-dots" id="navDots" aria-label="Slide navigation"></nav>
+
+<!-- ==============================
+     SLIDE 1: Cover
+     ============================== -->
+<section class="slide" data-index="0">
+  <div class="slide-canvas">
+    <!-- Decorative fills: aurora blobs anchoring the composition -->
+    <div class="deco-blob" style="width:400px;height:400px;background:rgba(34,211,238,0.08);top:-60px;right:-40px;"></div>
+    <div class="deco-blob" style="width:300px;height:300px;background:rgba(167,139,250,0.06);bottom:40px;left:-20px;"></div>
+    <div class="deco-line" style="bottom:100px;right:80px;width:200px;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0.3;"></div>
+    <div class="deco-line" style="top:120px;left:80px;width:120px;height:1px;background:linear-gradient(90deg,var(--accent-2),transparent);opacity:0.25;"></div>
+
+    <p class="label reveal">slides-it  ·  aurora theme</p>
+    <div class="accent-line reveal"></div>
+    <h1 class="title-reveal" style="max-width:1200px">Build slides that<br><span class="gradient-text">actually impress</span></h1>
+    <div class="accent-line reveal" style="background: linear-gradient(90deg, var(--accent-2), transparent)"></div>
+    <p class="subtitle reveal" style="max-width:900px;margin-top:8px">A stunning dark theme with animated aurora backgrounds — engineered for technical presentations, product demos, and conference talks. Every pixel designed for impact.</p>
+    <div style="display:flex;gap:32px;align-items:center;margin-top:48px" class="reveal">
+      <div class="accent-line-wide"></div>
+      <p style="font-size:13px; color:var(--text-secondary)">2026  —  slides-it</p>
+    </div>
+  </div>
+</section>
+
+<!-- ==============================
+     SLIDE 2: Feature Cards (3-col)
+     ============================== -->
+<section class="slide" data-index="1">
+  <div class="slide-canvas" style="justify-content:flex-start;padding-top:80px">
+    <p class="label reveal">Core principles</p>
+    <h2 class="reveal" style="margin:8px 0 28px">Three pillars of great slides</h2>
+    <div class="card-grid reveal">
+      <div class="card">
+        <i data-lucide="sparkles" class="card-icon"></i>
+        <p class="card-label">Visual</p>
+        <p class="card-title">Aurora Depth</p>
+        <p class="card-body">Layered backgrounds with aurora ribbons and noise textures create cinematic atmosphere. Content floats above translucent surfaces, drawing the eye naturally to what matters.</p>
+      </div>
+      <div class="card">
+        <i data-lucide="wand-2" class="card-icon"></i>
+        <p class="card-label">Motion</p>
+        <p class="card-title">Glassmorphism</p>
+        <p class="card-body">Translucent cards with backdrop-blur create modern depth layers. Hover interactions reveal glowing borders and lift effects that invite exploration without distraction.</p>
+      </div>
+      <div class="card">
+        <i data-lucide="type" class="card-icon"></i>
+        <p class="card-label">Typography</p>
+        <p class="card-title">Clash + Satoshi</p>
+        <p class="card-body">Display headings in Clash Display pair with humanist Satoshi body text. The contrast creates confident readability across screen sizes and viewing distances.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==============================
+     SLIDE 3: Stats Row (counter animation)
+     ============================== -->
+<section class="slide" data-index="2">
+  <div class="slide-canvas">
+    <p class="label reveal">By the numbers</p>
+    <div class="accent-line reveal"></div>
+    <h2 class="reveal" style="margin-bottom:32px">Everything you need, nothing you don't</h2>
+    <div class="stats-row reveal">
+      <div class="stat-card">
+        <div class="stat-number gradient-text" data-target="100" data-suffix="%">0%</div>
+        <div class="stat-label">Self-contained</div>
+        <div class="stat-desc">Every slide deck is a single HTML file — no build tools, no CDN, no runtime dependencies</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number gradient-text" data-target="0">0</div>
+        <div class="stat-label">External deps</div>
+        <div class="stat-desc">Zero external JavaScript dependencies. Open the file in any browser, anywhere, anytime</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number gradient-text" data-target="6" data-suffix=" layouts">0 layouts</div>
+        <div class="stat-label">Built-in variants</div>
+        <div class="stat-desc">Cards, stats, two-column, step flow, quote, and full-bleed — all production-ready</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==============================
+     SLIDE 4: Two-Column + Donut Chart
+     ============================== -->
+<section class="slide" data-index="3">
+  <div class="slide-canvas" style="justify-content:flex-start;padding-top:80px">
+    <p class="label reveal" style="margin-bottom:20px">Key finding</p>
+    <div class="two-col reveal">
+      <div class="two-col-main">
+        <h2>Glassmorphism elevates content hierarchy</h2>
+        <p style="margin-top:16px">Translucent card surfaces with backdrop blur create natural depth layers, guiding the eye to the most important information without heavy borders or shadows.</p>
+        <p style="margin-top:16px">The aurora background visible through frosted glass creates a living, breathing canvas that adapts to every slide's content while maintaining visual cohesion.</p>
+        <div id="donutChart" style="width:320px;height:320px;margin-top:24px"></div>
+      </div>
+      <div>
+        <div class="card">
+          <p class="card-label">Evidence</p>
+          <ul class="evidence-list">
+            <li>Backdrop blur separates content from background organically</li>
+            <li>Border glow draws attention on hover interaction</li>
+            <li>Semi-transparent surfaces feel modern and weightless</li>
+            <li>Layered depth guides reading order without explicit markers</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==============================
+     SLIDE 5: Step Flow
+     ============================== -->
+<section class="slide" data-index="4">
+  <div class="slide-canvas">
+    <p class="label reveal">Process</p>
+    <h2 class="reveal" style="margin:8px 0 48px">From idea to presentation</h2>
+    <div class="step-flow reveal">
+      <div class="step">
+        <div class="step-circle">1</div>
+        <div class="step-title">Describe</div>
+        <div class="step-desc">Tell the AI your topic, audience, and desired tone. Upload reference documents if you have them.</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step">
+        <div class="step-circle">2</div>
+        <div class="step-title">Research</div>
+        <div class="step-desc">AI scans your workspace files, extracts key data, and supplements with its own knowledge base.</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step">
+        <div class="step-circle">3</div>
+        <div class="step-title">Generate</div>
+        <div class="step-desc">A complete, self-contained HTML deck is created with all layouts, animations, and navigation built in.</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step">
+        <div class="step-circle">4</div>
+        <div class="step-title">Present</div>
+        <div class="step-desc">Open the file in any browser. Keyboard navigation, touch support, and responsive scaling just work.</div>
+      </div>
+    </div>
+    <div class="accent-line-wide reveal" style="margin:48px auto 0;opacity:0.5"></div>
+  </div>
+</section>
+
+<!-- ==============================
+     SLIDE 6: Quote Block
+     ============================== -->
+<section class="slide" data-index="5">
+  <div class="slide-canvas">
+    <!-- Large decorative quotation mark -->
+    <div class="quote-deco" style="top:40px;left:40px;">"</div>
+    <!-- Decorative blob fills -->
+    <div class="deco-blob" style="width:350px;height:350px;background:rgba(34,211,238,0.05);bottom:-40px;right:60px;"></div>
+    <div class="deco-line" style="top:80px;right:80px;width:160px;height:1px;background:linear-gradient(90deg,transparent,var(--accent-2));opacity:0.2;"></div>
+
+    <div style="max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:40px;flex:1;justify-content:center">
+      <div class="quote-block reveal">
+        <blockquote>"The presentation is the argument. Make it undeniable."</blockquote>
+        <cite>slides-it aurora theme</cite>
+      </div>
+      <div class="accent-line reveal" style="width:120px"></div>
+      <p class="reveal" style="font-size:18px;color:var(--text-secondary);line-height:1.7;max-width:800px">Great design removes friction between your ideas and your audience's understanding. Every aurora gradient, every glass surface, every carefully timed animation serves one purpose — clarity.</p>
+      <div class="accent-line-wide reveal" style="opacity:0.3"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==============================
+     SLIDE 7: Closing
+     ============================== -->
+<section class="slide" data-index="6">
+  <div class="slide-canvas" style="text-align:center;align-items:center">
+    <!-- Decorative fills: centered blobs and accent lines -->
+    <div class="deco-blob" style="width:500px;height:500px;background:rgba(34,211,238,0.06);top:50%;left:50%;transform:translate(-50%,-50%);"></div>
+    <div class="deco-blob" style="width:250px;height:250px;background:rgba(167,139,250,0.05);top:80px;right:120px;"></div>
+    <div class="deco-line" style="bottom:160px;left:50%;transform:translateX(-50%);width:400px;height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);"></div>
+    <div class="deco-line" style="top:160px;left:50%;transform:translateX(-50%);width:300px;height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);"></div>
+
+    <div class="accent-line reveal" style="margin:0 auto 32px"></div>
+    <h1 class="title-reveal" style="font-size:64px">Thank <span class="gradient-text">You</span></h1>
+    <p class="subtitle reveal" style="margin-top:24px;font-size:28px">Questions?</p>
+    <div class="accent-line reveal" style="margin:40px auto 0;background:linear-gradient(90deg,var(--accent-2),transparent)"></div>
+    <p class="reveal" style="margin-top:24px;font-size:16px;color:var(--text-secondary);max-width:600px">Your presentation is ready. Share the HTML file — it works everywhere, no software needed.</p>
+    <p class="label reveal" style="margin-top:48px">generated with slides-it + claude</p>
+  </div>
+</section>
+
+<script>
+/* ===========================================
+   INITIALIZE LUCIDE ICONS
+   =========================================== */
+if (typeof lucide !== 'undefined') {
+  lucide.createIcons();
+}
+
+/* ===========================================
+   COUNTER ANIMATION — counts from 0 to target
+   =========================================== */
+function animateCounters(slide) {
+  slide.querySelectorAll('.stat-number[data-target]').forEach(el => {
+    if (el.dataset.animated) return;
+    el.dataset.animated = 'true';
+    const target = parseFloat(el.dataset.target);
+    const prefix = el.dataset.prefix || '';
+    const suffix = el.dataset.suffix || '';
+    const isFloat = target % 1 !== 0;
+    const duration = 800;
+    const start = performance.now();
+    function step(now) {
+      const progress = Math.min((now - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      const value = target * ease;
+      el.textContent = prefix + (isFloat ? value.toFixed(1) : Math.round(value)) + suffix;
+      if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+/* ===========================================
+   SLIDE PRESENTATION CONTROLLER
+   =========================================== */
+class SlidePresentation {
+  constructor() {
+    this.slides = document.querySelectorAll('.slide');
+    this.currentSlide = 0;
+    this.setupScaling();
+    this.setupProgressBar();
+    this.setupNavDots();
+    this.setupIntersectionObserver();
+    this.setupKeyboardNav();
+    this.setupTouchNav();
+    this.setupMouseWheel();
+  }
+
+  /* Scale 1920x1080 canvases to fit viewport */
+  setupScaling() {
+    const canvases = document.querySelectorAll('.slide-canvas');
+    const BASE_W = 1920, BASE_H = 1080;
+    const update = () => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const scale = Math.min(vw / BASE_W, vh / BASE_H);
+      canvases.forEach(c => { c.style.transform = `scale(${scale})`; });
+    };
+    window.addEventListener('resize', update);
+    update();
+  }
+
+  setupProgressBar() {
+    const bar = document.getElementById('progressBar');
+    const update = () => {
+      const scrolled = window.scrollY;
+      const total = document.body.scrollHeight - window.innerHeight;
+      bar.style.width = total > 0 ? (scrolled / total * 100) + '%' : '0%';
+    };
+    window.addEventListener('scroll', update, { passive: true });
+    update();
+  }
+
+  setupNavDots() {
+    const nav = document.getElementById('navDots');
+    this.slides.forEach((_, i) => {
+      const btn = document.createElement('button');
+      btn.setAttribute('aria-label', `Go to slide ${i + 1}`);
+      if (i === 0) btn.classList.add('active');
+      btn.addEventListener('click', () => this.goTo(i));
+      nav.appendChild(btn);
+    });
+    this.dots = nav.querySelectorAll('button');
+
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          const idx = parseInt(e.target.dataset.index);
+          this.dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+          this.currentSlide = idx;
+        }
+      });
+    }, { threshold: 0.5 });
+    this.slides.forEach(s => obs.observe(s));
+  }
+
+  setupIntersectionObserver() {
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.querySelectorAll('.reveal, .title-reveal').forEach(el => el.classList.add('visible'));
+          animateCounters(e.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    this.slides.forEach(s => obs.observe(s));
+  }
+
+  setupKeyboardNav() {
+    document.addEventListener('keydown', e => {
+      if (['ArrowDown','ArrowRight',' ','PageDown'].includes(e.key)) {
+        e.preventDefault(); this.goTo(this.currentSlide + 1);
+      } else if (['ArrowUp','ArrowLeft','PageUp'].includes(e.key)) {
+        e.preventDefault(); this.goTo(this.currentSlide - 1);
+      }
+    });
+  }
+
+  setupTouchNav() {
+    let startY = 0;
+    document.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+    document.addEventListener('touchend', e => {
+      const dy = startY - e.changedTouches[0].clientY;
+      if (Math.abs(dy) > 40) this.goTo(this.currentSlide + (dy > 0 ? 1 : -1));
+    }, { passive: true });
+  }
+
+  setupMouseWheel() {
+    let last = 0;
+    document.addEventListener('wheel', e => {
+      const now = Date.now();
+      if (now - last < 800) return;
+      last = now;
+      this.goTo(this.currentSlide + (e.deltaY > 0 ? 1 : -1));
+    }, { passive: true });
+  }
+
+  goTo(idx) {
+    const clamped = Math.max(0, Math.min(this.slides.length - 1, idx));
+    this.slides[clamped].scrollIntoView({ behavior: 'smooth' });
+    this.currentSlide = clamped;
+  }
+}
+
+new SlidePresentation();
+
+/* ===========================================
+   ECHARTS — Donut chart on Slide 4
+   =========================================== */
+if (typeof echarts !== 'undefined') {
+  const chartDom = document.getElementById('donutChart');
+  if (chartDom) {
+    const chart = echarts.init(chartDom, null, { renderer: 'canvas' });
+    chart.setOption({
+      tooltip: { show: false },
+      legend: {
+        bottom: 0,
+        textStyle: { color: '#94a3b8', fontSize: 14, fontFamily: 'Satoshi, sans-serif' },
+        itemWidth: 12, itemHeight: 12, itemGap: 20
+      },
+      series: [{
+        type: 'pie',
+        radius: ['55%', '80%'],
+        center: ['50%', '45%'],
+        avoidLabelOverlap: false,
+        itemStyle: { borderRadius: 6, borderColor: '#030712', borderWidth: 3 },
+        label: {
+          show: true, position: 'center',
+          formatter: '45%',
+          fontSize: 40, fontWeight: 700, color: '#f8fafc',
+          fontFamily: 'Clash Display, sans-serif'
+        },
+        emphasis: { scale: false },
+        labelLine: { show: false },
+        data: [
+          { value: 45, name: 'Layout',     itemStyle: { color: '#22d3ee' } },
+          { value: 30, name: 'Typography', itemStyle: { color: '#a78bfa' } },
+          { value: 25, name: 'Color',      itemStyle: { color: '#34d399' } }
+        ],
+        animationDuration: 800,
+        animationEasing: 'cubicOut'
+      }]
+    });
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Editorial Ribbon Component Library</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Oswald:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      --bg-primary: #F3F1ED;
+      --bg-secondary: #E8E5DF;
+      --bg-card: rgba(255,255,255,0.72);
+      --bg-card-solid: #F7F5F1;
+      --text-primary: #111111;
+      --text-secondary: #434343;
+      --text-muted: #7A7872;
+      --accent: #F45A2A;
+      --accent-2: #87D8B8;
+      --accent-3: #CFE8DB;
+      --accent-4: #F3B7D9;
+      --accent-5: #D9E6F6;
+      --border: rgba(17,17,17,0.12);
+      --border-strong: rgba(17,17,17,0.32);
+      --shadow-soft: 0 8px 30px rgba(0,0,0,0.06);
+      --shadow-strong: 0 18px 50px rgba(0,0,0,0.10);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-snap-type: y mandatory; overflow-y: scroll; height: 100%; }
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: 'Inter', ui-sans-serif, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      height: 100%;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: -8%;
+      background:
+        radial-gradient(circle at 18% 22%, rgba(244,90,42,0.16) 0%, rgba(244,90,42,0) 30%),
+        radial-gradient(circle at 82% 18%, rgba(135,216,184,0.20) 0%, rgba(135,216,184,0) 34%),
+        radial-gradient(circle at 68% 74%, rgba(243,183,217,0.16) 0%, rgba(243,183,217,0) 28%),
+        radial-gradient(circle at 28% 82%, rgba(217,230,246,0.24) 0%, rgba(217,230,246,0) 30%),
+        linear-gradient(180deg, #F4F1EC 0%, #F0ECE6 100%);
+      background-size: 120% 120%, 120% 120%, 130% 130%, 120% 120%, 100% 100%;
+      background-position: 0% 0%, 100% 0%, 70% 100%, 0% 100%, 0 0;
+      animation: editorialWash 22s ease-in-out infinite alternate;
+      z-index: -4;
+      will-change: transform, background-position;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(rgba(0,0,0,0.025) 0.6px, transparent 0.6px);
+      background-size: 10px 10px;
+      opacity: 0.20;
+      z-index: -3;
+      pointer-events: none;
+      animation: grainDrift 18s linear infinite;
+      will-change: transform;
+    }
+
+
+    @keyframes editorialWash {
+      0% {
+        transform: translate3d(0, 0, 0) scale(1);
+        background-position: 0% 0%, 100% 0%, 70% 100%, 0% 100%, 0 0;
+      }
+      50% {
+        transform: translate3d(-1.2%, -0.8%, 0) scale(1.03);
+        background-position: 8% 6%, 94% 8%, 64% 94%, 6% 92%, 0 0;
+      }
+      100% {
+        transform: translate3d(1.4%, 1%, 0) scale(1.05);
+        background-position: 12% 10%, 88% 14%, 58% 88%, 12% 86%, 0 0;
+      }
+    }
+
+    @keyframes grainDrift {
+      0% { transform: translate3d(0,0,0); }
+      50% { transform: translate3d(6px,-4px,0); }
+      100% { transform: translate3d(-4px,6px,0); }
+    }
+
+    @keyframes floatRibbonA {
+      0% { transform: translate3d(0,0,0) rotate(0deg); }
+      50% { transform: translate3d(-22px,16px,0) rotate(-1.2deg); }
+      100% { transform: translate3d(10px,-12px,0) rotate(0.8deg); }
+    }
+
+    @keyframes floatRibbonB {
+      0% { transform: translate3d(0,0,0) rotate(0deg); }
+      50% { transform: translate3d(18px,-18px,0) rotate(1.2deg); }
+      100% { transform: translate3d(-12px,10px,0) rotate(-0.8deg); }
+    }
+
+    @keyframes floatGlow {
+      0% { transform: translate3d(0,0,0) scale(1); opacity: 0.72; }
+      50% { transform: translate3d(20px,-16px,0) scale(1.05); opacity: 0.82; }
+      100% { transform: translate3d(-14px,12px,0) scale(0.98); opacity: 0.68; }
+    }
+
+    .geo-shape-1, .geo-shape-2, .geo-shape-3 {
+      position: fixed;
+      pointer-events: none;
+      z-index: -2;
+      opacity: 0.95;
+    }
+    .geo-shape-1 {
+      width: 1200px; height: 1200px; right: -320px; top: -220px;
+      background: linear-gradient(135deg, var(--accent-2) 0%, var(--accent-3) 100%);
+      clip-path: polygon(32% 0, 100% 0, 100% 100%, 60% 100%, 16% 48%);
+      animation: floatRibbonA 16s ease-in-out infinite alternate;
+      transform-origin: 65% 35%;
+      will-change: transform;
+    }
+    .geo-shape-2 {
+      width: 960px; height: 960px; left: -200px; top: -120px;
+      background: linear-gradient(135deg, #D93C09 0%, var(--accent) 55%, #F86D3E 100%);
+      clip-path: polygon(0 0, 78% 0, 42% 100%, 0 100%);
+      animation: floatRibbonB 18s ease-in-out infinite alternate;
+      transform-origin: 30% 30%;
+      will-change: transform;
+    }
+    .geo-shape-3 {
+      width: 760px; height: 760px; right: 280px; top: 160px;
+      background: radial-gradient(circle at 30% 60%, rgba(32,180,126,0.95) 0%, rgba(135,216,184,0.82) 35%, rgba(135,216,184,0) 72%);
+      filter: blur(24px);
+      border-radius: 40% 60% 52% 48% / 58% 38% 62% 42%;
+      opacity: 0.75;
+      animation: floatGlow 20s ease-in-out infinite alternate;
+      will-change: transform, opacity;
+    }
+
+    .slide {
+      height: 100dvh;
+      scroll-snap-align: start;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+    }
+    .slide-canvas {
+      width: 1920px;
+      height: 1080px;
+      flex-shrink: 0;
+      transform-origin: center center;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 60px 80px;
+    }
+    .slide:not(.title-slide) .slide-canvas {
+      background: linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.14) 100%);
+    }
+    .title-slide .slide-canvas { background: #0D0D0D; color: #fff; }
+
+    .progress-bar {
+      position: fixed; top: 0; left: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+      width: 0%; z-index: 100; transition: width 0.2s ease;
+    }
+    .nav-dots {
+      position: fixed; right: 20px; top: 50%; transform: translateY(-50%);
+      display: flex; flex-direction: column; gap: 9px; z-index: 100;
+    }
+    .nav-dots button {
+      width: 8px; height: 8px; border-radius: 50%;
+      border: 1px solid rgba(17,17,17,0.35);
+      background: rgba(255,255,255,0.45); cursor: pointer; padding: 0;
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+    .nav-dots button.active { background: var(--accent); border-color: var(--accent); transform: scale(1.1); }
+
+    h1 {
+      font-family: 'Oswald', sans-serif; font-size: 92px; font-weight: 500;
+      line-height: 0.96; letter-spacing: -0.02em; text-transform: uppercase;
+    }
+    h2 {
+      font-family: 'Oswald', sans-serif; font-size: 58px; font-weight: 500;
+      line-height: 1.0; letter-spacing: -0.02em; text-transform: uppercase;
+    }
+    .label {
+      font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--text-muted); font-weight: 500;
+    }
+    .title-slide .label { color: rgba(255,255,255,0.7); }
+    .subtitle { font-size: 22px; color: var(--text-secondary); font-weight: 400; line-height: 1.55; }
+    .title-slide .subtitle { color: rgba(255,255,255,0.82); max-width: 920px; }
+    .body-text { font-size: 18px; color: var(--text-secondary); line-height: 1.68; }
+
+    .heading-rule {
+      border: none; border-bottom: 2px solid rgba(17,17,17,0.14); padding-bottom: 18px; margin-bottom: 26px;
+    }
+    .divider-wide { border: none; border-top: 4px solid var(--accent); width: 260px; margin: 28px 0; }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.78) 0%, rgba(250,248,244,0.92) 100%);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(17,17,17,0.10); border-radius: 0; padding: 30px;
+      box-shadow: var(--shadow-soft); display: flex; flex-direction: column; justify-content: center;
+      transition: transform 0.22s ease, box-shadow 0.22s ease; position: relative; overflow: hidden;
+    }
+    .card::before {
+      content: ''; position: absolute; left: 0; top: 0; width: 8px; height: 100%;
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%); opacity: 0.92;
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-strong); }
+    .card-icon { width: 26px; height: 26px; color: var(--accent); margin-bottom: 14px; }
+    .card-label { font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+    .card-title { font-family: 'Oswald', sans-serif; font-size: 28px; line-height: 1.0; text-transform: uppercase; letter-spacing: -0.01em; margin-bottom: 14px; }
+    .card-body { font-size: 17px; color: var(--text-secondary); line-height: 1.65; flex: 0 0 auto; }
+
+    .image-card {
+      border-radius: 0; overflow: hidden; border: 1px solid rgba(17,17,17,0.10);
+      box-shadow: var(--shadow-soft); background: #FFFFFF;
+    }
+    .image-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .image-card-caption {
+      padding: 14px 18px; font-size: 14px; color: var(--text-muted); background: #FBF9F5;
+      border-top: 1px solid rgba(17,17,17,0.08); font-family: 'Inter', sans-serif;
+    }
+
+    .card-img { padding: 0; overflow: hidden; }
+    .card-img-top { width: 100%; aspect-ratio: 16 / 10; overflow: hidden; position: relative; }
+    .card-img-top::after {
+      content: ''; position: absolute; inset: auto 0 0 0; height: 8px;
+      background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+    }
+    .card-img-top img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .card-img .card-title, .card-img .card-body, .card-img .card-label,
+    .card-img .card-icon { margin-left: 30px; margin-right: 30px; }
+    .card-img .card-icon { margin-top: 22px; }
+
+    .avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 3px solid #FFFFFF; box-shadow: 0 0 0 1px rgba(17,17,17,0.12); flex-shrink: 0; }
+    .avatar-sm { width: 48px; height: 48px; }
+    .avatar-lg { width: 96px; height: 96px; }
+
+    .stat-card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.86) 0%, rgba(249,246,241,0.96) 100%);
+      border: 1px solid rgba(17,17,17,0.10); border-radius: 0; padding: 48px 40px; text-align: center;
+      box-shadow: var(--shadow-soft); position: relative; overflow: hidden;
+    }
+    .stat-card::before {
+      content: ''; position: absolute; inset: 0 auto auto 0; width: 100%; height: 6px;
+      background: linear-gradient(90deg, var(--accent) 0%, var(--accent-4) 52%, var(--accent-2) 100%);
+    }
+    .stat-number { font-family: 'Oswald', sans-serif; font-size: 72px; font-weight: 500; color: var(--text-primary); line-height: 0.95; letter-spacing: -0.03em; margin-bottom: 12px; }
+    .stat-label { font-size: 15px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 12px; }
+    .stat-desc { font-size: 15px; color: var(--text-secondary); line-height: 1.5; }
+
+    .quote-block { border-left: 8px solid var(--accent); padding-left: 32px; max-width: 1200px; position: relative; }
+    .quote-block blockquote { font-family: 'Oswald', sans-serif; font-size: 52px; font-weight: 400; text-transform: uppercase; line-height: 1.02; letter-spacing: -0.02em; margin-bottom: 18px; }
+    .quote-block cite { font-size: 14px; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; font-style: normal; font-family: 'Inter', sans-serif; }
+    .quote-deco { position: absolute; right: 40px; top: -40px; font-family: 'Oswald', sans-serif; font-size: 320px; line-height: 0.8; color: rgba(244,90,42,0.10); pointer-events: none; z-index: 0; }
+
+    .step-flow { display: flex; align-items: flex-start; max-width: 1600px; margin: 0 auto; width: 100%; }
+    .step { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; }
+    .step-circle {
+      width: 66px; height: 66px; border-radius: 50%; background: linear-gradient(135deg, var(--accent) 0%, #E24216 100%);
+      color: #FFFFFF; font-family: 'Oswald', sans-serif; font-size: 26px; font-weight: 500; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; box-shadow: 0 8px 18px rgba(244, 90, 42, 0.22);
+    }
+    .step-connector { flex: 0 0 32px; height: 4px; background: linear-gradient(90deg, var(--accent-4) 0%, var(--accent-2) 100%); margin-top: 31px; align-self: flex-start; }
+    .step-title { font-family: 'Oswald', sans-serif; font-size: 22px; line-height: 1.0; text-transform: uppercase; }
+    .step-desc { font-size: 16px; color: var(--text-secondary); line-height: 1.55; max-width: 220px; }
+
+    .evidence-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+    .evidence-list li { padding-left: 20px; position: relative; font-size: 18px; color: var(--text-primary); line-height: 1.5; }
+    .evidence-list li::before { content: ''; position: absolute; left: 0; top: 11px; width: 10px; height: 3px; background: var(--accent); }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: stretch; max-width: 1600px; margin: 0 auto; flex: 1; width: 100%; }
+    .two-col-main { display: flex; flex-direction: column; justify-content: center; }
+    .two-col-main h2 { font-size: 52px; margin-bottom: 16px; }
+    .two-col-main p { font-size: 18px; color: var(--text-secondary); line-height: 1.68; }
+    .two-col-aside { display: flex; flex-direction: column; justify-content: center; }
+    .two-col-aside .card { flex: 1; }
+    .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 1600px; margin: 0 auto; flex: 1; width: 100%; }
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; max-width: 1600px; margin: 0 auto; width: 100%; }
+
+    .reveal { opacity: 0; transition: opacity 0.32s ease; }
+    .reveal.visible { opacity: 1; }
+    .reveal:nth-child(1) { transition-delay: 0s; }
+    .reveal:nth-child(2) { transition-delay: 0.05s; }
+    .reveal:nth-child(3) { transition-delay: 0.10s; }
+    .reveal:nth-child(4) { transition-delay: 0.15s; }
+
+    .hero-wrap { display: flex; flex-direction: column; justify-content: center; height: 100%; position: relative; }
+    .poster-kicker { margin-bottom: 24px; }
+    .poster-title { max-width: 1100px; }
+    .page-note { margin-top: 24px; font-size: 18px; color: var(--text-muted); max-width: 820px; }
+    .title-slide .page-note { color: rgba(255,255,255,0.72); }
+    .component-demo-box {
+      margin-top: 28px; padding: 28px; border: 1px solid rgba(17,17,17,0.10); background: rgba(255,255,255,0.42);
+      min-height: 520px; display: flex; align-items: center; justify-content: center;
+    }
+    .title-slide .component-demo-box { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.12); }
+    .row-center { display: flex; align-items: center; justify-content: center; gap: 24px; flex-wrap: wrap; }
+    .stack-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; }
+    .mini-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; width: 100%; }
+    .swatch { width: 120px; height: 120px; border: 1px solid rgba(17,17,17,0.1); display: flex; align-items: end; padding: 12px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+    .deco-rule { position: absolute; height: 6px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); width: 320px; right: 80px; bottom: 80px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { transition: opacity 0.3s ease; opacity: 1; }
+      body::before, body::after, .geo-shape-1, .geo-shape-2, .geo-shape-3 { animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress-bar" id="progressBar"></div>
+  <div class="nav-dots" id="navDots"></div>
+  <div class="geo-shape-1"></div>
+  <div class="geo-shape-2"></div>
+  <div class="geo-shape-3"></div>
+
+  <section class="slide title-slide" data-index="0">
+    <div class="slide-canvas">
+      <div class="hero-wrap reveal visible">
+        <p class="label poster-kicker">Editorial Ribbon Theme</p>
+        <h1 class="poster-title">Component<br>Library<br>Overview</h1>
+        <hr class="divider-wide">
+        <p class="subtitle">Each page introduces one component from the design system while preserving the fixed 1920×1080 slide architecture, typography rules, and editorial art direction.</p>
+        <p class="page-note">This file translates the DESIGN.md theme into a browsable HTML component deck.</p>
+        <div class="deco-rule"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" data-index="1"><div class="slide-canvas"><div class="two-col"><div class="two-col-main reveal"><p class="label heading-rule">01 — Card</p><h2>Card Component</h2><p>The default card is an editorial content block with a square edge, soft paper fill, left accent rail, and compact hierarchy for icon, label, title, and body copy.</p></div><div class="two-col-aside reveal"><div class="component-demo-box"><div class="card" style="max-width:520px;"><i data-lucide="circle-dashed" class="card-icon"></i><p class="card-label">01</p><p class="card-title">Strategic Insight</p><p class="card-body">Cards are designed to present concise narrative content with strong hierarchy and restrained decoration.</p></div></div></div></div></div></section>
+
+  <section class="slide" data-index="2"><div class="slide-canvas"><div class="two-col"><div class="two-col-main reveal"><p class="label heading-rule">02 — Image Card</p><h2>Image Card</h2><p>The image card is used when visual content needs a supporting caption. It keeps the sharp editorial frame and places explanatory text in a muted caption band below the image.</p></div><div class="two-col-aside reveal"><div class="component-demo-box"><div class="image-card" style="width:620px;"><img src="https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1200&q=80" alt="Team discussion"><div class="image-card-caption">Image-based evidence block with a restrained caption treatment.</div></div></div></div></div></div></section>
+
+  <section class="slide" data-index="3"><div class="slide-canvas"><div class="two-col"><div class="two-col-main reveal"><p class="label heading-rule">03 — Card with Image Header</p><h2>Card Image Variant</h2><p>This variation combines a top image banner with the standard card structure. It works well for case studies, startup profiles, or feature summaries that benefit from immediate visual framing.</p></div><div class="two-col-aside reveal"><div class="component-demo-box"><div class="card card-img" style="max-width:560px;"><div class="card-img-top"><img src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80" alt="Workspace"></div><i data-lucide="sparkles" class="card-icon"></i><p class="card-label">03</p><p class="card-title">Case Profile</p><p class="card-body">The image header adds emphasis without changing the underlying card layout logic.</p></div></div></div></div></div></section>
+
+  <section class="slide" data-index="4"><div class="slide-canvas"><div class="two-col"><div class="two-col-main reveal"><p class="label heading-rule">04 — Avatar</p><h2>Avatar Sizes</h2><p>Avatar components support profile, team, and testimonial layouts. The system includes small, default, and large sizes, each retaining the white ring and minimal shadow treatment.</p></div><div class="two-col-aside reveal"><div class="component-demo-box"><div class="row-center"><img class="avatar avatar-sm" src="https://i.pravatar.cc/96?img=12" alt="avatar small"><img class="avatar" src="https://i.pravatar.cc/128?img=32" alt="avatar default"><img class="avatar avatar-lg" src="https://i.pravatar.cc/160?img=47" alt="avatar large"></div></div></div></div></div></section>
+
+  <section class="slide" data-index="5"><div class="slide-canvas"><div class="two-col"><div class="two-col-main reveal"><p class="label heading-rule">05 — Stat Card</p><h2>Stat Card</h2><p>Stat cards present headline metrics using large condensed numerals, a top gradient bar, and short supporting descriptions. They are intended for KPI, impact, and market summary slides.</p></div><div class="two-col-aside reveal"><div class="component-demo-box"><div class="stat-card" style="width:460px;"><div class="stat-number">72%</div><div class="stat-label">Adoption Rate</div><div class="stat-desc">Large-number report block for concise quantitative storytelling.</div></div></div></div></div></div></section>
+
+  <section class="slide" data-index="6"><div class="slide-canvas"><div class="two-col"><div class="two-col-main reveal"><p class="label heading-rule">06 — Quote Block</p><h2>Quote Block</h2><p>The quote block is a poster-like callout with an orange left rule, uppercase typography, and optional oversized quotation mark decoration for emphasis on sparse slides.</p></div><div class="two-col-aside reveal"><div class="component-demo-box" style="position:relative;"><div class="quote-deco">“</div><div class="quote-block"><blockquote>Design should feel like a printed report, not a startup dashboard.</blockquote><cite>Theme Principle</cite></div></div></div></div></div></section>
+
+  <section class="slide" data-index="7"><div class="slide-canvas"><div class="two-col"><div class="two-col-main reveal"><p class="label heading-rule">07 — Step Flow</p><h2>Step Flow</h2><p>The step-flow component is used for process and sequence storytelling. It pairs circular step markers with gradient connectors and concise descriptors beneath each step title.</p></div><div class="two-col-aside reveal"><div class="component-demo-box"><div class="step-flow"><div class="step"><div class="step-circle">1</div><div class="step-title">Scan</div><div class="step-desc">Identify signals and frame the problem clearly.</div></div><div class="step-connector"></div><div class="step"><div class="step-circle">2</div><div class="step-title">Assess</div><div class="step-desc">Evaluate fit, feasibility, and impact.</div></div><div class="step-connector"></div><div class="step"><div class="step-circle">3</div><div class="step-title">Act</div><div class="step-desc">Turn insight into a concrete decision path.</div></div></div></div></div></div></div></section>
+
+  <section class="slide" data-index="8"><div class="slide-canvas"><div class="two-col"><div class="two-col-main reveal"><p class="label heading-rule">08 — Evidence List</p><h2>Evidence List</h2><p>The evidence list is a stripped-back editorial bullet system. It replaces conventional bullets with short orange rules to keep lists clean, compact, and consistent with the theme.</p></div><div class="two-col-aside reveal"><div class="component-demo-box"><ul class="evidence-list" style="max-width:720px;"><li>Supports concise insight summaries without UI-heavy styling.</li><li>Preserves readability on dense content slides.</li><li>Uses graphic cues instead of standard bullet symbols.</li><li>Fits report, analysis, and executive-summary pages.</li></ul></div></div></div></div></section>
+
+  <section class="slide" data-index="9"><div class="slide-canvas"><p class="label heading-rule reveal">09 — Three Column Grid</p><h2 class="reveal" style="margin-bottom:30px;">Card Grid</h2><div class="card-grid reveal"><div class="card"><i data-lucide="target" class="card-icon"></i><p class="card-label">A</p><p class="card-title">Parallel Item One</p><p class="card-body">Used for presenting several equal-priority themes side by side.</p></div><div class="card"><i data-lucide="activity" class="card-icon"></i><p class="card-label">B</p><p class="card-title">Parallel Item Two</p><p class="card-body">The three-column grid keeps spacing stable across feature summaries.</p></div><div class="card"><i data-lucide="book-open" class="card-icon"></i><p class="card-label">C</p><p class="card-title">Parallel Item Three</p><p class="card-body">Typography and accent rails provide the main differentiation.</p></div></div></div></section>
+
+  <section class="slide" data-index="10"><div class="slide-canvas"><p class="label heading-rule reveal">10 — Metrics Row</p><h2 class="reveal" style="margin-bottom:30px;">Stats Row</h2><div class="stats-row reveal"><div class="stat-card"><div class="stat-number">18</div><div class="stat-label">Markets</div><div class="stat-desc">Suitable for side-by-side KPI comparison.</div></div><div class="stat-card"><div class="stat-number">240</div><div class="stat-label">Projects</div><div class="stat-desc">Top bars unify the set visually.</div></div><div class="stat-card"><div class="stat-number">4.2x</div><div class="stat-label">Growth</div><div class="stat-desc">Large numerals carry the emphasis.</div></div></div></div></section>
+
+  <section class="slide" data-index="11"><div class="slide-canvas"><div class="two-col"><div class="two-col-main reveal"><p class="label heading-rule">11 — Typography</p><h2>Text Helpers</h2><p>The theme relies on a compact set of text utilities: uppercase Oswald for titles, Inter for body copy, and tightly controlled label styling for metadata and navigation cues.</p></div><div class="two-col-aside reveal"><div class="component-demo-box"><div class="stack-center" style="align-items:flex-start; width:100%; max-width:760px;"><h1 style="font-size:72px;">Impact Title</h1><h2 style="font-size:44px;">Section Heading</h2><p class="label">Meta Label</p><p class="subtitle">Subtitle text establishes narrative context with lighter emphasis.</p><p class="body-text">Body text is set in Inter and designed for report-like readability on a fixed slide canvas.</p></div></div></div></div></div></section>
+
+  <section class="slide" data-index="12"><div class="slide-canvas"><div class="two-col"><div class="two-col-main reveal"><p class="label heading-rule">12 — Color System</p><h2>Theme Palette</h2><p>The palette combines warm paper backgrounds, near-black text, and selective orange, mint, pink, and pale blue accents. Strong colors are reserved for hierarchy, separators, and highlights.</p></div><div class="two-col-aside reveal"><div class="component-demo-box"><div class="mini-grid"><div class="swatch" style="background:#F45A2A; color:#fff;">Accent</div><div class="swatch" style="background:#87D8B8;">Accent 2</div><div class="swatch" style="background:#F3B7D9;">Accent 4</div><div class="swatch" style="background:#D9E6F6;">Accent 5</div><div class="swatch" style="background:#F3F1ED;">Paper</div><div class="swatch" style="background:#111111; color:#fff;">Ink</div></div></div></div></div></div></section>
+
+  <script>
+    class SlidePresentation {
+      constructor() {
+        this.slides = document.querySelectorAll('.slide');
+        this.currentSlide = 0;
+        this.setupScaling();
+        this.setupProgressBar();
+        this.setupNavDots();
+        this.setupIntersectionObserver();
+        this.setupKeyboardNav();
+        this.setupTouchNav();
+        this.setupMouseWheel();
+      }
+      setupScaling() {
+        const canvases = document.querySelectorAll('.slide-canvas');
+        const BASE_W = 1920, BASE_H = 1080;
+        const update = () => {
+          const vw = window.innerWidth;
+          const vh = window.innerHeight;
+          const scale = Math.min(vw / BASE_W, vh / BASE_H);
+          canvases.forEach(c => { c.style.transform = `scale(${scale})`; });
+        };
+        window.addEventListener('resize', update);
+        update();
+      }
+      setupProgressBar() {
+        const bar = document.getElementById('progressBar');
+        const update = () => {
+          const scrolled = window.scrollY;
+          const total = document.body.scrollHeight - window.innerHeight;
+          bar.style.width = total > 0 ? (scrolled / total * 100) + '%' : '0%';
+        };
+        window.addEventListener('scroll', update, { passive: true });
+        update();
+      }
+      setupNavDots() {
+        const nav = document.getElementById('navDots');
+        this.slides.forEach((_, i) => {
+          const btn = document.createElement('button');
+          btn.setAttribute('aria-label', `Go to slide ${i + 1}`);
+          if (i === 0) btn.classList.add('active');
+          btn.addEventListener('click', () => this.goTo(i));
+          nav.appendChild(btn);
+        });
+        this.dots = nav.querySelectorAll('button');
+        const obs = new IntersectionObserver((entries) => {
+          entries.forEach(e => {
+            if (e.isIntersecting) {
+              const idx = parseInt(e.target.dataset.index);
+              this.dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+              this.currentSlide = idx;
+            }
+          });
+        }, { threshold: 0.5 });
+        this.slides.forEach(s => obs.observe(s));
+      }
+      setupIntersectionObserver() {
+        const obs = new IntersectionObserver((entries) => {
+          entries.forEach(e => {
+            if (e.isIntersecting) {
+              e.target.querySelectorAll('.reveal').forEach(el => el.classList.add('visible'));
+            }
+          });
+        }, { threshold: 0.15 });
+        this.slides.forEach(s => obs.observe(s));
+      }
+      setupKeyboardNav() {
+        document.addEventListener('keydown', e => {
+          if (['ArrowDown', 'ArrowRight', ' ', 'PageDown'].includes(e.key)) {
+            e.preventDefault();
+            this.goTo(this.currentSlide + 1);
+          } else if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(e.key)) {
+            e.preventDefault();
+            this.goTo(this.currentSlide - 1);
+          }
+        });
+      }
+      setupTouchNav() {
+        let startY = 0;
+        document.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+        document.addEventListener('touchend', e => {
+          const dy = startY - e.changedTouches[0].clientY;
+          if (Math.abs(dy) > 40) this.goTo(this.currentSlide + (dy > 0 ? 1 : -1));
+        }, { passive: true });
+      }
+      setupMouseWheel() {
+        let last = 0;
+        document.addEventListener('wheel', e => {
+          const now = Date.now();
+          if (now - last < 800) return;
+          last = now;
+          this.goTo(this.currentSlide + (e.deltaY > 0 ? 1 : -1));
+        }, { passive: true });
+      }
+      goTo(idx) {
+        const clamped = Math.max(0, Math.min(this.slides.length - 1, idx));
+        this.slides[clamped].scrollIntoView({ behavior: 'smooth' });
+        this.currentSlide = clamped;
+      }
+    }
+    new SlidePresentation();
+    lucide.createIcons();
+  </script>
+</body>
+</html>

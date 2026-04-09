@@ -1,0 +1,47 @@
+# Project-specific — never commit these
+chat_design.md
+todo.md
+AGENTS.md
+*.jsonc
+opencode.json
+img/*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.eggs/
+*.egg
+*.spec
+
+# uv
+.uv/
+
+# Node
+node_modules/
+package-lock.json
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Env / secrets
+.env
+.env.*
+*.local
