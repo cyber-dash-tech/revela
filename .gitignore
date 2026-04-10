@@ -4,6 +4,7 @@ todo.md
 AGENTS.md
 *.jsonc
 opencode.json
+designs/*/preview.html
 # Python
 __pycache__/
 *.py[cod]
