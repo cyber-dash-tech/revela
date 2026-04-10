@@ -56,7 +56,7 @@ Three designs available out of the box — switch with `/revela designs <name>`.
 
 | default | minimal | editorial-ribbon |
 |:---:|:---:|:---:|
-| ![default](assets/img/slide-example-default.png) | ![minimal](assets/img/slide-example-minimal.png) | ![editorial-ribbon](assets/img/slide-example-ribbon.png) |
+| ![default](assets/img/slide-example-default.jpg) | ![minimal](assets/img/slide-example-minimal.jpg) | ![editorial-ribbon](assets/img/slide-example-ribbon.jpg) |
 
 ---
 
