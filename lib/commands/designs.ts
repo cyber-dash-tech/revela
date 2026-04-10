@@ -20,8 +20,10 @@ export async function handleDesignsList(
     return
   }
   const lines = designs.map((d) => {
-    const marker = d.name === current ? " ◀ active" : ""
-    return `- **${d.name}**${marker}  —  ${d.description || "(no description)"}`
+    if (d.name === current) {
+      return `🟠 **${d.name}**  —  ${d.description || "(no description)"}`
+    }
+    return `　 ${d.name}  —  ${d.description || "(no description)"}`
   })
   await send(`**Installed designs:**\n\n${lines.join("\n")}`)
 }

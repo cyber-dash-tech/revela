@@ -20,8 +20,10 @@ export async function handleDomainsList(
     return
   }
   const lines = domains.map((d) => {
-    const marker = d.name === current ? " ◀ active" : ""
-    return `- **${d.name}**${marker}  —  ${d.description || "(no description)"}`
+    if (d.name === current) {
+      return `🟠 **${d.name}**  —  ${d.description || "(no description)"}`
+    }
+    return `　 ${d.name}  —  ${d.description || "(no description)"}`
   })
   await send(`**Installed domains:**\n\n${lines.join("\n")}`)
 }
