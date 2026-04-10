@@ -5,7 +5,7 @@ import {
   activateDomain,
   installDomain,
   removeDomain,
-} from "../lib/domains"
+} from "../lib/domain/domains"
 import { buildPrompt } from "../lib/prompt-builder"
 
 export default tool({

@@ -20,16 +20,16 @@ import {
 } from "fs"
 import { join, resolve, basename } from "path"
 import { tmpdir } from "os"
-import { parseFrontmatter } from "./frontmatter"
+import { parseFrontmatter } from "../frontmatter"
 import {
   DESIGNS_DIR,
   DEFAULT_DESIGN,
   loadConfig,
   saveConfig,
-} from "./config"
+} from "../config"
 
 // Seed directory: built-in designs shipped with this package.
-const SEED_DIR = resolve(__dirname, "..", "designs")
+const SEED_DIR = resolve(__dirname, "../..", "designs")
 
 export interface DesignInfo {
   name: string
@@ -132,6 +132,143 @@ export function getDesignSkillMd(name?: string): string {
     throw new Error(`Failed to parse DESIGN.md for '${designName}'`)
   }
   return info.skillText
+}
+
+// ---------------------------------------------------------------------------
+// Marker-based section / component parsing
+// ---------------------------------------------------------------------------
+
+export interface DesignSections {
+  /** Map of section name → extracted content (without marker lines). */
+  sections: Record<string, string>
+  /** Map of component name → extracted content (without marker lines). */
+  components: Record<string, string>
+  /** Whether the DESIGN.md has any markers at all. */
+  hasMarkers: boolean
+}
+
+/**
+ * Parse a DESIGN.md body (no frontmatter) into sections and components
+ * using the two-layer HTML comment marker convention:
+ *   <!-- @section:<name>:start --> … <!-- @section:<name>:end -->
+ *   <!-- @component:<name>:start --> … <!-- @component:<name>:end -->
+ *
+ * Returns an object with empty maps and hasMarkers=false when no markers found.
+ */
+export function parseDesignSections(body: string): DesignSections {
+  const sections: Record<string, string> = {}
+  const components: Record<string, string> = {}
+
+  const sectionRe = /<!--\s*@section:(\w[\w-]*):start\s*-->([\s\S]*?)<!--\s*@section:\1:end\s*-->/g
+  const componentRe = /<!--\s*@component:(\w[\w-]*):start\s*-->([\s\S]*?)<!--\s*@component:\1:end\s*-->/g
+
+  let hasMarkers = false
+  let match: RegExpExecArray | null
+
+  while ((match = sectionRe.exec(body)) !== null) {
+    hasMarkers = true
+    sections[match[1]] = match[2].trim()
+  }
+
+  while ((match = componentRe.exec(body)) !== null) {
+    hasMarkers = true
+    components[match[1]] = match[2].trim()
+  }
+
+  return { sections, components, hasMarkers }
+}
+
+/**
+ * Generate a compact Component Index table from parsed components.
+ * Lists each component name with a one-line description (first non-empty
+ * text line of the component block, stripped of markdown heading markers).
+ */
+export function generateComponentIndex(components: Record<string, string>): string {
+  const names = Object.keys(components)
+  if (names.length === 0) return ""
+
+  const rows = names.map((name) => {
+    const body = components[name]
+    // Extract first non-empty non-marker line as a short description
+    const firstLine = body
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l && !l.startsWith("<!--") && !l.startsWith("```"))
+    // Strip markdown heading markers
+    const desc = firstLine
+      ? firstLine.replace(/^#+\s*/, "").replace(/\(.*?\)/, "").trim()
+      : ""
+    return `| \`${name}\` | ${desc} |`
+  })
+
+  return [
+    "### Component Index",
+    "",
+    "| Component | Description |",
+    "|---|---|",
+    ...rows,
+    "",
+    "_Use `revela-designs` tool with `action: \"read\"` and `component: \"<name>\"` to get full CSS/HTML for any component._",
+  ].join("\n")
+}
+
+/**
+ * Get the raw text of a named section from a DESIGN.md.
+ * Throws if the design is not installed or the section doesn't exist.
+ */
+export function getDesignSection(sectionName: string, designName?: string): string {
+  const name = designName || activeDesign()
+  const mdPath = join(DESIGNS_DIR, name, "DESIGN.md")
+  if (!existsSync(mdPath)) {
+    throw new Error(`Design '${name}' is not installed`)
+  }
+  const text = readFileSync(mdPath, "utf-8")
+  const { body } = parseFrontmatter(text)
+  const { sections, hasMarkers } = parseDesignSections(body)
+
+  if (!hasMarkers) {
+    throw new Error(`Design '${name}' has no markers — use getDesignSkillMd() for full text`)
+  }
+  if (!(sectionName in sections)) {
+    throw new Error(`Section '${sectionName}' not found in design '${name}'`)
+  }
+  return sections[sectionName]
+}
+
+/**
+ * Get the raw text of one or more named components from a DESIGN.md.
+ * @param componentNames - Comma-separated component names or an array.
+ * @param designName - Design to read from (defaults to active).
+ */
+export function getDesignComponent(
+  componentNames: string | string[],
+  designName?: string,
+): string {
+  const name = designName || activeDesign()
+  const mdPath = join(DESIGNS_DIR, name, "DESIGN.md")
+  if (!existsSync(mdPath)) {
+    throw new Error(`Design '${name}' is not installed`)
+  }
+  const text = readFileSync(mdPath, "utf-8")
+  const { body } = parseFrontmatter(text)
+  const { components, hasMarkers } = parseDesignSections(body)
+
+  if (!hasMarkers) {
+    throw new Error(`Design '${name}' has no markers — use getDesignSkillMd() for full text`)
+  }
+
+  const names = Array.isArray(componentNames)
+    ? componentNames
+    : componentNames.split(",").map((s) => s.trim())
+
+  const parts: string[] = []
+  for (const compName of names) {
+    if (!(compName in components)) {
+      throw new Error(`Component '${compName}' not found in design '${name}'`)
+    }
+    parts.push(`### Component: ${compName}\n\n${components[compName]}`)
+  }
+  return parts.join("\n\n---\n\n")
 }
 
 /** Remove an installed design. Throws if not found. */

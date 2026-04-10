@@ -12,6 +12,8 @@ Apply this visual style when generating all slides in this session.
 
 This theme pairs a warm, off-white background with frosted-glass cards and subtle geometric depth. Think: a well-designed printed magazine with a modern glass layer — warm paper feel, elevated with translucency.
 
+<!-- @section:global:start -->
+
 ### Color Palette (Unchanged)
 
 ```css
@@ -425,11 +427,16 @@ After the `SlidePresentation` class, include:
 2. ECharts initialization (if charts are present)
 3. Inline editing code (see SKILL.md)
 
+<!-- @section:global:end -->
+
+<!-- @section:components:start -->
+
 ### Component Library
 
 These are independent, composable building blocks. Mix them freely on any slide —
 they are not locked to specific layouts.
 
+<!-- @component:reveal:start -->
 #### Reveal Animation (.reveal)
 
 Add `.reveal` to any element that should animate on scroll. JS adds `.visible`
@@ -457,6 +464,9 @@ directional motion (translateY/translateX) — to preserve the calm, paper-like 
 
 No `.title-reveal` in this theme — cover headings use the same `.reveal` fade.
 
+<!-- @component:reveal:end -->
+
+<!-- @component:showcase:start -->
 #### Showcase (.showcase)
 
 Semi-transparent container that frames a component or image with padding and
@@ -479,6 +489,9 @@ slide background. Vertically and horizontally centers its content.
 }
 ```
 
+<!-- @component:showcase:end -->
+
+<!-- @component:card:start -->
 #### Card (.card)
 
 Frosted-glass container for any grouped content — features, evidence, info blocks.
@@ -519,6 +532,9 @@ All inner elements are optional — use only what the content needs.
 .card-body        { font-size: 17px; color: var(--text-secondary); line-height: 1.7; flex: 1; }
 ```
 
+<!-- @component:card:end -->
+
+<!-- @component:image-card:start -->
 #### Image Card (.image-card)
 
 Standalone image with rounded corners and optional caption. Use for product shots,
@@ -562,6 +578,9 @@ Sizing: set `width` and `height` on `.image-card` via inline style to control
 aspect ratio. Typical: `width:100%; height:400px` in a column, or
 `width:480px; height:320px` standalone.
 
+<!-- @component:image-card:end -->
+
+<!-- @component:card-img:start -->
 #### Card with Image Header (.card-img)
 
 Card variant with an image at the top and text content below. Use for team
@@ -603,6 +622,9 @@ members, portfolio items, or any card where a visual header adds context.
 .card-img .card-body  { padding-bottom: 28px; }
 ```
 
+<!-- @component:card-img:end -->
+
+<!-- @component:avatar:start -->
 #### Avatar (.avatar)
 
 Circular cropped image for people, team members, or profile pictures.
@@ -627,6 +649,9 @@ Circular cropped image for people, team members, or profile pictures.
 No glow, no shadow — clean circle with a thin warm border. Pair with card text
 for team slides: avatar left, name + role right.
 
+<!-- @component:avatar:end -->
+
+<!-- @component:stat-card:start -->
 #### Stat Card (.stat-card)
 
 Large metric display. Numbers appear statically with fade-in — no counter animation.
@@ -661,6 +686,9 @@ Large metric display. Numbers appear statically with fade-in — no counter anim
 
 No `.gradient-text` on numbers — minimal stays monochrome.
 
+<!-- @component:stat-card:end -->
+
+<!-- @component:quote-block:start -->
 #### Quote Block (.quote-block)
 
 ```html
@@ -680,6 +708,9 @@ No `.gradient-text` on numbers — minimal stays monochrome.
 
 No background color on `.quote-block` — let the typography speak.
 
+<!-- @component:quote-block:end -->
+
+<!-- @component:step-flow:start -->
 #### Step Flow (.step-flow)
 
 Horizontal process with numbered circles and connectors. Alternate `.step`
@@ -713,6 +744,9 @@ and `.step-connector` as siblings inside `.step-flow`.
 
 Circles are solid fill — no gradient, no glow, no shadow.
 
+<!-- @component:step-flow:end -->
+
+<!-- @component:evidence-list:start -->
 #### Evidence List (.evidence-list)
 
 Styled bullet list with em-dash markers. Use inside `.card`, `.two-col-main`, or any container.
@@ -730,6 +764,9 @@ Styled bullet list with em-dash markers. Use inside `.card`, `.two-col-main`, or
 .evidence-list li::before { content: '\2014'; position: absolute; left: 0; top: 0; color: var(--border-strong); font-family: 'DM Serif Display', serif; }
 ```
 
+<!-- @component:evidence-list:end -->
+
+<!-- @component:chart-container:start -->
 #### Chart Container (.chart-container)
 
 Wrapper for any ECharts visualization. Can appear on any slide, in any layout.
@@ -761,6 +798,9 @@ if (typeof echarts !== 'undefined') {
 }
 ```
 
+<!-- @component:chart-container:end -->
+
+<!-- @component:text-helpers:start -->
 #### Text Helpers
 
 ```css
@@ -774,6 +814,9 @@ h2             { font-family: 'DM Serif Display', serif; font-size: 42px; font-w
 Use `<em>` (italic) on the single most important phrase in a heading — never bold,
 never color, never gradient. Max one emphasized phrase per slide.
 
+<!-- @component:text-helpers:end -->
+
+<!-- @component:dividers:start -->
 #### Dividers and Rules
 
 ```css
@@ -787,6 +830,9 @@ never color, never gradient. Max one emphasized phrase per slide.
 - `.heading-rule` (border-bottom on heading): separate title from body on content slides
 - Never use gradient lines, colored borders, or thick rules
 
+<!-- @component:dividers:end -->
+
+<!-- @component:icons:start -->
 #### Icons (Lucide)
 
 Load via CDN: `<script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>`
@@ -799,6 +845,9 @@ Use `<i data-lucide="icon-name" class="card-icon"></i>` and call `lucide.createI
 - Cards may include icons, but omitting them often feels more "minimal"
 - Stats, quotes, step flow: never add icons
 
+<!-- @component:icons:end -->
+
+<!-- @component:deco-fills:start -->
 #### Decorative Fills (.deco-circle, .deco-rule)
 
 Positioned-absolute background elements behind content.
@@ -818,6 +867,11 @@ Set size, color, opacity, and position via inline styles:
 - Dense slides (grids, multi-column): 0 deco elements — content is the fill
 - Never exceed 3 per slide
 
+<!-- @component:deco-fills:end -->
+
+<!-- @section:components:end -->
+
+<!-- @section:layouts:start -->
 ### Layout Primitives
 
 Components can be placed in any of these layout arrangements.
@@ -869,6 +923,9 @@ The grid container can hold any mix of components.
 Used by `.step-flow` — `display: flex; align-items: flex-start; max-width: 1600px`.
 Also works for timelines, comparison strips, or any horizontal sequence.
 
+<!-- @section:layouts:end -->
+
+<!-- @section:charts:start -->
 ### Data Visualization (ECharts)
 
 When a slide includes charts or data visualization, use [ECharts](https://echarts.apache.org/)
@@ -940,6 +997,9 @@ All chart types share these minimal theme defaults:
 - Responsive: charts are inside the 1920×1080 canvas, scaled by JS `transform: scale()` —
   no need for ECharts `resize()` handling
 
+<!-- @section:charts:end -->
+
+<!-- @section:guide:start -->
 ### Composition Guide
 
 #### Common Recipes
@@ -1015,3 +1075,5 @@ pre, code {
 - **Don't** use gradients, glows, or colored borders
 - **Don't** add too many geometric shapes — 2-3 is enough
 - **Don't** use more than 4 bullet points per slide
+
+<!-- @section:guide:end -->

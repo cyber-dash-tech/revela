@@ -5,8 +5,16 @@ import {
   activateDesign,
   installDesign,
   removeDesign,
-} from "../lib/designs"
+  parseDesignSections,
+  generateComponentIndex,
+  getDesignSection,
+  getDesignComponent,
+} from "../lib/design/designs"
 import { buildPrompt } from "../lib/prompt-builder"
+import { existsSync, readFileSync } from "fs"
+import { join } from "path"
+import { DESIGNS_DIR } from "../lib/config"
+import { parseFrontmatter } from "../lib/frontmatter"
 
 export default tool({
   description:
@@ -15,20 +23,33 @@ export default tool({
     "Use action 'activate' to switch to a different design (requires name). " +
     "Use action 'install' to add a new design from a URL, local path, or github:user/repo shorthand (requires source). " +
     "Use action 'remove' to uninstall a design (requires name). " +
+    "Use action 'read' to fetch on-demand design content: pass component (comma-separated names) to get full CSS/HTML for specific components, or section ('charts' | 'guide' | 'global' | 'layouts' | 'components') to get an entire section. Pass neither to get the Component Index table. " +
     "After activating a new design, the system prompt is automatically rebuilt.",
   args: {
     action: tool.schema
-      .enum(["list", "activate", "install", "remove"])
+      .enum(["list", "activate", "install", "remove", "read"])
       .describe("Operation to perform"),
     name: tool.schema
       .string()
       .optional()
-      .describe("Design name — required for activate and remove"),
+      .describe("Design name — required for activate and remove; optional for read (defaults to active design)"),
     source: tool.schema
       .string()
       .optional()
       .describe(
         "Install source — URL, local path, github:user/repo. Required for install."
+      ),
+    component: tool.schema
+      .string()
+      .optional()
+      .describe(
+        "For action 'read': comma-separated component name(s) to fetch (e.g. 'card', 'card,stat-card')"
+      ),
+    section: tool.schema
+      .string()
+      .optional()
+      .describe(
+        "For action 'read': section name to fetch — 'charts', 'guide', 'global', 'layouts', or 'components'"
       ),
   },
   async execute(args) {
@@ -64,6 +85,36 @@ export default tool({
           if (!args.name) return JSON.stringify({ error: "name is required for remove" })
           removeDesign(args.name)
           return JSON.stringify({ ok: true })
+        }
+        case "read": {
+          const designName = args.name || activeDesign()
+
+          // Read raw body to check for markers
+          const mdPath = join(DESIGNS_DIR, designName, "DESIGN.md")
+          if (!existsSync(mdPath)) {
+            return JSON.stringify({ error: `Design '${designName}' is not installed` })
+          }
+          const raw = readFileSync(mdPath, "utf-8")
+          const { body } = parseFrontmatter(raw)
+          const { components, hasMarkers } = parseDesignSections(body)
+
+          if (!hasMarkers) {
+            // No markers — return full body
+            return body
+          }
+
+          // Specific component(s) requested
+          if (args.component) {
+            return getDesignComponent(args.component, designName)
+          }
+
+          // Specific section requested
+          if (args.section) {
+            return getDesignSection(args.section, designName)
+          }
+
+          // Default: return Component Index
+          return generateComponentIndex(components)
         }
         default:
           return JSON.stringify({ error: `Unknown action: ${args.action}` })

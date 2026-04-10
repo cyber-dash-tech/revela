@@ -8,14 +8,14 @@
     ".": "./index.ts"
   },
   "files": [
-    "plugins/",
+    "plugin.ts",
     "lib/",
     "tools/",
     "skill/",
     "designs/",
     "domains/",
-    "index.ts",
-    "scripts/"
+    "scripts/",
+    "index.ts"
   ],
   "scripts": {
     "postinstall": "node scripts/seed.js"

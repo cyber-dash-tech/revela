@@ -1,1 +1,1 @@
-export { default } from "./plugins/revela.ts"
+export { default } from "./plugin.ts"

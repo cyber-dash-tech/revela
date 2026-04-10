@@ -2,7 +2,7 @@
  * lib/read-hooks/pre-read.ts
  *
  * Before-hook handler for the OpenCode `read` tool.
- * Called from `tool.execute.before` in plugins/revela.ts.
+ * Called from `tool.execute.before` in plugin.ts.
  *
  * Handles DOCX, PPTX, XLSX — formats that cause read tool to throw
  * Effect.fail("Cannot read binary file"), so the after-hook never fires.

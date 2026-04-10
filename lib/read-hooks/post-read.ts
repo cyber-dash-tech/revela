@@ -2,7 +2,7 @@
  * lib/read-hooks/post-read.ts
  *
  * After-hook handler for the OpenCode `read` tool.
- * Called from `tool.execute.after` in plugins/revela.ts.
+ * Called from `tool.execute.after` in plugin.ts.
  *
  * Handles PDF and images — formats where read tool succeeds and returns
  * a base64 attachment. The after-hook fires after execution but before

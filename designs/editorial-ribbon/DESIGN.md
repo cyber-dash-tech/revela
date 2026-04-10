@@ -8,6 +8,8 @@ preview: bundled
 
 ## Visual Style — Editorial Ribbon Theme
 
+<!-- @section:global:start -->
+
 Apply this visual style when generating all slides in this session.
 
 This theme keeps the existing component system and layout logic intact, but changes the art direction to an editorial annual-report look inspired by the reference: bold condensed headlines, clean off-white content pages, sharp black separators, and large diagonal ribbon shapes in saturated orange, mint, blush, and soft aqua. The result should feel like a design-forward impact report rather than a software deck.
@@ -424,10 +426,15 @@ After the class, still include:
 2. ECharts initialization if charts are present
 3. Inline editing code
 
+<!-- @section:global:end -->
+
 ### Component Library
 
 All component layout and HTML structure remain unchanged. Only art direction changes.
 
+<!-- @section:components:start -->
+
+<!-- @component:reveal:start -->
 #### Reveal Animation (.reveal)
 
 Keep the same behavior, but make the fade slightly snappier.
@@ -450,6 +457,9 @@ Keep the same behavior, but make the fade slightly snappier.
 .reveal:nth-child(8) { transition-delay: 0.35s; }
 ```
 
+<!-- @component:reveal:end -->
+
+<!-- @component:showcase:start -->
 #### Showcase (.showcase)
 
 Semi-transparent container that frames a component or image with padding and
@@ -473,6 +483,9 @@ slide background. Vertically and horizontally centers its content.
 }
 ```
 
+<!-- @component:showcase:end -->
+
+<!-- @component:card:start -->
 #### Card (.card)
 
 Cards should feel like editorial blocks placed on paper, not glassmorphism widgets.
@@ -548,6 +561,9 @@ Cards should feel like editorial blocks placed on paper, not glassmorphism widge
 }
 ```
 
+<!-- @component:card:end -->
+
+<!-- @component:image-card:start -->
 #### Image Card (.image-card)
 
 ```css
@@ -576,6 +592,9 @@ Cards should feel like editorial blocks placed on paper, not glassmorphism widge
 }
 ```
 
+<!-- @component:image-card:end -->
+
+<!-- @component:card-img:start -->
 #### Card with Image Header (.card-img)
 
 ```css
@@ -612,6 +631,9 @@ Cards should feel like editorial blocks placed on paper, not glassmorphism widge
 .card-img .card-body  { padding-bottom: 30px; }
 ```
 
+<!-- @component:card-img:end -->
+
+<!-- @component:avatar:start -->
 #### Avatar (.avatar)
 
 ```css
@@ -628,6 +650,9 @@ Cards should feel like editorial blocks placed on paper, not glassmorphism widge
 .avatar-lg { width: 96px; height: 96px; }
 ```
 
+<!-- @component:avatar:end -->
+
+<!-- @component:stat-card:start -->
 #### Stat Card (.stat-card)
 
 Stat cards should feel graphic and report-like.
@@ -678,6 +703,9 @@ Stat cards should feel graphic and report-like.
 }
 ```
 
+<!-- @component:stat-card:end -->
+
+<!-- @component:quote-block:start -->
 #### Quote Block (.quote-block)
 
 ```css
@@ -717,6 +745,9 @@ Stat cards should feel graphic and report-like.
 }
 ```
 
+<!-- @component:quote-block:end -->
+
+<!-- @component:step-flow:start -->
 #### Step Flow (.step-flow)
 
 ```css
@@ -758,6 +789,9 @@ Stat cards should feel graphic and report-like.
 }
 ```
 
+<!-- @component:step-flow:end -->
+
+<!-- @component:evidence-list:start -->
 #### Evidence List (.evidence-list)
 
 ```css
@@ -786,12 +820,18 @@ Stat cards should feel graphic and report-like.
 }
 ```
 
+<!-- @component:evidence-list:end -->
+
+<!-- @component:chart-container:start -->
 #### Chart Container (.chart-container)
 
 ```css
 .chart-container { position: relative; flex-shrink: 0; }
 ```
 
+<!-- @component:chart-container:end -->
+
+<!-- @component:text-helpers:start -->
 ### Text Helpers
 
 ```css
@@ -837,6 +877,9 @@ Rules for text:
 - Use strong alignment and line breaks to create poster-like impact.
 - Avoid serif typography entirely in this theme.
 
+<!-- @component:text-helpers:end -->
+
+<!-- @component:dividers:start -->
 ### Dividers and Rules
 
 ```css
@@ -860,6 +903,9 @@ Rules for text:
 
 Use thicker graphic rules on sparse slides and lighter rules on content slides.
 
+<!-- @component:dividers:end -->
+
+<!-- @component:icons:start -->
 ### Icons (Lucide)
 
 Icons remain optional.
@@ -869,6 +915,9 @@ Icons remain optional.
 - Good choices: `arrow-up-right`, `circle`, `sparkles`, `target`, `book-open`, `activity`
 - Do not overuse icons; typography should still dominate
 
+<!-- @component:icons:end -->
+
+<!-- @component:deco-fills:start -->
 ### Decorative Fills (.deco-circle, .deco-rule)
 
 Decorative fills should echo the ribbon language from the reference image.
@@ -887,6 +936,12 @@ Recommended usage:
 Suggested styles:
 - `.deco-circle`: `background: radial-gradient(circle, rgba(244,90,42,0.30) 0%, rgba(244,90,42,0) 72%)`
 - `.deco-rule`: `height: 6px; background: linear-gradient(90deg, var(--accent), var(--accent-2))`
+
+<!-- @component:deco-fills:end -->
+
+<!-- @section:components:end -->
+
+<!-- @section:layouts:start -->
 
 ### Layout Primitives
 
@@ -926,6 +981,10 @@ Keep same structure; only art changes.
 
 Keep same structure.
 
+<!-- @section:layouts:end -->
+
+<!-- @section:charts:start -->
+
 ### Data Visualization (ECharts)
 
 Charts must adopt the same editorial report look.
@@ -960,6 +1019,10 @@ Charts must adopt the same editorial report look.
 - Use smooth curves only when it improves readability
 - Area fills may use 8–14% opacity in mint, orange, or pink
 - No glow effects
+
+<!-- @section:charts:end -->
+
+<!-- @section:guide:start -->
 
 ### Composition Guide
 
@@ -1025,3 +1088,5 @@ pre, code {
 - **Don't** use neon or tech-blue UI styling
 - **Don't** alter layout primitives or component HTML
 - **Don't** make every slide dark; only covers/section dividers may be dark or heavily graphic
+
+<!-- @section:guide:end -->

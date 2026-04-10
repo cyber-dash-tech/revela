@@ -24,16 +24,16 @@ import {
 } from "fs"
 import { join, resolve, basename } from "path"
 import { tmpdir } from "os"
-import { parseFrontmatter } from "./frontmatter"
+import { parseFrontmatter } from "../frontmatter"
 import {
   DOMAINS_DIR,
   DEFAULT_DOMAIN,
   loadConfig,
   saveConfig,
-} from "./config"
+} from "../config"
 
 // Seed directory: built-in domains shipped with this package.
-const SEED_DIR = resolve(__dirname, "..", "domains")
+const SEED_DIR = resolve(__dirname, "../..", "domains")
 
 /** The markdown filename inside each domain directory. */
 const DOMAIN_FILE = "INDUSTRY.md"
