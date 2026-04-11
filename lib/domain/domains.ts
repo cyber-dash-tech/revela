@@ -31,6 +31,9 @@ import {
   loadConfig,
   saveConfig,
 } from "../config"
+import { childLog } from "../log"
+
+const domainLog = childLog("domains")
 
 // Seed directory: built-in domains shipped with this package.
 const SEED_DIR = resolve(__dirname, "../..", "domains")
@@ -86,7 +89,11 @@ export function parseDomainFile(filePath: string): DomainInfo | null {
       version: meta.version || "0.0.0",
       skillText: body,
     }
-  } catch {
+  } catch (e) {
+    domainLog.warn("failed to parse domain file — skipping", {
+      filePath,
+      error: e instanceof Error ? e.message : String(e),
+    })
     return null
   }
 }

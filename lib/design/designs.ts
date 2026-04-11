@@ -27,6 +27,9 @@ import {
   loadConfig,
   saveConfig,
 } from "../config"
+import { childLog } from "../log"
+
+const designLog = childLog("designs")
 
 // Seed directory: built-in designs shipped with this package.
 const SEED_DIR = resolve(__dirname, "../..", "designs")
@@ -79,7 +82,11 @@ export function parseDesignFile(filePath: string): DesignInfo | null {
       version: meta.version || "0.0.0",
       skillText: body,
     }
-  } catch {
+  } catch (e) {
+    designLog.warn("failed to parse design file — skipping", {
+      filePath,
+      error: e instanceof Error ? e.message : String(e),
+    })
     return null
   }
 }

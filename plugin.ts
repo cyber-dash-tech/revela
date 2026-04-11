@@ -15,7 +15,7 @@
  */
 
 import type { Plugin } from "@opencode-ai/plugin"
-import { readFileSync } from "fs"
+import { existsSync, readFileSync } from "fs"
 import { extname, basename } from "path"
 import { seedBuiltinDesigns } from "./lib/design/designs"
 import { seedBuiltinDomains } from "./lib/domain/domains"
@@ -43,6 +43,20 @@ import {
 } from "./lib/commands/domains"
 import designsTool from "./tools/designs"
 import domainsTool from "./tools/domains"
+import researchSaveTool from "./tools/research-save"
+import workspaceScanTool from "./tools/workspace-scan"
+import qaTool from "./tools/qa"
+import { RESEARCH_PROMPT, RESEARCH_AGENT_SIGNATURE } from "./lib/agents/research-prompt"
+import { runQA, formatReport } from "./lib/qa"
+import { log, childLog } from "./lib/log"
+
+// OpenCode internal agent signatures — used to skip system prompt injection
+// for built-in system agents (title, summary, compaction).
+const INTERNAL_AGENT_SIGNATURES = [
+  "You are a title generator",
+  "You are a helpful AI assistant tasked with summarizing conversations",
+  "Summarize what was done in this conversation",
+]
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -64,7 +78,7 @@ async function sendIgnoredMessage(
       },
     })
   } catch (e) {
-    console.error("[revela] sendIgnoredMessage failed:", e)
+    log.error("sendIgnoredMessage failed", { error: e instanceof Error ? e.message : String(e) })
   }
 }
 
@@ -78,17 +92,38 @@ const server: Plugin = (async (pluginCtx) => {
     seedBuiltinDesigns()
     seedBuiltinDomains()
     buildPrompt()
+    log.info("revela initialized", { promptFile: ACTIVE_PROMPT_FILE })
   } catch (e) {
-    console.error("[revela] Failed to initialize:", e)
+    log.error("startup failed — prompt may not be injected", { error: e instanceof Error ? e.message : String(e) })
   }
 
   return {
-    // ── Register /revela command (no .md file needed) ──────────────────────
+    // ── Register /revela command + revela-research subagent ───────────────
     config: async (opencodeConfig) => {
       opencodeConfig.command ??= {}
       opencodeConfig.command["revela"] = {
         template: "",
         description: "Revela — AI slide deck generator (enable/disable, manage designs & domains)",
+      }
+
+      // Register the research subagent.
+      // mode: "subagent" — not shown in Tab cycle, invoked via @revela-research or Task tool.
+      // Permissions: read-only on edit/bash; write allowed to create researches/ files.
+      // No model override — inherits from the calling primary agent.
+      opencodeConfig.agent ??= {}
+      opencodeConfig.agent["revela-research"] = {
+        description: "Revela research agent — searches and collects raw materials for presentations",
+        mode: "subagent",
+        prompt: RESEARCH_PROMPT,
+        permission: {
+          edit: "deny",
+          bash: {
+            "*": "deny",
+            "ls *": "allow",
+            "ls": "allow",
+          },
+          webfetch: "allow",
+        },
       }
     },
 
@@ -144,10 +179,13 @@ const server: Plugin = (async (pluginCtx) => {
       throw new Error("__REVELA_UNKNOWN_HANDLED__")
     },
 
-    // ── LLM tools: designs and domains management ─────────────────────────
+    // ── LLM tools: designs, domains, research, qa ─────────────────────────
     tool: {
       "revela-designs": designsTool,
       "revela-domains": domainsTool,
+      "revela-research-save": researchSaveTool,
+      "revela-workspace-scan": workspaceScanTool,
+      "revela-qa": qaTool,
     },
 
     // ── chat.message: intercept @-referenced / pasted binary files ────────
@@ -194,16 +232,37 @@ const server: Plugin = (async (pluginCtx) => {
             } as any
           }
         } catch (e) {
-          console.error(`[revela] chat.message: failed to process ${name}:`, e)
+          childLog("chat.message").warn("failed to process file", {
+            file: name,
+            error: e instanceof Error ? e.message : String(e),
+          })
           // Keep original FilePart on failure — graceful degradation
         }
       }
     },
 
     // ── Inject three-layer prompt when enabled ─────────────────────────────
+    // Skip injection for:
+    //   1. revela-research subagent (has its own research-focused prompt)
+    //   2. OpenCode internal agents (title, summary, compaction)
     "experimental.chat.system.transform": async (input, output) => {
       if (!ctx.enabled) return
       try {
+        // Detect which agent is running by fingerprinting output.system content.
+        // The plugin API does not expose agent name on this hook's input.
+        const systemText = output.system.join("\n")
+
+        // Skip revela-research subagent — it has its own research prompt.
+        // Also mark ctx so tool.execute.before can allow websearch for research agents.
+        if (systemText.includes(RESEARCH_AGENT_SIGNATURE)) {
+          ctx.isResearchAgent = true
+          return
+        }
+        ctx.isResearchAgent = false
+
+        // Skip OpenCode internal system agents (title generator, summary, compaction)
+        if (INTERNAL_AGENT_SIGNATURES.some((sig) => systemText.includes(sig))) return
+
         const prompt = readFileSync(ACTIVE_PROMPT_FILE, "utf-8")
         if (output.system.length > 0) {
           output.system[output.system.length - 1] += "\n\n" + prompt
@@ -211,33 +270,93 @@ const server: Plugin = (async (pluginCtx) => {
           output.system.push(prompt)
         }
       } catch (e) {
-        console.error("[revela] Failed to inject system prompt:", e)
+        log.error("failed to inject system prompt", { error: e instanceof Error ? e.message : String(e) })
+        // Surface the failure in the system prompt so the LLM and user are aware.
+        // This prevents a silent "revela enabled but not working" scenario.
+        output.system.push(
+          "\n\n[REVELA ERROR: Failed to load the slide generation prompt. " +
+          "Run /revela disable then /revela enable to reinitialize.]"
+        )
       }
     },
 
     // ── Pre-read: intercept binary files before read executes ──────────────
     // Handles DOCX/PPTX/XLSX — read tool would Effect.fail on these.
     // Extracts text → writes temp .txt → redirects args.filePath.
+    //
+    // Also blocks websearch for the primary agent — websearch must be delegated
+    // to the revela-research subagent. Use webfetch for specific URLs instead.
     "tool.execute.before": async (input, output) => {
       if (!ctx.enabled) return
+
+      // ── Block websearch for primary agent ──────────────────────────────
+      if (input.tool === "websearch" && !ctx.isResearchAgent) {
+        throw new Error(
+          "[revela] websearch is not available for the primary agent. " +
+          "Delegate web research to the revela-research subagent via the Task tool — " +
+          "it searches systematically and saves structured findings for reuse across sessions. " +
+          "Use the webfetch tool if you need to read a specific URL directly.",
+        )
+      }
+
       if (input.tool !== "read") return
       try {
         await preRead(output.args)
       } catch (e) {
-        console.error("[revela] preRead failed:", e)
+        childLog("preRead").warn("extraction failed", {
+          filePath: (output.args as any)?.filePath,
+          error: e instanceof Error ? e.message : String(e),
+        })
       }
     },
 
     // ── Post-read: transform PDF text + compress images ────────────────────
     // Handles PDF and images — read tool succeeds with base64 attachment.
     // PDF: extract text, remove base64. Images: jimp compress.
+    //
+    // Also handles: auto layout QA after writing slides/*.html
     "tool.execute.after": async (input, output) => {
       if (!ctx.enabled) return
-      if (input.tool !== "read") return
-      try {
-        await postRead(input.args, output)
-      } catch (e) {
-        console.error("[revela] postRead failed:", e)
+
+      // ── Post-read processing ───────────────────────────────────────────
+      if (input.tool === "read") {
+        try {
+          await postRead(input.args, output)
+        } catch (e) {
+          childLog("postRead").warn("processing failed", {
+            filePath: (input.args as any)?.filePath,
+            error: e instanceof Error ? e.message : String(e),
+          })
+        }
+        return
+      }
+
+      // ── Auto layout QA after writing slides/*.html ─────────────────────
+      if (input.tool === "write") {
+        const filePath: string = input.args?.filePath ?? ""
+        // Only trigger for HTML files inside a slides/ directory
+        if (!filePath.match(/slides\/[^/]+\.html$/)) return
+
+        try {
+          const report = await runQA(filePath)
+          // Only append QA report to tool output if there are issues
+          if (report.totalIssues > 0) {
+            const formatted = formatReport(report)
+            // Append to the write tool's output so the LLM sees it immediately
+            const existing = (output as any).result ?? ""
+            ;(output as any).result =
+              (existing ? existing + "\n\n" : "") +
+              "---\n\n**[revela layout QA]** Auto-check completed:\n\n" +
+              formatted
+          }
+        } catch (e) {
+          childLog("qa").warn("auto QA failed", {
+            filePath,
+            error: e instanceof Error ? e.message : String(e),
+          })
+          // Don't surface errors to the LLM — fail silently
+        }
+        return
       }
     },
   }

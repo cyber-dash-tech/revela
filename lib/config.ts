@@ -8,6 +8,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { homedir } from "os"
 import { join } from "path"
+import { childLog } from "./log"
+
+const configLog = childLog("config")
 
 /** Root config directory for revela runtime data. */
 export const CONFIG_DIR = join(homedir(), ".config", "revela")
@@ -46,8 +49,11 @@ export function loadConfig(): SlidesConfig {
     if (existsSync(CONFIG_FILE)) {
       return JSON.parse(readFileSync(CONFIG_FILE, "utf-8"))
     }
-  } catch {
-    // Corrupted or unreadable — return defaults
+  } catch (e) {
+    configLog.warn("config.json is corrupt or unreadable — using defaults", {
+      configFile: CONFIG_FILE,
+      error: e instanceof Error ? e.message : String(e),
+    })
   }
   return {}
 }

@@ -32,9 +32,28 @@ import {
 } from "./design/designs"
 import { activeDomain, getDomainSkillMd } from "./domain/domains"
 import { parseFrontmatter } from "./frontmatter"
+import { SLIDE_TYPES, type SlideType } from "./qa/checks"
+import { childLog } from "./log"
+
+const promptLog = childLog("prompt-builder")
 
 /** Path to SKILL.md shipped with this package. */
 const SKILL_MD_PATH = resolve(__dirname, "..", "skill", "SKILL.md")
+
+/**
+ * Human-readable descriptions for each slide type.
+ * Used to generate the data-slide-type table injected into SKILL.md.
+ * Kept here (not in checks.ts) — these are prose for the AI, not QA logic.
+ */
+const SLIDE_TYPE_DESCRIPTIONS: Record<SlideType, string> = {
+  cover: "Title / opening slide",
+  toc: "Table of contents",
+  content: "Regular content slides (default)",
+  summary: "Key takeaways slide",
+  closing: "Thank-you / Q&A / contact slide",
+  divider: "Section-break / transition slide",
+  "thank-you": "Alias for `closing`",
+}
 
 /**
  * Build the combined system prompt and write it to _active-prompt.md.
@@ -47,8 +66,9 @@ export function buildPrompt(designName?: string, domainName?: string): string {
   const design = designName || activeDesign()
   const domain = domainName || activeDomain()
 
-  // Layer 1 — SKILL.md
-  const coreSkill = readFileSync(SKILL_MD_PATH, "utf-8")
+  // Layer 1 — SKILL.md (with dynamic slide-type table injected)
+  let coreSkill = readFileSync(SKILL_MD_PATH, "utf-8")
+  coreSkill = injectSlideTypes(coreSkill)
 
   // Check for preview.html
   const designDir = join(DESIGNS_DIR, design)
@@ -61,8 +81,12 @@ export function buildPrompt(designName?: string, domainName?: string): string {
   let domainSkill = ""
   try {
     domainSkill = getDomainSkillMd(domain)
-  } catch {
-    // Domain not installed or empty — that's fine
+  } catch (e) {
+    // Domain not installed or empty — proceed without domain layer
+    promptLog.warn("domain skill not found — building without domain layer", {
+      domain,
+      error: e instanceof Error ? e.message : String(e),
+    })
   }
 
   // Layer 3 — DESIGN.md: marker-aware or full-text fallback
@@ -88,6 +112,7 @@ export function buildPrompt(designName?: string, domainName?: string): string {
   // Write to _active-prompt.md
   mkdirSync(CONFIG_DIR, { recursive: true })
   writeFileSync(ACTIVE_PROMPT_FILE, prompt, "utf-8")
+  promptLog.info("prompt rebuilt", { design, domain, bytes: prompt.length })
 
   return ACTIVE_PROMPT_FILE
 }
@@ -154,4 +179,16 @@ function buildDesignLayer(designName: string): string {
   )
 
   return layerParts.join("\n\n---\n\n")
+}
+
+/**
+ * Replace the <!-- @slide-types --> placeholder in SKILL.md with a generated
+ * markdown table built from SLIDE_TYPES (single source of truth in checks.ts).
+ */
+function injectSlideTypes(skillMd: string): string {
+  const rows = SLIDE_TYPES.map(
+    (t) => `| \`${t}\` | ${SLIDE_TYPE_DESCRIPTIONS[t]} |`,
+  )
+  const table = ["| Value | Use for |", "|-------|---------|", ...rows].join("\n")
+  return skillMd.replace("<!-- @slide-types -->", table)
 }
