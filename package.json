@@ -12,9 +12,12 @@
     "lib/",
     "tools/",
     "skill/",
-    "designs/",
-    "domains/",
-    "scripts/",
+    "designs/default/DESIGN.md",
+    "designs/minimal/DESIGN.md",
+    "designs/editorial-ribbon/DESIGN.md",
+    "domains/general/INDUSTRY.md",
+    "domains/deeptech-investment/INDUSTRY.md",
+    "domains/consulting/INDUSTRY.md",
     "index.ts"
   ],
   "keywords": [
@@ -41,8 +44,7 @@
   },
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc",
-    "postinstall": "node scripts/seed.js"
+    "typecheck": "tsc"
   },
   "peerDependencies": {
     "@opencode-ai/plugin": "*"

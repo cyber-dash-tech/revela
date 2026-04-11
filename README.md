@@ -15,7 +15,21 @@ Describe your slides in conversation — Revela handles the rest and outputs a s
 
 ## Install
 
-### From source (recommended until npm release)
+### From npm
+
+Add `revela` to the `plugin` array in your `opencode.json`:
+
+```json
+{
+  "plugin": ["revela"]
+}
+```
+
+Restart OpenCode — Revela is installed automatically at startup.
+
+> **Note (China mainland):** OpenCode's plugin install uses Bun's package manager, which ignores npm registry mirror config. If install fails, use the source install method below instead.
+
+### From source
 
 ```bash
 git clone https://github.com/cyber-dash-tech/revela
@@ -30,14 +44,6 @@ export { default } from "/absolute/path/to/revela/index.ts";
 ```
 
 Restart OpenCode. You should see `/revela` in the command palette (`ctrl+p`).
-
-### From npm _(coming soon)_
-
-```bash
-opencode plugin revela
-```
-
-> **Note (China mainland):** OpenCode's plugin install uses Bun's package manager, which may not respect npm registry mirrors. If install fails, use the source install method above with `npm install` (which respects `.npmrc` mirror config).
 
 ---
 
