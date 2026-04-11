@@ -3,7 +3,7 @@
 [English](README.md) | **中文**
 
 <p align="center">
-  <img src="assets/img/logo.png" alt="Revela" width="120" />
+  <img src="assets/img/logo.png" alt="Revela" width="200" />
 </p>
 
 Revela 是一款 [OpenCode](https://opencode.ai) 插件，让 AI 成为你的PPT助手。
