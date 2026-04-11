@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The AI Power Shift: From OpenAI to Anthropic</title>
+    <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@600,700&f[]=satoshi@400,500&display=swap">
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <style>
+        /* ── Reset ── */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* ── CSS Custom Properties ── */
+        :root {
+            --bg-primary:    #030712;
+            --bg-secondary:  #0f172a;
+            --bg-card:       rgba(30, 41, 59, 0.6);
+            --text-primary:  #f8fafc;
+            --text-secondary:#94a3b8;
+            --accent:        #22d3ee;
+            --accent-2:      #a78bfa;
+            --accent-3:      #34d399;
+            --border:        rgba(34, 211, 238, 0.15);
+            --glow:          rgba(34, 211, 238, 0.25);
+        }
+
+        /* ── Base ── */
+        html {
+            scroll-snap-type: y mandatory;
+            overflow-y: scroll;
+            height: 100%;
+        }
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Satoshi', ui-sans-serif, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            height: 100%;
+        }
+
+        /* ── Aurora Background ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(ellipse 120% 80% at 50% 0%, #1e1b4b 0%, #030712 60%);
+            z-index: -3;
+        }
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            opacity: 0.03;
+            z-index: -2;
+            pointer-events: none;
+        }
+        .aurora-1, .aurora-2, .aurora-3 {
+            position: fixed;
+            width: 150%;
+            height: 60%;
+            filter: blur(80px);
+            opacity: 0.6;
+            animation: aurora-drift 25s ease-in-out infinite alternate;
+            z-index: -1;
+            pointer-events: none;
+        }
+        .aurora-1 { top: -10%; left: -25%; background: linear-gradient(135deg, #22d3ee 0%, transparent 60%); animation-duration: 28s; }
+        .aurora-2 { top: 20%; right: -30%; background: linear-gradient(225deg, #a78bfa 0%, transparent 50%); animation-duration: 35s; animation-delay: -10s; }
+        .aurora-3 { top: 40%; left: 10%; background: linear-gradient(90deg, #34d399 0%, transparent 40%); animation-duration: 22s; animation-delay: -5s; opacity: 0.4; }
+        .stars {
+            position: fixed;
+            inset: 0;
+            background-image:
+                radial-gradient(1px 1px at 20% 30%, white 50%, transparent),
+                radial-gradient(1px 1px at 40% 70%, white 50%, transparent),
+                radial-gradient(1.5px 1.5px at 60% 20%, white 50%, transparent),
+                radial-gradient(1px 1px at 80% 60%, white 50%, transparent);
+            opacity: 0.7;
+            z-index: -1;
+            pointer-events: none;
+        }
+        @keyframes aurora-drift {
+            0%   { transform: translate(0, 0) scale(1); }
+            50%  { transform: translate(30px, -20px) scale(1.1); }
+            100% { transform: translate(-20px, 20px) scale(0.95); }
+        }
+
+        /* ── Slide Layout ── */
+        .slide {
+            height: 100dvh;
+            scroll-snap-align: start;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+        }
+        .slide-canvas {
+            width: 1920px;
+            height: 1080px;
+            flex-shrink: 0;
+            transform-origin: center center;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 60px 80px;
+        }
+
+        /* ── Navigation ── */
+        .progress-bar {
+            position: fixed;
+            top: 0; left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            width: 0%;
+            z-index: 100;
+            transition: width 0.2s ease;
+            box-shadow: 0 0 8px var(--glow);
+        }
+        .nav-dots {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 100;
+        }
+        .nav-dots button {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            border: 1px solid rgba(34, 211, 238, 0.4);
+            background: transparent;
+            cursor: pointer;
+            padding: 0;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .nav-dots button.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            box-shadow: 0 0 6px var(--glow);
+        }
+
+        /* ── Typography helpers ── */
+        .gradient-text {
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .accent-line { width: 48px; height: 3px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: 2px; margin: 20px 0; }
+        .accent-line-wide { width: 200px; height: 2px; background: linear-gradient(90deg, var(--accent), transparent); border-radius: 2px; }
+        .slide-label { font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); font-weight: 500; margin-bottom: 16px; }
+
+        /* ── Reveal Animations ── */
+        .reveal {
+            opacity: 0;
+            transform: translateY(28px);
+            transition: opacity 0.7s ease, transform 0.7s ease;
+        }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+        .reveal:nth-child(2) { transition-delay: 0.1s; }
+        .reveal:nth-child(3) { transition-delay: 0.2s; }
+        .reveal:nth-child(4) { transition-delay: 0.3s; }
+        .reveal:nth-child(5) { transition-delay: 0.4s; }
+        .reveal:nth-child(6) { transition-delay: 0.5s; }
+
+        /* ── Card ── */
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 36px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--glow);
+            border-color: var(--glow);
+        }
+        .card-icon { width: 32px; height: 32px; color: var(--accent); margin-bottom: 16px; transition: transform 0.2s ease; }
+        .card:hover .card-icon { transform: scale(1.15); }
+        .card-label { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; font-weight: 500; }
+        .card-title { font-family: 'Clash Display', sans-serif; font-size: 22px; margin-bottom: 12px; font-weight: 600; }
+        .card-body { font-size: 17px; color: var(--text-secondary); line-height: 1.7; flex: 1; }
+
+        /* ── Stat Card ── */
+        .stat-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 48px 40px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .stat-number { font-family: 'Clash Display', sans-serif; font-size: 64px; font-weight: 700; line-height: 1; letter-spacing: -0.03em; margin-bottom: 12px; }
+        .stat-label  { font-size: 15px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; margin-bottom: 12px; }
+        .stat-desc   { font-size: 15px; color: var(--text-secondary); line-height: 1.5; opacity: 0.7; }
+
+        /* ── Grid Layouts ── */
+        .card-grid   { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 1600px; margin: 0 auto; flex: 1; align-content: stretch; }
+        .stats-row   { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; max-width: 1600px; margin: 0 auto; }
+        .two-col     { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: stretch; max-width: 1600px; margin: 0 auto; flex: 1; }
+        .two-col-main { display: flex; flex-direction: column; justify-content: center; }
+        .two-col-main h2 { font-family: 'Clash Display', sans-serif; font-size: 36px; margin-bottom: 16px; }
+        .two-col-main p { font-size: 18px; color: var(--text-secondary); line-height: 1.7; }
+        .two-col-aside { display: flex; flex-direction: column; justify-content: center; gap: 20px; }
+
+        /* ── Chart Container ── */
+        .chart-container { position: relative; flex-shrink: 0; }
+
+        /* ── Deco fills ── */
+        .deco-blob { position: absolute; border-radius: 50%; filter: blur(60px); pointer-events: none; z-index: 0; }
+        .slide-canvas > *:not(.deco-blob) { position: relative; z-index: 1; }
+
+        /* ── Evidence list ── */
+        .evidence-list { list-style: none; display: flex; flex-direction: column; gap: 16px; }
+        .evidence-list li {
+            display: flex; align-items: flex-start; gap: 14px;
+            font-size: 17px; color: var(--text-secondary); line-height: 1.6;
+        }
+        .evidence-list li::before {
+            content: '';
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            flex-shrink: 0;
+            margin-top: 9px;
+        }
+        .evidence-list li strong { color: var(--text-primary); }
+
+        /* ── Bar comparison ── */
+        .bar-compare { display: flex; flex-direction: column; gap: 20px; }
+        .bar-row { display: flex; flex-direction: column; gap: 8px; }
+        .bar-label-row { display: flex; justify-content: space-between; align-items: center; font-size: 16px; }
+        .bar-label-row span:first-child { font-weight: 500; }
+        .bar-label-row .val { font-family: 'Clash Display', sans-serif; font-size: 20px; font-weight: 700; }
+        .bar-track { height: 10px; background: rgba(255,255,255,0.06); border-radius: 5px; overflow: hidden; }
+        .bar-fill { height: 100%; border-radius: 5px; transition: width 1.2s cubic-bezier(0.4,0,0.2,1); }
+
+        /* ── Step flow ── */
+        .step-flow { display: flex; align-items: flex-start; gap: 0; max-width: 1600px; margin: 0 auto; }
+        .step-item { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; }
+        .step-circle {
+            width: 56px; height: 56px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Clash Display', sans-serif; font-size: 22px; font-weight: 700;
+            color: var(--bg-primary);
+            box-shadow: 0 0 24px var(--glow);
+            flex-shrink: 0;
+            margin-bottom: 20px;
+        }
+        .step-connector {
+            position: absolute;
+            top: 28px;
+            left: calc(50% + 28px);
+            width: calc(100% - 56px);
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            opacity: 0.3;
+        }
+        .step-item:last-child .step-connector { display: none; }
+        .step-title { font-family: 'Clash Display', sans-serif; font-size: 20px; font-weight: 600; margin-bottom: 10px; }
+        .step-desc { font-size: 15px; color: var(--text-secondary); line-height: 1.6; padding: 0 16px; }
+
+        /* ── Reduced Motion ── */
+        @media (prefers-reduced-motion: reduce) {
+            .aurora-1, .aurora-2, .aurora-3 { animation: none; opacity: 0.3; }
+            .reveal { transition: opacity 0.4s ease; transform: none !important; }
+        }
+
+        /* ── Slide-specific styles ── */
+
+        /* Slide 1: Cover */
+        .title-slide .slide-canvas { justify-content: center; align-items: center; text-align: center; }
+        .title-slide h1 { font-family: 'Clash Display', sans-serif; font-size: 88px; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em; text-shadow: 0 0 40px rgba(34, 211, 238, 0.3); margin-bottom: 24px; }
+        .title-slide .subtitle { font-size: 26px; color: var(--text-secondary); font-weight: 400; line-height: 1.6; max-width: 900px; margin: 0 auto 40px; }
+        .cover-meta { display: flex; gap: 40px; justify-content: center; align-items: center; font-size: 15px; color: var(--text-secondary); letter-spacing: 0.06em; text-transform: uppercase; }
+        .cover-meta span { display: flex; align-items: center; gap: 8px; }
+        .cover-accent-bar { width: 120px; height: 4px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: 2px; margin: 28px auto; box-shadow: 0 0 16px var(--glow); }
+
+        /* Slide 2: The Tipping Point */
+        .slide-2 h2 { font-family: 'Clash Display', sans-serif; font-size: 52px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 8px; }
+
+        /* Slide 3: Why Anthropic Wins */
+        .slide-3 h2 { font-family: 'Clash Display', sans-serif; font-size: 52px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 8px; }
+
+        /* Slide 4: Agentic AI Opportunity */
+        .slide-4 h2 { font-family: 'Clash Display', sans-serif; font-size: 52px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 8px; }
+
+        /* Slide 5: Where to Bet */
+        .slide-5 h2 { font-family: 'Clash Display', sans-serif; font-size: 52px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 8px; }
+
+        /* Source tag */
+        .source-tag { font-size: 12px; color: rgba(148,163,184,0.5); letter-spacing: 0.04em; margin-top: 6px; }
+
+        /* Highlight badge */
+        .badge {
+            display: inline-block;
+            background: rgba(34, 211, 238, 0.1);
+            border: 1px solid rgba(34, 211, 238, 0.3);
+            border-radius: 100px;
+            padding: 4px 16px;
+            font-size: 13px;
+            color: var(--accent);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        /* Verdict card */
+        .verdict-card {
+            background: linear-gradient(135deg, rgba(34,211,238,0.08), rgba(167,139,250,0.08));
+            border: 1px solid rgba(34,211,238,0.3);
+            border-radius: 20px;
+            padding: 40px 48px;
+        }
+        .verdict-card h3 { font-family: 'Clash Display', sans-serif; font-size: 28px; font-weight: 700; margin-bottom: 12px; }
+        .verdict-card p { font-size: 18px; color: var(--text-secondary); line-height: 1.7; }
+
+        /* Horizontal divider */
+        .h-divider { width: 100%; height: 1px; background: var(--border); margin: 24px 0; }
+
+        /* Opportunity item */
+        .opp-item {
+            display: flex; align-items: flex-start; gap: 20px;
+            padding: 24px 28px;
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+        .opp-icon { color: var(--accent); flex-shrink: 0; width: 28px; height: 28px; }
+        .opp-title { font-family: 'Clash Display', sans-serif; font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+        .opp-desc { font-size: 16px; color: var(--text-secondary); line-height: 1.6; }
+
+    </style>
+</head>
+<body>
+    <!-- Aurora layers -->
+    <div class="aurora-1"></div>
+    <div class="aurora-2"></div>
+    <div class="aurora-3"></div>
+    <div class="stars"></div>
+
+    <!-- Navigation -->
+    <div class="progress-bar" id="progressBar"></div>
+    <nav class="nav-dots" id="navDots" aria-label="Slide navigation"></nav>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- SLIDE 1: COVER                                  -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="slide title-slide" data-index="0">
+        <div class="slide-canvas">
+            <!-- Decorative blobs -->
+            <div class="deco-blob" style="width:600px;height:600px;background:radial-gradient(circle,var(--accent) 0%,transparent 70%);opacity:0.06;top:-100px;left:-100px;"></div>
+            <div class="deco-blob" style="width:500px;height:500px;background:radial-gradient(circle,var(--accent-2) 0%,transparent 70%);opacity:0.07;bottom:-80px;right:-60px;"></div>
+
+            <div class="badge reveal">Capital Reallocation Report · April 2026</div>
+            <div class="cover-accent-bar reveal"></div>
+            <h1 class="reveal">The <span class="gradient-text">AI Power</span><br>Shift</h1>
+            <p class="subtitle reveal">Why smart money is moving from OpenAI to Anthropic —<br>and what it signals about the next wave of AI value creation</p>
+            <div class="cover-meta reveal">
+                <span><i data-lucide="target" style="width:16px;height:16px;color:var(--accent)"></i> VC &amp; Institutional Investors</span>
+                <span style="color:var(--border)">|</span>
+                <span><i data-lucide="calendar" style="width:16px;height:16px;color:var(--accent)"></i> April 2026</span>
+                <span style="color:var(--border)">|</span>
+                <span><i data-lucide="bar-chart-2" style="width:16px;height:16px;color:var(--accent)"></i> 5 Key Slides</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- SLIDE 2: THE TIPPING POINT                      -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="slide slide-2" data-index="1">
+        <div class="slide-canvas" style="justify-content:flex-start;padding-top:72px;">
+            <div class="deco-blob" style="width:400px;height:400px;background:radial-gradient(circle,var(--accent-2) 0%,transparent 70%);opacity:0.07;bottom:60px;right:80px;"></div>
+
+            <p class="slide-label reveal">The Shift</p>
+            <h2 class="reveal">Enterprise AI <span class="gradient-text">Crown Changed Hands</span> in 10 Weeks</h2>
+            <div class="accent-line reveal"></div>
+
+            <div class="two-col reveal" style="margin-top:24px;">
+                <!-- Left: market share bars -->
+                <div class="two-col-main" style="justify-content:flex-start;">
+                    <p style="font-size:17px;color:var(--text-secondary);margin-bottom:28px;line-height:1.7;">
+                        Menlo Ventures and Ramp's corporate spend data tell the same story: 
+                        Anthropic's enterprise API share surged from <strong style="color:var(--text-primary)">12% → 40%</strong> while 
+                        OpenAI fell <strong style="color:var(--text-primary)">50% → 27%</strong>. In Q1 2026, Anthropic captured 
+                        <strong style="color:var(--accent)">73% of all new enterprise AI purchases</strong>.
+                    </p>
+                    <div class="bar-compare">
+                        <div class="bar-row">
+                            <div class="bar-label-row">
+                                <span>Anthropic Enterprise API Share</span>
+                                <span class="val" style="color:var(--accent)">40%</span>
+                            </div>
+                            <div class="bar-track"><div class="bar-fill" id="bar-ant" style="width:0%;background:linear-gradient(90deg,var(--accent),var(--accent-2))"></div></div>
+                            <div class="source-tag">Menlo Ventures, Dec 2025 &mdash; up from 12% in 2023</div>
+                        </div>
+                        <div class="bar-row" style="margin-top:8px;">
+                            <div class="bar-label-row">
+                                <span>OpenAI Enterprise API Share</span>
+                                <span class="val" style="color:var(--text-secondary)">27%</span>
+                            </div>
+                            <div class="bar-track"><div class="bar-fill" id="bar-oai" style="width:0%;background:linear-gradient(90deg,rgba(148,163,184,0.5),rgba(148,163,184,0.2))"></div></div>
+                            <div class="source-tag">Down from 50% in 2023</div>
+                        </div>
+                        <div class="bar-row" style="margin-top:8px;">
+                            <div class="bar-label-row">
+                                <span>Anthropic: New Enterprise Spend (Q1 2026)</span>
+                                <span class="val" style="color:var(--accent-3)">73%</span>
+                            </div>
+                            <div class="bar-track"><div class="bar-fill" id="bar-new" style="width:0%;background:linear-gradient(90deg,var(--accent-3),var(--accent))"></div></div>
+                            <div class="source-tag">Ramp AI Index, Jan–Mar 2026 corporate spend</div>
+                        </div>
+                    </div>
+                    <div style="margin-top:28px;padding:20px 24px;background:rgba(34,211,238,0.05);border:1px solid rgba(34,211,238,0.15);border-radius:12px;">
+                        <p style="font-size:15px;color:var(--text-secondary);line-height:1.7;">
+                            <strong style="color:var(--accent)">Key signal:</strong> The crossover happened in under 10 weeks. This isn't gradual migration — it's a phase transition driven by Claude's superior coding &amp; agentic capabilities in enterprise workflows.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Right: 3 signal cards -->
+                <div class="two-col-aside" style="gap:16px;">
+                    <div class="card" style="padding:28px 32px;">
+                        <i data-lucide="trending-down" class="card-icon" style="color:#f87171;"></i>
+                        <p class="card-title">OpenAI Secondary Market Collapse</p>
+                        <p class="card-body">$600M in OpenAI shares found <strong style="color:var(--text-primary)">almost no buyers</strong> in Q1 2026. Goldman Sachs waived carry fees just to move inventory.</p>
+                        <p class="source-tag" style="margin-top:12px;">Bloomberg, Apr 1, 2026</p>
+                    </div>
+                    <div class="card" style="padding:28px 32px;">
+                        <i data-lucide="trending-up" class="card-icon" style="color:var(--accent-3);"></i>
+                        <p class="card-title">Anthropic Secondary Demand: $2B+</p>
+                        <p class="card-body">Simultaneous <strong style="color:var(--text-primary)">$2B+ buy-side demand</strong> for Anthropic shares at implied $600B valuation. "Hardest stock to source."</p>
+                        <p class="source-tag" style="margin-top:12px;">Bloomberg, Apr 1, 2026</p>
+                    </div>
+                    <div class="card" style="padding:28px 32px;">
+                        <i data-lucide="alert-triangle" class="card-icon" style="color:#fb923c;"></i>
+                        <p class="card-title">OpenAI: $2.37 Spent Per $1 Earned</p>
+                        <p class="card-body">Inference compute cost exceeds revenue. Structural cost inversion worsens quarterly. No profitability before <strong style="color:var(--text-primary)">2029–2030</strong>.</p>
+                        <p class="source-tag" style="margin-top:12px;">HSBC; OpenAI financials Q2 2025</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- SLIDE 3: WHY ANTHROPIC WINS ENTERPRISE          -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="slide slide-3" data-index="2">
+        <div class="slide-canvas" style="justify-content:flex-start;padding-top:72px;">
+            <div class="deco-blob" style="width:500px;height:500px;background:radial-gradient(circle,var(--accent-3) 0%,transparent 70%);opacity:0.05;bottom:40px;left:60px;"></div>
+
+            <p class="slide-label reveal">Competitive Moat</p>
+            <h2 class="reveal">Why <span class="gradient-text">Anthropic Wins</span> Enterprise</h2>
+            <div class="accent-line reveal"></div>
+
+            <div class="stats-row reveal" style="margin-bottom:28px;margin-top:4px;grid-template-columns:repeat(4,1fr);">
+                <div class="stat-card">
+                    <div class="stat-number gradient-text" data-target="30" data-prefix="$" data-suffix="B">$0B</div>
+                    <div class="stat-label">ARR Run-Rate</div>
+                    <div class="stat-desc">Apr 2026 — from $1B just 15 months prior</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number gradient-text" data-target="517" data-suffix="%">0%</div>
+                    <div class="stat-label">Valuation Growth</div>
+                    <div class="stat-desc">$61B → $380B in 11 months (2025–2026)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number gradient-text" data-target="73" data-suffix=".3%">0%</div>
+                    <div class="stat-label">AIME 2025 Math</div>
+                    <div class="stat-desc">Claude Opus 4 vs GPT-4o's 25.7%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number gradient-text" data-target="54" data-suffix="%">0%</div>
+                    <div class="stat-label">Enterprise Coding</div>
+                    <div class="stat-desc">18-month uninterrupted #1 on SWE-bench</div>
+                </div>
+            </div>
+
+            <div class="card-grid reveal" style="grid-template-columns:repeat(3,1fr);">
+                <div class="card">
+                    <i data-lucide="cloud" class="card-icon"></i>
+                    <p class="card-label">Infrastructure</p>
+                    <p class="card-title">Tri-Cloud Moat</p>
+                    <p class="card-body">Only frontier model on AWS + Google Cloud + Azure simultaneously. Amazon Project Rainier ($11B), Google multi-gigawatt TPU deal, Microsoft $15B commitment — infrastructure backing from all three hyperscalers.</p>
+                </div>
+                <div class="card">
+                    <i data-lucide="shield-check" class="card-icon"></i>
+                    <p class="card-label">Trust</p>
+                    <p class="card-title">Safety = Enterprise Moat</p>
+                    <p class="card-body">FedRAMP High certified. SOC 2 Type 2. 99.95% API uptime vs OpenAI's 4.2 outages/month. Constitutional AI transparency. When Trump admin's DoD called Anthropic a "supply risk" — a court injunction sided with Anthropic, <em>reinforcing</em> its brand.</p>
+                </div>
+                <div class="card">
+                    <i data-lucide="users" class="card-icon"></i>
+                    <p class="card-label">Distribution</p>
+                    <p class="card-title">Fortune 100 Flywheel</p>
+                    <p class="card-body">70% of Fortune 100 are Claude customers. Deloitte (470K employees), Accenture (30K trained), Salesforce Agentforce preferred model. 1,000+ companies spending $1M+/year. System integrators bring Claude to their entire client base.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- SLIDE 4: THE AGENTIC AI OPPORTUNITY             -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="slide slide-4" data-index="3">
+        <div class="slide-canvas" style="justify-content:flex-start;padding-top:72px;">
+            <div class="deco-blob" style="width:450px;height:450px;background:radial-gradient(circle,var(--accent-2) 0%,transparent 70%);opacity:0.07;top:60px;right:80px;"></div>
+
+            <p class="slide-label reveal">Market Opportunity</p>
+            <h2 class="reveal">Agentic AI: <span class="gradient-text">$7B Today → $183B by 2034</span></h2>
+            <div class="accent-line reveal"></div>
+
+            <div class="two-col reveal" style="margin-top:16px;gap:48px;">
+                <div class="two-col-main" style="justify-content:flex-start;">
+                    <p style="font-size:17px;color:var(--text-secondary);margin-bottom:24px;line-height:1.7;">
+                        Enterprise AI spend tripled to <strong style="color:var(--text-primary)">$37B in 2025</strong>. 
+                        AI agents went from 11% to <strong style="color:var(--accent)">54% enterprise adoption</strong> in 18 months. 
+                        The proof points are already in revenue.
+                    </p>
+                    <div class="chart-container" id="chart-agentic" style="width:100%;height:280px;"></div>
+                    <p class="source-tag" style="margin-top:8px;">Fortune Business Insights; Grand View Research; Menlo Ventures 2025</p>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;">
+                        <div style="padding:16px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;text-align:center;">
+                            <div style="font-family:'Clash Display',sans-serif;font-size:28px;font-weight:700;color:var(--accent);line-height:1;">38×</div>
+                            <div style="font-size:13px;color:var(--text-secondary);margin-top:6px;">CAGR to 2034</div>
+                        </div>
+                        <div style="padding:16px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;text-align:center;">
+                            <div style="font-family:'Clash Display',sans-serif;font-size:28px;font-weight:700;color:var(--accent-2);line-height:1;">53%</div>
+                            <div style="font-size:13px;color:var(--text-secondary);margin-top:6px;">VC deals → vertical AI</div>
+                        </div>
+                        <div style="padding:16px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;text-align:center;">
+                            <div style="font-family:'Clash Display',sans-serif;font-size:28px;font-weight:700;color:var(--accent-3);line-height:1;">$225B</div>
+                            <div style="font-size:13px;color:var(--text-secondary);margin-top:6px;">Global AI VC in 2025</div>
+                        </div>
+                        <div style="padding:16px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;text-align:center;">
+                            <div style="font-family:'Clash Display',sans-serif;font-size:28px;font-weight:700;color:var(--text-primary);line-height:1;">$405B</div>
+                            <div style="font-size:13px;color:var(--text-secondary);margin-top:6px;">Hyperscaler capex '25</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="two-col-aside" style="gap:16px;">
+                    <div class="opp-item">
+                        <i data-lucide="code-2" class="opp-icon"></i>
+                        <div>
+                            <p class="opp-title">AI Coding / Agents</p>
+                            <p class="opp-desc">Claude Code: <strong style="color:var(--accent)">$2.5B ARR</strong> (launched May 2025, 9 months). Cursor: $200M. 41% of professional developers use Claude Code daily.</p>
+                        </div>
+                    </div>
+                    <div class="opp-item">
+                        <i data-lucide="scale" class="opp-icon"></i>
+                        <div>
+                            <p class="opp-title">Legal AI</p>
+                            <p class="opp-desc">Harvey: <strong style="color:var(--accent)">$200M ARR</strong>, $8B valuation. Legal AI funding +77% YoY to $4.08B in 2025.</p>
+                        </div>
+                    </div>
+                    <div class="opp-item">
+                        <i data-lucide="heart-pulse" class="opp-icon"></i>
+                        <div>
+                            <p class="opp-title">Healthcare AI</p>
+                            <p class="opp-desc">Ambient scribing: <strong style="color:var(--accent)">$600M</strong> revenue category. Novo Nordisk: clinical reports from 12 weeks → 10 minutes with Claude.</p>
+                        </div>
+                    </div>
+                    <div class="opp-item">
+                        <i data-lucide="headphones" class="opp-icon"></i>
+                        <div>
+                            <p class="opp-title">Customer Support</p>
+                            <p class="opp-desc">50% cost reduction documented. Intercom Fin: $100M ARR. 20% of all enterprise API activity goes here.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- SLIDE 5: WHERE TO BET                           -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section class="slide slide-5" data-index="4">
+        <div class="slide-canvas" style="justify-content:flex-start;padding-top:72px;">
+            <div class="deco-blob" style="width:400px;height:400px;background:radial-gradient(circle,var(--accent) 0%,transparent 70%);opacity:0.06;bottom:40px;right:100px;"></div>
+
+            <p class="slide-label reveal">Investment Thesis</p>
+            <h2 class="reveal">The <span class="gradient-text">3-Layer Stack</span>: Where Returns Are Made</h2>
+            <div class="accent-line reveal"></div>
+
+            <div class="step-flow reveal" style="margin-top:32px;margin-bottom:40px;flex:1;align-items:stretch;">
+                <div class="step-item" style="padding:0 12px;">
+                    <div class="step-connector"></div>
+                    <div class="step-circle">L1</div>
+                    <p class="step-title">Compute Infrastructure</p>
+                    <p class="step-desc" style="font-size:16px;line-height:1.7;">CoreWeave IPO: $23B → <strong style="color:var(--accent)">+365%</strong> in months. Lambda $1.5B. $405B hyperscaler capex in 2025. Picks &amp; shovels — the safest layer with proven returns already flowing to LPs.</p>
+                </div>
+                <div class="step-item" style="padding:0 12px;">
+                    <div class="step-connector"></div>
+                    <div class="step-circle" style="background:linear-gradient(135deg,var(--accent-2),var(--accent-3))">L2</div>
+                    <p class="step-title">Vertical SaaS</p>
+                    <p class="step-desc" style="font-size:16px;line-height:1.7;">53% of all VC deals go here. Legal, healthcare, coding tools, financial AI. High-margin, workflow lock-in, compounding moats. Harvey ($8B), Cursor ($200M ARR) — fastest path to venture-scale returns.</p>
+                </div>
+                <div class="step-item" style="padding:0 12px;">
+                    <div class="step-connector"></div>
+                    <div class="step-circle" style="background:linear-gradient(135deg,var(--accent-3),var(--accent))">L3</div>
+                    <p class="step-title">Physical / Agentic AI</p>
+                    <p class="step-desc" style="font-size:16px;line-height:1.7;">Robotics, embodied AI. Long-horizon bets. Figure AI, Apptronik. Manufacturing TaaS in China +95% deal count YoY. Highest risk, highest potential upside for patient capital.</p>
+                </div>
+                <div class="step-item" style="padding:0 12px;">
+                    <div class="step-circle" style="background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 0 32px var(--glow)">★</div>
+                    <p class="step-title">The Dual Bet</p>
+                    <p class="step-desc" style="font-size:16px;line-height:1.7;">Back <em>both</em> Anthropic + OpenAI infrastructure. Amazon: $58B across both. D.E. Shaw co-led both mega-rounds in the same month. Hedge the model race, own the infrastructure.</p>
+                </div>
+            </div>
+
+            <div class="verdict-card reveal" style="padding:44px 48px;">
+                <div style="display:flex;align-items:flex-start;gap:28px;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:400px;">
+                        <h3>The Takeaway for LPs</h3>
+                        <p>The AI power shift isn't about picking a winner — it's about the <strong style="color:var(--accent)">infrastructure bet</strong> (L1 already printing returns), the <strong style="color:var(--accent-2)">vertical SaaS wave</strong> (53% of deal flow, fast compounding), and a <strong style="color:var(--accent-3)">calibrated Anthropic position</strong> before IPO at $60B+ raise in Q4 2026.</p>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:14px;flex-shrink:0;">
+                        <div style="display:flex;gap:12px;align-items:center;">
+                            <div style="width:10px;height:10px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+                            <span style="font-size:16px;color:var(--text-secondary);">$37B enterprise AI spend in 2025 — <strong style="color:var(--text-primary)">3.2× YoY growth</strong></span>
+                        </div>
+                        <div style="display:flex;gap:12px;align-items:center;">
+                            <div style="width:10px;height:10px;border-radius:50%;background:var(--accent-2);flex-shrink:0;"></div>
+                            <span style="font-size:16px;color:var(--text-secondary);">50% of 2025 global VC went to <strong style="color:var(--text-primary)">AI ($225B total)</strong></span>
+                        </div>
+                        <div style="display:flex;gap:12px;align-items:center;">
+                            <div style="width:10px;height:10px;border-radius:50%;background:var(--accent-3);flex-shrink:0;"></div>
+                            <span style="font-size:16px;color:var(--text-secondary);">Agentic AI: <strong style="color:var(--text-primary)">54% enterprise adoption</strong> in Q1 2026</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <p class="source-tag reveal" style="margin-top:16px;text-align:center;">
+                Sources: Menlo Ventures 2025 State of Enterprise AI · Ramp AI Index Q1 2026 · Bloomberg Apr 2026 · Fortune Business Insights · KPMG Q1 2026 Pulse Survey · CB Insights State of AI 2025
+            </p>
+        </div>
+    </section>
+
+    <script>
+    /* ──────────────────────────────────────────────── */
+    /* SlidePresentation class                         */
+    /* ──────────────────────────────────────────────── */
+    class SlidePresentation {
+        constructor() {
+            this.slides = document.querySelectorAll('.slide');
+            this.currentSlide = 0;
+            this.setupScaling();
+            this.setupProgressBar();
+            this.setupNavDots();
+            this.setupIntersectionObserver();
+            this.setupKeyboardNav();
+            this.setupTouchNav();
+            this.setupMouseWheel();
+        }
+
+        setupScaling() {
+            const canvases = document.querySelectorAll('.slide-canvas');
+            const BASE_W = 1920, BASE_H = 1080;
+            const update = () => {
+                const vw = window.innerWidth, vh = window.innerHeight;
+                const scale = Math.min(vw / BASE_W, vh / BASE_H);
+                canvases.forEach(c => { c.style.transform = `scale(${scale})`; });
+            };
+            window.addEventListener('resize', update);
+            update();
+        }
+
+        setupProgressBar() {
+            const bar = document.getElementById('progressBar');
+            const update = () => {
+                const scrolled = window.scrollY;
+                const total = document.body.scrollHeight - window.innerHeight;
+                bar.style.width = total > 0 ? (scrolled / total * 100) + '%' : '0%';
+            };
+            window.addEventListener('scroll', update, { passive: true });
+            update();
+        }
+
+        setupNavDots() {
+            const nav = document.getElementById('navDots');
+            this.slides.forEach((_, i) => {
+                const btn = document.createElement('button');
+                btn.setAttribute('aria-label', `Go to slide ${i + 1}`);
+                if (i === 0) btn.classList.add('active');
+                btn.addEventListener('click', () => this.goTo(i));
+                nav.appendChild(btn);
+            });
+            this.dots = nav.querySelectorAll('button');
+            const obs = new IntersectionObserver((entries) => {
+                entries.forEach(e => {
+                    if (e.isIntersecting) {
+                        const idx = parseInt(e.target.dataset.index);
+                        this.dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+                        this.currentSlide = idx;
+                    }
+                });
+            }, { threshold: 0.5 });
+            this.slides.forEach(s => obs.observe(s));
+        }
+
+        setupIntersectionObserver() {
+            const obs = new IntersectionObserver((entries) => {
+                entries.forEach(e => {
+                    if (e.isIntersecting) {
+                        e.target.querySelectorAll('.reveal').forEach(el => el.classList.add('visible'));
+                        animateCounters(e.target);
+                        animateBars(e.target);
+                        if (e.target.dataset.index === '3') initAgenticChart();
+                    }
+                });
+            }, { threshold: 0.15 });
+            this.slides.forEach(s => obs.observe(s));
+        }
+
+        setupKeyboardNav() {
+            document.addEventListener('keydown', e => {
+                if (['ArrowDown','ArrowRight',' ','PageDown'].includes(e.key)) {
+                    e.preventDefault(); this.goTo(this.currentSlide + 1);
+                } else if (['ArrowUp','ArrowLeft','PageUp'].includes(e.key)) {
+                    e.preventDefault(); this.goTo(this.currentSlide - 1);
+                }
+            });
+        }
+
+        setupTouchNav() {
+            let startY = 0;
+            document.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+            document.addEventListener('touchend', e => {
+                const dy = startY - e.changedTouches[0].clientY;
+                if (Math.abs(dy) > 40) this.goTo(this.currentSlide + (dy > 0 ? 1 : -1));
+            }, { passive: true });
+        }
+
+        setupMouseWheel() {
+            let last = 0;
+            document.addEventListener('wheel', e => {
+                const now = Date.now();
+                if (now - last < 800) return;
+                last = now;
+                this.goTo(this.currentSlide + (e.deltaY > 0 ? 1 : -1));
+            }, { passive: true });
+        }
+
+        goTo(idx) {
+            const clamped = Math.max(0, Math.min(this.slides.length - 1, idx));
+            this.slides[clamped].scrollIntoView({ behavior: 'smooth' });
+            this.currentSlide = clamped;
+        }
+    }
+
+    /* ──────────────────────────────────────────────── */
+    /* Counter animation for stat cards               */
+    /* ──────────────────────────────────────────────── */
+    const animated = new Set();
+    function animateCounters(slide) {
+        slide.querySelectorAll('[data-target]').forEach(el => {
+            if (animated.has(el)) return;
+            animated.add(el);
+            const target = parseFloat(el.dataset.target);
+            const prefix = el.dataset.prefix || '';
+            const suffix = el.dataset.suffix || '';
+            const duration = 1400;
+            const start = performance.now();
+            function step(now) {
+                const t = Math.min((now - start) / duration, 1);
+                const ease = 1 - Math.pow(1 - t, 3);
+                const val = target * ease;
+                el.textContent = prefix + (Number.isInteger(target) ? Math.round(val) : val.toFixed(1)) + suffix;
+                if (t < 1) requestAnimationFrame(step);
+                else el.textContent = prefix + target + suffix;
+            }
+            requestAnimationFrame(step);
+        });
+    }
+
+    /* ──────────────────────────────────────────────── */
+    /* Bar animation for slide 2                       */
+    /* ──────────────────────────────────────────────── */
+    const barsAnimated = new Set();
+    function animateBars(slide) {
+        const bars = [
+            { id: 'bar-ant', target: 40 },
+            { id: 'bar-oai', target: 27 },
+            { id: 'bar-new', target: 73 },
+        ];
+        bars.forEach(({ id, target }) => {
+            const el = slide.querySelector('#' + id) || document.getElementById(id);
+            if (!el || barsAnimated.has(id)) return;
+            barsAnimated.add(id);
+            const duration = 1200;
+            const start = performance.now();
+            function step(now) {
+                const t = Math.min((now - start) / duration, 1);
+                const ease = 1 - Math.pow(1 - t, 3);
+                el.style.width = (target * ease) + '%';
+                if (t < 1) requestAnimationFrame(step);
+                else el.style.width = target + '%';
+            }
+            requestAnimationFrame(step);
+        });
+    }
+
+    /* ──────────────────────────────────────────────── */
+    /* ECharts: Agentic AI market growth bar chart     */
+    /* ──────────────────────────────────────────────── */
+    let chartInited = false;
+    function initAgenticChart() {
+        if (chartInited || typeof echarts === 'undefined') return;
+        chartInited = true;
+        const el = document.getElementById('chart-agentic');
+        if (!el) return;
+        const chart = echarts.init(el, null, { renderer: 'canvas' });
+        chart.setOption({
+            backgroundColor: 'transparent',
+            tooltip: {
+                trigger: 'axis',
+                backgroundColor: 'rgba(15,23,42,0.9)',
+                borderColor: 'rgba(34,211,238,0.3)',
+                textStyle: { color: '#f8fafc', fontSize: 14 },
+                formatter: (params) => {
+                    return params[0].name + '<br/>' +
+                        '<span style="color:#22d3ee">●</span> Agentic AI: $' + params[0].value + 'B<br/>' +
+                        '<span style="color:#a78bfa">●</span> Enterprise AI Total: $' + params[1].value + 'B';
+                }
+            },
+            grid: { left: 60, right: 20, top: 20, bottom: 40 },
+            xAxis: {
+                type: 'category',
+                data: ['2024', '2025', '2026E', '2028E', '2030E', '2034E'],
+                axisLine: { lineStyle: { color: 'rgba(148,163,184,0.2)' } },
+                axisLabel: { color: '#94a3b8', fontSize: 13 },
+                splitLine: { show: false }
+            },
+            yAxis: {
+                type: 'value',
+                name: '$B',
+                nameTextStyle: { color: '#94a3b8', fontSize: 12 },
+                axisLabel: { color: '#94a3b8', fontSize: 12, formatter: '${value}B' },
+                splitLine: { lineStyle: { color: 'rgba(148,163,184,0.08)' } },
+                axisLine: { show: false }
+            },
+            series: [
+                {
+                    name: 'Agentic AI Market',
+                    type: 'bar',
+                    data: [4.81, 7.3, 9.5, 25, 55, 139],
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: '#22d3ee' },
+                            { offset: 1, color: '#a78bfa' }
+                        ]),
+                        borderRadius: [6, 6, 0, 0]
+                    },
+                    barWidth: '35%'
+                },
+                {
+                    name: 'Enterprise AI Total',
+                    type: 'line',
+                    data: [11.5, 37, 80, 180, null, null],
+                    lineStyle: { color: '#34d399', width: 2 },
+                    itemStyle: { color: '#34d399' },
+                    symbol: 'circle',
+                    symbolSize: 8,
+                    smooth: true,
+                    connectNulls: false
+                }
+            ]
+        });
+        window.addEventListener('resize', () => chart.resize());
+    }
+
+    /* ──────────────────────────────────────────────── */
+    /* Init                                            */
+    /* ──────────────────────────────────────────────── */
+    new SlidePresentation();
+    lucide.createIcons();
+
+    /* ──────────────────────────────────────────────── */
+    /* Inline Editing                                  */
+    /* ──────────────────────────────────────────────── */
+    (function() {
+        const EDITABLE = 'h1,h2,h3,h4,p,span,li,blockquote,cite,' +
+            '.card-title,.card-body,.stat-number,.stat-label,.stat-desc,' +
+            '.step-title,.step-desc,.opp-title,.opp-desc';
+        let hoverTimer = null;
+        let activeEl = null;
+
+        document.querySelectorAll(EDITABLE).forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                hoverTimer = setTimeout(() => {
+                    el.style.outline = '1px dashed rgba(128,128,128,0.3)';
+                    el.style.cursor = 'text';
+                }, 400);
+            });
+            el.addEventListener('mouseleave', () => {
+                clearTimeout(hoverTimer);
+                if (el !== activeEl) {
+                    el.style.outline = '';
+                    el.style.cursor = '';
+                }
+            });
+            el.addEventListener('click', (e) => {
+                if (activeEl && activeEl !== el) {
+                    activeEl.contentEditable = 'false';
+                    activeEl.style.outline = '';
+                    activeEl.style.cursor = '';
+                }
+                el.contentEditable = 'true';
+                el.style.outline = '2px solid rgba(59,130,246,0.5)';
+                el.style.cursor = 'text';
+                activeEl = el;
+                e.stopPropagation();
+            });
+        });
+
+        document.addEventListener('click', () => {
+            if (activeEl) {
+                activeEl.contentEditable = 'false';
+                activeEl.style.outline = '';
+                activeEl.style.cursor = '';
+                activeEl = null;
+            }
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && activeEl) {
+                activeEl.contentEditable = 'false';
+                activeEl.style.outline = '';
+                activeEl.style.cursor = '';
+                activeEl = null;
+            }
+        });
+
+        window.getEditedHTML = () =>
+            '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    })();
+    </script>
+</body>
+</html>

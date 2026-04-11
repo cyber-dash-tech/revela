@@ -2,6 +2,10 @@
 
 **English** | [中文](README.zh-CN.md)
 
+<p align="center">
+  <img src="assets/img/logo.png" alt="Revela" width="120" />
+</p>
+
 An [OpenCode](https://opencode.ai) plugin that turns your AI into a presentation assistant.
 Describe what you want to present — Revela researches, analyses, and generates a complete slide deck for you.
 
@@ -10,6 +14,8 @@ Describe what you want to present — Revela researches, analyses, and generates
 [![tests](https://img.shields.io/badge/tests-73%20passing-brightgreen)](tests/)
 [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai)
 [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+
+**[Live Demo — The AI Power Shift](https://cyber-dash-tech.github.io/revela/assets/html/ai-power-shift.html)** · A 5-slide investment brief generated entirely by Revela.
 
 ---
 
@@ -93,11 +99,11 @@ All commands execute locally — zero LLM cost, instant feedback.
 
 Three designs are bundled. Switch with `/revela designs <name>`.
 
-| Name | Description |
-|---|---|
-| `default` | Dark executive style — deep navy/slate, sharp typography, ECharts data visualization |
-| `minimal` | Clean light theme — high contrast, generous whitespace, professional look |
-| `editorial-ribbon` | Bold editorial layout — accent ribbons, strong headlines, high visual impact |
+| Name | Description | Preview |
+|---|---|---|
+| `default` | Dark executive style — deep navy/slate, sharp typography, ECharts data visualization | ![default](assets/img/slide-example-default.jpg) |
+| `minimal` | Clean light theme — high contrast, generous whitespace, professional look | ![minimal](assets/img/slide-example-minimal.jpg) |
+| `editorial-ribbon` | Bold editorial layout — accent ribbons, strong headlines, high visual impact | ![editorial-ribbon](assets/img/slide-example-ribbon.jpg) |
 
 ---
 

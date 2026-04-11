@@ -2,6 +2,10 @@
 
 [English](README.md) | **中文**
 
+<p align="center">
+  <img src="assets/img/logo.png" alt="Revela" width="120" />
+</p>
+
 Revela 是一款 [OpenCode](https://opencode.ai) 插件，让 AI 成为你的PPT助手。
 用对话方式描述你的需求，Revela 会自动调研、分析、洞察，最后呈现你心中的PPT。
 
@@ -10,6 +14,8 @@ Revela 是一款 [OpenCode](https://opencode.ai) 插件，让 AI 成为你的PPT
 [![tests](https://img.shields.io/badge/tests-73%20passing-brightgreen)](tests/)
 [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai)
 [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+
+**[在线演示 — AI 权力转移](https://cyber-dash-tech.github.io/revela/assets/html/ai-power-shift.html)** · 一份由 Revela 全程生成的 5 页投资简报。
 
 ---
 
@@ -123,11 +129,11 @@ export { default } from "/path/to/revela/index.ts";
 
 插件内置三套设计，用 `/revela designs <name>` 切换。
 
-| 名称 | 说明 |
-|---|---|
-| `default` | 深色商务风格 —— 深海军蓝/石板色，锐利字体，ECharts 数据可视化 |
-| `minimal` | 简洁浅色主题 —— 高对比度，充足留白，专业外观 |
-| `editorial-ribbon` | 大胆的编辑版式 —— 强调色横幅，醒目标题，高视觉冲击力 |
+| 名称 | 说明 | 预览 |
+|---|---|---|
+| `default` | 深色商务风格 —— 深海军蓝/石板色，锐利字体，ECharts 数据可视化 | ![default](assets/img/slide-example-default.jpg) |
+| `minimal` | 简洁浅色主题 —— 高对比度，充足留白，专业外观 | ![minimal](assets/img/slide-example-minimal.jpg) |
+| `editorial-ribbon` | 大胆的编辑版式 —— 强调色横幅，醒目标题，高视觉冲击力 | ![editorial-ribbon](assets/img/slide-example-ribbon.jpg) |
 
 ---
 
