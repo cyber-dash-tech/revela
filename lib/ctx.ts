@@ -12,13 +12,16 @@ export interface RevelaCtx {
   /** Master switch — controls prompt injection, read hooks, subagents, etc. */
   enabled: boolean
 
-  // Future fields can be added here, e.g.:
-  // sessionID?: string
-  // client?: any
-  // currentHtmlFile?: string
+  /**
+   * True when the current LLM request originates from the revela-research subagent.
+   * Set in experimental.chat.system.transform by detecting RESEARCH_AGENT_SIGNATURE.
+   * Used by tool.execute.before to allow websearch for research agents only.
+   */
+  isResearchAgent: boolean
 }
 
 /** Global singleton. Import and use directly from any module. */
 export const ctx: RevelaCtx = {
   enabled: false,
+  isResearchAgent: false,
 }

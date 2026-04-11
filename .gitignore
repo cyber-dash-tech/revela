@@ -5,6 +5,8 @@ AGENTS.md
 *.jsonc
 opencode.json
 designs/*/preview.html
+researches
+slides
 # Python
 __pycache__/
 *.py[cod]

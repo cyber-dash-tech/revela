@@ -73,77 +73,184 @@ Do not proceed to Phase 2 until the user has replied to the design question.
 files.** Your job is to proactively gather all available information before
 writing a single slide.
 
-#### Three-Layer Research Strategy
+#### Execution Model — Parallel, Not Sequential
 
-**Layer 1 — Workspace documents (highest priority, most reliable)**
+Research layers are **NOT** a sequential fallback chain where you stop once
+"enough" data is collected. Execute them as parallel workstreams:
+
+```
+┌─────────────────────────────────────────────┐
+│  LAUNCH TOGETHER (as your first action):    │
+│                                             │
+│  ┌──────────────┐  ┌─────────────────────┐  │
+│  │ Layer 1      │  │ Layer 2.5           │  │
+│  │ Workspace    │  │ Research agents     │  │
+│  │ scan         │  │ (parallel per axis) │  │
+│  └──────────────┘  └─────────────────────┘  │
+│                                             │
+│  After both complete:                       │
+│  ┌──────────────┐                           │
+│  │ Layer 2      │  AI knowledge fills gaps  │
+│  └──────────────┘                           │
+│                                             │
+│  Only if still missing:                     │
+│  ┌──────────────┐                           │
+│  │ Layer 3      │  Ask the user             │
+│  └──────────────┘                           │
+└─────────────────────────────────────────────┘
+```
+
+**Layer 1 and Layer 2.5 launch in parallel as the FIRST action after Phase 1.5.**
+Do not wait for Layer 1 results before launching Layer 2.5. Do not use Layer 2
+(AI knowledge) as an excuse to skip Layer 2.5.
+
+---
+
+#### Layer 1 — Workspace Documents
 
 Scan the workspace for reference documents using the built-in file tools
-(`ls`, `find`, `glob`). Look for files with extensions:
+(`ls`, `glob`). Look for files with extensions:
 `.pdf`, `.xlsx`, `.xls`, `.docx`, `.doc`, `.pptx`, `.ppt`, `.csv`
 and images: `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`
 
-If the `extract` tool is available (from a document extraction plugin):
-  Extract each document using the `extract` tool with `file_path` set to the
-  absolute path. For large PDFs/PPTXs, use the `pages` argument to extract
-  in ranges (e.g. `"1-10"`).
+Use the `read` tool to read each relevant file. The Revela plugin transparently
+extracts text from binary formats (PDF, Excel, Word, PowerPoint) — just call
+`read` normally on any file type.
 
-If the `extract` tool is NOT available:
-  Use the built-in `read` tool to read text-based files directly.
-  For binary files (PDF, Excel, PPT), inform the user that document extraction
-  requires a document extraction plugin, or ask them to provide the content
-  in text form.
+---
 
-**Layer 2 — AI knowledge (second priority)**
+#### Layer 2.5 — Deep Research via Research Agents (MANDATORY)
 
-Use your training data to supplement publicly available background information:
-industry trends, competitor overviews, market sizing, technology context.
+**This layer is mandatory whenever the `@revela-research` subagent (Task tool
+with `subagent_type: "revela-research"`) is available.** It is the primary
+research workhorse — not an optional enhancement.
+
+The research agent searches the web aggressively using `webfetch` on targeted
+URLs, reads workspace documents, and writes structured findings to a single
+file `researches/{topic-slug}/{axis-name}.md` in the workspace.
+
+##### Parallelization Rule
+
+Decompose the topic into **independent research axes** before launching agents.
+Each axis gets its own dedicated agent with a focused brief. Launch ALL agents
+in a single message (parallel Task tool calls).
+
+**How to decompose:** Look at what the presentation needs to cover. Each major
+entity, comparison dimension, or macro question is a separate axis. Typical
+decompositions:
+
+| Topic type | Example axes |
+|---|---|
+| Company comparison | Company A data, Company B data, market context |
+| Industry analysis | Market sizing, competitive landscape, technology trends, regulatory |
+| Investment thesis | Opportunity metrics, risk factors, comparable deals, macro trends |
+| Product strategy | User research, competitor features, technology feasibility, go-to-market |
+
+**3+ axes → 3+ parallel agents.** Never collapse everything into one brief.
+
+##### Invocation Example — Multi-Agent Parallel
+
+For a topic like "Investment shift from OpenAI to Anthropic":
+
+```
+Agent 1 (Anthropic):
+> Research Anthropic's trajectory for a presentation on AI investment shifts:
+> - Funding history: Series rounds, valuations, key investors
+> - Revenue and growth: run-rate, enterprise adoption, key products
+> - Competitive advantages: safety positioning, developer tools, reliability
+> Focus on 2025-2026 data. Write findings to researches/ai-investment-shift/
+
+Agent 2 (OpenAI):
+> Research OpenAI's challenges for a presentation on AI investment shifts:
+> - Financial: burn rate, profitability timeline, cost structure
+> - Operational: API reliability data, outage frequency, enterprise complaints
+> - Governance: nonprofit conversion, leadership controversies, investor concerns
+> Focus on 2025-2026 data. Write findings to researches/ai-investment-shift/
+
+Agent 3 (Market & Capital Flow):
+> Research AI industry capital flow for a presentation on AI investment shifts:
+> - VC investment patterns: dual-backing trends, secondary market activity
+> - Enterprise adoption: market share shifts, switching patterns
+> - Macro trends: agentic AI adoption, market size projections
+> Focus on 2025-2026 data. Write findings to researches/ai-investment-shift/
+```
+
+Launch all agents in **one message** using parallel Task tool calls. Each agent
+runs independently and writes its own findings file:
+`researches/{topic-slug}/{axis-name}.md`
+
+Each agent's brief should specify:
+- The topic slug (shared, e.g. `ai-investment-shift`)
+- The axis name for their file (e.g. `anthropic-profile`, `openai-challenges`, `market-trends`)
+- What to research and what time period to focus on
+
+##### After Agents Complete
+
+List and read the findings files: `ls researches/{topic-slug}/`, then `read`
+each `.md` file. Each file contains structured `## Data`, `## Cases`,
+`## Images`, and `## Gaps` sections — use these directly as slide material.
+Cross-reference agent findings with workspace documents (Layer 1). Flag any
+contradictions.
+
+##### Fallback — ONLY if Research Agent is Unavailable
+
+If and only if the Task tool with `subagent_type: "revela-research"` is **not
+available as a tool** (i.e., it does not exist in your tool list), fall back to
+using `webfetch` directly on targeted URLs. Even in fallback mode, structure
+your research by axis — do not run a single vague query.
+
+Note: `websearch` is blocked by the Revela plugin when agents are available.
+In fallback mode, use `webfetch` with specific URLs from your knowledge.
+
+**Anti-pattern — NEVER do this:**
+- Do NOT use `websearch` directly — it is blocked by the Revela plugin to
+  enforce systematic research. Use research agents (or `webfetch` for specific
+  URLs in fallback mode).
+- Do NOT run a few quick searches, decide "that's enough data", and skip the
+  research agent. The agent's job is deep, systematic research — ad-hoc
+  fetches cannot replace it.
+
+---
+
+#### Layer 2 — AI Knowledge (Supplementary)
+
+After Layer 1 and Layer 2.5 results are in, use your training data to fill
+remaining gaps: industry context, historical background, technical explanations.
 
 **Critical:** Always mark AI-sourced information with
 `[Source: AI 公开知识，建议核实]`. Never present AI knowledge as verified fact.
 
-**Layer 2.5 — Web search (when available)**
+This layer is supplementary — it adds context around the hard data from
+Layers 1 and 2.5. It must never be the primary source for quantitative claims
+(market size, revenue, growth rates, etc.).
 
-If you have access to web search tools (`webfetch`, `websearch`, or MCP
-`search` / `fetchWebContent`), use them to find current data that your
-training knowledge may not cover:
+---
 
-- Industry reports, market data, recent news, regulatory updates
-- Company financials, funding rounds, patent filings
-- Technology benchmarks, competitive landscape updates
-
-Search strategy:
-1. Formulate 2–3 targeted search queries based on the presentation topic
-2. Use available search tools with relevant keywords (Chinese or English depending on topic)
-3. Read the most relevant results in full
-4. Synthesize findings into slide content, cross-referencing with workspace documents
-
-**Critical:** Always mark web-sourced information with
-`[Source: 网络搜索，建议核实]` and include the source URL when possible.
-Do NOT blindly trust search results — cross-reference with workspace documents.
-
-If the search tools are not available or all searches fail, skip this layer
-silently and continue with Layer 3.
-
-**Layer 3 — Ask the user (last resort only)**
+#### Layer 3 — Ask the User (Last Resort Only)
 
 Only ask the user for information that Layers 1, 2, and 2.5 cannot cover.
 When asking, first report what you already know:
 
-> 我已从 workspace 中的 N 份文档提取了信息，结合公开知识，覆盖了以下内容：
-> [brief list of covered topics]
+> 我已从 workspace 文档和在线调研中获取了以下信息：
+> [brief list of covered topics with source counts]
 >
 > 以下关键信息我无法从现有资料中获取，需要您补充：
 > 1. [specific missing item]
 > 2. [specific missing item]
+
+---
 
 #### Rules
 
 - **NEVER** ask the user for information that exists in workspace documents
 - **NEVER** skip workspace scanning — even if the user's message seems self-contained
 - **NEVER** ask "do you have reference files?" — just scan and find out
-- Extract content from ALL document types: PDF, Excel, Word, PPT, CSV (when extract tool is available)
-- For binary document files without the extract tool, ask the user to provide text content
-- Images: use the `read` tool to view them (returns visual attachment)
+- **NEVER** use `websearch` — it is blocked; delegate to research agents instead
+- **NEVER** collapse multiple research axes into a single agent call
+- **ALWAYS** launch research agents as your first action (parallel with workspace scan)
+- **ALWAYS** decompose the topic into independent axes before launching agents
+- **ALWAYS** read each `researches/{slug}/{axis}.md` after agents complete
+- Use the `read` tool for all file types — binary formats are handled transparently
 
 ---
 
@@ -165,6 +272,14 @@ When the user asks for N slides, distribute them across these sections.
 A 6-slide deck might be: Cover → Background → Content × 3 → Closing.
 An 8-slide deck might be: Cover → TOC → Background → Content × 3 → Summary → Closing.
 Never skip Cover, Background, or Closing regardless of slide count.
+
+**Every `<section class="slide">` must include a `data-slide-type` attribute** declaring its structural role:
+
+<!-- @slide-types -->
+
+Example: `<section class="slide" data-slide-type="cover" data-index="0">`
+
+The layout QA system uses this to skip fill-ratio and spacing checks on structural slides that are intentionally sparse.
 
 ### Domain Context
 

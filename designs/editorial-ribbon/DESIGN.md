@@ -186,13 +186,13 @@ Every generated presentation must use this exact HTML skeleton:
     <nav class="nav-dots" id="navDots" aria-label="Slide navigation"></nav>
 
     <!-- Slides -->
-    <section class="slide title-slide" data-index="0">
+    <section class="slide title-slide" data-slide-type="cover" data-index="0">
         <div class="slide-canvas"> ... </div>
     </section>
-    <section class="slide" data-index="1">
+    <section class="slide" data-slide-type="content" data-index="1">
         <div class="slide-canvas"> ... </div>
     </section>
-    <!-- more slides, each with data-index -->
+    <!-- every <section class="slide"> must have data-slide-type — see SKILL.md for valid values -->
 
     <script>/* all JS here */</script>
 </body>
