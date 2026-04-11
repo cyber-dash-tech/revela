@@ -350,7 +350,7 @@ async function installFromUrl(url: string, name?: string): Promise<string> {
     if (!response.ok) {
       throw new Error(`Failed to download: ${response.status} ${response.statusText}`)
     }
-    const buffer = Buffer.from(await response.arrayBuffer())
+    const buffer = new Uint8Array(await response.arrayBuffer())
     writeFileSync(zipPath, buffer)
 
     // Extract using Bun's built-in or system unzip
