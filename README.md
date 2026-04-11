@@ -59,17 +59,22 @@ export { default } from "/absolute/path/to/revela/index.ts";
 
 ## Quick Start
 
+Enable OpenCode's web search (recommended):
+```bash
+OPENCODE_ENABLE_EXA=1 opencode
+```
+
+Enable Revela in your OpenCode session — turns the primary agent into a slide design expert:
 ```
 /revela enable
 ```
 
-Then describe your presentation goal to the AI. Revela will understand your real intent through conversation, then generate a complete slide deck. Open the output file in any browser — no build step, no framework.
+Then describe what you want to present. Revela will research, analyse, and generate a complete slide deck. Open the output file in any browser — no build step, no framework.
 
+To turn it off and restore the primary agent to normal:
 ```
 /revela disable
 ```
-
-Turns off Revela's system prompt for the current session.
 
 ---
 
