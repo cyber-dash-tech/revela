@@ -1,0 +1,38 @@
+# Files and directories to exclude from the npm package.
+# This file overrides .gitignore for npm publish purposes.
+
+# Development / local config
+opencode.jsonc
+*.jsonc
+.env
+.env.*
+
+# Project knowledge base (internal AI-agent notes)
+AGENTS.md
+
+# Test fixtures and test files
+tests/
+scripts/debug-qa.ts
+scripts/test-qa.ts
+
+# Generated runtime data
+researches/
+slides/
+
+# Design preview files (large HTML, not needed in package)
+designs/*/preview.html
+
+# Assets directory (images not yet added)
+assets/
+
+# Git and CI
+.github/
+.gitignore
+
+# Misc
+*.log
+.DS_Store
+dist/
+node_modules/
+bun.lock
+package-lock.json

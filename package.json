@@ -17,6 +17,28 @@
     "scripts/",
     "index.ts"
   ],
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "slides",
+    "presentation",
+    "ai",
+    "html",
+    "deck"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cyber-dash-tech/revela.git"
+  },
+  "homepage": "https://github.com/cyber-dash-tech/revela#readme",
+  "bugs": {
+    "url": "https://github.com/cyber-dash-tech/revela/issues"
+  },
+  "license": "MIT",
+  "author": "cyber-dash-tech",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc",
