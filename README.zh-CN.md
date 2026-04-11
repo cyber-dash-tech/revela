@@ -90,17 +90,20 @@ export { default } from "/path/to/revela/index.ts";
 
 ## 快速开始
 
+启用opencode搜索功能（推荐）
+```Bash
+OPENCODE_ENABLE_EXA=1 opencode
+```
+
+在 opencode 中启动 Revela（默认关闭），将 primary agent 变为演讲稿设计专家
 ```
 /revela enable
 ```
 
-然后向 AI 描述你的演讲目标。Revela 会通过聊天洞察你的真实诉求，随后生成一个完整的幻灯片文件。用浏览器直接打开，无需构建，无需框架。
-
+关闭当前会话中 Revela，primary agent 恢复正常
 ```
 /revela disable
 ```
-
-关闭当前会话中 Revela 的系统提示注入。
 
 ---
 
@@ -124,7 +127,7 @@ export { default } from "/path/to/revela/index.ts";
 
 ---
 
-## 内置设计
+## 内置设计模版
 
 插件内置三套设计，用 `/revela designs <name>` 切换。
 
@@ -136,7 +139,7 @@ export { default } from "/path/to/revela/index.ts";
 
 ---
 
-## 内置领域
+## 内置行业SOP
 
 领域为 AI 的上下文提供特定行业的报告框架和术语。
 
@@ -161,9 +164,9 @@ export { default } from "/path/to/revela/index.ts";
 
 ---
 
-## 布局 QA
+## 排版 QA
 
-每次 AI 写入幻灯片文件时，Revela 会自动在 1920×1080 分辨率下运行基于 Puppeteer 的布局检测。发现问题后立即将报告反馈给 AI，AI 自行修正，无需人工干预。
+每次 AI 写入幻灯片文件时，Revela 会自动在 1920×1080 分辨率下运行基于 Puppeteer 的排版质检。发现问题后立即将报告反馈给 AI，AI 自行修正，无需人工干预。（**功能持续更新中 ...**）
 
 每张幻灯片的检查项：
 
@@ -184,7 +187,7 @@ export { default } from "/path/to/revela/index.ts";
 
 ---
 
-## 自定义设计
+## 自定义模版
 
 设计是包含 `DESIGN.md` 文件的文件夹，frontmatter 声明元数据：
 
@@ -237,7 +240,7 @@ ECharts / 数据可视化规范...
 
 没有标记时，整个 `DESIGN.md` 内容每轮全量注入（向后兼容）。
 
-### 安装自定义设计
+### 自定义模版安装
 
 ```
 /revela designs-add github:your-org/your-design
@@ -247,7 +250,7 @@ ECharts / 数据可视化规范...
 
 ---
 
-## 自定义领域
+## 自定义行业SOP
 
 领域为 AI 增加特定行业的报告框架、术语和结构化指导。
 

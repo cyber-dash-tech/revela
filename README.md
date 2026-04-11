@@ -69,8 +69,6 @@ Enable Revela in your OpenCode session — turns the primary agent into a slide 
 /revela enable
 ```
 
-Then describe what you want to present. Revela will research, analyse, and generate a complete slide deck. Open the output file in any browser — no build step, no framework.
-
 To turn it off and restore the primary agent to normal:
 ```
 /revela disable
