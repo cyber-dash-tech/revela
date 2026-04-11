@@ -2,8 +2,8 @@
 
 [English](README.md) | **中文**
 
-[OpenCode](https://opencode.ai) 插件，让 AI 成为你的演示文稿设计师。
-用对话描述你的幻灯片内容，Revela 自动生成一个可在任意浏览器直接打开的自包含 HTML 文件。
+Revela 是一款 [OpenCode](https://opencode.ai) 插件，让 AI 成为你的PPT助手。
+用对话方式描述你的需求，Revela 会自动调研、分析、洞察，最后呈现你心中的PPT。
 
 [![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela)
 [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE)
@@ -89,7 +89,7 @@ export { default } from "/path/to/revela/index.ts";
 /revela enable
 ```
 
-然后向 AI 描述你的演示文稿。Revela 会询问主题、受众和页数，随后生成一个完整的 HTML 幻灯片文件。用浏览器直接打开，无需构建，无需框架。
+然后向 AI 描述你的演讲目标。Revela 会通过聊天洞察你的真实诉求，随后生成一个完整的幻灯片文件。用浏览器直接打开，无需构建，无需框架。
 
 ```
 /revela disable
