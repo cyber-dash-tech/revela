@@ -1,5 +1,5 @@
 {
-  "name": "revela",
+  "name": "@cyber-dash-tech/revela",
   "version": "0.1.0",
   "description": "OpenCode plugin that turns AI into an HTML slide deck generator",
   "type": "module",

@@ -1,49 +1,54 @@
 # Revela
 
+**English** | [中文](README.zh-CN.md)
+
 An [OpenCode](https://opencode.ai) plugin that turns your AI into a presentation designer.
 Describe your slides in conversation — Revela handles the rest and outputs a self-contained HTML file you can open in any browser.
+
+[![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE)
+[![tests](https://img.shields.io/badge/tests-73%20passing-brightgreen)](tests/)
+[![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai)
+[![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 ---
 
 ## Requirements
 
-- [OpenCode](https://opencode.ai) (Bun runtime — `bun >= 1.0.0`)
+- [OpenCode](https://opencode.ai) — Bun runtime (`bun >= 1.0.0`)
 - [Google Chrome](https://www.google.com/chrome/) or Chromium — required for the automatic Layout QA feature
-- Git (for source install)
+- Git — required for source install
 
 ---
 
 ## Install
 
-### From npm
-
-Add `revela` to the `plugin` array in your `opencode.json`:
+Add `@cyber-dash-tech/revela` to the `plugin` array in your `opencode.json`:
 
 ```json
 {
-  "plugin": ["revela"]
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["@cyber-dash-tech/revela"]
 }
 ```
 
-Restart OpenCode — Revela is installed automatically at startup.
+Restart OpenCode — the plugin is downloaded automatically via Bun.
 
-> **Note (China mainland):** OpenCode's plugin install uses Bun's package manager, which ignores npm registry mirror config. If install fails, use the source install method below instead.
+To install globally (available in all projects), add the same `plugin` entry to `~/.config/opencode/opencode.json`.
 
 ### From source
 
 ```bash
 git clone https://github.com/cyber-dash-tech/revela
-cd revela
-npm install
+cd revela && npm install
 ```
 
-Create a wrapper file at `~/.config/opencode/plugins/revela.js`:
+Create `~/.config/opencode/plugins/revela.js`:
 
 ```js
 export { default } from "/absolute/path/to/revela/index.ts";
 ```
 
-Restart OpenCode. You should see `/revela` in the command palette (`ctrl+p`).
+> **Note (China mainland):** OpenCode's plugin installer uses Bun's package manager, which does not respect npm registry mirror configuration. Use the source install method above, or manually install the package with npm and create a local wrapper — see [中文说明](README.zh-CN.md#安装).
 
 ---
 
