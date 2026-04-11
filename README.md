@@ -3,7 +3,7 @@
 **English** | [中文](README.zh-CN.md)
 
 <p align="center">
-  <img src="assets/img/logo.png" alt="Revela" width="200" />
+  <img src="assets/img/logo.png" alt="Revela" width="800" />
 </p>
 
 An [OpenCode](https://opencode.ai) plugin that turns your AI into a presentation assistant.
