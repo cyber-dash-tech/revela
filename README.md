@@ -2,6 +2,8 @@
 
 **English** | [中文](README.zh-CN.md)
 
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-73%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai)  [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
 </p>
@@ -9,11 +11,7 @@
 An [OpenCode](https://opencode.ai) plugin that turns your AI into a presentation assistant.
 Describe what you want to present — Revela researches, analyses, and generates a complete slide deck for you.
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela)
-[![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE)
-[![tests](https://img.shields.io/badge/tests-73%20passing-brightgreen)](tests/)
-[![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai)
-[![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+
 
 **[Live Demo — The AI Power Shift](https://cyber-dash-tech.github.io/revela/assets/html/ai-power-shift.html)** · A 5-slide investment brief generated entirely by Revela.
 
