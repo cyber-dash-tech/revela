@@ -5,6 +5,7 @@
 [OpenCode](https://opencode.ai) 插件，让 AI 成为你的演示文稿设计师。
 用对话描述你的幻灯片内容，Revela 自动生成一个可在任意浏览器直接打开的自包含 HTML 文件。
 
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela)
 [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE)
 [![tests](https://img.shields.io/badge/tests-73%20passing-brightgreen)](tests/)
 [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai)

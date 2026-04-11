@@ -5,6 +5,7 @@
 An [OpenCode](https://opencode.ai) plugin that turns your AI into a presentation designer.
 Describe your slides in conversation — Revela handles the rest and outputs a self-contained HTML file you can open in any browser.
 
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela)
 [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE)
 [![tests](https://img.shields.io/badge/tests-73%20passing-brightgreen)](tests/)
 [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai)
