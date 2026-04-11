@@ -2,8 +2,8 @@
 
 **English** | [中文](README.zh-CN.md)
 
-An [OpenCode](https://opencode.ai) plugin that turns your AI into a presentation designer.
-Describe your slides in conversation — Revela handles the rest and outputs a self-contained HTML file you can open in any browser.
+An [OpenCode](https://opencode.ai) plugin that turns your AI into a presentation assistant.
+Describe what you want to present — Revela researches, analyses, and generates a complete slide deck for you.
 
 [![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela)
 [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE)
@@ -59,7 +59,7 @@ export { default } from "/absolute/path/to/revela/index.ts";
 /revela enable
 ```
 
-Then start describing your presentation to the AI. Revela will ask about your topic, audience, and slide count, then generate a self-contained HTML deck. Open the output file in any browser — no build step, no framework.
+Then describe your presentation goal to the AI. Revela will understand your real intent through conversation, then generate a complete slide deck. Open the output file in any browser — no build step, no framework.
 
 ```
 /revela disable
