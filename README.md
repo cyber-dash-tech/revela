@@ -9,7 +9,7 @@
 </p>
 
 An [OpenCode](https://opencode.ai) plugin that turns your AI into a presentation assistant.
-Describe what you want to present — Revela researches, analyses, and generates a complete slide deck for you.
+Tell Revela what's on your mind — it'll finish the research and analysis, and deliver a complete slide deck in a couple of minutes.
 
 
 
