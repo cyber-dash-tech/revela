@@ -179,7 +179,7 @@ OPENCODE_ENABLE_EXA=1 opencode
 | **密度失衡** | CSS `align-items: stretch` 列布局中隐藏的内容不平衡 |
 | **稀疏** | 可见元素过少的幻灯片 |
 
-封面、目录、分隔、总结、结语幻灯片通过 `data-slide-type` 属性自动豁免填充/间距检查。
+结构性幻灯片（封面、目录、引言、总结、结语）设置 `slide-qa="false"`，自动豁免填充/间距检查。内容型幻灯片设置 `slide-qa="true"` 启用 QA 检查。
 
 也可以手动触发：让 AI "对 slides/my-deck.html 运行 QA"，或直接使用 `revela-qa` 工具。
 

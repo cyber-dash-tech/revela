@@ -47,43 +47,6 @@ export interface QAReport {
   summary: string
 }
 
-// ── Slide type registry — dynamic, set by prompt-builder at buildPrompt() time ─
-
-/**
- * Runtime slide type registry.
- *
- * Populated by `setSlideTypes()` when `buildPrompt()` runs and parses the
- * active design's @layout markers. This makes QA exemptions design-driven:
- * each DESIGN.md's `qa=false` layouts automatically become exempt.
- *
- * Single source of truth consumed by:
- *   - QA checks (getExemptTypes() below)
- *   - prompt-builder.ts (injected into SKILL.md via <!-- @slide-types --> placeholder)
- */
-let _slideTypes: string[] = []
-let _exemptTypes: Set<string> = new Set()
-
-/** Get all valid slide type names for the active design. */
-export function getSlideTypes(): readonly string[] {
-  return _slideTypes
-}
-
-/** Get the set of slide types exempt from balance and rhythm QA checks. */
-export function getExemptTypes(): ReadonlySet<string> {
-  return _exemptTypes
-}
-
-/**
- * Set the slide type registry from the active design's layout markers.
- * Called by buildPrompt() after parsing @layout:xxx markers.
- * @param types - All layout names (e.g. ["cover", "toc", "two-col", ...])
- * @param exempt - Layout names with qa=false (e.g. ["cover", "toc", "closing"])
- */
-export function setSlideTypes(types: string[], exempt: string[]): void {
-  _slideTypes = [...types]
-  _exemptTypes = new Set(exempt)
-}
-
 // ── Thresholds ────────────────────────────────────────────────────────────────
 
 const T = {
@@ -243,7 +206,8 @@ function checkOverflow(metrics: SlideMetrics): LayoutIssue[] {
 
 /**
  * Check 2: Balance — content centroid, bottom gap, sparsity.
- * Skipped for EXEMPT_TYPES (cover, closing, etc.).
+ * Only runs when `metrics.slideQa` is true (content-heavy layouts).
+ * Structural/sparse slides (cover, closing, etc.) set slide-qa="false" and are skipped.
  *
  * Sub-checks:
  *   - centroid_offset: weighted centroid deviates too far from canvas centre
@@ -265,17 +229,8 @@ function checkBalance(metrics: SlideMetrics): LayoutIssue[] {
     return issues
   }
 
-  // Exempt structural slides
-  if (metrics.slideType && getExemptTypes().has(metrics.slideType)) return []
-
-  // Geometry fallback for old HTML without data-slide-type:
-  // detect cover-like slides (single centred column)
-  const contentCenterX = (contentRect.left + contentRect.right) / 2
-  const canvasCenterX = canvasRect.width / 2
-  const centerOffsetFrac = Math.abs(contentCenterX - canvasCenterX) / canvasRect.width
-  const maxElemWidth = Math.max(...elements.map((e) => e.rect.width))
-  const isCoverLike = centerOffsetFrac < 0.15 && maxElemWidth < canvasRect.width * 0.65
-  if (isCoverLike) return []
+  // Skip balance checks for structural/sparse slides (slide-qa="false")
+  if (!metrics.slideQa) return []
 
   // ── Sub-check: sparse ────────────────────────────────────────────────────
   const visibleCount = elements.filter((e) => e.visible).length
@@ -502,8 +457,8 @@ function cv(values: number[]): number {
 function checkRhythm(metrics: SlideMetrics): LayoutIssue[] {
   const issues: LayoutIssue[] = []
 
-  // Exempt structural slides
-  if (metrics.slideType && getExemptTypes().has(metrics.slideType)) return []
+  // Skip rhythm checks for structural/sparse slides (slide-qa="false")
+  if (!metrics.slideQa) return []
 
   function checkContainer(els: ElementInfo[], containerSelector?: string) {
     if (els.length < 2) return

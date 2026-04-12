@@ -191,13 +191,13 @@ Every generated presentation must use this exact HTML skeleton:
     <nav class="nav-dots" id="navDots" aria-label="Slide navigation"></nav>
 
     <!-- Slides -->
-    <section class="slide title-slide" data-slide-type="cover" data-index="0">
+    <section class="slide title-slide" slide-qa="false" data-index="0">
         <div class="slide-canvas"> ... </div>
     </section>
-    <section class="slide" data-slide-type="two-col" data-index="1">
+    <section class="slide" slide-qa="true" data-index="1">
         <div class="slide-canvas"> ... </div>
     </section>
-    <!-- every <section class="slide"> must have data-slide-type — see SKILL.md for valid values -->
+    <!-- every <section class="slide"> must have slide-qa="true"/"false" — content layouts use true, structural/sparse use false -->
 
     <script>/* all JS here */</script>
 </body>
@@ -444,7 +444,80 @@ After the `SlidePresentation` class, include:
 1. `lucide.createIcons();` to render Lucide icons
 2. Counter animation function (if stat cards with `data-target` are present)
 3. ECharts initialization (if charts are present)
-4. Inline editing code (see SKILL.md)
+4. Inline editing (see below)
+
+### Inline Editing
+
+Always include this block verbatim after `SlidePresentation`. It enables
+click-to-edit on all text elements and exposes `window.getEditedHTML()`.
+
+```javascript
+// --- Inline Editing ---
+(function() {
+    const EDITABLE = 'h1,h2,h3,h4,p,span,li,blockquote,cite,' +
+        '.card-title,.card-body,.stat-number,.stat-label,.stat-desc,' +
+        '.step-title,.step-desc';
+    let hoverTimer = null;
+    let activeEl = null;
+
+    document.querySelectorAll(EDITABLE).forEach(el => {
+        el.addEventListener('mouseenter', () => {
+            hoverTimer = setTimeout(() => {
+                el.style.outline = '1px dashed rgba(128,128,128,0.3)';
+                el.style.cursor = 'text';
+            }, 400);
+        });
+        el.addEventListener('mouseleave', () => {
+            clearTimeout(hoverTimer);
+            if (el !== activeEl) {
+                el.style.outline = '';
+                el.style.cursor = '';
+            }
+        });
+        el.addEventListener('click', (e) => {
+            if (activeEl && activeEl !== el) {
+                activeEl.contentEditable = 'false';
+                activeEl.style.outline = '';
+                activeEl.style.cursor = '';
+            }
+            el.contentEditable = 'true';
+            el.style.outline = '2px solid rgba(59,130,246,0.5)';
+            el.style.cursor = 'text';
+            activeEl = el;
+            e.stopPropagation();
+        });
+    });
+
+    document.addEventListener('click', () => {
+        if (activeEl) {
+            activeEl.contentEditable = 'false';
+            activeEl.style.outline = '';
+            activeEl.style.cursor = '';
+            activeEl = null;
+        }
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && activeEl) {
+            activeEl.contentEditable = 'false';
+            activeEl.style.outline = '';
+            activeEl.style.cursor = '';
+            activeEl = null;
+        }
+    });
+
+    window.getEditedHTML = () =>
+        '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+})();
+```
+
+**Rules:**
+- **JS-based hover activation** — 400ms hover delay before showing edit outline.
+  Click activates `contenteditable`. Click outside or Escape deactivates.
+- **Never** use CSS `~` sibling selector (breaks due to `pointer-events: none`).
+- **Editable elements** — only text content as listed in `EDITABLE` above.
+  Never make structural containers or images editable.
+- **Hover style** — `outline: 1px dashed rgba(128,128,128,0.3)` on hover,
+  `outline: 2px solid rgba(59,130,246,0.5)` when actively editing.
 
 <!-- @design:foundation:end -->
 
@@ -538,18 +611,19 @@ pre, code {
 
 ### Layout Types
 
-Each `<section class="slide">` must declare `data-slide-type` matching one of
-the layouts below. Fetch full HTML + CSS for any layout with the `revela-designs`
-tool (`action: "read"`, `layout: "<name>"`).
+Each `<section class="slide">` must set `slide-qa="true"` or `slide-qa="false"`.
+Content-heavy layouts (marked ✓ in the QA column below) use `"true"`; structural
+and sparse layouts use `"false"`. Fetch full HTML + CSS for any layout with the
+`revela-designs` tool (`action: "read"`, `layout: "<name>"`).
 
 <!-- @layout:cover:start qa=false -->
-#### Cover — Title Slide (`data-slide-type="cover"`)
+#### Cover — Title Slide
 
 Centered stack layout. Large h1 + subtitle + optional accent line. Add 2–3 deco-fills
 (blobs, lines) to anchor the sparse composition. Use `.title-reveal` for animation.
 
 ```html
-<section class="slide title-slide" data-slide-type="cover" data-index="0">
+<section class="slide title-slide" slide-qa="false" data-index="0">
   <div class="slide-canvas">
     <div class="deco-blob" style="width:400px;height:400px;top:-80px;right:-60px;background:radial-gradient(circle,var(--accent) 0%,transparent 70%);opacity:0.08"></div>
     <div class="deco-blob" style="width:300px;height:300px;bottom:-60px;left:40px;background:radial-gradient(circle,var(--accent-2) 0%,transparent 70%);opacity:0.07"></div>
@@ -565,13 +639,13 @@ CSS: use `.slide-canvas` default (centered stack). Max-width `1200px` on inner c
 <!-- @layout:cover:end -->
 
 <!-- @layout:toc:start qa=false -->
-#### TOC — Table of Contents (`data-slide-type="toc"`)
+#### TOC — Table of Contents
 
 Numbered chapter list. 3–5 items max. Two-column arrangement: heading on left,
 chapter list on right.
 
 ```html
-<section class="slide" data-slide-type="toc" data-index="N">
+<section class="slide" slide-qa="false" data-index="N">
   <div class="slide-canvas" style="justify-content:flex-start;padding-top:80px;">
     <div class="two-col" style="align-items:flex-start;">
       <div class="two-col-main">
@@ -600,13 +674,13 @@ chapter list on right.
 <!-- @layout:toc:end -->
 
 <!-- @layout:two-col:start qa=true -->
-#### Two-Column Grid (`data-slide-type="two-col"`)
+#### Two-Column Grid
 
 Primary narrative on the left, supporting content on the right. Either side can
 hold any component — text, cards, charts, evidence lists, images.
 
 ```html
-<section class="slide" data-slide-type="two-col" data-index="N">
+<section class="slide" slide-qa="true" data-index="N">
   <div class="slide-canvas" style="justify-content:flex-start;padding-top:80px;">
     <p class="label reveal">Section Label</p>
     <h2 class="reveal" style="margin-bottom:40px;">Slide Heading</h2>
@@ -633,13 +707,13 @@ hold any component — text, cards, charts, evidence lists, images.
 <!-- @layout:two-col:end -->
 
 <!-- @layout:card-grid:start qa=true -->
-#### Card Grid (`data-slide-type="card-grid"`)
+#### Card Grid
 
 3-column card grid. Use for features, evidence items, team members, or any
 3–4 parallel items. Swap to `repeat(2, 1fr)` for 2 or 4 items.
 
 ```html
-<section class="slide" data-slide-type="card-grid" data-index="N">
+<section class="slide" slide-qa="true" data-index="N">
   <div class="slide-canvas" style="justify-content:flex-start;padding-top:80px;">
     <p class="label reveal">Section Label</p>
     <h2 class="reveal" style="margin-bottom:40px;">Slide Heading</h2>
@@ -664,13 +738,13 @@ For 2 items: `repeat(2, 1fr)`. For 4 items: `repeat(2, 1fr)` (2×2 grid).
 <!-- @layout:card-grid:end -->
 
 <!-- @layout:stats:start qa=true -->
-#### Stats Row (`data-slide-type="stats"`)
+#### Stats Row
 
 3 stat-cards in a row. Use `data-target` for counter animation. Optionally add
 a supporting chart below the stats row for trend context.
 
 ```html
-<section class="slide" data-slide-type="stats" data-index="N">
+<section class="slide" slide-qa="true" data-index="N">
   <div class="slide-canvas" style="justify-content:flex-start;padding-top:80px;">
     <p class="label reveal">Key Metrics</p>
     <h2 class="reveal" style="margin-bottom:40px;">Slide Heading</h2>
@@ -700,14 +774,14 @@ Counter animation JS: iterate elements with `data-target`, count from 0 to targe
 <!-- @layout:stats:end -->
 
 <!-- @layout:data-vis:start qa=true -->
-#### Data Visualization (`data-slide-type="data-vis"`)
+#### Data Visualization
 
 Chart-focused slide. Can be full-width chart, or chart + commentary in two-col.
 Always fetch `section: "chart-rules"` before writing ECharts config.
 
 ```html
 <!-- Option A: Full-width chart -->
-<section class="slide" data-slide-type="data-vis" data-index="N">
+<section class="slide" slide-qa="true" data-index="N">
   <div class="slide-canvas" style="justify-content:flex-start;padding-top:80px;">
     <p class="label reveal">Data Label</p>
     <h2 class="reveal" style="margin-bottom:32px;">Chart Heading</h2>
@@ -716,7 +790,7 @@ Always fetch `section: "chart-rules"` before writing ECharts config.
 </section>
 
 <!-- Option B: Chart + commentary (two-col) -->
-<section class="slide" data-slide-type="data-vis" data-index="N">
+<section class="slide" slide-qa="true" data-index="N">
   <div class="slide-canvas" style="justify-content:flex-start;padding-top:80px;">
     <p class="label reveal">Data Label</p>
     <div class="two-col reveal" style="margin-top:0;">
@@ -742,13 +816,13 @@ Always fetch `section: "chart-rules"` before writing ECharts config.
 <!-- @layout:data-vis:end -->
 
 <!-- @layout:step-flow:start qa=true -->
-#### Step Flow (`data-slide-type="step-flow"`)
+#### Step Flow
 
 Horizontal process: 3–5 steps with numbered gradient circles and connectors.
 Use the `.step-flow` component. Steps alternate with `.step-connector` siblings.
 
 ```html
-<section class="slide" data-slide-type="step-flow" data-index="N">
+<section class="slide" slide-qa="true" data-index="N">
   <div class="slide-canvas" style="justify-content:flex-start;padding-top:80px;">
     <p class="label reveal">Process</p>
     <h2 class="reveal" style="margin-bottom:60px;">How It Works</h2>
@@ -786,13 +860,13 @@ Use the `.step-flow` component. Steps alternate with `.step-connector` siblings.
 <!-- @layout:step-flow:end -->
 
 <!-- @layout:quote:start qa=false -->
-#### Quote (`data-slide-type="quote"`)
+#### Quote
 
 Full-slide memorable quote. Centered stack. Use `.quote-block` + `.quote-deco`.
 Add 2–3 deco-fills to anchor the sparse composition.
 
 ```html
-<section class="slide" data-slide-type="quote" data-index="N">
+<section class="slide" slide-qa="false" data-index="N">
   <div class="slide-canvas">
     <div class="deco-blob" style="width:500px;height:500px;top:-100px;right:-80px;background:radial-gradient(circle,var(--accent-2) 0%,transparent 70%);opacity:0.06"></div>
     <div class="quote-deco" style="top:60px;left:80px;">&ldquo;</div>
@@ -813,13 +887,13 @@ Add 2–3 deco-fills to anchor the sparse composition.
 <!-- @layout:quote:end -->
 
 <!-- @layout:summary:start qa=false -->
-#### Summary (`data-slide-type="summary"`)
+#### Summary
 
 Key takeaways slide. Centered or top-aligned stack. ≤3 takeaway items.
 Use `evidence-list` or a simple numbered list inside a constrained container.
 
 ```html
-<section class="slide" data-slide-type="summary" data-index="N">
+<section class="slide" slide-qa="false" data-index="N">
   <div class="slide-canvas" style="justify-content:center;">
     <div style="max-width:900px;margin:0 auto;text-align:center;">
       <p class="label title-reveal">Key Takeaways</p>
@@ -836,13 +910,13 @@ Use `evidence-list` or a simple numbered list inside a constrained container.
 <!-- @layout:summary:end -->
 
 <!-- @layout:closing:start qa=false -->
-#### Closing (`data-slide-type="closing"`)
+#### Closing
 
 Thank-you / Q&A / contact slide. Centered stack. Keep it simple and elegant.
 Add 2–3 deco-fills. Optionally include contact info or a CTA button.
 
 ```html
-<section class="slide" data-slide-type="closing" data-index="N">
+<section class="slide" slide-qa="false" data-index="N">
   <div class="slide-canvas">
     <div class="deco-blob" style="width:400px;height:400px;top:-60px;left:-80px;background:radial-gradient(circle,var(--accent) 0%,transparent 70%);opacity:0.07"></div>
     <div class="deco-blob" style="width:350px;height:350px;bottom:-40px;right:-60px;background:radial-gradient(circle,var(--accent-2) 0%,transparent 70%);opacity:0.06"></div>

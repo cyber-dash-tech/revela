@@ -55,11 +55,12 @@ export interface SlideMetrics {
   /** slide title extracted from the first h1/h2 inside the slide */
   title: string
   /**
-   * Structural role from the slide's `data-slide-type` attribute.
-   * Valid values: "cover", "toc", "content", "closing", "divider", "summary".
-   * Undefined when the attribute is absent (old/third-party HTML).
+   * Whether this slide should be included in layout QA checks.
+   * Read from the `slide-qa` attribute on `<section class="slide">`.
+   * Defaults to `false` when the attribute is absent.
+   * Content-heavy layouts set `slide-qa="true"`; structural/sparse slides omit or use `"false"`.
    */
-  slideType?: string
+  slideQa: boolean
   /** bounding box of the slide-canvas element itself (post-scale) */
   canvasRect: Rect
   /** top-level visible children of .slide-canvas */
@@ -238,8 +239,8 @@ export async function measureSlides(htmlFilePath: string): Promise<SlideMetrics[
           const slide = document.querySelectorAll(".slide")[slideIdx]
           if (!slide) return null
 
-          // Read the semantic slide type if the author provided it
-          const slideType = (slide as HTMLElement).dataset.slideType || slide.getAttribute("data-slide-type") || undefined
+          // Read the QA flag — true means this slide gets balance/rhythm checks
+          const slideQa = (slide as HTMLElement).getAttribute("slide-qa") === "true"
 
           const canvas = slide.querySelector(".slide-canvas") as HTMLElement | null
           if (!canvas) return null
@@ -268,7 +269,7 @@ export async function measureSlides(htmlFilePath: string): Promise<SlideMetrics[
           return {
             index: slideIdx,
             title,
-            slideType,
+            slideQa,
             canvasRect,
             elements,
             contentRect: unionRect(elements),

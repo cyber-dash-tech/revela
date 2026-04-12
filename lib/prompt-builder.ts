@@ -33,7 +33,6 @@ import {
 } from "./design/designs"
 import { activeDomain, getDomainSkillMd } from "./domain/domains"
 import { parseFrontmatter } from "./frontmatter"
-import { setSlideTypes } from "./qa/checks"
 import { childLog } from "./log"
 
 const promptLog = childLog("prompt-builder")
@@ -52,9 +51,8 @@ export function buildPrompt(designName?: string, domainName?: string): string {
   const design = designName || activeDesign()
   const domain = domainName || activeDomain()
 
-  // Layer 1 — SKILL.md (with dynamic slide-type table injected)
-  let coreSkill = readFileSync(SKILL_MD_PATH, "utf-8")
-  coreSkill = injectSlideTypes(coreSkill, design)
+  // Layer 1 — SKILL.md
+  const coreSkill = readFileSync(SKILL_MD_PATH, "utf-8")
 
   // Check for preview.html
   const designDir = join(DESIGNS_DIR, design)
@@ -115,9 +113,6 @@ export function buildPrompt(designName?: string, domainName?: string): string {
  *     (available on demand via revela-designs tool)
  *
  * If no markers: return the full DESIGN.md body unchanged (backward compat).
- *
- * Also calls setSlideTypes() to sync QA exemptions with the active design's
- * layout markers.
  */
 function buildDesignLayer(designName: string): string {
   const mdPath = join(DESIGNS_DIR, designName, "DESIGN.md")
@@ -133,11 +128,6 @@ function buildDesignLayer(designName: string): string {
     // Backward-compatible: full text injection
     return body
   }
-
-  // Sync QA system: tell checks.ts which types are exempt (qa=false)
-  const allTypes = Object.keys(layouts)
-  const exemptTypes = allTypes.filter((t) => !layouts[t].qa)
-  setSlideTypes(allTypes, exemptTypes)
 
   const layerParts: string[] = []
 
@@ -180,47 +170,4 @@ function buildDesignLayer(designName: string): string {
   )
 
   return layerParts.join("\n\n---\n\n")
-}
-
-/**
- * Replace the <!-- @slide-types --> placeholder in SKILL.md with a generated
- * markdown table built from the active design's @layout markers.
- *
- * The table includes the QA column so LLM knows which layouts are quality-checked.
- * Falls back to a note saying "set after design loads" if no layouts are available yet.
- */
-function injectSlideTypes(skillMd: string, designName: string): string {
-  const mdPath = join(DESIGNS_DIR, designName, "DESIGN.md")
-  if (!existsSync(mdPath)) {
-    return skillMd.replace("<!-- @slide-types -->", "_Slide types are defined by the active design's layout markers._")
-  }
-
-  const raw = readFileSync(mdPath, "utf-8")
-  const { body } = parseFrontmatter(raw)
-  const { layouts, hasMarkers } = parseDesignSections(body)
-
-  if (!hasMarkers || Object.keys(layouts).length === 0) {
-    return skillMd.replace("<!-- @slide-types -->", "_Slide types are defined by the active design's layout markers._")
-  }
-
-  const rows = Object.entries(layouts).map(([name, info]) => {
-    // Use first non-empty, non-marker, non-code-fence line as description
-    const desc = info.content
-      .split("\n")
-      .map((l) => l.trim())
-      .find((l) => l && !l.startsWith("<!--") && !l.startsWith("```"))
-      ?.replace(/^#+\s*/, "")
-      .replace(/\(.*?\)/, "")
-      .trim() ?? ""
-    const qaIcon = info.qa ? "✓" : "—"
-    return `| \`${name}\` | ${qaIcon} | ${desc} |`
-  })
-
-  const table = [
-    "| Value | QA | Use for |",
-    "|-------|-----|---------|",
-    ...rows,
-  ].join("\n")
-
-  return skillMd.replace("<!-- @slide-types -->", table)
 }

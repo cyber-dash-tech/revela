@@ -148,7 +148,7 @@ Checks performed on every slide:
 | **Density imbalance** | Columns where CSS `align-items: stretch` hides content imbalance |
 | **Sparse** | Slides with too few visible elements |
 
-Cover, TOC, divider, summary, and closing slides are automatically exempted from fill/spacing checks via the `data-slide-type` attribute.
+Structural slides (cover, TOC, quote, summary, closing) set `slide-qa="false"` and are automatically exempted from fill/spacing checks. Content-heavy slides set `slide-qa="true"` to opt in.
 
 You can also invoke QA manually: ask the AI to "run QA on slides/my-deck.html" or use the `revela-qa` tool directly.
 
