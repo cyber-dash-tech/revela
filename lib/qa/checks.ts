@@ -47,40 +47,42 @@ export interface QAReport {
   summary: string
 }
 
-// ── Slide type registry — single source of truth ──────────────────────────────
+// ── Slide type registry — dynamic, set by prompt-builder at buildPrompt() time ─
 
 /**
- * All valid values for the `data-slide-type` attribute on `<section class="slide">`.
+ * Runtime slide type registry.
+ *
+ * Populated by `setSlideTypes()` when `buildPrompt()` runs and parses the
+ * active design's @layout markers. This makes QA exemptions design-driven:
+ * each DESIGN.md's `qa=false` layouts automatically become exempt.
  *
  * Single source of truth consumed by:
- *   - QA checks (EXEMPT_TYPES below)
+ *   - QA checks (getExemptTypes() below)
  *   - prompt-builder.ts (injected into SKILL.md via <!-- @slide-types --> placeholder)
  */
-export const SLIDE_TYPES = [
-  "cover",
-  "toc",
-  "content",
-  "summary",
-  "closing",
-  "divider",
-  "thank-you",
-] as const
+let _slideTypes: string[] = []
+let _exemptTypes: Set<string> = new Set()
 
-export type SlideType = (typeof SLIDE_TYPES)[number]
+/** Get all valid slide type names for the active design. */
+export function getSlideTypes(): readonly string[] {
+  return _slideTypes
+}
+
+/** Get the set of slide types exempt from balance and rhythm QA checks. */
+export function getExemptTypes(): ReadonlySet<string> {
+  return _exemptTypes
+}
 
 /**
- * Slide types that are intentionally sparse, centred, or structurally
- * different from "content" slides. Balance and rhythm checks are skipped
- * for these types (overflow and symmetry still apply).
+ * Set the slide type registry from the active design's layout markers.
+ * Called by buildPrompt() after parsing @layout:xxx markers.
+ * @param types - All layout names (e.g. ["cover", "toc", "two-col", ...])
+ * @param exempt - Layout names with qa=false (e.g. ["cover", "toc", "closing"])
  */
-export const EXEMPT_TYPES: ReadonlySet<string> = new Set<SlideType>([
-  "cover",
-  "toc",
-  "closing",
-  "divider",
-  "summary",
-  "thank-you",
-])
+export function setSlideTypes(types: string[], exempt: string[]): void {
+  _slideTypes = [...types]
+  _exemptTypes = new Set(exempt)
+}
 
 // ── Thresholds ────────────────────────────────────────────────────────────────
 
@@ -264,7 +266,7 @@ function checkBalance(metrics: SlideMetrics): LayoutIssue[] {
   }
 
   // Exempt structural slides
-  if (metrics.slideType && EXEMPT_TYPES.has(metrics.slideType)) return []
+  if (metrics.slideType && getExemptTypes().has(metrics.slideType)) return []
 
   // Geometry fallback for old HTML without data-slide-type:
   // detect cover-like slides (single centred column)
@@ -501,7 +503,7 @@ function checkRhythm(metrics: SlideMetrics): LayoutIssue[] {
   const issues: LayoutIssue[] = []
 
   // Exempt structural slides
-  if (metrics.slideType && EXEMPT_TYPES.has(metrics.slideType)) return []
+  if (metrics.slideType && getExemptTypes().has(metrics.slideType)) return []
 
   function checkContainer(els: ElementInfo[], containerSelector?: string) {
     if (els.length < 2) return

@@ -28,7 +28,7 @@ export const CONFIG_FILE = join(CONFIG_DIR, "config.json")
 export const ACTIVE_PROMPT_FILE = join(CONFIG_DIR, "_active-prompt.md")
 
 /** Default design name. */
-export const DEFAULT_DESIGN = "default"
+export const DEFAULT_DESIGN = "aurora"
 
 /** Default domain name. */
 export const DEFAULT_DOMAIN = "general"

@@ -1,12 +1,22 @@
-import { describe, it, expect } from "bun:test"
+import { describe, it, expect, beforeEach } from "bun:test"
 import {
   runChecks,
   formatReport,
-  SLIDE_TYPES,
-  EXEMPT_TYPES,
+  getSlideTypes,
+  getExemptTypes,
+  setSlideTypes,
 } from "../lib/qa/checks"
 import { CANVAS_W, CANVAS_H } from "../lib/qa/measure"
 import type { SlideMetrics, ElementInfo, Rect } from "../lib/qa/measure"
+
+// Seed a representative set of slide types that matches aurora's layout markers.
+// These are set once before each test suite so checks behave predictably.
+const TEST_ALL_TYPES   = ["cover", "toc", "two-col", "card-grid", "stats", "data-vis", "step-flow", "quote", "summary", "closing"]
+const TEST_EXEMPT_TYPES = ["cover", "toc", "quote", "summary", "closing"]
+
+beforeEach(() => {
+  setSlideTypes(TEST_ALL_TYPES, TEST_EXEMPT_TYPES)
+})
 
 // ── Fixture builders ───────────────────────────────────────────────────────
 
@@ -70,27 +80,47 @@ function makeMetrics(
   }
 }
 
-// ── SLIDE_TYPES / EXEMPT_TYPES ─────────────────────────────────────────────
+// ── Slide type registry ────────────────────────────────────────────────────
 
-describe("SLIDE_TYPES", () => {
-  it("contains all expected structural types", () => {
-    expect(SLIDE_TYPES).toContain("cover")
-    expect(SLIDE_TYPES).toContain("content")
-    expect(SLIDE_TYPES).toContain("closing")
-    expect(SLIDE_TYPES).toContain("divider")
-    expect(SLIDE_TYPES).toContain("toc")
-    expect(SLIDE_TYPES).toContain("summary")
-    expect(SLIDE_TYPES).toContain("thank-you")
+describe("slide type registry", () => {
+  it("getSlideTypes() returns the types set by setSlideTypes()", () => {
+    const types = getSlideTypes()
+    expect(types).toContain("cover")
+    expect(types).toContain("two-col")
+    expect(types).toContain("closing")
   })
 
-  it("EXEMPT_TYPES is a proper subset of SLIDE_TYPES values", () => {
-    for (const t of EXEMPT_TYPES) {
-      expect(SLIDE_TYPES).toContain(t as any)
+  it("getExemptTypes() contains the exempt types set by setSlideTypes()", () => {
+    const exempt = getExemptTypes()
+    expect(exempt.has("cover")).toBe(true)
+    expect(exempt.has("closing")).toBe(true)
+    expect(exempt.has("summary")).toBe(true)
+  })
+
+  it("getExemptTypes() is a proper subset of getSlideTypes() values", () => {
+    const allTypes = getSlideTypes()
+    for (const t of getExemptTypes()) {
+      expect(allTypes).toContain(t)
     }
   })
 
-  it("content type is NOT in EXEMPT_TYPES", () => {
-    expect(EXEMPT_TYPES.has("content")).toBe(false)
+  it("content types (two-col, card-grid, etc.) are NOT in exempt types", () => {
+    const exempt = getExemptTypes()
+    expect(exempt.has("two-col")).toBe(false)
+    expect(exempt.has("card-grid")).toBe(false)
+    expect(exempt.has("stats")).toBe(false)
+    expect(exempt.has("data-vis")).toBe(false)
+    expect(exempt.has("step-flow")).toBe(false)
+  })
+
+  it("setSlideTypes() replaces the registry atomically", () => {
+    setSlideTypes(["alpha", "beta"], ["beta"])
+    expect(getSlideTypes()).toContain("alpha")
+    expect(getSlideTypes()).toContain("beta")
+    expect(getExemptTypes().has("beta")).toBe(true)
+    expect(getExemptTypes().has("alpha")).toBe(false)
+    // Restore for subsequent tests
+    setSlideTypes(TEST_ALL_TYPES, TEST_EXEMPT_TYPES)
   })
 })
 
@@ -171,10 +201,10 @@ describe("balance / sparse", () => {
     expect(issues).toHaveLength(0)
   })
 
-  it("all EXEMPT_TYPES are fully skipped for balance checks", () => {
+  it("all exempt slide types are fully skipped for balance checks", () => {
     // A small element that would trigger balance issues on a content slide
     const el = makeElement(makeRect(760, 390, 1160, 690))
-    for (const type of EXEMPT_TYPES) {
+    for (const type of getExemptTypes()) {
       const m = makeMetrics({ slideType: type, elements: [el] })
       const report = runChecks("test.html", [m])
       const balanceIssues = report.slides[0].issues.filter((i) => i.type === "balance")
@@ -411,7 +441,7 @@ describe("rhythm / gap_variance", () => {
     expect(issues[0].severity).toBe("warning")
   })
 
-  it("gap_variance exempt for EXEMPT_TYPES", () => {
+  it("gap_variance is exempt for exempt slide types", () => {
     // Irregular gaps on a cover slide — should not fire
     const tops = [100, 210, 320, 530]
     const els = tops.map((top, i) =>

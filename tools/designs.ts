@@ -7,8 +7,10 @@ import {
   removeDesign,
   parseDesignSections,
   generateComponentIndex,
+  generateLayoutIndex,
   getDesignSection,
   getDesignComponent,
+  getDesignLayout,
 } from "../lib/design/designs"
 import { buildPrompt } from "../lib/prompt-builder"
 import { existsSync, readFileSync } from "fs"
@@ -23,7 +25,7 @@ export default tool({
     "Use action 'activate' to switch to a different design (requires name). " +
     "Use action 'install' to add a new design from a URL, local path, or github:user/repo shorthand (requires source). " +
     "Use action 'remove' to uninstall a design (requires name). " +
-    "Use action 'read' to fetch on-demand design content: pass component (comma-separated names) to get full CSS/HTML for specific components, or section ('charts' | 'guide' | 'global' | 'layouts' | 'components') to get an entire section. Pass neither to get the Component Index table. " +
+    "Use action 'read' to fetch on-demand design content: pass layout (comma-separated names) to get full HTML/CSS for specific layouts, pass component (comma-separated names) to get full CSS/HTML for specific components, or section ('chart-rules' | 'foundation' | 'layouts' | 'components') to get an entire section. Pass neither to get the Component Index table. " +
     "After activating a new design, the system prompt is automatically rebuilt.",
   args: {
     action: tool.schema
@@ -39,6 +41,12 @@ export default tool({
       .describe(
         "Install source — URL, local path, github:user/repo. Required for install."
       ),
+    layout: tool.schema
+      .string()
+      .optional()
+      .describe(
+        "For action 'read': comma-separated layout name(s) to fetch (e.g. 'cover', 'two-col,card-grid')"
+      ),
     component: tool.schema
       .string()
       .optional()
@@ -49,7 +57,7 @@ export default tool({
       .string()
       .optional()
       .describe(
-        "For action 'read': section name to fetch — 'charts', 'guide', 'global', 'layouts', or 'components'"
+        "For action 'read': section name to fetch — 'chart-rules', 'foundation', 'rules', 'layouts', or 'components'"
       ),
   },
   async execute(args) {
@@ -96,11 +104,16 @@ export default tool({
           }
           const raw = readFileSync(mdPath, "utf-8")
           const { body } = parseFrontmatter(raw)
-          const { components, hasMarkers } = parseDesignSections(body)
+          const { layouts, components, hasMarkers } = parseDesignSections(body)
 
           if (!hasMarkers) {
             // No markers — return full body
             return body
+          }
+
+          // Specific layout(s) requested
+          if (args.layout) {
+            return getDesignLayout(args.layout, designName)
           }
 
           // Specific component(s) requested
@@ -113,8 +126,11 @@ export default tool({
             return getDesignSection(args.section, designName)
           }
 
-          // Default: return Component Index
-          return generateComponentIndex(components)
+          // Default: return Layout Index + Component Index
+          const li = generateLayoutIndex(layouts)
+          const ci = generateComponentIndex(components)
+          const parts = [li, ci].filter(Boolean)
+          return parts.join("\n\n---\n\n") || "(no layouts or components found)"
         }
         default:
           return JSON.stringify({ error: `Unknown action: ${args.action}` })

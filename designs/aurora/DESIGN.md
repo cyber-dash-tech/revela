@@ -1,8 +1,8 @@
 ---
-name: default
-description: Clean modern dark theme — works for any topic
+name: aurora
+description: Clean modern dark theme with aurora borealis atmosphere — works for any topic
 author: slides-it
-version: 1.0.0
+version: 2.0.0
 preview: https://raw.githubusercontent.com/slides-it/slides-it/main/slides_it/designs/default/preview.png
 ---
 
@@ -10,7 +10,7 @@ preview: https://raw.githubusercontent.com/slides-it/slides-it/main/slides_it/de
 
 Apply this visual style when generating all slides in this session.
 
-<!-- @section:global:start -->
+<!-- @design:foundation:start -->
 
 ### Color Palette
 
@@ -194,7 +194,7 @@ Every generated presentation must use this exact HTML skeleton:
     <section class="slide title-slide" data-slide-type="cover" data-index="0">
         <div class="slide-canvas"> ... </div>
     </section>
-    <section class="slide" data-slide-type="content" data-index="1">
+    <section class="slide" data-slide-type="two-col" data-index="1">
         <div class="slide-canvas"> ... </div>
     </section>
     <!-- every <section class="slide"> must have data-slide-type — see SKILL.md for valid values -->
@@ -446,14 +446,423 @@ After the `SlidePresentation` class, include:
 3. ECharts initialization (if charts are present)
 4. Inline editing code (see SKILL.md)
 
-<!-- @section:global:end -->
+<!-- @design:foundation:end -->
 
-<!-- @section:components:start -->
+<!-- @design:rules:start -->
+
+### Composition Rules
+
+These rules are mandatory — not suggestions. Violating them produces slides that
+look wrong or off-brand.
+
+#### Common Recipes
+
+These are starting points — not constraints. Combine any components with any
+layout as the content demands.
+
+| Content Pattern | Suggested Recipe | Aurora Notes |
+|---|---|---|
+| 3–4 parallel features | `card-grid` layout + card ×3 | Each card: Lucide icon + label + title + body |
+| Key metrics (2–4 KPIs) | `stats` layout + stat-card ×3 | Counter animation, `.gradient-text` on numbers |
+| Narrative + evidence | `two-col` layout + text in main, card with evidence-list in aside | Glassmorphism evidence card |
+| Sequential process (3–5 steps) | `step-flow` layout + step-flow component | Gradient circles, glowing connectors |
+| Memorable quote | `quote` layout + quote-block + quote-deco | `border-left: 3px`, text glow |
+| Single powerful statement / CTA | `cover`-style centering + large heading + deco fills | `.gradient-text`. Max once per deck. |
+| Data visualization | `data-vis` layout + chart-container | Chart type per data — see chart-rules section |
+| KPIs with trend context | `stats` layout + stat-cards, then chart below | Headline numbers + supporting chart |
+| Team / people (3–4) | `card-grid` layout + card ×3 (no icons) | card-title → name, card-body → role |
+| Before vs After | `two-col` layout + content per side | Heading + evidence-list each column |
+| 6+ items on one topic | Split across 2 slides | Max 5 items per slide |
+
+#### Element Usage Rules
+
+**Gradient-text:** Apply to 1–3 key words in a heading — never entire sentences.
+Typical: key metric (`$4.2B`), core concept (`actually impress`), CTA (`Get Started`).
+Max one `.gradient-text` per slide.
+
+**Accent lines:** `.accent-line` (short, after headings) and `.accent-line-wide`
+(long, bottom of sparse slides) are decorative. Use plain `border-bottom` or
+`<hr>` for structural separation.
+
+**Icons (Lucide):** Choose abstractly: `sparkles` → innovation, `shield` → security,
+`zap` → performance, `layers` → architecture, `globe` → global, `bar-chart` → data.
+Cards benefit most from icons. Stats and quotes: icons optional.
+When unsure, omit — a strong heading beats a generic icon.
+
+**Card labels:** Short category words (`Visual`, `Motion`) for thematic grouping.
+Sequential numbers (`01`, `02`, `03`) for ordered items. Omit when the title is clear.
+
+**Decorative fills:** Sparse slides: 2–3 deco elements. Dense slides: 0–1. Never >3.
+
+**Chart rules:** For full ECharts configuration and chart type selection, fetch
+`section: "chart-rules"` via the `revela-designs` tool before adding any chart.
+
+#### Common Mistakes
+
+- Using stat cards for non-numeric content → use cards instead.
+- Using bullet lists when cards or step-flow would be clearer.
+- Putting a chart AND stat cards on the same slide without clear hierarchy → pick a primary.
+- Always using donut charts for data → match chart type to data pattern (see chart-rules).
+- Applying `.gradient-text` to entire sentences → limit to 1–3 key words.
+- Adding Lucide icons to every element → reserve for cards and key callouts.
+- Using the single-statement/CTA layout more than once per deck → it loses impact.
+- Leaving more than ~20% of canvas visually empty → add deco fills or expand content.
+
+#### Code Blocks (if any)
+
+```css
+pre, code {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 14px;
+    color: var(--accent);
+}
+```
+
+#### Do & Don't
+
+- **Do** use the layered aurora background — it creates depth and atmosphere
+- **Do** use glassmorphism cards with `backdrop-filter`
+- **Do** keep accent colors to cyan/violet/emerald — stay in the aurora palette
+- **Do** add subtle glow effects to titles and key elements
+- **Don't** use bright white or pure black backgrounds
+- **Don't** use more than 3 accent colors on a single slide
+- **Don't** clutter slides — max 5 bullet points per slide
+- **Don't** disable `prefers-reduced-motion` — provide smoother alternatives
+
+<!-- @design:rules:end -->
+
+<!-- @design:layouts:start -->
+
+### Layout Types
+
+Each `<section class="slide">` must declare `data-slide-type` matching one of
+the layouts below. Fetch full HTML + CSS for any layout with the `revela-designs`
+tool (`action: "read"`, `layout: "<name>"`).
+
+<!-- @layout:cover:start qa=false -->
+#### Cover — Title Slide (`data-slide-type="cover"`)
+
+Centered stack layout. Large h1 + subtitle + optional accent line. Add 2–3 deco-fills
+(blobs, lines) to anchor the sparse composition. Use `.title-reveal` for animation.
+
+```html
+<section class="slide title-slide" data-slide-type="cover" data-index="0">
+  <div class="slide-canvas">
+    <div class="deco-blob" style="width:400px;height:400px;top:-80px;right:-60px;background:radial-gradient(circle,var(--accent) 0%,transparent 70%);opacity:0.08"></div>
+    <div class="deco-blob" style="width:300px;height:300px;bottom:-60px;left:40px;background:radial-gradient(circle,var(--accent-2) 0%,transparent 70%);opacity:0.07"></div>
+    <p class="label title-reveal">Label / Event / Date</p>
+    <h1 class="title-reveal">Your <span class="gradient-text">Presentation</span> Title</h1>
+    <div class="accent-line" style="margin:24px 0;"></div>
+    <p class="subtitle title-reveal">Supporting subtitle or tagline goes here</p>
+  </div>
+</section>
+```
+
+CSS: use `.slide-canvas` default (centered stack). Max-width `1200px` on inner content wrapper.
+<!-- @layout:cover:end -->
+
+<!-- @layout:toc:start qa=false -->
+#### TOC — Table of Contents (`data-slide-type="toc"`)
+
+Numbered chapter list. 3–5 items max. Two-column arrangement: heading on left,
+chapter list on right.
+
+```html
+<section class="slide" data-slide-type="toc" data-index="N">
+  <div class="slide-canvas" style="justify-content:flex-start;padding-top:80px;">
+    <div class="two-col" style="align-items:flex-start;">
+      <div class="two-col-main">
+        <p class="label">Agenda</p>
+        <h2>What We'll Cover</h2>
+        <div class="accent-line" style="margin-top:20px;"></div>
+      </div>
+      <div class="two-col-aside">
+        <ol class="toc-list">
+          <li><span class="toc-num">01</span><span class="toc-title">Chapter Title</span></li>
+          <li><span class="toc-num">02</span><span class="toc-title">Chapter Title</span></li>
+          <li><span class="toc-num">03</span><span class="toc-title">Chapter Title</span></li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+```
+
+```css
+.toc-list     { list-style:none; padding:0; display:flex; flex-direction:column; gap:28px; }
+.toc-list li  { display:flex; align-items:baseline; gap:24px; }
+.toc-num      { font-family:'Clash Display',sans-serif; font-size:48px; font-weight:700; color:var(--accent); opacity:0.5; line-height:1; flex-shrink:0; }
+.toc-title    { font-size:28px; font-weight:600; line-height:1.3; }
+```
+<!-- @layout:toc:end -->
+
+<!-- @layout:two-col:start qa=true -->
+#### Two-Column Grid (`data-slide-type="two-col"`)
+
+Primary narrative on the left, supporting content on the right. Either side can
+hold any component — text, cards, charts, evidence lists, images.
+
+```html
+<section class="slide" data-slide-type="two-col" data-index="N">
+  <div class="slide-canvas" style="justify-content:flex-start;padding-top:80px;">
+    <p class="label reveal">Section Label</p>
+    <h2 class="reveal" style="margin-bottom:40px;">Slide Heading</h2>
+    <div class="two-col reveal">
+      <div class="two-col-main">
+        <!-- primary: text, evidence-list, stat, quote -->
+      </div>
+      <div class="two-col-aside">
+        <!-- secondary: card, image-card, chart-container, showcase -->
+      </div>
+    </div>
+  </div>
+</section>
+```
+
+```css
+.two-col       { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:stretch; max-width:1600px; margin:0 auto; flex:1; }
+.two-col-main  { display:flex; flex-direction:column; justify-content:center; }
+.two-col-main h2 { font-size:36px; margin-bottom:16px; }
+.two-col-main p  { font-size:18px; color:var(--text-secondary); line-height:1.7; }
+.two-col-aside { display:flex; flex-direction:column; justify-content:center; }
+.two-col-aside .card { flex:1; }
+```
+<!-- @layout:two-col:end -->
+
+<!-- @layout:card-grid:start qa=true -->
+#### Card Grid (`data-slide-type="card-grid"`)
+
+3-column card grid. Use for features, evidence items, team members, or any
+3–4 parallel items. Swap to `repeat(2, 1fr)` for 2 or 4 items.
+
+```html
+<section class="slide" data-slide-type="card-grid" data-index="N">
+  <div class="slide-canvas" style="justify-content:flex-start;padding-top:80px;">
+    <p class="label reveal">Section Label</p>
+    <h2 class="reveal" style="margin-bottom:40px;">Slide Heading</h2>
+    <div class="card-grid reveal">
+      <div class="card">
+        <i data-lucide="sparkles" class="card-icon"></i>
+        <p class="card-label">01</p>
+        <p class="card-title">Feature Title</p>
+        <p class="card-body">Description of this feature or item.</p>
+      </div>
+      <!-- repeat for each item -->
+    </div>
+  </div>
+</section>
+```
+
+```css
+.card-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; max-width:1600px; margin:0 auto; flex:1; align-content:stretch; }
+```
+
+For 2 items: `repeat(2, 1fr)`. For 4 items: `repeat(2, 1fr)` (2×2 grid).
+<!-- @layout:card-grid:end -->
+
+<!-- @layout:stats:start qa=true -->
+#### Stats Row (`data-slide-type="stats"`)
+
+3 stat-cards in a row. Use `data-target` for counter animation. Optionally add
+a supporting chart below the stats row for trend context.
+
+```html
+<section class="slide" data-slide-type="stats" data-index="N">
+  <div class="slide-canvas" style="justify-content:flex-start;padding-top:80px;">
+    <p class="label reveal">Key Metrics</p>
+    <h2 class="reveal" style="margin-bottom:40px;">Slide Heading</h2>
+    <div class="stats-row reveal">
+      <div class="stat-card">
+        <div class="stat-number gradient-text" data-target="85" data-suffix="%">0</div>
+        <div class="stat-label">Metric Name</div>
+        <div class="stat-desc">Brief context for this number</div>
+      </div>
+      <!-- repeat for each stat -->
+    </div>
+    <!-- Optional: chart below -->
+    <!-- <div class="chart-container" id="chart-trend" style="max-width:1400px;height:280px;margin:32px auto 0;"></div> -->
+  </div>
+</section>
+```
+
+```css
+.stats-row { display:grid; grid-template-columns:repeat(3,1fr); gap:32px; max-width:1600px; margin:0 auto; }
+.stat-card { background:var(--bg-card); backdrop-filter:blur(12px); border:1px solid var(--border); border-radius:16px; padding:48px 40px; text-align:center; box-shadow:0 8px 32px rgba(0,0,0,0.3); display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.stat-number { font-family:'Clash Display',sans-serif; font-size:64px; font-weight:700; line-height:1; letter-spacing:-0.03em; margin-bottom:12px; }
+.stat-label  { font-size:15px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.06em; font-weight:500; margin-bottom:12px; }
+.stat-desc   { font-size:15px; color:var(--text-secondary); line-height:1.5; opacity:0.7; }
+```
+
+Counter animation JS: iterate elements with `data-target`, count from 0 to target on `.visible`.
+<!-- @layout:stats:end -->
+
+<!-- @layout:data-vis:start qa=true -->
+#### Data Visualization (`data-slide-type="data-vis"`)
+
+Chart-focused slide. Can be full-width chart, or chart + commentary in two-col.
+Always fetch `section: "chart-rules"` before writing ECharts config.
+
+```html
+<!-- Option A: Full-width chart -->
+<section class="slide" data-slide-type="data-vis" data-index="N">
+  <div class="slide-canvas" style="justify-content:flex-start;padding-top:80px;">
+    <p class="label reveal">Data Label</p>
+    <h2 class="reveal" style="margin-bottom:32px;">Chart Heading</h2>
+    <div class="chart-container reveal" id="chart-main" style="max-width:1600px;height:680px;margin:0 auto;"></div>
+  </div>
+</section>
+
+<!-- Option B: Chart + commentary (two-col) -->
+<section class="slide" data-slide-type="data-vis" data-index="N">
+  <div class="slide-canvas" style="justify-content:flex-start;padding-top:80px;">
+    <p class="label reveal">Data Label</p>
+    <div class="two-col reveal" style="margin-top:0;">
+      <div class="two-col-main">
+        <h2 style="margin-bottom:20px;">Chart Heading</h2>
+        <p class="body-text">Key insight or interpretation of the chart.</p>
+        <ul class="evidence-list" style="margin-top:24px;">
+          <li>Takeaway one</li>
+          <li>Takeaway two</li>
+        </ul>
+      </div>
+      <div class="two-col-aside">
+        <div class="chart-container" id="chart-main" style="width:100%;height:500px;"></div>
+      </div>
+    </div>
+  </div>
+</section>
+```
+
+```css
+.chart-container { position:relative; flex-shrink:0; }
+```
+<!-- @layout:data-vis:end -->
+
+<!-- @layout:step-flow:start qa=true -->
+#### Step Flow (`data-slide-type="step-flow"`)
+
+Horizontal process: 3–5 steps with numbered gradient circles and connectors.
+Use the `.step-flow` component. Steps alternate with `.step-connector` siblings.
+
+```html
+<section class="slide" data-slide-type="step-flow" data-index="N">
+  <div class="slide-canvas" style="justify-content:flex-start;padding-top:80px;">
+    <p class="label reveal">Process</p>
+    <h2 class="reveal" style="margin-bottom:60px;">How It Works</h2>
+    <div class="step-flow reveal">
+      <div class="step">
+        <div class="step-circle">1</div>
+        <div class="step-title">Step Title</div>
+        <div class="step-desc">Brief description of this step.</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step">
+        <div class="step-circle">2</div>
+        <div class="step-title">Step Title</div>
+        <div class="step-desc">Brief description of this step.</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step">
+        <div class="step-circle">3</div>
+        <div class="step-title">Step Title</div>
+        <div class="step-desc">Brief description of this step.</div>
+      </div>
+    </div>
+  </div>
+</section>
+```
+
+```css
+.step-flow      { display:flex; align-items:flex-start; max-width:1600px; margin:0 auto; }
+.step           { flex:1; display:flex; flex-direction:column; align-items:center; text-align:center; gap:16px; }
+.step-circle    { width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:#fff; font-family:'Clash Display',sans-serif; font-size:24px; font-weight:700; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 20px -8px rgba(34,211,238,0.5); flex-shrink:0; }
+.step-connector { flex:0 0 32px; height:2px; background:var(--border); margin-top:32px; align-self:flex-start; box-shadow:0 0 6px rgba(34,211,238,0.1); }
+.step-title     { font-size:20px; font-weight:600; }
+.step-desc      { font-size:16px; color:var(--text-secondary); line-height:1.6; max-width:200px; }
+```
+<!-- @layout:step-flow:end -->
+
+<!-- @layout:quote:start qa=false -->
+#### Quote (`data-slide-type="quote"`)
+
+Full-slide memorable quote. Centered stack. Use `.quote-block` + `.quote-deco`.
+Add 2–3 deco-fills to anchor the sparse composition.
+
+```html
+<section class="slide" data-slide-type="quote" data-index="N">
+  <div class="slide-canvas">
+    <div class="deco-blob" style="width:500px;height:500px;top:-100px;right:-80px;background:radial-gradient(circle,var(--accent-2) 0%,transparent 70%);opacity:0.06"></div>
+    <div class="quote-deco" style="top:60px;left:80px;">&ldquo;</div>
+    <div class="quote-block reveal" style="max-width:1100px;margin:0 auto;">
+      <blockquote>&ldquo;The quote text goes here — make it memorable.&rdquo;</blockquote>
+      <cite>Attribution — Title, Organization</cite>
+    </div>
+  </div>
+</section>
+```
+
+```css
+.quote-block            { display:flex; flex-direction:column; justify-content:center; border-left:3px solid var(--accent); padding:24px 32px; background:rgba(34,211,238,0.06); border-radius:0 8px 8px 0; }
+.quote-block blockquote { font-size:36px; font-style:italic; line-height:1.5; margin-bottom:16px; text-shadow:0 0 30px rgba(34,211,238,0.15); }
+.quote-block cite       { font-size:14px; color:var(--accent); letter-spacing:0.08em; text-transform:uppercase; font-style:normal; }
+.quote-deco             { position:absolute; font-family:'Clash Display',sans-serif; font-size:300px; line-height:1; color:var(--accent); opacity:0.06; pointer-events:none; z-index:0; }
+```
+<!-- @layout:quote:end -->
+
+<!-- @layout:summary:start qa=false -->
+#### Summary (`data-slide-type="summary"`)
+
+Key takeaways slide. Centered or top-aligned stack. ≤3 takeaway items.
+Use `evidence-list` or a simple numbered list inside a constrained container.
+
+```html
+<section class="slide" data-slide-type="summary" data-index="N">
+  <div class="slide-canvas" style="justify-content:center;">
+    <div style="max-width:900px;margin:0 auto;text-align:center;">
+      <p class="label title-reveal">Key Takeaways</p>
+      <h2 class="title-reveal" style="margin-bottom:48px;">What We Learned</h2>
+      <ul class="evidence-list reveal" style="text-align:left;font-size:22px;">
+        <li>First key takeaway or insight</li>
+        <li>Second key takeaway or insight</li>
+        <li>Third key takeaway or insight</li>
+      </ul>
+    </div>
+  </div>
+</section>
+```
+<!-- @layout:summary:end -->
+
+<!-- @layout:closing:start qa=false -->
+#### Closing (`data-slide-type="closing"`)
+
+Thank-you / Q&A / contact slide. Centered stack. Keep it simple and elegant.
+Add 2–3 deco-fills. Optionally include contact info or a CTA button.
+
+```html
+<section class="slide" data-slide-type="closing" data-index="N">
+  <div class="slide-canvas">
+    <div class="deco-blob" style="width:400px;height:400px;top:-60px;left:-80px;background:radial-gradient(circle,var(--accent) 0%,transparent 70%);opacity:0.07"></div>
+    <div class="deco-blob" style="width:350px;height:350px;bottom:-40px;right:-60px;background:radial-gradient(circle,var(--accent-2) 0%,transparent 70%);opacity:0.06"></div>
+    <p class="label title-reveal">Thank You</p>
+    <h1 class="title-reveal" style="font-size:72px;">Questions?</h1>
+    <div class="accent-line-wide title-reveal" style="margin:28px auto;"></div>
+    <p class="subtitle title-reveal">contact@example.com</p>
+  </div>
+</section>
+```
+<!-- @layout:closing:end -->
+
+<!-- @design:layouts:end -->
+
+<!-- @design:components:start -->
 
 ### Component Library
 
-These are independent, composable building blocks. Mix them freely on any slide —
-they are not locked to specific layouts.
+These are independent, composable building blocks. Mix them freely on any slide.
+Fetch full CSS + HTML with `revela-designs` tool (`action: "read"`, `component: "<name>"`).
 
 <!-- @component:reveal:start -->
 #### Reveal Animation (.reveal)
@@ -794,7 +1203,7 @@ Styled bullet list. Use inside `.card`, `.two-col-main`, or any container.
 #### Chart Container (.chart-container)
 
 Wrapper for any ECharts visualization. Can appear on any slide, in any layout.
-See §Data Visualization for chart type selection and theme-specific styling.
+Fetch `section: "chart-rules"` for chart type selection and theme-specific styling.
 
 ```html
 <div class="chart-container" id="chart-{purpose}"
@@ -817,7 +1226,7 @@ if (typeof echarts !== 'undefined') {
     const el = document.getElementById('chart-{purpose}');
     if (el) {
         const chart = echarts.init(el, null, { renderer: 'canvas' });
-        chart.setOption({ /* see §Data Visualization for theme options */ });
+        chart.setOption({ /* see chart-rules section for theme options */ });
     }
 }
 ```
@@ -890,63 +1299,9 @@ Set size, color, opacity, and position via inline styles:
 
 <!-- @component:deco-fills:end -->
 
-<!-- @section:components:end -->
+<!-- @design:components:end -->
 
-<!-- @section:layouts:start -->
-### Layout Primitives
-
-Components can be placed in any of these layout arrangements.
-Mix layouts and components freely — these are tools, not templates.
-
-#### Centered Stack
-
-`.slide-canvas` default behavior — `flex-direction: column; justify-content: center`.
-Use for: cover, closing, quote-focused, single-statement slides.
-
-#### Top-Aligned Stack
-
-Override `.slide-canvas` with `style="justify-content: flex-start; padding-top: 80px"`.
-Use for: content-heavy slides where vertical space matters.
-
-#### Two-Column Grid (.two-col)
-
-```html
-<div class="two-col">
-    <div class="two-col-main"><!-- primary content --></div>
-    <div class="two-col-aside"><!-- secondary content --></div>
-</div>
-```
-
-```css
-.two-col       { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: stretch; max-width: 1600px; margin: 0 auto; flex: 1; }
-.two-col-main  { display: flex; flex-direction: column; justify-content: center; }
-.two-col-main h2 { font-size: 36px; margin-bottom: 16px; }
-.two-col-main p  { font-size: 18px; color: var(--text-secondary); line-height: 1.7; }
-.two-col-aside { display: flex; flex-direction: column; justify-content: center; }
-.two-col-aside .card { flex: 1; }
-```
-
-Either side can contain any components — cards, charts, text, evidence lists, stat cards.
-
-#### Three-Column Grid
-
-```css
-.card-grid  { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 1600px; margin: 0 auto; flex: 1; align-content: stretch; }
-.stats-row  { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; max-width: 1600px; margin: 0 auto; }
-```
-
-Use `.card-grid` for cards, `.stats-row` for stat cards, or create a custom grid.
-For 2 items: `repeat(2, 1fr)`. For 4: `repeat(2, 1fr)` (2×2 grid).
-The grid container can hold any mix of components.
-
-#### Horizontal Flow
-
-Used by `.step-flow` — `display: flex; align-items: flex-start; max-width: 1600px`.
-Also works for timelines, comparison strips, or any horizontal sequence.
-
-<!-- @section:layouts:end -->
-
-<!-- @section:charts:start -->
+<!-- @design:chart-rules:start -->
 ### Data Visualization (ECharts)
 
 When a slide includes charts or data visualization, use [ECharts](https://echarts.apache.org/)
@@ -974,7 +1329,7 @@ Layout is not fixed — pick the layout that serves the narrative. A chart can
 occupy one column of Two-Column, span full-width on its own slide, or sit
 inside a Feature Card as a small sparkline. Let the data and story decide.
 
-#### Shared Aurora chart styles
+#### Shared Aurora Chart Styles
 
 All chart types share these aurora theme defaults:
 
@@ -1010,7 +1365,7 @@ All chart types share these aurora theme defaults:
 - Data points: show on hover only (`symbol: 'none'`, `emphasis: { symbol: 'circle' }`)
 - For multiple series: one color per series from aurora triad, distinguish with solid vs dashed
 
-#### Integration rules
+#### Integration Rules
 
 - Initialize charts inside a `window.addEventListener('load', ...)` or after DOM ready
 - Use `echarts.init(container, null, { renderer: 'canvas' })` — canvas renderer for performance
@@ -1018,83 +1373,4 @@ All chart types share these aurora theme defaults:
 - Responsive: charts are inside the 1920×1080 canvas, scaled by JS `transform: scale()` —
   no need for ECharts `resize()` handling
 
-<!-- @section:charts:end -->
-
-<!-- @section:guide:start -->
-### Composition Guide
-
-#### Common Recipes
-
-These are starting points — not constraints. Combine any components with any
-layout primitive as the content demands.
-
-| Content Pattern | Suggested Recipe | Aurora Notes |
-|---|---|---|
-| 3–4 parallel features | 3-col grid + card ×3 | Each card: Lucide icon + label + title + body |
-| Key metrics (2–4 KPIs) | 3-col grid + stat-card ×3 | Counter animation, `.gradient-text` on numbers |
-| Narrative + evidence | two-col + text in main, card with evidence-list in aside | Glassmorphism evidence card |
-| Sequential process (3–5 steps) | horizontal flow + step-flow | Gradient circles, glowing connectors |
-| Memorable quote | centered stack + quote-block + quote-deco | `border-left: 3px`, text glow |
-| Single powerful statement / CTA | centered stack + large heading + deco fills | `.gradient-text`. Max once per deck. |
-| Data visualization | any layout + chart-container | Chart type per data — see §Data Visualization |
-| KPIs with trend context | 3-col grid + stat-cards, then chart below | Headline numbers + supporting chart |
-| Team / people (3–4) | 3-col grid + card ×3 (no icons) | card-title → name, card-body → role |
-| Before vs After | two-col + content per side | Heading + evidence-list each column |
-| 6+ items on one topic | Split across 2 slides | Max 5 items per slide |
-
-#### Element Usage Rules
-
-**Gradient-text:** Apply to 1–3 key words in a heading — never entire sentences.
-Typical: key metric (`$4.2B`), core concept (`actually impress`), CTA (`Get Started`).
-Max one `.gradient-text` per slide.
-
-**Accent lines:** `.accent-line` (short, after headings) and `.accent-line-wide`
-(long, bottom of sparse slides) are decorative. Use plain `border-bottom` or
-`<hr>` for structural separation.
-
-**Icons (Lucide):** Choose abstractly: `sparkles` → innovation, `shield` → security,
-`zap` → performance, `layers` → architecture, `globe` → global, `bar-chart` → data.
-Cards benefit most from icons. Stats and quotes: icons optional.
-When unsure, omit — a strong heading beats a generic icon.
-
-**Card labels:** Short category words (`Visual`, `Motion`) for thematic grouping.
-Sequential numbers (`01`, `02`, `03`) for ordered items. Omit when the title is clear.
-
-**Decorative fills:** Sparse slides: 2–3 deco elements. Dense slides: 0–1. Never >3.
-
-#### Common Mistakes
-
-- Using stat cards for non-numeric content → use cards instead.
-- Using bullet lists when cards or step-flow would be clearer.
-- Putting a chart AND stat cards on the same slide without clear hierarchy → pick a primary.
-- Always using donut charts for data → match chart type to data pattern (see §Data Visualization).
-- Applying `.gradient-text` to entire sentences → limit to 1–3 key words.
-- Adding Lucide icons to every element → reserve for cards and key callouts.
-- Using the single-statement/CTA layout more than once per deck → it loses impact.
-- Leaving more than ~20% of canvas visually empty → add deco fills or expand content.
-
-### Code Blocks (if any)
-
-```css
-pre, code {
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    font-size: 14px;
-    color: var(--accent);
-}
-```
-
-### Do & Don't
-
-- **Do** use the layered aurora background — it creates depth and atmosphere
-- **Do** use glassmorphism cards with `backdrop-filter`
-- **Do** keep accent colors to cyan/violet/emerald — stay in the aurora palette
-- **Do** add subtle glow effects to titles and key elements
-- **Don't** use bright white or pure black backgrounds
-- **Don't** use more than 3 accent colors on a single slide
-- **Don't** clutter slides — max 5 bullet points per slide
-- **Don't** disable `prefers-reduced-motion` — provide smoother alternatives
-
-<!-- @section:guide:end -->
+<!-- @design:chart-rules:end -->

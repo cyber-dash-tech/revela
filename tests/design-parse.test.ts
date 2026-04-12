@@ -2,12 +2,25 @@ import { describe, it, expect } from "bun:test"
 import {
   parseDesignSections,
   generateComponentIndex,
+  generateLayoutIndex,
 } from "../lib/design/designs"
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function wrap(name: string, content: string, type: "section" | "component" = "section"): string {
-  return `<!-- @${type}:${name}:start -->\n${content}\n<!-- @${type}:${name}:end -->`
+/** Wrap content in a @design: section marker pair. */
+function wrapSection(name: string, content: string): string {
+  return `<!-- @design:${name}:start -->\n${content}\n<!-- @design:${name}:end -->`
+}
+
+/** Wrap content in a @layout: marker pair, optionally with qa=true|false attribute. */
+function wrapLayout(name: string, content: string, qa?: boolean): string {
+  const qaAttr = qa === undefined ? "" : ` qa=${qa}`
+  return `<!-- @layout:${name}:start${qaAttr} -->\n${content}\n<!-- @layout:${name}:end -->`
+}
+
+/** Wrap content in a @component: marker pair. */
+function wrapComponent(name: string, content: string): string {
+  return `<!-- @component:${name}:start -->\n${content}\n<!-- @component:${name}:end -->`
 }
 
 // ── parseDesignSections ────────────────────────────────────────────────────
@@ -17,6 +30,7 @@ describe("parseDesignSections", () => {
     const result = parseDesignSections("## Some heading\n\nJust regular text.")
     expect(result.hasMarkers).toBe(false)
     expect(result.sections).toEqual({})
+    expect(result.layouts).toEqual({})
     expect(result.components).toEqual({})
   })
 
@@ -25,34 +39,124 @@ describe("parseDesignSections", () => {
     expect(result.hasMarkers).toBe(false)
   })
 
-  it("parses a single section block correctly", () => {
-    const body = wrap("global", "Color: #fff\nFont: Inter")
+  // ── @design: sections ──────────────────────────────────────────────────
+
+  it("parses a single @design: section correctly", () => {
+    const body = wrapSection("foundation", "Color: #fff\nFont: Inter")
     const { sections, hasMarkers } = parseDesignSections(body)
     expect(hasMarkers).toBe(true)
-    expect(sections.global).toBe("Color: #fff\nFont: Inter")
+    expect(sections.foundation).toBe("Color: #fff\nFont: Inter")
   })
 
   it("trims leading/trailing whitespace from section content", () => {
-    const body = `<!-- @section:global:start -->\n\n   Content here   \n\n<!-- @section:global:end -->`
+    const body = `<!-- @design:foundation:start -->\n\n   Content here   \n\n<!-- @design:foundation:end -->`
     const { sections } = parseDesignSections(body)
-    expect(sections.global).toBe("Content here")
+    expect(sections.foundation).toBe("Content here")
   })
 
-  it("parses multiple sections without cross-contamination", () => {
+  it("parses multiple @design: sections without cross-contamination", () => {
     const body = [
-      wrap("global", "global content"),
-      wrap("layouts", "layouts content"),
-      wrap("charts", "charts content"),
+      wrapSection("foundation", "foundation content"),
+      wrapSection("rules", "rules content"),
+      wrapSection("chart-rules", "chart content"),
     ].join("\n\n")
     const { sections } = parseDesignSections(body)
-    expect(sections.global).toBe("global content")
-    expect(sections.layouts).toBe("layouts content")
-    expect(sections.charts).toBe("charts content")
+    expect(sections.foundation).toBe("foundation content")
+    expect(sections.rules).toBe("rules content")
+    expect(sections["chart-rules"]).toBe("chart content")
     expect(Object.keys(sections)).toHaveLength(3)
   })
 
-  it("parses a single component block correctly", () => {
-    const body = wrap("card", "#### Card (.card)\n```html\n<div class='card'></div>\n```", "component")
+  it("accepts hyphenated section names (e.g. chart-rules)", () => {
+    const body = wrapSection("chart-rules", "ECharts config")
+    const { sections } = parseDesignSections(body)
+    expect(sections["chart-rules"]).toBe("ECharts config")
+  })
+
+  it("does not match a malformed @design: marker missing the :end fence", () => {
+    const body = `<!-- @design:foundation:start -->\ncontent with no end`
+    const { sections, hasMarkers } = parseDesignSections(body)
+    expect(hasMarkers).toBe(false)
+    expect(sections.foundation).toBeUndefined()
+  })
+
+  it("does not cross-match a start marker with a different section's end marker", () => {
+    const body = `<!-- @design:alpha:start -->\nalpha\n<!-- @design:beta:end -->`
+    const { sections } = parseDesignSections(body)
+    expect(sections.alpha).toBeUndefined()
+  })
+
+  it("handles extra whitespace inside @design: marker tags", () => {
+    const body = `<!--  @design:foundation:start  -->\ncontent\n<!--  @design:foundation:end  -->`
+    const { sections } = parseDesignSections(body)
+    expect(sections.foundation).toBe("content")
+  })
+
+  // ── @layout: markers ───────────────────────────────────────────────────
+
+  it("parses a single @layout: marker with qa=false", () => {
+    const body = wrapLayout("cover", "centered stack content", false)
+    const { layouts, hasMarkers } = parseDesignSections(body)
+    expect(hasMarkers).toBe(true)
+    expect(layouts.cover).toBeDefined()
+    expect(layouts.cover.content).toBe("centered stack content")
+    expect(layouts.cover.qa).toBe(false)
+  })
+
+  it("parses a single @layout: marker with qa=true", () => {
+    const body = wrapLayout("two-col", "two column layout", true)
+    const { layouts } = parseDesignSections(body)
+    expect(layouts["two-col"].qa).toBe(true)
+    expect(layouts["two-col"].content).toBe("two column layout")
+  })
+
+  it("defaults qa to true when qa attribute is omitted", () => {
+    const body = `<!-- @layout:card-grid:start -->\ncard grid content\n<!-- @layout:card-grid:end -->`
+    const { layouts } = parseDesignSections(body)
+    expect(layouts["card-grid"].qa).toBe(true)
+    expect(layouts["card-grid"].content).toBe("card grid content")
+  })
+
+  it("parses multiple layouts independently with correct qa values", () => {
+    const body = [
+      wrapLayout("cover", "cover content", false),
+      wrapLayout("toc", "toc content", false),
+      wrapLayout("two-col", "two-col content", true),
+      wrapLayout("card-grid", "card-grid content", true),
+    ].join("\n\n")
+    const { layouts } = parseDesignSections(body)
+    expect(Object.keys(layouts)).toHaveLength(4)
+    expect(layouts.cover.qa).toBe(false)
+    expect(layouts.toc.qa).toBe(false)
+    expect(layouts["two-col"].qa).toBe(true)
+    expect(layouts["card-grid"].qa).toBe(true)
+  })
+
+  it("trims whitespace from layout content", () => {
+    const body = `<!-- @layout:cover:start qa=false -->\n\n   cover inner   \n\n<!-- @layout:cover:end -->`
+    const { layouts } = parseDesignSections(body)
+    expect(layouts.cover.content).toBe("cover inner")
+  })
+
+  it("accepts hyphenated layout names", () => {
+    const body = wrapLayout("step-flow", "step flow layout", true)
+    const { layouts } = parseDesignSections(body)
+    expect(layouts["step-flow"]).toBeDefined()
+    expect(layouts["step-flow"].content).toBe("step flow layout")
+  })
+
+  it("hasMarkers is true when only layouts exist (no sections or components)", () => {
+    const body = wrapLayout("cover", "cover content", false)
+    const { hasMarkers, sections, components } = parseDesignSections(body)
+    expect(hasMarkers).toBe(true)
+    expect(Object.keys(sections)).toHaveLength(0)
+    expect(Object.keys(components)).toHaveLength(0)
+  })
+
+  // ── @component: markers ────────────────────────────────────────────────
+
+  it("parses a single @component: block correctly", () => {
+    const body = wrapComponent("card", "#### Card (.card)\n```html\n<div class='card'></div>\n```")
     const { components, hasMarkers } = parseDesignSections(body)
     expect(hasMarkers).toBe(true)
     expect(components.card).toContain("Card (.card)")
@@ -60,9 +164,9 @@ describe("parseDesignSections", () => {
 
   it("parses multiple components independently", () => {
     const body = [
-      wrap("card", "card content", "component"),
-      wrap("stat-card", "stat-card content", "component"),
-      wrap("quote-block", "quote-block content", "component"),
+      wrapComponent("card", "card content"),
+      wrapComponent("stat-card", "stat-card content"),
+      wrapComponent("quote-block", "quote-block content"),
     ].join("\n\n")
     const { components } = parseDesignSections(body)
     expect(components.card).toBe("card content")
@@ -71,48 +175,115 @@ describe("parseDesignSections", () => {
     expect(Object.keys(components)).toHaveLength(3)
   })
 
-  it("handles sections and components in the same body independently", () => {
+  it("hasMarkers is true when only components exist (no sections or layouts)", () => {
+    const body = wrapComponent("card", "card stuff")
+    const { hasMarkers, sections, layouts } = parseDesignSections(body)
+    expect(hasMarkers).toBe(true)
+    expect(Object.keys(sections)).toHaveLength(0)
+    expect(Object.keys(layouts)).toHaveLength(0)
+  })
+
+  // ── Mixed bodies ───────────────────────────────────────────────────────
+
+  it("handles all three marker types in the same body independently", () => {
     const body = [
-      wrap("global", "global body"),
-      wrap("card", "card body", "component"),
+      wrapSection("foundation", "foundation body"),
+      wrapLayout("cover", "cover body", false),
+      wrapComponent("card", "card body"),
     ].join("\n\n")
-    const { sections, components } = parseDesignSections(body)
-    expect(sections.global).toBe("global body")
+    const { sections, layouts, components } = parseDesignSections(body)
+    expect(sections.foundation).toBe("foundation body")
+    expect(layouts.cover.content).toBe("cover body")
+    expect(layouts.cover.qa).toBe(false)
     expect(components.card).toBe("card body")
   })
 
-  it("accepts hyphenated section names (e.g. slide-types)", () => {
-    const body = wrap("slide-types", "type list")
-    const { sections } = parseDesignSections(body)
-    expect(sections["slide-types"]).toBe("type list")
+  it("layout markers nested inside a @design:layouts section are captured by both", () => {
+    // The section regex captures the entire layouts section including the @layout: sub-markers.
+    // The layout regex independently extracts the sub-markers.
+    const inner = wrapLayout("cover", "cover inner", false)
+    const body = wrapSection("layouts", inner)
+    const { sections, layouts } = parseDesignSections(body)
+    // Section captures the full layouts block (includes the @layout: marker text)
+    expect(sections.layouts).toContain("cover inner")
+    // Layout regex also independently extracts the sub-marker
+    expect(layouts.cover).toBeDefined()
+    expect(layouts.cover.content).toBe("cover inner")
+    expect(layouts.cover.qa).toBe(false)
+  })
+})
+
+// ── generateLayoutIndex ────────────────────────────────────────────────────
+
+describe("generateLayoutIndex", () => {
+  it("returns empty string for empty layouts map", () => {
+    expect(generateLayoutIndex({})).toBe("")
   })
 
-  it("does not match a malformed marker missing the :end fence", () => {
-    const body = `<!-- @section:global:start -->\ncontent with no end`
-    const { sections, hasMarkers } = parseDesignSections(body)
-    expect(hasMarkers).toBe(false)
-    expect(sections.global).toBeUndefined()
+  it("generates a table with Layout Index heading", () => {
+    const layouts = { cover: { content: "## Cover\nCentered title slide", qa: false } }
+    const result = generateLayoutIndex(layouts)
+    expect(result).toContain("### Layout Index")
+    expect(result).toContain("| Layout | QA | Description |")
   })
 
-  it("does not cross-match a start marker with a different section's end marker", () => {
-    const body = `<!-- @section:alpha:start -->\nalpha\n<!-- @section:beta:end -->`
-    const { sections } = parseDesignSections(body)
-    // The regex requires matching name: alpha:start must pair with alpha:end
-    expect(sections.alpha).toBeUndefined()
+  it("shows — for qa=false layouts", () => {
+    const layouts = { cover: { content: "## Cover", qa: false } }
+    const result = generateLayoutIndex(layouts)
+    expect(result).toContain("| `cover` | — |")
   })
 
-  it("hasMarkers is true when only components exist (no sections)", () => {
-    const body = wrap("card", "card stuff", "component")
-    const { hasMarkers, sections, components } = parseDesignSections(body)
-    expect(hasMarkers).toBe(true)
-    expect(Object.keys(sections)).toHaveLength(0)
-    expect(Object.keys(components)).toHaveLength(1)
+  it("shows ✓ for qa=true layouts", () => {
+    const layouts = { "two-col": { content: "## Two Column", qa: true } }
+    const result = generateLayoutIndex(layouts)
+    expect(result).toContain("| `two-col` | ✓ |")
   })
 
-  it("handles extra whitespace inside the marker tags", () => {
-    const body = `<!--  @section:global:start  -->\ncontent\n<!--  @section:global:end  -->`
-    const { sections } = parseDesignSections(body)
-    expect(sections.global).toBe("content")
+  it("uses layout name in backtick code span in the table row", () => {
+    const layouts = { "card-grid": { content: "## Card Grid", qa: true } }
+    const result = generateLayoutIndex(layouts)
+    expect(result).toContain("`card-grid`")
+  })
+
+  it("strips markdown heading markers from first line description", () => {
+    const layouts = { cover: { content: "## Cover Layout\nsome detail", qa: false } }
+    const result = generateLayoutIndex(layouts)
+    expect(result).toContain("Cover Layout")
+    // The table row should not contain the ## prefix in the description column
+    const row = result.split("\n").find((l) => l.startsWith("| `cover`"))
+    expect(row).toBeDefined()
+    expect(row).not.toContain("##")
+  })
+
+  it("generates one row per layout", () => {
+    const layouts = {
+      cover:    { content: "## Cover", qa: false },
+      toc:      { content: "## Table of Contents", qa: false },
+      "two-col": { content: "## Two Column", qa: true },
+    }
+    const result = generateLayoutIndex(layouts)
+    const rows = result.split("\n").filter((l) => l.startsWith("| `"))
+    expect(rows).toHaveLength(3)
+  })
+
+  it("includes on-demand usage hint", () => {
+    const layouts = { cover: { content: "## Cover", qa: false } }
+    const result = generateLayoutIndex(layouts)
+    expect(result).toContain("revela-designs")
+    expect(result).toContain("layout")
+  })
+
+  it("handles layout with empty body (no first line)", () => {
+    const layouts = { empty: { content: "", qa: true } }
+    const result = generateLayoutIndex(layouts)
+    expect(result).toContain("`empty`")
+  })
+
+  it("skips HTML comment lines when finding description", () => {
+    const layouts = { cover: { content: "<!-- @layout:cover:start -->\n## Cover Title", qa: false } }
+    const result = generateLayoutIndex(layouts)
+    expect(result).toContain("Cover Title")
+    expect(result).not.toContain("@layout")
   })
 })
 
@@ -131,14 +302,12 @@ describe("generateComponentIndex", () => {
 
   it("strips markdown heading markers from first line description", () => {
     const result = generateComponentIndex({ card: "#### Card (.card)\nDetail" })
-    // '####' should be stripped, leaving just 'Card'
     expect(result).toContain("Card")
     expect(result).not.toContain("####")
   })
 
   it("strips parenthesized CSS class from description", () => {
     const result = generateComponentIndex({ card: "#### Card (.card)\nDetail" })
-    // '(.card)' should be stripped
     expect(result).not.toContain("(.card)")
   })
 
@@ -150,14 +319,11 @@ describe("generateComponentIndex", () => {
   it("skips HTML comment lines when finding the first description line", () => {
     const body = "<!-- @component:card:start -->\n#### Card\nDescription"
     const result = generateComponentIndex({ card: body })
-    // Should skip the HTML comment and use '#### Card' or 'Card'
     expect(result).toContain("Card")
     expect(result).not.toContain("@component")
   })
 
   it("skips code fence opening lines (``` lines) when finding the first description line", () => {
-    // The implementation skips lines starting with ``` but uses the next non-empty, non-comment line.
-    // So if body starts with ```html, the next line (the actual code) is used as description.
     const body = "```html\n#### My Widget\n```"
     const result = generateComponentIndex({ widget: body })
     expect(result).toContain("My Widget")
@@ -174,14 +340,12 @@ describe("generateComponentIndex", () => {
     expect(result).toContain("`a`")
     expect(result).toContain("`b`")
     expect(result).toContain("`c`")
-    // Count table data rows (lines starting with '| `')
     const rows = result.split("\n").filter((l) => l.startsWith("| `"))
     expect(rows).toHaveLength(3)
   })
 
   it("handles component with completely empty body (no first line)", () => {
     const result = generateComponentIndex({ empty: "" })
-    // Should still produce a row, with empty description
     expect(result).toContain("`empty`")
   })
 

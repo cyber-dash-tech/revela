@@ -145,28 +145,41 @@ export function getDesignSkillMd(name?: string): string {
 // Marker-based section / component parsing
 // ---------------------------------------------------------------------------
 
+export interface LayoutInfo {
+  /** Full text content of the layout block (without marker lines). */
+  content: string
+  /** Whether this layout type should be QA-checked for balance/rhythm. */
+  qa: boolean
+}
+
 export interface DesignSections {
-  /** Map of section name → extracted content (without marker lines). */
+  /** Map of @design:<name> section → extracted content (without marker lines). */
   sections: Record<string, string>
-  /** Map of component name → extracted content (without marker lines). */
+  /** Map of @layout:<name> → LayoutInfo with content + qa flag. */
+  layouts: Record<string, LayoutInfo>
+  /** Map of @component:<name> → extracted content (without marker lines). */
   components: Record<string, string>
   /** Whether the DESIGN.md has any markers at all. */
   hasMarkers: boolean
 }
 
 /**
- * Parse a DESIGN.md body (no frontmatter) into sections and components
- * using the two-layer HTML comment marker convention:
- *   <!-- @section:<name>:start --> … <!-- @section:<name>:end -->
+ * Parse a DESIGN.md body (no frontmatter) into sections, layouts, and components
+ * using the three-layer HTML comment marker convention:
+ *   <!-- @design:<name>:start --> … <!-- @design:<name>:end -->
+ *   <!-- @layout:<name>:start qa=true|false --> … <!-- @layout:<name>:end -->
  *   <!-- @component:<name>:start --> … <!-- @component:<name>:end -->
  *
+ * The `qa` attribute on layout markers defaults to `true` when omitted.
  * Returns an object with empty maps and hasMarkers=false when no markers found.
  */
 export function parseDesignSections(body: string): DesignSections {
   const sections: Record<string, string> = {}
+  const layouts: Record<string, LayoutInfo> = {}
   const components: Record<string, string> = {}
 
-  const sectionRe = /<!--\s*@section:(\w[\w-]*):start\s*-->([\s\S]*?)<!--\s*@section:\1:end\s*-->/g
+  const sectionRe   = /<!--\s*@design:(\w[\w-]*):start\s*-->([\s\S]*?)<!--\s*@design:\1:end\s*-->/g
+  const layoutRe    = /<!--\s*@layout:(\w[\w-]*):start(?:\s+qa=(true|false))?\s*-->([\s\S]*?)<!--\s*@layout:\1:end\s*-->/g
   const componentRe = /<!--\s*@component:(\w[\w-]*):start\s*-->([\s\S]*?)<!--\s*@component:\1:end\s*-->/g
 
   let hasMarkers = false
@@ -177,12 +190,20 @@ export function parseDesignSections(body: string): DesignSections {
     sections[match[1]] = match[2].trim()
   }
 
+  while ((match = layoutRe.exec(body)) !== null) {
+    hasMarkers = true
+    const qaAttr = match[2]
+    // qa defaults to true when attribute is omitted
+    const qa = qaAttr === "false" ? false : true
+    layouts[match[1]] = { content: match[3].trim(), qa }
+  }
+
   while ((match = componentRe.exec(body)) !== null) {
     hasMarkers = true
     components[match[1]] = match[2].trim()
   }
 
-  return { sections, components, hasMarkers }
+  return { sections, layouts, components, hasMarkers }
 }
 
 /**
@@ -217,6 +238,75 @@ export function generateComponentIndex(components: Record<string, string>): stri
     "",
     "_Use `revela-designs` tool with `action: \"read\"` and `component: \"<name>\"` to get full CSS/HTML for any component._",
   ].join("\n")
+}
+
+/**
+ * Generate a compact Layout Index table from parsed layouts.
+ * Lists each layout name with the QA flag and a one-line description.
+ */
+export function generateLayoutIndex(layouts: Record<string, LayoutInfo>): string {
+  const names = Object.keys(layouts)
+  if (names.length === 0) return ""
+
+  const rows = names.map((name) => {
+    const { content, qa } = layouts[name]
+    const firstLine = content
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l && !l.startsWith("<!--") && !l.startsWith("```"))
+    const desc = firstLine
+      ? firstLine.replace(/^#+\s*/, "").replace(/\(.*?\)/, "").trim()
+      : ""
+    const qaIcon = qa ? "✓" : "—"
+    return `| \`${name}\` | ${qaIcon} | ${desc} |`
+  })
+
+  return [
+    "### Layout Index",
+    "",
+    "| Layout | QA | Description |",
+    "|---|---|---|",
+    ...rows,
+    "",
+    "_Use `revela-designs` tool with `action: \"read\"` and `layout: \"<name>\"` to get full HTML/CSS for any layout._",
+  ].join("\n")
+}
+
+/**
+ * Get the raw text of one or more named layouts from a DESIGN.md.
+ * @param layoutNames - Comma-separated layout names or an array.
+ * @param designName - Design to read from (defaults to active).
+ */
+export function getDesignLayout(
+  layoutNames: string | string[],
+  designName?: string,
+): string {
+  const name = designName || activeDesign()
+  const mdPath = join(DESIGNS_DIR, name, "DESIGN.md")
+  if (!existsSync(mdPath)) {
+    throw new Error(`Design '${name}' is not installed`)
+  }
+  const text = readFileSync(mdPath, "utf-8")
+  const { body } = parseFrontmatter(text)
+  const { layouts, hasMarkers } = parseDesignSections(body)
+
+  if (!hasMarkers) {
+    throw new Error(`Design '${name}' has no markers — use getDesignSkillMd() for full text`)
+  }
+
+  const names = Array.isArray(layoutNames)
+    ? layoutNames
+    : layoutNames.split(",").map((s) => s.trim())
+
+  const parts: string[] = []
+  for (const layoutName of names) {
+    if (!(layoutName in layouts)) {
+      throw new Error(`Layout '${layoutName}' not found in design '${name}'`)
+    }
+    const { content, qa } = layouts[layoutName]
+    parts.push(`### Layout: ${layoutName} (qa=${qa})\n\n${content}`)
+  }
+  return parts.join("\n\n---\n\n")
 }
 
 /**

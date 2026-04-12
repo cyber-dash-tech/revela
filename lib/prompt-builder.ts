@@ -29,31 +29,17 @@ import {
   getDesignSkillMd,
   parseDesignSections,
   generateComponentIndex,
+  generateLayoutIndex,
 } from "./design/designs"
 import { activeDomain, getDomainSkillMd } from "./domain/domains"
 import { parseFrontmatter } from "./frontmatter"
-import { SLIDE_TYPES, type SlideType } from "./qa/checks"
+import { setSlideTypes } from "./qa/checks"
 import { childLog } from "./log"
 
 const promptLog = childLog("prompt-builder")
 
 /** Path to SKILL.md shipped with this package. */
 const SKILL_MD_PATH = resolve(__dirname, "..", "skill", "SKILL.md")
-
-/**
- * Human-readable descriptions for each slide type.
- * Used to generate the data-slide-type table injected into SKILL.md.
- * Kept here (not in checks.ts) — these are prose for the AI, not QA logic.
- */
-const SLIDE_TYPE_DESCRIPTIONS: Record<SlideType, string> = {
-  cover: "Title / opening slide",
-  toc: "Table of contents",
-  content: "Regular content slides (default)",
-  summary: "Key takeaways slide",
-  closing: "Thank-you / Q&A / contact slide",
-  divider: "Section-break / transition slide",
-  "thank-you": "Alias for `closing`",
-}
 
 /**
  * Build the combined system prompt and write it to _active-prompt.md.
@@ -68,7 +54,7 @@ export function buildPrompt(designName?: string, domainName?: string): string {
 
   // Layer 1 — SKILL.md (with dynamic slide-type table injected)
   let coreSkill = readFileSync(SKILL_MD_PATH, "utf-8")
-  coreSkill = injectSlideTypes(coreSkill)
+  coreSkill = injectSlideTypes(coreSkill, design)
 
   // Check for preview.html
   const designDir = join(DESIGNS_DIR, design)
@@ -121,13 +107,17 @@ export function buildPrompt(designName?: string, domainName?: string): string {
  * Build the design layer text.
  *
  * If the DESIGN.md has markers:
- *   - Always include @section:global
- *   - Always include @section:layouts (layout primitives — always needed)
- *   - Include a generated Component Index table (lightweight catalog)
- *   - Omit @section:components detail, @section:charts, @section:guide
+ *   - Always include @design:foundation (colors, fonts, CSS, JS, HTML skeleton)
+ *   - Always include @design:rules (composition rules, do/don't — always resident)
+ *   - Always include generated Layout Index (with QA column)
+ *   - Always include generated Component Index
+ *   - Omit individual layout details, component details, @design:chart-rules
  *     (available on demand via revela-designs tool)
  *
- * If no markers: return the full DESIGN.md body unchanged.
+ * If no markers: return the full DESIGN.md body unchanged (backward compat).
+ *
+ * Also calls setSlideTypes() to sync QA exemptions with the active design's
+ * layout markers.
  */
 function buildDesignLayer(designName: string): string {
   const mdPath = join(DESIGNS_DIR, designName, "DESIGN.md")
@@ -137,32 +127,43 @@ function buildDesignLayer(designName: string): string {
 
   const raw = readFileSync(mdPath, "utf-8")
   const { body } = parseFrontmatter(raw)
-  const { sections, components, hasMarkers } = parseDesignSections(body)
+  const { sections, layouts, components, hasMarkers } = parseDesignSections(body)
 
   if (!hasMarkers) {
     // Backward-compatible: full text injection
     return body
   }
 
+  // Sync QA system: tell checks.ts which types are exempt (qa=false)
+  const allTypes = Object.keys(layouts)
+  const exemptTypes = allTypes.filter((t) => !layouts[t].qa)
+  setSlideTypes(allTypes, exemptTypes)
+
   const layerParts: string[] = []
 
-  // 1. Global section (colors, typography, CSS, JS class, HTML structure)
-  if (sections["global"]) {
-    layerParts.push(sections["global"])
+  // 1. Foundation section (colors, typography, CSS vars, JS, HTML skeleton)
+  if (sections["foundation"]) {
+    layerParts.push(sections["foundation"])
   }
 
-  // 2. Component Index — compact catalog
-  const index = generateComponentIndex(components)
-  if (index) {
-    layerParts.push(index)
+  // 2. Rules section (composition rules, do/don't — always resident)
+  if (sections["rules"]) {
+    layerParts.push(sections["rules"])
   }
 
-  // 3. Layouts section — always resident (needed for every slide)
-  if (sections["layouts"]) {
-    layerParts.push(sections["layouts"])
+  // 3. Layout Index — compact catalog with QA column
+  const layoutIndex = generateLayoutIndex(layouts)
+  if (layoutIndex) {
+    layerParts.push(layoutIndex)
   }
 
-  // 4. On-demand note
+  // 4. Component Index — compact catalog
+  const componentIndex = generateComponentIndex(components)
+  if (componentIndex) {
+    layerParts.push(componentIndex)
+  }
+
+  // 5. On-demand note
   layerParts.push(
     [
       "### On-Demand Design Sections",
@@ -172,9 +173,9 @@ function buildDesignLayer(designName: string): string {
       "",
       "| Section | Fetch with |",
       "|---|---|",
+      "| Layout HTML/CSS details | `layout: \"<name>\"` (see Layout Index above) |",
       "| Component CSS/HTML details | `component: \"<name>\"` (see Component Index above) |",
-      "| Data Visualization (ECharts) | `section: \"charts\"` |",
-      "| Composition Guide & Do/Don't | `section: \"guide\"` |",
+      "| Data Visualization (ECharts) | `section: \"chart-rules\"` |",
     ].join("\n"),
   )
 
@@ -183,12 +184,43 @@ function buildDesignLayer(designName: string): string {
 
 /**
  * Replace the <!-- @slide-types --> placeholder in SKILL.md with a generated
- * markdown table built from SLIDE_TYPES (single source of truth in checks.ts).
+ * markdown table built from the active design's @layout markers.
+ *
+ * The table includes the QA column so LLM knows which layouts are quality-checked.
+ * Falls back to a note saying "set after design loads" if no layouts are available yet.
  */
-function injectSlideTypes(skillMd: string): string {
-  const rows = SLIDE_TYPES.map(
-    (t) => `| \`${t}\` | ${SLIDE_TYPE_DESCRIPTIONS[t]} |`,
-  )
-  const table = ["| Value | Use for |", "|-------|---------|", ...rows].join("\n")
+function injectSlideTypes(skillMd: string, designName: string): string {
+  const mdPath = join(DESIGNS_DIR, designName, "DESIGN.md")
+  if (!existsSync(mdPath)) {
+    return skillMd.replace("<!-- @slide-types -->", "_Slide types are defined by the active design's layout markers._")
+  }
+
+  const raw = readFileSync(mdPath, "utf-8")
+  const { body } = parseFrontmatter(raw)
+  const { layouts, hasMarkers } = parseDesignSections(body)
+
+  if (!hasMarkers || Object.keys(layouts).length === 0) {
+    return skillMd.replace("<!-- @slide-types -->", "_Slide types are defined by the active design's layout markers._")
+  }
+
+  const rows = Object.entries(layouts).map(([name, info]) => {
+    // Use first non-empty, non-marker, non-code-fence line as description
+    const desc = info.content
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l && !l.startsWith("<!--") && !l.startsWith("```"))
+      ?.replace(/^#+\s*/, "")
+      .replace(/\(.*?\)/, "")
+      .trim() ?? ""
+    const qaIcon = info.qa ? "✓" : "—"
+    return `| \`${name}\` | ${qaIcon} | ${desc} |`
+  })
+
+  const table = [
+    "| Value | QA | Use for |",
+    "|-------|-----|---------|",
+    ...rows,
+  ].join("\n")
+
   return skillMd.replace("<!-- @slide-types -->", table)
 }
