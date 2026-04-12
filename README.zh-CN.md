@@ -133,9 +133,8 @@ OPENCODE_ENABLE_EXA=1 opencode
 
 | 名称 | 说明 | 预览 |
 |---|---|---|
-| `default` | 深色商务风格 —— 深海军蓝/石板色，锐利字体，ECharts 数据可视化 | ![default](assets/img/slide-example-default.jpg) |
-| `minimal` | 简洁浅色主题 —— 高对比度，充足留白，专业外观 | ![minimal](assets/img/slide-example-minimal.jpg) |
-| `editorial-ribbon` | 大胆的编辑版式 —— 强调色横幅，醒目标题，高视觉冲击力 | ![editorial-ribbon](assets/img/slide-example-ribbon.jpg) |
+| `aurora` | 颜色主题 — 极光, 高饱和度, ECharts 数据可视化 | ![default](assets/img/slide-example-aurora.jpg) |
+| `summit` | 极简主义 - 户外，适合有丰富插图，Echart 数据可视化 | ![summit](assets/img/slide-example-summit.jpg) |
 
 ---
 

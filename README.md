@@ -102,9 +102,8 @@ Three designs are bundled. Switch with `/revela designs <name>`.
 
 | Name | Description | Preview |
 |---|---|---|
-| `default` | Dark executive style — deep navy/slate, sharp typography, ECharts data visualization | ![default](assets/img/slide-example-default.jpg) |
-| `minimal` | Clean light theme — high contrast, generous whitespace, professional look | ![minimal](assets/img/slide-example-minimal.jpg) |
-| `editorial-ribbon` | Bold editorial layout — accent ribbons, strong headlines, high visual impact | ![editorial-ribbon](assets/img/slide-example-ribbon.jpg) |
+| `aurora` | Dark executive style — deep navy/slate, sharp typography, ECharts data visualization | ![default](assets/img/slide-example-aurora.jpg) |
+| `summit` | Editorial outdoor annual-report theme | ![summit](assets/img/slide-example-summit.jpg) |
 
 ---
 
