@@ -426,220 +426,140 @@ These rules are mandatory for Summit.
 
 Each `<section class="slide">` must set `slide-qa="true"` or `slide-qa="false"`. Use the QA column to decide which value to write. Fetch any layout with the `revela-designs` tool (`action: "read"`, `layout: "<name>"`).
 
-<!-- @layout:cover:start qa=false -->
-#### Cover
+<!-- @layout:fullbleed:start qa=false -->
+#### Fullbleed
 
-Opening spread with one dominant full-canvas hero field and a vertically centered reading field on the left. The left side should become a charcoal-toned editorial zone that fades gradually toward the right, so the opening copy sits in a clear reading field without turning into a boxed card. Keep the composition broad and architectural rather than modular.
-
-Structural intent:
-- Full-canvas hero field behind everything
-- Left-side reading field for opening title and short supporting copy
-- Quiet footer metadata at the bottom edge
-
-Suggested components:
-- Background hero field: often `full-bleed-media`
-- Left reading field: prefer `cover-title-stack` for full cover treatment; custom copy stack for a lighter variant
-- Footer metadata: often a minimal caption pair; already included in `cover-title-stack`
-
-These are recommendations, not hard requirements. The key rule is one dominant background field plus one clearly legible opening text zone.
-
-```html
-<section class="slide cover-slide" slide-qa="false" data-index="0">
-  <div class="slide-canvas">
-    <div class="page" style="padding:0;">
-      <div class="hero-field" style="position:absolute;inset:0;">
-        <!-- Recommended: one dominant hero component filling the full canvas -->
-        <div class="full-bleed-media" style="height:100%;">
-          <img src="https://images.unsplash.com/photo-1511497584788-876760111969?q=80&w=1800&auto=format&fit=crop" alt="Mountain landscape">
-        </div>
-      </div>
-      <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(105deg,rgba(5,5,5,0.95) 0%,rgba(5,5,5,0.72) 55%,rgba(5,5,5,0.10) 100%);"></div>
-      <div style="position:relative;display:flex;flex-direction:column;justify-content:center;height:100%;padding:84px 96px;color:#f7f4ee;">
-        <!-- Opening reading field: keep copy short and vertically centered -->
-        <div style="max-width:1020px;display:flex;flex-direction:column;justify-content:center;gap:22px;min-height:620px;">
-          <p class="eyebrow reveal" style="color:rgba(247,244,238,0.72);">Climate Report 2026</p>
-          <h1 class="reveal" style="max-width:1120px;color:#f7f4ee;font-size:120px;line-height:0.9;letter-spacing:-0.03em;text-transform:uppercase;">Ascending Through Constraint</h1>
-          <p class="reveal" style="max-width:540px;font-size:20px;line-height:1.55;color:rgba(247,244,238,0.82);">An annual review of product, footprint, and material transition.</p>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto;">
-          <p class="caption reveal" style="color:rgba(247,244,238,0.72);">Summit / Field Notes</p>
-          <p class="caption reveal" style="color:rgba(247,244,238,0.72);">Chamonix, France</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-```
-
-##### Tips
-- **Z-index stacking is mandatory.** Always declare explicit z-index for all three layers: hero background `z-index:0`, gradient overlay `z-index:1`, foreground content `z-index:2`. Relying on DOM order alone is fragile — `.full-bleed-media` creates a new stacking context that can trap the image above the overlay.
-- **Overlay direction.** Use a diagonal gradient (`linear-gradient(105deg, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.72) 55%, rgba(5,5,5,0.10) 100%)`) fading from left-dark to right-transparent. The left stop must be at least `0.90` — anything lighter leaves the title hard to read against bright hero images.
-- **All text must be white-family.** Headings `#f7f4ee`, body `rgba(247,244,238,0.72)`, captions/eyebrows `rgba(247,244,238,0.50–0.55)`.
-- **Page number.** Use `.page-number--light` since the background is always dark.
-- **No legacy page numbers.** Do not embed a manual page number string inside the layout HTML. The `.page-number` div handles all numbering.
-<!-- @layout:cover:end -->
-
-<!-- @layout:toc:start qa=false -->
-#### TOC
-
-Table-of-contents spread with one dominant visual field on the left and one narrow index panel on the right. The left field should fully occupy its column; do not treat it like an inset card. The right side should feel like a printed annual-report contents panel with tight typography, dense list structure, a short intro note, and a small footer.
+Full-canvas three-layer layout for slides that need a dominant background field behind all foreground content. Use for opening (cover) and closing slides, atmospheric section dividers, or any spread where a single background field should dominate the entire canvas.
 
 Structural intent:
-- Left column: dominant visual field
-- Right column: narrow TOC panel
-- Thin accent rule inside the panel to establish page rhythm
+- bg slot: full-canvas background zone, sits below everything
+- fg slot: foreground content zone, positioned above the gradient overlay
+
+Every slot accepts 1 or more components. The LLM decides what goes in each slot based on the slide purpose.
 
 Suggested components:
-- Left visual field: often `full-bleed-media`; can also use `echart-panel` for a data-led opening spread
-- Right TOC panel: often a custom contents stack; can pair with a small `stat-list` block below the chapter list for a denser right column
-- Footer line: often compact report metadata + page number
-
-These are recommendations, not hard requirements. The key rule is a broad visual field paired with a disciplined narrow index panel.
+- bg slot: `full-bleed-media` (photography, hero image)
+- fg slot: `cover-title-stack` for a full cover treatment; `closing-title-stack` for a closing slide; a custom copy stack for a lighter variant
 
 ```html
 <section class="slide" slide-qa="false" data-index="N">
   <div class="slide-canvas">
-    <div class="page reveal" style="padding:0;overflow:hidden;">
-      <div style="display:grid;grid-template-columns:8fr 4fr;height:100%;">
-        <div class="hero-field" style="height:100%;">
-          <!-- Recommended: one visual component that fills the entire left column -->
-          <div class="full-bleed-media" style="height:100%;">
-            <img src="https://images.unsplash.com/photo-1522163182402-834f871fd851?q=80&w=1800&auto=format&fit=crop" alt="Climbers resting on a steep alpine wall at sunrise">
-          </div>
-        </div>
-        <div style="background:var(--bg-page);height:100%;padding:42px 38px 30px;display:flex;">
-          <div style="width:3px;background:var(--accent-gold);flex:0 0 3px;"></div>
-          <div style="padding-left:22px;display:flex;flex-direction:column;justify-content:space-between;flex:1;">
-            <div>
-              <!-- TOC content stack: title, intro note, and dense chapter list -->
-              <h2 style="font-size:34px;line-height:0.94;letter-spacing:-0.03em;text-transform:uppercase;max-width:220px;">Table of Contents</h2>
-              <p style="margin-top:18px;font-size:11px;line-height:1.55;letter-spacing:0.08em;text-transform:none;color:var(--text-secondary);max-width:250px;">Short introductory note describing the scope of the sections that follow.</p>
-              <ol style="list-style:none;display:flex;flex-direction:column;gap:10px;margin-top:24px;">
-                <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span>01</span><span>Chapter title or section theme</span></li>
-                <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span>02</span><span>Chapter title or section theme</span></li>
-                <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span>03</span><span>Chapter title or section theme</span></li>
-                <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span>04</span><span>Chapter title or section theme</span></li>
-                <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;"><span>05</span><span>Chapter title or section theme</span></li>
-              </ol>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:14px;">
-              <div class="rule"></div>
-              <div>
-                <p class="caption">Panel note</p>
-                <p style="margin-top:10px;font-size:11px;line-height:1.55;color:var(--text-secondary);max-width:250px;">Optional supporting note, report description, or small contextual paragraph.</p>
-              </div>
-              <div style="display:flex;justify-content:space-between;align-items:end;">
-                <p class="caption">Report footer metadata</p>
-                <p style="font-family:'IBM Plex Sans Condensed', 'Inter', sans-serif;font-size:15px;line-height:1;font-weight:600;letter-spacing:0.02em;color:var(--text-primary);">3</p>
-              </div>
-            </div>
-          </div>
-        </div>
+    <div class="page" style="padding:0;">
+
+      <!-- [slot: bg] — 1+ components; suggested: full-bleed-media -->
+      <div style="position:absolute;inset:0;z-index:0;">
       </div>
+
+      <!-- gradient overlay — adjust direction and opacity based on fg content position -->
+      <div style="position:absolute;inset:0;z-index:1;background:/* linear-gradient(...) */"></div>
+
+      <!-- [slot: fg] — 1+ components; suggested: cover-title-stack, closing-title-stack -->
+      <div style="position:relative;z-index:2;height:100%;">
+      </div>
+
     </div>
   </div>
 </section>
 ```
 
 ##### Tips
-- **TOC entry numbers (01, 02 …) must be `font-weight:700`.** They anchor each row visually; without bold, they dissolve into the lighter entry text.
-- **Remove any legacy manual page number** inside the TOC panel footer. All slides use `.page-number` at the canvas level; a hand-written number string in the panel footer will duplicate or conflict with it.
-- **accent-gold divider line.** The vertical 3px rule uses `var(--accent-gold)`. Do not substitute another color — it is the primary editorial accent in Summit.
-<!-- @layout:toc:end -->
+- **Z-index stacking is mandatory.** Always declare explicit z-index for all three layers: bg slot `z-index:0`, gradient overlay `z-index:1`, fg slot `z-index:2`. Relying on DOM order alone is fragile — `.full-bleed-media` creates a new stacking context that can trap the image above the overlay.
+- **Overlay direction.** Cover scene: use a diagonal gradient fading left-dark to right-transparent, e.g. `linear-gradient(105deg, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.72) 55%, rgba(5,5,5,0.10) 100%)`. Closing scene: use a bottom-heavy gradient, e.g. `linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.72) 100%)`.
+- **All text in fg slot must be white-family.** Headings `#f7f4ee`, body `rgba(247,244,238,0.72)`, captions/eyebrows `rgba(247,244,238,0.50–0.55)`.
+- **Page number.** Use `.page-number--light` since the background is always dark.
+<!-- @layout:fullbleed:end -->
 
-<!-- @layout:narrative-hero-right:start qa=true -->
-#### Narrative Hero Right
+<!-- @layout:narrative:start qa=true -->
+#### Narrative
 
-Structural spread with a dense narrative panel on the left and one fully filled hero field on the right. This is not a content-locked media layout: the right field can be an image, a chart-led visual, or another dominant block that fully occupies its column.
+Asymmetric two-column layout with the left column wider (1.618fr) and the right column narrower (1fr). Use when one side needs more visual or reading weight than the other.
 
 Structural intent:
-- Left side: dense reading surface
-- Right side: dominant hero field
-- Strong asymmetry between reading weight and visual weight
+- left slot: wider zone (1.618fr) — can hold any component(s)
+- right slot: narrower zone (1fr) — can hold any component(s)
+
+Every slot accepts 1 or more components. The LLM decides what each slot contains — there is no text/visual semantic preset.
 
 Suggested components:
-- Left narrative panel: often `report-text-panel`; also suitable for `flow-vertical` when showing a process sequence
-- Right hero field: often `full-bleed-media`; can also use `echart-panel` for a data-visual slide, `flow-horizontal` for a step process, or `data-table` for a structured evidence block
-
-These are recommendations, not hard requirements. The key rule is structural contrast: one disciplined reading surface on one side, one dominant hero field on the other.
+- left slot: `full-bleed-media`, `echart-panel`, `report-text-panel`, `flow-vertical`, `data-table`
+- right slot: `report-text-panel`, `flow-vertical`, `editorial-text-top`, `echart-panel`
 
 ```html
 <section class="slide" slide-qa="true" data-index="N">
   <div class="slide-canvas">
-    <div class="page" style="padding:0;overflow:hidden;background:var(--bg-frame);">
-      <div style="display:grid;grid-template-columns:4.2fr 7.8fr;height:100%;">
-        <div class="report-text-panel report-text-panel--dark reveal">
-          <!-- Narrative panel: use dense copy, structured notes, or another reading-first component. -->
-          <div style="max-width:420px;">
-            <p class="eyebrow" style="color:rgba(243,238,230,0.72);">Section label / annual review</p>
-            <h2 style="margin-top:16px;font-size:60px;line-height:0.92;letter-spacing:-0.03em;text-transform:uppercase;color:#f7f4ee;max-width:360px;">Narrative heading</h2>
-            <p style="margin-top:20px;font-size:13px;line-height:1.58;color:rgba(243,238,230,0.84);max-width:390px;">Use this side for the main reading load: compact explanation, factual notes, or structured narrative that supports the hero field without competing with it.</p>
-            <p style="margin-top:16px;font-size:13px;line-height:1.58;color:rgba(243,238,230,0.78);max-width:390px;">The specific content can vary. What matters is that this panel remains the primary reading surface and the opposite side remains the dominant visual field.</p>
-          </div>
-          <div class="report-panel-footer" style="color:rgba(243,238,230,0.68);">
-            <p class="caption">Summit / Climate Report 2026</p>
-            <p class="caption">03</p>
-          </div>
+    <div class="page" style="padding:0;overflow:hidden;">
+      <div class="narrative-grid">
+
+        <!-- [slot: left] — 1+ components; suggested: full-bleed-media, echart-panel, report-text-panel -->
+        <div>
         </div>
-        <div class="hero-field reveal">
-          <!-- Hero field: use one dominant visual component that fully fills this region. -->
-          <div class="full-bleed-media" style="height:100%;">
-            <img src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1800&auto=format&fit=crop" alt="Mountain meadow and stream under dramatic alpine sky">
-          </div>
+
+        <!-- [slot: right] — 1+ components; suggested: report-text-panel, toc, flow-vertical, data-table -->
+        <div>
         </div>
+
       </div>
     </div>
   </div>
 </section>
 ```
 
+```css
+.narrative-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.618fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    height: 100%;
+    overflow: hidden;
+}
+
+.narrative-grid--reverse {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.618fr);
+}
+
+.narrative-grid > * {
+    overflow: hidden;
+    min-height: 0;
+    min-width: 0;
+}
+```
+
 ##### Tips
-- **Grid container must use `flex:1;min-height:0`**, not `height:100%`. Using `height:100%` on the two-column grid causes content overflow when text is dense.
-- **Narrow left panel (4.2fr) is not suited for charts or wide tables.** The text panel occupies the compressed column. Do not attempt to squeeze a bar chart or a data table with many columns into the 4.2fr side — they need horizontal room to read correctly.
-- **Dark panel variant.** When the left panel uses a dark background (or a background image with overlay), override CSS variables on the container: `--text-primary`, `--text-secondary`, `--text-muted`, `--line`, `--line-strong` — all set to white-family values. This lets child components inherit correct colors automatically. Use `.page-number--light` for the page number.
-- **Background image inside dark panel.** Place `img` absolutely at `z-index:0`, dark overlay at `z-index:1`, text content at `z-index:2`. Same three-layer rule as cover.
-<!-- @layout:narrative-hero-right:end -->
+- **Grid container uses `.narrative-grid` class.** Applies `minmax(0, Nfr)` tracks and `overflow:hidden` on all children. Do not add inline `height:100%` or `flex:1` — the class handles containment.
+- **No semantic preset.** Either slot can hold any component. The wider left column naturally suits visually dominant content (full-bleed media, wide charts), but this is not a hard rule.
+- **Dark panel variant.** When a slot uses a dark background, override CSS variables on that container: `--text-primary`, `--text-secondary`, `--text-muted`, `--line`, `--line-strong` — all set to white-family values. Use `.page-number--light`.
+- **Background image inside a slot.** Use the three-layer z-index pattern: background `z-index:0`, dark overlay `z-index:1`, content `z-index:2`.
+<!-- @layout:narrative:end -->
 
-<!-- @layout:narrative-hero-left:start qa=true -->
-#### Narrative Hero Left
+<!-- @layout:narrative-reverse:start qa=true -->
+#### Narrative Reverse
 
-Mirror of `narrative-hero-right`: hero field on the left, narrative panel on the right. The left side remains a structural hero field rather than a fixed media slot, and the right side remains a compact reading surface rather than a fixed article template.
+Asymmetric two-column layout with the left column narrower (1fr) and the right column wider (1.618fr). Mirror of `narrative` — same grid class with `--reverse` modifier.
 
 Structural intent:
-- Left side: dominant hero field
-- Right side: compact reading surface
-- Same asymmetry as `narrative-hero-right`, but reversed
+- left slot: narrower zone (1fr) — can hold any component(s)
+- right slot: wider zone (1.618fr) — can hold any component(s)
+
+Every slot accepts 1 or more components. The LLM decides what each slot contains — there is no text/visual semantic preset.
 
 Suggested components:
-- Left hero field: often `full-bleed-media`; can also use `echart-panel` for a data-led visual, or `flow-vertical` over a background image for a process-driven spread
-- Right narrative panel: often `report-text-panel`; also suitable for `flow-vertical` when showing supporting steps or process detail
-
-These are recommendations, not hard requirements. Keep the hero side visually dominant and the narrative side compact, disciplined, and subordinate in visual weight.
+- left slot: `report-text-panel`, `flow-vertical`, `editorial-text-top`, `echart-panel`
+- right slot: `full-bleed-media`, `echart-panel`, `report-text-panel`, `data-table`
 
 ```html
 <section class="slide" slide-qa="true" data-index="N">
   <div class="slide-canvas">
-    <div class="page alt" style="padding:0;overflow:hidden;background:var(--bg-page-alt);">
-      <div style="display:grid;grid-template-columns:7.8fr 4.2fr;height:100%;">
-        <div class="hero-field reveal">
-          <!-- Hero field: use one dominant visual component that fully fills this region. -->
-          <div class="full-bleed-media" style="height:100%;">
-            <img src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?q=80&w=1800&auto=format&fit=crop" alt="Snow ridge landscape under alpine light">
-          </div>
+    <div class="page" style="padding:0;overflow:hidden;">
+      <div class="narrative-grid narrative-grid--reverse">
+
+        <!-- [slot: left] — 1+ components; suggested: report-text-panel, toc, flow-vertical, echart-panel -->
+        <div>
         </div>
-        <div class="report-text-panel report-text-panel--light reveal">
-          <!-- Narrative panel: use compact explanation, notes, or another reading-first component. -->
-          <div style="max-width:390px;">
-            <p class="eyebrow" style="color:var(--text-muted);">Section label / annual review</p>
-            <h2 style="margin-top:16px;font-size:60px;line-height:0.92;letter-spacing:-0.03em;text-transform:uppercase;color:var(--text-primary);max-width:340px;">Narrative heading</h2>
-            <p style="margin-top:20px;font-size:13px;line-height:1.58;color:var(--text-secondary);max-width:360px;">Use the light-side version when the hero field should dominate and the reading panel should feel quieter, more open, and more paper-like.</p>
-            <p style="margin-top:16px;font-size:13px;line-height:1.58;color:var(--text-secondary);max-width:360px;">This layout mirrors `narrative-hero-right`. The exact content may vary, but the hierarchy should remain stable: dominant hero field, compact reading panel.</p>
-          </div>
-          <div class="report-panel-footer" style="color:var(--text-muted);">
-            <p class="caption">Summit / Climate Report 2026</p>
-            <p class="caption">04</p>
-          </div>
+
+        <!-- [slot: right] — 1+ components; suggested: full-bleed-media, echart-panel, data-table -->
+        <div>
         </div>
+
       </div>
     </div>
   </div>
@@ -647,786 +567,196 @@ These are recommendations, not hard requirements. Keep the hero side visually do
 ```
 
 ##### Tips
-- **Same grid/flex rule as `narrative-hero-right`.** Use `flex:1;min-height:0` on the two-column grid container, not `height:100%`.
-- **Narrow right panel (4.2fr) has the same chart/table restriction.** Do not place a bar chart or wide data table in the 4.2fr right column — it will overflow or become illegible.
-- **Dark panel on right side.** Same CSS variable override pattern applies: set `--text-primary` etc. to white-family values on the panel container, then all child components inherit automatically.
-- **Background image inside left hero column.** When the hero column contains a `flow-vertical` or other component over a background image, use the three-layer z-index pattern: background `z-index:0`, dark overlay `z-index:1`, content `z-index:2`. Set all text to white-family inline.
-<!-- @layout:narrative-hero-left:end -->
+- **Same `.narrative-grid` class as `narrative`, with `--reverse` modifier.** Add both `narrative-grid` and `narrative-grid--reverse` to the grid container. The modifier swaps column proportions to `1fr left / 1.618fr right`.
+- **No semantic preset.** Either slot can hold any component — visual on the right, text on the left, or any other combination based on content needs.
+- **Dark panel variant.** Same CSS variable override pattern as `narrative`: set `--text-primary` etc. to white-family values on the panel container, all child components inherit automatically.
+<!-- @layout:narrative-reverse:end -->
 
-<!-- @layout:three-highlights:start qa=true -->
-#### Three Highlights
+<!-- @layout:three-col:start qa=true -->
+#### Three Col
 
-An annual-report highlight spread with a small report-style title and clearly unequal text density across the three columns. The center column is the narrative spine; the left and right columns are shorter supporting modules. Do not make the three columns feel like equal cards or mirrored modules.
+Equal three-column layout. Use when three parallel items of roughly equal visual weight should appear side by side — proof blocks, highlights, feature comparisons, or any triad of editorial modules.
 
 Structural intent:
-- Left column: supporting proof block
-- Center column: main reading column
-- Right column: supporting proof block
+- left slot: 1fr column — any component(s)
+- center slot: 1fr column — any component(s)
+- right slot: 1fr column — any component(s)
 
-Suggested content behavior:
-- The two outer columns are usually shorter, simpler, and more image- or proof-led.
-- The center column usually carries the densest explanation, evidence, or narrative logic.
-- Any of the three columns may use image, text, stats, or another editorial module if the hierarchy stays intact.
+Every slot accepts 1 or more components. The LLM decides what each slot contains — columns are fully equal with no hierarchy preset.
 
-Suggested components per column:
-- Outer columns (left/right): `editorial-image-top` for an image-led proof block; `editorial-text-top` for a text-and-stat block; a simple stat or pull-quote stack when extreme brevity is appropriate
-- Center column: `editorial-text-top` for dense body copy; `echart-panel` for a chart-led argument; `data-table` for structured evidence; `flow-vertical` for a short step sequence supporting the narrative
-
-These are recommendations, not hard requirements. Choose components based on reading weight and visual hierarchy, not on a fixed left/center/right recipe.
+Suggested components (per slot):
+- `editorial-image-top` for an image-led proof block
+- `editorial-text-top` for a text-and-stat block
+- `echart-panel` for a chart per column
+- `flow-vertical` for a short step sequence
+- `report-text-panel` for dense copy
 
 ```html
 <section class="slide" slide-qa="true" data-index="N">
   <div class="slide-canvas">
     <div class="page">
-      <p class="eyebrow reveal">Highlights</p>
-      <h2 class="reveal" style="margin-top:12px;font-size:25px;line-height:1.02;letter-spacing:0.015em;text-transform:uppercase;max-width:440px;">Climate action highlights</h2>
-      <div class="rule" style="margin:18px 0 26px;"></div>
-      <div style="display:grid;grid-template-columns:3.8fr 5.4fr 3.8fr;gap:34px;align-items:start;flex:1;">
-        <div class="reveal" style="padding-top:12px;border-top:1px solid var(--line-strong);display:flex;flex-direction:column;gap:14px;">
-          <!-- Left support block: use any short proof-oriented component or simple custom stack. -->
-          <div class="media-frame" style="height:240px;">
-            <img src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?q=80&w=1200&auto=format&fit=crop" alt="Snow ridge in alpine light">
-          </div>
-          <div style="display:flex;flex-direction:column;gap:10px;max-width:250px;">
-            <p class="caption">Support theme</p>
-            <h3 style="font-size:18px;line-height:1.08;max-width:240px;">Short proof statement for the left column.</h3>
-            <p style="font-size:13px;line-height:1.48;max-width:250px;">Keep this column concise so it supports the page argument instead of competing with the center narrative.</p>
-          </div>
+      <div class="three-col-grid" style="flex:1;min-height:0;">
+
+        <!-- [slot: left] — 1+ components; suggested: editorial-image-top, editorial-text-top, echart-panel -->
+        <div>
         </div>
-        <div class="reveal" style="padding-top:12px;border-top:1px solid var(--line-strong);display:flex;flex-direction:column;gap:18px;">
-          <!-- Center narrative spine: this should be the densest reading zone on the page. -->
-          <div style="max-width:100%;display:flex;flex-direction:column;gap:14px;">
-            <p class="caption">Narrative spine</p>
-            <h3 style="font-size:21px;line-height:1.06;max-width:360px;">Main explanatory statement for the center column.</h3>
-            <p style="font-size:13px;line-height:1.5;max-width:360px;">Use this column for the clearest explanation, evidence sequence, or report-style body copy. It should carry more reading weight than either outer column.</p>
-            <p style="font-size:13px;line-height:1.5;max-width:360px;">The lower block can hold supporting media, a small chart, a stat module, or another proof element, as long as the center column remains the main narrative anchor.</p>
-          </div>
-          <div class="media-frame" style="height:208px;">
-            <img src="https://images.unsplash.com/photo-1464823063530-08f10ed1a2dd?q=80&w=1200&auto=format&fit=crop" alt="Mountain landscape with distant ridge line">
-          </div>
-          <p class="media-caption">Optional proof block / media / chart / supporting evidence</p>
+
+        <!-- [slot: center] — 1+ components; suggested: editorial-text-top, echart-panel, flow-vertical -->
+        <div>
         </div>
-        <div class="reveal" style="padding-top:12px;border-top:1px solid var(--line-strong);display:flex;flex-direction:column;gap:14px;">
-          <!-- Right support block: keep it brief and subordinate to the center narrative. -->
-          <div class="media-frame" style="height:240px;">
-            <img src="https://images.unsplash.com/photo-1519904981063-b0cf448d479e?q=80&w=1200&auto=format&fit=crop" alt="Hiker in alpine basin">
-          </div>
-          <div style="display:flex;flex-direction:column;gap:10px;max-width:245px;">
-            <p class="caption">Support theme</p>
-            <h3 style="font-size:18px;line-height:1.08;max-width:230px;">Short proof statement for the right column.</h3>
-            <p style="font-size:13px;line-height:1.48;max-width:245px;">This side can be image-led, stat-led, or text-led, but should remain secondary in reading priority.</p>
-          </div>
-          <p class="media-caption">Optional caption / source / field note</p>
+
+        <!-- [slot: right] — 1+ components; suggested: editorial-image-top, editorial-text-top, echart-panel -->
+        <div>
         </div>
+
       </div>
     </div>
   </div>
 </section>
 ```
 
+```css
+.three-col-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 32px;
+    overflow: hidden;
+}
+
+.three-col-grid > * {
+    overflow: hidden;
+    min-height: 0;
+}
+```
+
 ##### Tips
-- **Three columns must use `align-items:stretch;min-height:0`** on the grid container. Using `align-items:start` causes column underfill — the shorter columns stop short and leave a blank band at the bottom.
-- **Unequal density is intentional.** The center column carries the narrative spine and will be noticeably taller. Do not equalize copy length across all three columns; the height imbalance is part of the editorial rhythm.
-- **Do not set fixed heights on editorial components inside this layout.** Let `editorial-image-top` and `editorial-text-top` fill height via flexbox stretch.
-<!-- @layout:three-highlights:end -->
+- **Grid container needs `flex:1;min-height:0` inline** when inside `.page` (which is flex-column). The class handles column sizing; the inline style handles row stretch.
+- **Equal columns — no hierarchy.** Unlike `narrative`, all three columns are equal. Adjust content density to suit the slide purpose; do not artificially inflate one column to create false hierarchy.
+- **Do not set fixed heights on editorial components.** Let components fill height via flexbox stretch.
+<!-- @layout:three-col:end -->
 
-<!-- @layout:closing:start qa=false -->
-#### Closing
+<!-- @layout:halves:start qa=true -->
+#### Halves
 
-Closing spread with one dominant full-canvas field, a restrained sign-off zone, and minimal footer/contact information. Treat it as a final atmospheric page rather than a content-heavy layout.
+Equal two-column layout. Use when two items of equal visual weight should appear side by side — paired charts, dual evidence blocks, before/after comparisons, or any two-column editorial spread.
 
 Structural intent:
-- Full-canvas dominant field
-- Small closing statement or sign-off zone
-- Minimal footer or contact metadata
+- left slot: 1fr column — any component(s)
+- right slot: 1fr column — any component(s)
 
-Suggested components:
-- Background field: often `full-bleed-media`
-- Closing statement: prefer `closing-title-stack` for a full closing treatment; custom short copy stack for a lighter variant
-- Footer metadata: often a minimal caption pair; already included in `closing-title-stack`
+Every slot accepts 1 or more components. The LLM decides what each slot contains — both columns are fully equal with no hierarchy preset.
 
-These are recommendations, not hard requirements. The key rule is to end on one calm dominant field with only the lightest layer of supporting information.
+Suggested components (per slot):
+- `echart-panel` for a chart
+- `data-table` for tabular data
+- `editorial-image-top` for an image-led block
+- `report-text-panel` for dense copy
+- `flow-vertical` for a step sequence
 
 ```html
-<section class="slide" slide-qa="false" data-index="N">
+<section class="slide" slide-qa="true" data-index="N">
+  <div class="slide-canvas">
+    <div class="page" style="overflow:hidden;">
+      <div class="halves-grid" style="flex:1;min-height:0;">
+
+        <!-- [slot: left] — 1+ components; suggested: echart-panel, data-table, editorial-image-top -->
+        <div>
+        </div>
+
+        <!-- [slot: right] — 1+ components; suggested: echart-panel, data-table, report-text-panel -->
+        <div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+```
+
+```css
+.halves-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 40px;
+    overflow: hidden;
+}
+
+.halves-grid > * {
+    overflow: hidden;
+    min-height: 0;
+    min-width: 0;
+}
+```
+
+##### Tips
+- **Grid container needs `flex:1;min-height:0` inline** when inside `.page`. The class handles column sizing.
+- **Equal columns — no hierarchy.** Both slots carry the same weight. Choose components based on content, not a fixed text/visual assignment.
+- **Gap `40px` is intentional.** The slightly wider gap than `three-col` (32px) compensates for the larger individual column width.
+<!-- @layout:halves:end -->
+
+<!-- @layout:stacked:start qa=true -->
+#### Stacked
+
+Two-row vertical layout: a top band with natural height and a bottom zone that fills remaining space. Use when a horizontal component (process flow, stat row, header band) should anchor the top, with a taller content zone below.
+
+Structural intent:
+- top slot: `auto` height — sized by its content
+- bottom slot: `1fr` height — fills remaining vertical space
+
+Every slot accepts 1 or more components. The LLM decides what each slot contains — there is no semantic preset for either row.
+
+Suggested components:
+- top slot: `flow-horizontal`, a stat row, a header/eyebrow band
+- bottom slot: `echart-panel`, `data-table`, `full-bleed-media`
+
+```html
+<section class="slide" slide-qa="true" data-index="N">
   <div class="slide-canvas">
     <div class="page" style="padding:0;">
-      <div class="hero-field" style="position:absolute;inset:0;">
-        <!-- Recommended: one dominant field component filling the full canvas -->
-        <div class="full-bleed-media" style="height:100%;">
-          <img src="https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?q=80&w=1800&auto=format&fit=crop" alt="Snowy summit at dusk">
+      <div class="stacked-grid">
+
+        <!-- [slot: top] — 1+ components; suggested: flow-horizontal, stat-row -->
+        <div class="stacked-top">
         </div>
+
+        <!-- [slot: bottom] — 1+ components; suggested: echart-panel, data-table -->
+        <div class="stacked-bottom">
+        </div>
+
       </div>
-      <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(0,0,0,0.30) 0%,rgba(0,0,0,0.72) 100%);"></div>
-      <div style="position:relative;display:flex;flex-direction:column;justify-content:space-between;height:100%;padding:72px 84px;color:#f7f4ee;">
-        <div class="chevron-divider reveal" style="color:rgba(247,244,238,0.7);">Summit</div>
-        <div style="max-width:760px;">
-          <h1 class="reveal" style="color:#f7f4ee;">The work continues beyond the page.</h1>
-          <p class="reveal" style="margin-top:20px;color:rgba(247,244,238,0.82);max-width:480px;">Use the closing slide as a final dominant-field impression with only the lightest sign-off information.</p>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:end;gap:24px;">
-          <p class="caption reveal" style="color:rgba(247,244,238,0.72);">summit.example.com</p>
-          <p class="caption reveal" style="color:rgba(247,244,238,0.72);">@summit.field</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-```
-
-##### Tips
-- **Same three-layer z-index rule as cover.** Background image `z-index:0`, dark gradient overlay `z-index:1`, foreground text content `z-index:2`. Explicit declarations required.
-- **Use a bottom-heavy gradient** `linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.72) 100%)` so the sign-off zone at the bottom has a strong dark backing while the image still breathes at the top. Bottom stop must be `≥ 0.60`.
-- **All text white-family.** Headings `#f7f4ee`, body `rgba(247,244,238,0.72)`, captions `rgba(247,244,238,0.50)`. Use `.page-number--light`.
-- **Keep content minimal.** Closing is atmospheric — resist adding data tables or flow components here.
-<!-- @layout:closing:end -->
-
-<!-- @layout:narrative-hero-left-dark:start qa=true -->
-#### Narrative Hero Left Dark
-
-Wide visual field on the left (7.8fr), dark `report-text-panel` on the right (4.2fr). Use when the primary visual element — a chart, data visualisation, or full-bleed image — should occupy most of the canvas, while contextual narrative text sits in a compact dark panel on the right.
-
-Structural intent:
-- Left side: dominant visual field (echart-panel, full-bleed-media, or other wide component)
-- Right side: dark compact reading surface (`report-text-panel--dark`)
-- Inverts the typical text-left convention; places analysis beside the data rather than before it
-
-Suggested components:
-- Left: `echart-panel` (data visualisation), `full-bleed-media` (photography), `flow-vertical` (process sequence overlaid on a background image)
-- Right: `report-text-panel--dark`
-
-```html
-<section class="slide" slide-qa="true" data-index="N">
-  <div class="slide-canvas">
-    <div class="page" style="padding:0;overflow:hidden;background:var(--bg-frame);">
-      <div style="display:grid;grid-template-columns:7.8fr 4.2fr;flex:1;min-height:0;">
-        <div class="echart-panel reveal">
-          <!-- Wide visual field: echart-panel, full-bleed-media, or similar -->
-          <div class="echart-panel-header">
-            <p class="eyebrow">Section label</p>
-            <h3>Chart title</h3>
-            <p class="chart-subtitle">Subtitle or data source note</p>
-          </div>
-          <div class="echart-container" id="chart-id"></div>
-          <p class="chart-caption">Data source · Verification note</p>
-        </div>
-        <div class="report-text-panel report-text-panel--dark reveal">
-          <div style="max-width:420px;">
-            <p class="eyebrow" style="color:rgba(243,238,230,0.6);">Section · Topic</p>
-            <h2 style="margin-top:16px;font-size:52px;line-height:0.9;letter-spacing:-0.03em;text-transform:uppercase;color:#f7f4ee;max-width:380px;">Narrative heading</h2>
-            <div style="width:40px;height:2px;background:var(--accent-gold);margin:20px 0;"></div>
-            <p style="margin-top:0;font-size:13px;line-height:1.6;color:rgba(243,238,230,0.84);max-width:390px;">Primary interpretive text. Explains what the chart shows and why the trend matters.</p>
-            <p style="margin-top:16px;font-size:13px;line-height:1.6;color:rgba(243,238,230,0.76);max-width:390px;">Supporting detail. Methodology notes, caveats, or forward-looking context.</p>
-          </div>
-          <div class="report-panel-footer" style="color:rgba(243,238,230,0.5);">
-            <p class="caption">Organisation · Report title</p>
-            <p class="caption">NN</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-```
-Rules:
-- Left column must carry strong visual mass: a full-bleed image, a donut chart, a candlestick chart, or a combined chart-over-image. A lone bar chart leaves too much empty background and must not be used here.
-- If the primary data visual is a bar chart, use `narrative-hero-right` instead (chart occupies the right 7.8fr column, text on the left).
-- Right dark panel follows the same rules as `narrative-hero-right`'s dark variant.
-
-##### Tips
-- **Wide left column (7.8fr) is not an exception for bar charts.** Even though the column is wide, a standalone vertical bar chart leaves dead background space and looks unanchored. Donut, candlestick, and area charts fill the column more naturally and read better at large scale.
-- **`narrative-hero-right` is the bar-chart layout.** When the data requires a bar chart, flip to `narrative-hero-right` so the chart sits in the right 7.8fr column with ample horizontal room.
-- **Right dark panel CSS variable override.** Set `--text-primary`, `--text-secondary`, `--text-muted`, `--line`, `--line-strong` to white-family values on the right panel container, then child components inherit automatically without per-element inline styles.
-- **ECharts on dark left column.** Use `backgroundColor:'transparent'` in `setOption` and override axis label / legend colors to `rgba(247,244,238,0.7)` in the chart option.
-<!-- @layout:narrative-hero-left-dark:end -->
-
-<!-- @layout:split-dashboard:start qa=true -->
-#### Split Dashboard
-
-Full-canvas layout split horizontally: a process flow band on top, and a two-column data zone below (table + chart). Use when you need to combine a narrative sequence with quantitative data in a single slide.
-
-Structure:
-- **Top band** (`.split-top`): `flow-horizontal` spanning full width, typically 4 steps.
-- **Bottom zone** (`.split-bottom`): CSS grid, `5fr 7fr` — left holds a `data-table`, right holds an `echart-panel`.
-
-```html
-<section class="slide" data-index="N" slide-qa="true">
-  <div class="slide-canvas">
-    <div class="split-dashboard">
-
-      <!-- Top band: flow-horizontal -->
-      <div class="split-top">
-        <p class="slide-eyebrow">Phase / Section Label</p>
-        <div class="flow-horizontal">
-          <div class="flow-item">
-            <div class="flow-number">01</div>
-            <div class="flow-body">
-              <h4>Step One</h4>
-              <p>Short description of this phase or action.</p>
-            </div>
-          </div>
-          <div class="flow-item">
-            <div class="flow-number">02</div>
-            <div class="flow-body">
-              <h4>Step Two</h4>
-              <p>Short description of this phase or action.</p>
-            </div>
-          </div>
-          <div class="flow-item">
-            <div class="flow-number">03</div>
-            <div class="flow-body">
-              <h4>Step Three</h4>
-              <p>Short description of this phase or action.</p>
-            </div>
-          </div>
-          <div class="flow-item">
-            <div class="flow-number">04</div>
-            <div class="flow-body">
-              <h4>Step Four</h4>
-              <p>Short description of this phase or action.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Bottom zone: table left, chart right -->
-      <div class="split-bottom">
-        <!-- Left: data-table -->
-        <div class="split-table-col">
-          <div class="data-table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Category</th>
-                  <th>2024</th>
-                  <th>2025</th>
-                  <th>2026</th>
-                  <th>YoY</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Apparel</td>
-                  <td>18.4</td>
-                  <td>16.1</td>
-                  <td>14.2</td>
-                  <td class="delta positive">−12%</td>
-                </tr>
-                <tr>
-                  <td>Footwear</td>
-                  <td>9.7</td>
-                  <td>8.4</td>
-                  <td>7.3</td>
-                  <td class="delta positive">−13%</td>
-                </tr>
-                <tr>
-                  <td>Accessories</td>
-                  <td>4.2</td>
-                  <td>3.9</td>
-                  <td>3.4</td>
-                  <td class="delta positive">−13%</td>
-                </tr>
-                <tr class="subtotal">
-                  <td>Total (kt CO₂e)</td>
-                  <td>32.3</td>
-                  <td>28.4</td>
-                  <td>24.9</td>
-                  <td class="delta positive">−12%</td>
-                </tr>
-              </tbody>
-            </table>
-            <p class="table-caption">Thousands of tonnes CO₂e · Scope 1+2+3 combined</p>
-          </div>
-        </div>
-
-        <!-- Right: echart-panel -->
-        <div class="echart-panel split-chart-col">
-          <div class="echart-header">
-            <p class="echart-title">Internal Carbon Price</p>
-            <p class="echart-subtitle">USD / tonne CO₂e · 2022–2026</p>
-          </div>
-          <div class="echart-container" id="chart-carbon-area"></div>
-        </div>
-      </div>
-
     </div>
   </div>
 </section>
 ```
 
 ```css
-.split-dashboard {
-    display: flex;
-    flex-direction: column;
+.stacked-grid {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
     height: 100%;
     width: 100%;
-}
-
-.split-top {
-    flex: 0 0 auto;
-    padding-bottom: 36px;
-    border-bottom: 1px solid var(--line-strong);
-}
-
-.split-top .slide-eyebrow {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 24px;
-}
-
-.split-bottom {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    grid-template-columns: 5fr 7fr;
-    gap: 56px;
-    padding-top: 36px;
-    align-items: start;
-}
-
-.split-table-col {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
-.split-chart-col {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
-.split-chart-col .echart-container {
-    flex: 1;
-    min-height: 0;
-    height: 100%;
-}
-```
-
-Rules:
-- The top band should contain exactly one `flow-horizontal` with 4 items (5 is acceptable for very short copy).
-- The bottom left column uses `data-table` for tabular data with `delta` markers.
-- The bottom right column uses `echart-panel` — set the chart container to `height: 100%` rather than a fixed pixel height.
-- Use `slide-qa="true"` on this layout since the two-column bottom zone requires symmetry checking.
-- The eyebrow label in `.split-top` establishes section context; keep it short (1–4 words).
-
-##### Tips
-- **Dark background variant: flat overlay, not gradient.** When placing a background image behind all content, use a flat semi-transparent overlay `rgba(14,12,10,0.70–0.78)` rather than a directional gradient. Directional gradients create bright zones that make the text in either the table or chart area hard to read.
-- **CSS variable override at the dashboard level.** Set `--text-primary`, `--text-secondary`, `--text-muted`, `--line`, `--line-strong` to white-family values on the `.split-dashboard` container (`color:#f7f4ee`). This single override cascades into `flow-horizontal`, `data-table`, and `echart-panel` headers automatically.
-- **Bottom columns: `align-items:end`** aligns the table's bottom edge with the chart's bottom edge, which reads as a unified data zone. Avoid `align-items:stretch` unless both columns have equal natural height.
-- **flow-horizontal step copy must be short.** Each step body gets one column width. Long paragraphs in any step will overflow the column and break alignment. Trim to 1–3 sentences maximum.
-- **`data-table-wrap` dark overrides.** Set `--accent-earth` → `var(--accent-gold)` so col-highlight headers remain legible on dark. Set `--accent-olive` → a lighter shade (e.g., `#8faf7e`) since the default olive green is too dark on a dark background. Also override `.table-caption` color explicitly: `rgba(247,244,238,0.45)`.
-- **Page number.** Use `.page-number--light` on any dark-background version of this layout.
-<!-- @layout:split-dashboard:end -->
-
-<!-- @layout:data-brief:start qa=true -->
-#### Data Brief
-
-Full-canvas dark layout for dense data conclusions and annual-report summaries. Divides the canvas into three structural zones: a compact narrative column on the left, a wide data-dense zone on the right, and a horizontal visualisation strip spanning the bottom. Use when a slide must carry both analytical argument and supporting data evidence at the same time.
-
-Structural intent:
-- **Top-left**: compact narrative surface — heading, body copy, forward-looking notes
-- **Top-right**: wide data surface — one or two stacked data components with many columns or high row density
-- **Bottom band**: horizontal multi-item strip — small charts, KPIs, or a process sequence that reads left to right
-
-Suggested components:
-- Top-left narrative: often `report-text-panel--dark` for dense annual-report copy; also `flow-vertical` when the narrative is a sequence of findings; or a custom heading + bullets stack when brevity is preferred
-- Top-right data: often `dense-table` for multi-column financial or scientific data; also `data-table` for smaller tables, `echart-panel` for a chart-led evidence block, or two stacked `dense-table` instances for dual datasets
-- Bottom strip: often `mini-chart-strip` for 3–5 thumbnail charts; also `flow-horizontal` when the argument is a process sequence; or a row of `stat-inline` items for pure KPI callouts
-
-These are recommendations, not hard requirements. The key rule is: left column is the primary reading surface, right column is the primary evidence surface, bottom band is a supporting data scan strip.
-
-```html
-<section class="slide" slide-qa="true" data-index="N">
-  <div class="slide-canvas" style="padding:0;">
-    <div class="data-brief">
-
-      <!-- Top zone: narrative (left) + data (right) -->
-      <div class="data-brief-main">
-
-        <!-- Narrative slot: reading-first component, any dark-background variant -->
-        <div class="data-brief-narrative reveal">
-          <div style="max-width:440px;">
-            <p class="eyebrow" style="color:rgba(243,238,230,0.55);">Annual Review · 2023</p>
-            <h2 style="margin-top:14px;font-size:52px;line-height:0.92;letter-spacing:-0.03em;text-transform:uppercase;color:#f7f4ee;max-width:420px;">Data heading</h2>
-            <div style="width:36px;height:2px;background:var(--accent-gold);margin:20px 0;"></div>
-            <ul class="editorial-list" style="--list-color:rgba(243,238,230,0.80);">
-              <li style="font-size:13px;line-height:1.58;color:rgba(243,238,230,0.80);">Key finding or narrative point. Keep each item concise — two to three lines maximum so the list reads as a quick scan, not a paragraph.</li>
-              <li style="font-size:13px;line-height:1.58;color:rgba(243,238,230,0.80);">Second finding. This column should read like a printed annual-report summary: factual, ordered, and subordinate to the data on the right.</li>
-              <li style="font-size:13px;line-height:1.58;color:rgba(243,238,230,0.80);">Third finding. Use three to five items for optimal density without crowding the column.</li>
-            </ul>
-          </div>
-          <!-- Optional forward-looking or secondary block -->
-          <div style="margin-top:28px;padding-top:20px;border-top:1px solid rgba(247,244,238,0.14);max-width:440px;">
-            <p class="eyebrow" style="color:rgba(243,238,230,0.45);margin-bottom:10px;">Forward looking</p>
-            <p style="font-size:13px;line-height:1.58;color:rgba(243,238,230,0.70);">One short forward-looking paragraph or a brief note on methodology, assumptions, or next steps.</p>
-          </div>
-        </div>
-
-        <!-- Data slot: one or two dense data components stacked vertically -->
-        <div class="data-brief-data reveal">
-          <!-- Example: two stacked dense-table instances. Replace with echart-panel or data-table as needed. -->
-          <div class="dense-table-wrap">
-            <p class="dense-table-label">Key Figures — Income Statement</p>
-            <table class="dense-table">
-              <thead>
-                <tr>
-                  <th>SEKm</th>
-                  <th>2019</th>
-                  <th>2020</th>
-                  <th>2021</th>
-                  <th class="col-highlight">2022</th>
-                  <th class="col-highlight">2023</th>
-                  <th>YoY</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Net revenue</td>
-                  <td>274,100</td>
-                  <td>262,800</td>
-                  <td>282,400</td>
-                  <td class="col-highlight">330,100</td>
-                  <td class="col-highlight">372,100</td>
-                  <td class="delta positive">+13%</td>
-                </tr>
-                <tr>
-                  <td>Gross profit</td>
-                  <td>46,200</td>
-                  <td>43,600</td>
-                  <td>51,900</td>
-                  <td class="col-highlight">62,400</td>
-                  <td class="col-highlight">71,800</td>
-                  <td class="delta positive">+15%</td>
-                </tr>
-                <tr class="subtotal">
-                  <td>EBIT</td>
-                  <td>16,100</td>
-                  <td>11,200</td>
-                  <td>19,400</td>
-                  <td class="col-highlight">28,700</td>
-                  <td class="col-highlight">35,200</td>
-                  <td class="delta positive">+23%</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="dense-table-wrap" style="margin-top:18px;">
-            <p class="dense-table-label">Key Figures — Balance Sheet</p>
-            <table class="dense-table">
-              <thead>
-                <tr>
-                  <th>SEKm</th>
-                  <th>2019</th>
-                  <th>2020</th>
-                  <th>2021</th>
-                  <th class="col-highlight">2022</th>
-                  <th class="col-highlight">2023</th>
-                  <th>YoY</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Total assets</td>
-                  <td>424,600</td>
-                  <td>421,200</td>
-                  <td>457,300</td>
-                  <td class="col-highlight">492,400</td>
-                  <td class="col-highlight">531,700</td>
-                  <td class="delta positive">+8%</td>
-                </tr>
-                <tr>
-                  <td>Equity</td>
-                  <td>87,400</td>
-                  <td>88,200</td>
-                  <td>96,600</td>
-                  <td class="col-highlight">108,900</td>
-                  <td class="col-highlight">124,300</td>
-                  <td class="delta positive">+14%</td>
-                </tr>
-                <tr class="subtotal">
-                  <td>Net cash</td>
-                  <td>23,100</td>
-                  <td>18,400</td>
-                  <td>27,800</td>
-                  <td class="col-highlight">34,500</td>
-                  <td class="col-highlight">41,200</td>
-                  <td class="delta positive">+19%</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Bottom strip: visualisation or KPI scan band -->
-      <div class="data-brief-strip reveal">
-        <!-- Example: mini-chart-strip with 4 items. Replace with flow-horizontal or stat-inline row as needed. -->
-        <div class="mini-chart-strip">
-          <div class="mini-chart-item">
-            <p class="mini-chart-title">Revenue &amp; Gross Margin</p>
-            <div class="mini-chart-container" id="chart-brief-01"></div>
-          </div>
-          <div class="mini-chart-item">
-            <p class="mini-chart-title">EBIT &amp; EBIT Margin</p>
-            <div class="mini-chart-container" id="chart-brief-02"></div>
-          </div>
-          <div class="mini-chart-item">
-            <p class="mini-chart-title">Return on Invested Capital</p>
-            <div class="mini-chart-container" id="chart-brief-03"></div>
-          </div>
-          <div class="mini-chart-item">
-            <p class="mini-chart-title">CO₂ per Vehicle</p>
-            <div class="mini-chart-container" id="chart-brief-04"></div>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</section>
-```
-
-```css
-.data-brief {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    background: #10131a;
-    color: #f7f4ee;
-    padding: 48px 56px 40px;
-    gap: 0;
-    /* CSS variable overrides for all child components */
-    --text-primary: #f7f4ee;
-    --text-secondary: rgba(247, 244, 238, 0.75);
-    --text-muted: rgba(247, 244, 238, 0.45);
-    --line: rgba(247, 244, 238, 0.10);
-    --line-strong: rgba(247, 244, 238, 0.22);
-    --accent-earth: var(--accent-gold);
-    --accent-olive: #8faf7e;
-}
-
-.data-brief-main {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    grid-template-columns: 4fr 8fr;
-    gap: 48px;
-    align-items: start;
-}
-
-.data-brief-narrative {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    padding-right: 32px;
-    border-right: 1px solid rgba(247, 244, 238, 0.12);
-}
-
-.data-brief-data {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
     overflow: hidden;
 }
 
-.data-brief-strip {
-    flex-shrink: 0;
-    padding-top: 20px;
-    border-top: 1px solid rgba(247, 244, 238, 0.14);
-    margin-top: 20px;
+.stacked-top {
+    overflow: hidden;
+}
+
+.stacked-bottom {
+    overflow: hidden;
+    min-height: 0;
 }
 ```
 
 ##### Tips
-- **Background color.** The default dark is `#10131a` (a deep neutral with a slight blue-grey cast — closer to the Volvo editorial tone than pure `#050505`). Override to `var(--bg-frame)` for a colder black if needed.
-- **CSS variable override at `.data-brief` level.** All child components inherit `--text-primary`, `--text-secondary`, `--text-muted`, `--line`, `--line-strong` automatically. Also overrides `--accent-earth` → `var(--accent-gold)` and `--accent-olive` → `#8faf7e` so delta colors and highlights remain legible on dark backgrounds.
-- **Top-right data slot: two stacked components.** When using two `dense-table` instances stacked vertically, give each a `dense-table-label` header instead of a full `echart-panel-header`. Add `margin-top: 18px` between them. The vertical rule between `.data-brief-narrative` and `.data-brief-data` acts as the structural separator.
-- **Grid ratio `4fr 8fr`.** The 1:2 asymmetry is intentional — the data zone needs horizontal room to lay out many columns without wrapping. Do not widen the left narrative column above `4.5fr`.
-- **Bottom strip height.** The strip is `flex-shrink:0` and grows with its content. `mini-chart-strip` items render at ~190px tall by default. Keep strip content under 240px total to preserve the narrative zone.
-- **Page number.** Use `.page-number--light` since the background is always dark.
-<!-- @layout:data-brief:end -->
-
-<!-- @layout:brief-grid:start qa=true -->
-#### Brief Grid
-
-Two-row editorial layout for annual-report summary spreads, product round-ups, and year-in-review overviews. The top row carries the main reading surface plus one featured card; the bottom row holds two equal-width horizontal cards. The asymmetric row height (top taller, bottom shorter) creates a natural reading priority: the heading and overview copy read first, the supporting modules scan second.
-
-Structural intent:
-- **Top-left (narrative)**: heading, eyebrow, and bullet-list overview — the primary reading surface
-- **Top-right (feature card)**: one featured editorial card — `editorial-image-top` for a dominant image, `echart-panel` for a chart, or a `data-table` for structured evidence
-- **Bottom-left (card A)**: horizontal editorial card — `editorial-text-left`
-- **Bottom-right (card B)**: horizontal editorial card — `editorial-text-left`
-
-The bottom two cards are always equal width. The top row uses a wider left column (`7fr`) to give the narrative zone room for dense bullet copy.
-
-Suggested components:
-- Top-left narrative: inline heading + eyebrow + `.editorial-list` bullets (preferred) or `report-text-panel--light`
-- Top-right: `editorial-image-top` for a product/highlight card; `echart-panel` for a chart feature; `data-table` for evidence
-- Bottom row: `editorial-text-left` for both cards — this is the intended default
-
-```html
-<section class="slide" slide-qa="true" data-index="N">
-  <div class="slide-canvas">
-    <div class="page brief-grid">
-
-      <!-- Top row: narrative (left) + feature card (right) -->
-      <div class="brief-grid-top">
-
-        <!-- Narrative slot: heading + overview copy -->
-        <div class="brief-grid-narrative reveal">
-          <p class="eyebrow">Annual Review · 2023</p>
-          <h2 style="margin-top:14px;font-size:38px;line-height:0.96;letter-spacing:-0.02em;text-transform:uppercase;max-width:480px;">Section heading in brief</h2>
-          <div class="rule" style="margin:20px 0 22px;"></div>
-          <ul class="editorial-list">
-            <li style="font-size:13px;line-height:1.58;">Key finding or milestone. Keep each item two to three lines so the list reads as a quick scan rather than a paragraph block.</li>
-            <li style="font-size:13px;line-height:1.58;">Second finding. Use four to six bullets for a balanced narrative density without overloading the column.</li>
-            <li style="font-size:13px;line-height:1.58;">Third finding. Factual, ordered, and subordinate to the featured card on the right.</li>
-            <li style="font-size:13px;line-height:1.58;">Fourth finding. The left column should read like a printed executive summary — concise, sequenced, and scannable.</li>
-            <li style="font-size:13px;line-height:1.58;">Fifth finding. Optional sixth item only if the content genuinely requires it; prefer cutting copy over crowding the column.</li>
-          </ul>
-        </div>
-
-        <!-- Feature card slot: use editorial-image-top, echart-panel, or data-table -->
-        <div class="brief-grid-feature reveal">
-          <div class="editorial-image-top" style="height:100%;">
-            <div class="media-frame editorial-media" style="flex:1;min-height:0;">
-              <img src="https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=1200&auto=format&fit=crop" alt="Featured product or highlight">
-            </div>
-            <div class="editorial-module-body" style="padding:20px 24px 16px;">
-              <div class="module-kicker-row">
-                <i data-lucide="star" class="module-icon"></i>
-                <p class="caption">Feature label</p>
-              </div>
-              <h3 style="margin-top:8px;font-size:20px;line-height:1.08;">Featured card heading</h3>
-              <p style="font-size:13px;line-height:1.5;margin-top:8px;color:var(--text-secondary);">One or two sentences that position this feature within the broader section narrative.</p>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Bottom row: two equal-width horizontal cards -->
-      <div class="brief-grid-bottom">
-
-        <!-- Card A: editorial-text-left -->
-        <div class="brief-grid-card reveal">
-          <div class="editorial-text-left">
-            <div class="editorial-module-body">
-              <div class="module-kicker-row">
-                <i data-lucide="layers" class="module-icon"></i>
-                <p class="caption">Card A label</p>
-              </div>
-              <h3 style="margin-top:10px;font-size:18px;line-height:1.08;">Card A heading</h3>
-              <p style="font-size:13px;line-height:1.5;margin-top:8px;color:var(--text-secondary);">Supporting description. Keep this shorter than the narrative column above — this is evidence, not the main argument.</p>
-            </div>
-            <div class="media-frame editorial-media editorial-text-left-media">
-              <img src="https://images.unsplash.com/photo-1519904981063-b0cf448d479e?q=80&w=800&auto=format&fit=crop" alt="Card A visual">
-            </div>
-          </div>
-        </div>
-
-        <!-- Card B: editorial-text-left -->
-        <div class="brief-grid-card reveal">
-          <div class="editorial-text-left">
-            <div class="editorial-module-body">
-              <div class="module-kicker-row">
-                <i data-lucide="trending-up" class="module-icon"></i>
-                <p class="caption">Card B label</p>
-              </div>
-              <h3 style="margin-top:10px;font-size:18px;line-height:1.08;">Card B heading</h3>
-              <p style="font-size:13px;line-height:1.5;margin-top:8px;color:var(--text-secondary);">Supporting description for the second card. Mirror the density of Card A to maintain visual rhythm across the bottom row.</p>
-            </div>
-            <div class="media-frame editorial-media editorial-text-left-media">
-              <img src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?q=80&w=800&auto=format&fit=crop" alt="Card B visual">
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-    </div>
-  </div>
-</section>
-```
-
-```css
-.brief-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.brief-grid-top {
-    flex: 3;
-    min-height: 0;
-    display: grid;
-    grid-template-columns: 7fr 5fr;
-    gap: 24px;
-    align-items: stretch;
-}
-
-.brief-grid-bottom {
-    flex: 2;
-    min-height: 0;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    align-items: stretch;
-}
-
-.brief-grid-narrative {
-    display: flex;
-    flex-direction: column;
-    padding-right: 24px;
-    border-right: 1px solid var(--line-strong);
-}
-
-.brief-grid-feature {
-    display: flex;
-    flex-direction: column;
-}
-
-.brief-grid-feature .editorial-image-top {
-    display: flex;
-    flex-direction: column;
-    background: var(--bg-page-alt);
-    border-radius: 3px;
-    overflow: hidden;
-}
-
-.brief-grid-feature .editorial-image-top .editorial-media {
-    height: auto;
-}
-
-.brief-grid-card {
-    background: var(--bg-page-alt);
-    border-radius: 3px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-.brief-grid-card .editorial-text-left {
-    height: 100%;
-}
-```
-
-##### Tips
-- **Row height ratio `flex: 3` / `flex: 2`.** This gives the top row ~60% and bottom row ~40% of the available height. If the narrative column is short, increase bottom to `flex: 2.5` or reduce top to `flex: 2.5` to rebalance. Avoid `flex: 1 / 1` — equal rows flatten the hierarchy.
-- **Narrative column width `7fr`.** The wider left column accommodates four to six bullet items comfortably. Reducing to `6fr` is acceptable if the feature card content is more important; do not go below `5fr` or the bullet list wraps excessively.
-- **Feature card: `editorial-image-top` with `height:100%`.** The `.editorial-image-top` inside `.brief-grid-feature` must have `height:100%` and `display:flex;flex-direction:column`. Its `.editorial-media` should be `flex:1;min-height:0` so the image fills available space and the text footer stays at the bottom.
-- **Bottom cards: card background.** `.brief-grid-card` uses `--bg-page-alt` by default. On slides with a darker page background, override to a slightly lighter tone or use `--bg-page`. Avoid pure white — it lifts the cards out of the page composition.
-- **`editorial-list` in narrative.** The bullet list uses the `.editorial-list` class already defined in the foundation CSS. Do not use bare `<ul>` without the class — it will not pick up the custom bullet and spacing styles.
-- **Bottom card `editorial-text-left` fills card height.** The `.brief-grid-card` is `display:flex;flex-direction:column` and the inner `.editorial-text-left` should be `height:100%` so the media frame fills the right half evenly.
-<!-- @layout:brief-grid:end -->
+- **Top slot height is driven by its content.** `auto` means the row grows to wrap whatever is placed in `.stacked-top`. Do not set a fixed `max-height` on the grid row — let the component dictate its natural height.
+- **Bottom slot fills remaining space.** `minmax(0, 1fr)` ensures the bottom row takes all leftover vertical space and clips overflow cleanly.
+- **Both slots are fully equal in kind.** There is no preset for which slot holds "process" vs "data" — place any combination of components that fits the slide narrative.
+- **Dark background variant.** Set CSS variable overrides (`--text-primary` etc.) on `.stacked-grid` to cascade into both slots automatically.
+<!-- @layout:stacked:end -->
 
 <!-- @design:layouts:end -->
+
 
 <!-- @design:components:start -->
 
@@ -1703,6 +1033,7 @@ Horizontal editorial module: text on the left, image on the right. Extends the `
     flex: 1;
     min-width: 0;
     height: auto;
+    align-self: stretch;
 }
 ```
 
@@ -2018,55 +1349,68 @@ Rules:
 <!-- @component:data-table:start -->
 #### Data Table
 
-Annual-report format data table. Use for year-on-year comparisons, emissions data, supply chain figures, and any structured numeric dataset that requires legible column alignment.
+Annual-report format data table. Use for year-on-year comparisons, emissions data, supply chain figures, and any structured numeric dataset that requires legible column alignment. Adjust `font-size` and cell `padding` to suit density needs — no separate component required for compact variants.
 
 ```html
 <div class="data-table-wrap">
+  <p class="data-table-label">Key Figures — Income Statement</p>
   <table class="data-table">
     <thead>
       <tr>
         <th>Scope</th>
-        <th>2018</th>
-        <th>2019</th>
-        <th>2020</th>
-        <th>2020 vs. 2019</th>
-        <th>2020 vs. 2018</th>
+        <th>2021</th>
+        <th>2022</th>
+        <th class="col-highlight">2023</th>
+        <th class="col-highlight">2024</th>
+        <th>YoY</th>
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <td>1</td>
-        <td>1,329.2</td>
-        <td>1,273.4</td>
-        <td>1,156.4</td>
-        <td class="delta positive">+2%</td>
-        <td class="delta positive">+7%</td>
+      <tr class="section-header">
+        <td colspan="6">Direct Emissions</td>
       </tr>
       <tr>
-        <td>2</td>
+        <td>Scope 1</td>
+        <td>1,329.2</td>
+        <td>1,273.4</td>
+        <td class="col-highlight">1,156.4</td>
+        <td class="col-highlight">1,042.0</td>
+        <td class="delta positive">−10%</td>
+      </tr>
+      <tr>
+        <td>Scope 2</td>
         <td>1,617.8</td>
         <td>1,432.9</td>
-        <td>0.0</td>
-        <td class="delta negative">−100%</td>
-        <td class="delta negative">−100%</td>
+        <td class="col-highlight">820.0</td>
+        <td class="col-highlight">0.0</td>
+        <td class="delta positive">−100%</td>
       </tr>
       <tr class="subtotal">
         <td>1+2 (net)</td>
         <td>2,905.5</td>
         <td>3,286.3</td>
-        <td>1,156.4</td>
-        <td class="delta negative">−35%</td>
-        <td class="delta negative">−58%</td>
+        <td class="col-highlight">1,976.4</td>
+        <td class="col-highlight">1,042.0</td>
+        <td class="delta positive">−47%</td>
       </tr>
     </tbody>
   </table>
-  <p class="table-caption">Thousands of tonnes CO₂e · Source: Company Disclosures 2021</p>
+  <p class="table-caption">Thousands of tonnes CO₂e · Source: Company Disclosures 2024</p>
 </div>
 ```
 
 ```css
 .data-table-wrap {
     width: 100%;
+}
+
+.data-table-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
 }
 
 .data-table {
@@ -2090,6 +1434,7 @@ Annual-report format data table. Use for year-on-year comparisons, emissions dat
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--text-muted);
+    white-space: nowrap;
 }
 
 .data-table th:not(:first-child),
@@ -2097,8 +1442,24 @@ Annual-report format data table. Use for year-on-year comparisons, emissions dat
     text-align: right;
 }
 
+.data-table th.col-highlight,
+.data-table td.col-highlight {
+    color: var(--text-primary);
+    background: rgba(23, 20, 17, 0.05);
+    padding-left: 6px;
+    padding-right: 8px;
+}
+
+.data-table th.col-highlight {
+    color: var(--text-secondary);
+}
+
 .data-table tbody tr {
     border-bottom: 1px solid var(--line);
+}
+
+.data-table tbody tr:last-child {
+    border-bottom: none;
 }
 
 .data-table td {
@@ -2111,11 +1472,23 @@ Annual-report format data table. Use for year-on-year comparisons, emissions dat
     font-weight: 600;
     color: var(--text-primary);
     border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
+}
+
+.data-table tr.section-header td {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding-top: 14px;
+    padding-bottom: 4px;
     border-bottom: none;
 }
 
 .data-table .delta {
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .data-table .delta.positive {
@@ -2124,6 +1497,10 @@ Annual-report format data table. Use for year-on-year comparisons, emissions dat
 
 .data-table .delta.negative {
     color: var(--accent-danger);
+}
+
+.data-table .delta.neutral {
+    color: var(--text-muted);
 }
 
 .table-caption {
@@ -2139,389 +1516,23 @@ Rules:
 - No outer border. Separation is by `border-bottom` on rows only.
 - Numeric columns are right-aligned; the label column is left-aligned.
 - Use `tabular-nums` for number columns so decimals align vertically.
-- Use `.subtotal` on summary rows (totals, net figures) to apply heavier weight.
-- `.delta.positive` and `.delta.negative` use Summit accent colours, not generic green/red.
-- Include a `.table-caption` with the data source and unit.
+- Use `.subtotal` on summary rows (totals, net figures) — heavier weight and double-rule border.
+- Use `.section-header` rows to group rows into labelled categories within a single table (no data, just a label spanning all columns).
+- Use `.col-highlight` on both `th` and `td` in a column to spotlight the current or most important period.
+- `.delta.positive` and `.delta.negative` use Summit accent colours, not generic green/red. `.delta.neutral` for flat movement.
+- Use `data-table-label` as a heading above the table when multiple tables are stacked.
+- Include `.table-caption` below with the data source and unit.
 
 ##### Tips
-- **Dark background: override CSS variables on `.data-table-wrap`.** Set `--text-primary:#f7f4ee`, `--text-secondary:rgba(247,244,238,0.7)`, `--text-muted:rgba(247,244,238,0.45)`, `--line:rgba(247,244,238,0.12)`, `--line-strong:rgba(247,244,238,0.28)`. All child elements (th, td, thead, tr) inherit these automatically via `var()` — no per-cell inline styles needed.
-- **Col-highlight header on dark.** Override `--accent-earth` → `var(--accent-gold)` on `.data-table-wrap` so the highlighted column header remains visible. The default `--accent-earth` (#8d6a49) is too dark on dark backgrounds.
-- **Delta positive on dark.** Override `--accent-olive` → a lighter value (e.g., `#8faf7e`) on `.data-table-wrap`. The default `--accent-olive` (#6f7562) reads as near-black on dark backgrounds.
-- **`.table-caption` on dark.** Must be set explicitly: `color:rgba(247,244,238,0.45)`. It does not pick up the CSS variable override from `.data-table-wrap`.
-- **`align-items:end` in split layouts.** When pairing `data-table` with a chart in a two-column zone, use `align-items:end` on the grid so the table bottom aligns with the chart bottom. This makes the two elements read as a unified data block.
+- **Compact variant.** For high-density datasets, reduce `.data-table` to `font-size:11px` and `.data-table td` padding to `6px 8px 6px 0`. No separate component needed.
+- **Dark background: override CSS variables on `.data-table-wrap`.** Set `--text-primary:#f7f4ee`, `--text-secondary:rgba(247,244,238,0.7)`, `--text-muted:rgba(247,244,238,0.45)`, `--line:rgba(247,244,238,0.12)`, `--line-strong:rgba(247,244,238,0.28)`. All child elements inherit automatically via `var()`.
+- **`col-highlight` on dark.** Override background on `.data-table-wrap`: `.data-table th.col-highlight, .data-table td.col-highlight { background: rgba(247,244,238,0.06); }`. Also override `--accent-earth` → `var(--accent-gold)` so highlight header color remains visible.
+- **Delta positive on dark.** Override `--accent-olive` → `#8faf7e` on `.data-table-wrap`. The default `--accent-olive` (#6f7562) is nearly invisible on dark backgrounds.
+- **`.table-caption` on dark.** Set explicitly: `color:rgba(247,244,238,0.45)`. It does not inherit from the CSS variable override on the wrapper.
+- **Two stacked tables.** Add `margin-top:18px` between `.data-table-wrap` blocks and use `data-table-label` on each. Do not add a horizontal rule between them — the label serves as the visual separator.
 <!-- @component:data-table:end -->
 
-<!-- @component:dense-table:start -->
-#### Dense Table
 
-High-density data table for multi-column financial, scientific, or comparative datasets (typically 7–12 columns). A more compact variant of `data-table` with tighter padding, smaller font sizes, and a column-highlight mechanism for spotlighting the current or most important year/period. Designed for dark backgrounds by default.
-
-```html
-<div class="dense-table-wrap">
-  <p class="dense-table-label">Key Figures — Income Statement</p>
-  <table class="dense-table">
-    <thead>
-      <tr>
-        <th>SEKm</th>
-        <th>2019</th>
-        <th>2020</th>
-        <th>2021</th>
-        <th class="col-highlight">2022</th>
-        <th class="col-highlight">2023</th>
-        <th>YoY</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Net revenue</td>
-        <td>274,100</td>
-        <td>262,800</td>
-        <td>282,400</td>
-        <td class="col-highlight">330,100</td>
-        <td class="col-highlight">372,100</td>
-        <td class="delta positive">+13%</td>
-      </tr>
-      <tr>
-        <td>Gross profit</td>
-        <td>46,200</td>
-        <td>43,600</td>
-        <td>51,900</td>
-        <td class="col-highlight">62,400</td>
-        <td class="col-highlight">71,800</td>
-        <td class="delta positive">+15%</td>
-      </tr>
-      <tr class="subtotal">
-        <td>EBIT (adj.)</td>
-        <td>16,100</td>
-        <td>11,200</td>
-        <td>19,400</td>
-        <td class="col-highlight">28,700</td>
-        <td class="col-highlight">35,200</td>
-        <td class="delta positive">+23%</td>
-      </tr>
-      <tr>
-        <td>EBIT margin %</td>
-        <td>5.9</td>
-        <td>4.3</td>
-        <td>6.9</td>
-        <td class="col-highlight">8.7</td>
-        <td class="col-highlight">9.5</td>
-        <td class="delta positive">+0.8pp</td>
-      </tr>
-    </tbody>
-  </table>
-  <p class="dense-table-caption">Millions SEK · Adjusted figures exclude one-off items · Source: Annual Report 2023</p>
-</div>
-```
-
-```css
-.dense-table-wrap {
-    width: 100%;
-    overflow: hidden;
-}
-
-.dense-table-label {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 8px;
-}
-
-.dense-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: 'Inter', sans-serif;
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-    color: var(--text-secondary);
-}
-
-.dense-table thead tr {
-    border-bottom: 1px solid var(--line-strong);
-}
-
-.dense-table th {
-    padding: 0 8px 7px 0;
-    text-align: left;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.10em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    white-space: nowrap;
-}
-
-.dense-table th:not(:first-child),
-.dense-table td:not(:first-child) {
-    text-align: right;
-}
-
-.dense-table th.col-highlight,
-.dense-table td.col-highlight {
-    color: var(--text-primary);
-    background: rgba(247, 244, 238, 0.06);
-    padding-left: 6px;
-    padding-right: 8px;
-}
-
-.dense-table th.col-highlight {
-    color: rgba(247, 244, 238, 0.72);
-}
-
-.dense-table tbody tr {
-    border-bottom: 1px solid var(--line);
-}
-
-.dense-table tbody tr:last-child {
-    border-bottom: none;
-}
-
-.dense-table td {
-    padding: 6px 8px 6px 0;
-    line-height: 1.35;
-    white-space: nowrap;
-}
-
-.dense-table tr.subtotal td {
-    font-weight: 600;
-    color: var(--text-primary);
-    border-top: 1px solid var(--line-strong);
-    border-bottom: 1px solid var(--line-strong);
-}
-
-.dense-table tr.section-header td {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.10em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    padding-top: 14px;
-    padding-bottom: 4px;
-    border-bottom: none;
-}
-
-.dense-table .delta {
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-.dense-table .delta.positive {
-    color: var(--accent-olive);
-}
-
-.dense-table .delta.negative {
-    color: var(--accent-danger);
-}
-
-.dense-table .delta.neutral {
-    color: var(--text-muted);
-}
-
-.dense-table-caption {
-    margin-top: 8px;
-    font-size: 10px;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    line-height: 1.4;
-}
-```
-
-Rules:
-- Use for 7–12 column datasets where `data-table` becomes too wide or too tall.
-- `col-highlight` marks the current or most-important period columns — apply to both `th` and `td` in that column. Use for the current year and immediately preceding year when doing YoY comparisons.
-- `.subtotal` rows use heavier weight and a double-rule border to signal totals or net figures.
-- `.section-header` rows have no data — use them to group rows into labelled categories within a single table (e.g. "Income" / "Balance Sheet" / "Cash Flow" sections in a unified table).
-- `delta` column is always the last column. Use `positive` for favorable movement and `negative` for unfavorable — applied based on business context, not sign alone.
-- Include `dense-table-label` as a heading above the table and `dense-table-caption` as a source note below.
-- Do not include an outer border or zebra-stripe backgrounds; row separation is by `border-bottom` on each `tbody tr`.
-
-##### Tips
-- **On dark backgrounds** — the `col-highlight` cells use `rgba(247,244,238,0.06)` which is designed for dark. On light backgrounds, override to `background:rgba(23,20,17,0.05)` on `.dense-table-wrap`.
-- **`--accent-olive` on dark.** The default `--accent-olive` (#6f7562) is nearly invisible on dark backgrounds. Override at the parent container level: `--accent-olive: #8faf7e`. The `data-brief` layout already does this automatically.
-- **`white-space: nowrap` on cells.** Numeric cells should never wrap — it breaks alignment. If the table is too wide for the column, reduce font size to `10px` as a last resort rather than allowing wrapping.
-- **Two stacked instances.** When two `dense-table-wrap` blocks are stacked in the data slot, add `margin-top: 18px` between them and use `dense-table-label` on each to distinguish the datasets. Do not add a horizontal rule between them — the label serves as the visual separator.
-- **Light background variant.** Override CSS variables on `.dense-table-wrap`: `--text-primary: var(--text-primary)` (unchanged), `--text-secondary: var(--text-secondary)` (unchanged), `col-highlight` background → `rgba(23,20,17,0.04)`. Everything else inherits from the page root variables.
-<!-- @component:dense-table:end -->
-
-<!-- @component:mini-chart-strip:start -->
-#### Mini Chart Strip
-
-A horizontal row of 3–5 thumbnail ECharts visualisations. Use when a slide needs to show multiple data series side by side for quick cross-comparison — trend overviews, multi-metric performance bands, or before/after comparisons. Each item is an independent chart with its own title and ECharts container.
-
-Different from `echart-panel` (one large chart that dominates a layout column): `mini-chart-strip` shows several small charts in a scan strip, typically at the bottom of a slide or in a supporting band.
-
-```html
-<div class="mini-chart-strip">
-  <div class="mini-chart-item">
-    <p class="mini-chart-title">Revenue &amp; Gross Margin</p>
-    <div class="mini-chart-container" id="chart-strip-01"></div>
-    <p class="mini-chart-caption">SEKbn · 2019–2023</p>
-  </div>
-  <div class="mini-chart-item">
-    <p class="mini-chart-title">EBIT &amp; EBIT Margin %</p>
-    <div class="mini-chart-container" id="chart-strip-02"></div>
-    <p class="mini-chart-caption">SEKbn / %</p>
-  </div>
-  <div class="mini-chart-item">
-    <p class="mini-chart-title">Return on Invested Capital</p>
-    <div class="mini-chart-container" id="chart-strip-03"></div>
-    <p class="mini-chart-caption">% · ROIC</p>
-  </div>
-  <div class="mini-chart-item">
-    <p class="mini-chart-title">CO₂ per Vehicle</p>
-    <div class="mini-chart-container" id="chart-strip-04"></div>
-    <p class="mini-chart-caption">tonnes CO₂e</p>
-  </div>
-</div>
-
-<script>
-// Initialise all mini-charts after SlidePresentation is instantiated.
-// Each chart should use a compact option: no legend, minimal axis labels, no tooltip title.
-// Bar+line combo is the default type for trend + rate series.
-
-const commonDark = {
-    backgroundColor: 'transparent',
-    grid: { top: 8, right: 4, bottom: 22, left: 32, containLabel: false },
-    xAxis: {
-        type: 'category',
-        data: ['19', '20', '21', '22', '23'],
-        axisLine: { lineStyle: { color: 'rgba(247,244,238,0.18)' } },
-        axisTick: { show: false },
-        axisLabel: { color: 'rgba(247,244,238,0.45)', fontSize: 9, interval: 0 }
-    },
-    yAxis: [
-        {
-            type: 'value',
-            axisLabel: { color: 'rgba(247,244,238,0.45)', fontSize: 9, formatter: (v) => v >= 1000 ? (v/1000)+'k' : v },
-            splitLine: { lineStyle: { color: 'rgba(247,244,238,0.08)' } },
-            axisLine: { show: false }, axisTick: { show: false }
-        },
-        {
-            type: 'value',
-            axisLabel: { color: 'rgba(247,244,238,0.35)', fontSize: 9, formatter: (v) => v+'%' },
-            splitLine: { show: false },
-            axisLine: { show: false }, axisTick: { show: false }
-        }
-    ]
-};
-
-// Chart 01: Revenue (bar) + Gross Margin % (line on y1)
-const c1 = echarts.init(document.getElementById('chart-strip-01'));
-c1.setOption({ ...commonDark, series: [
-    { type: 'bar', data: [274, 263, 282, 330, 372], yAxisIndex: 0,
-      itemStyle: { color: '#8d6a49' }, barMaxWidth: 18 },
-    { type: 'line', data: [16.9, 16.6, 18.4, 18.9, 19.3], yAxisIndex: 1,
-      lineStyle: { color: '#c9992a', width: 2 }, symbol: 'circle', symbolSize: 4,
-      itemStyle: { color: '#c9992a' } }
-]});
-
-// Chart 02: EBIT (bar) + EBIT Margin % (line)
-const c2 = echarts.init(document.getElementById('chart-strip-02'));
-c2.setOption({ ...commonDark, series: [
-    { type: 'bar', data: [16.1, 11.2, 19.4, 28.7, 35.2], yAxisIndex: 0,
-      itemStyle: { color: '#6f7562' }, barMaxWidth: 18 },
-    { type: 'line', data: [5.9, 4.3, 6.9, 8.7, 9.5], yAxisIndex: 1,
-      lineStyle: { color: '#c9992a', width: 2 }, symbol: 'circle', symbolSize: 4,
-      itemStyle: { color: '#c9992a' } }
-]});
-
-// Chart 03: ROIC % (line only, no second axis needed)
-const c3 = echarts.init(document.getElementById('chart-strip-03'));
-c3.setOption({ ...commonDark,
-    yAxis: [{ ...commonDark.yAxis[0], axisLabel: { ...commonDark.yAxis[0].axisLabel, formatter: (v) => v+'%' } },
-             commonDark.yAxis[1]],
-    series: [
-        { type: 'bar', data: [7.2, 4.8, 9.1, 14.3, 16.8], yAxisIndex: 0,
-          itemStyle: { color: '#8d6a49' }, barMaxWidth: 18 },
-        { type: 'line', data: [7.2, 4.8, 9.1, 14.3, 16.8], yAxisIndex: 0,
-          lineStyle: { color: '#c9992a', width: 2 }, symbol: 'circle', symbolSize: 4,
-          itemStyle: { color: '#c9992a' } }
-    ]
-});
-
-// Chart 04: CO₂ per vehicle (bar, decreasing trend = positive)
-const c4 = echarts.init(document.getElementById('chart-strip-04'));
-c4.setOption({ ...commonDark,
-    yAxis: [commonDark.yAxis[0], commonDark.yAxis[1]],
-    series: [
-        { type: 'bar', data: [38.2, 35.6, 32.1, 27.4, 22.8], yAxisIndex: 0,
-          itemStyle: { color: '#6f7562' }, barMaxWidth: 18 }
-    ]
-});
-</script>
-```
-
-```css
-.mini-chart-strip {
-    display: flex;
-    align-items: flex-start;
-    width: 100%;
-    gap: 0;
-}
-
-.mini-chart-item {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding-right: 24px;
-    border-right: 1px solid var(--line-strong);
-    margin-right: 24px;
-}
-
-.mini-chart-item:last-child {
-    border-right: none;
-    padding-right: 0;
-    margin-right: 0;
-}
-
-.mini-chart-title {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.10em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    line-height: 1.3;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.mini-chart-container {
-    width: 100%;
-    height: 160px;
-    flex-shrink: 0;
-}
-
-.mini-chart-caption {
-    font-size: 9px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    opacity: 0.7;
-    line-height: 1.3;
-}
-```
-
-Rules:
-- Use 3–5 items. Fewer than 3 wastes the strip format — use `echart-panel` instead. More than 5 makes each chart too narrow to read at 1920px.
-- Each item is an independent ECharts instance with its own `id`. Never share an ECharts instance across items.
-- Default chart type is bar + line combo (bar for absolute values, line on `yAxisIndex:1` for rates/percentages). Pure line or pure bar is also valid.
-- **Always use `backgroundColor: 'transparent'`** in each chart's `setOption`. The strip background is inherited from the parent container.
-- **No legend on mini charts.** At this scale, legends compete with the chart body. Use the `mini-chart-title` to identify the series and rely on color to distinguish bar vs line.
-- **Minimal axis labels.** Use abbreviated year labels (`'19'`, `'20'`), suppress axis ticks, and suppress tooltip titles.
-- `mini-chart-caption` below each chart is optional but recommended for units and period.
-
-##### Tips
-- **Height is fixed at 160px** — do not use `flex: 1` on `.mini-chart-container`. ECharts needs a concrete pixel height to initialise; `flex: 1` with `min-height: 0` does not work reliably for ECharts containers.
-- **On light backgrounds.** Override `xAxis.axisLabel.color`, `yAxis.axisLabel.color`, `xAxis.axisLine.lineStyle.color`, and `yAxis.splitLine.lineStyle.color` to dark-family values. `.mini-chart-title` and `.mini-chart-caption` inherit from CSS variables automatically.
-- **3 items vs 5 items.** Three items each get roughly 580px width at full canvas — enough for a slightly taller chart (up to 200px). Five items each get ~340px — keep at 160px or the strip becomes the dominant vertical zone.
-- **Matching series colors.** Use `--accent-earth` (`#8d6a49`) for the primary bar series and `--accent-gold` (`#c9992a`) for the trend line. Use `--accent-olive` (`#6f7562`) for a secondary bar series. This keeps all mini charts visually consistent as a set.
-- **ECharts initialisation timing.** All `echarts.init()` calls must run after the DOM is ready. Place the script block after the slide HTML, inside the main `<script>` tag, after `new SlidePresentation()`.
-<!-- @component:mini-chart-strip:end -->
 
 <!-- @component:cover-title-stack:start -->
 #### Cover Title Stack
@@ -2681,5 +1692,56 @@ Rules:
 - **Gradient direction is bottom-heavy by design.** Cover fades left-to-right; closing fades top-to-bottom. This creates visual symmetry between the two bookend slides: the text always sits in the densest dark zone of its respective overlay.
 - **Overlay opacity.** Use `linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.72) 100%)`. The top stop is `0.30` so the image is still visible at the top; the bottom stop `0.72` gives the right-aligned text and footer a strong dark backing. Do not drop the bottom stop below `0.60`.
 <!-- @component:closing-title-stack:end -->
+
+<!-- @component:toc:start -->
+#### TOC Panel
+
+Narrow editorial panel for table-of-contents slides. A 3px accent-gold vertical rule on the left anchors the panel; the right body holds a title, short intro note, chapter list, and a footer block. The `justify-content:space-between` flex column pins the footer to the bottom of the panel.
+
+```html
+<div class="toc-panel">
+  <div style="width:3px;background:var(--accent-gold);flex:0 0 3px;"></div>
+  <div style="padding-left:22px;display:flex;flex-direction:column;justify-content:space-between;flex:1;">
+    <div>
+      <h2 style="font-size:34px;line-height:0.94;letter-spacing:-0.03em;text-transform:uppercase;max-width:220px;">Table of Contents</h2>
+      <p style="margin-top:18px;font-size:11px;line-height:1.6;letter-spacing:0.06em;color:var(--text-secondary);max-width:255px;">Short introductory note describing the scope of the sections that follow.</p>
+      <ol style="list-style:none;display:flex;flex-direction:column;gap:10px;margin-top:26px;">
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">01</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">02</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">03</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">04</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">05</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;"><span style="font-weight:700;">06</span><span>Chapter title or section theme</span></li>
+      </ol>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="rule"></div>
+      <div>
+        <p class="caption">Scope of report</p>
+        <p style="margin-top:10px;font-size:11px;line-height:1.6;color:var(--text-secondary);max-width:255px;">Optional scope note, data coverage period, or brief methodology reference.</p>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:end;">
+        <p class="caption">Organisation · Year</p>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+```css
+.toc-panel {
+    background: var(--bg-page);
+    height: 100%;
+    padding: 42px 38px 30px;
+    display: flex;
+}
+```
+
+##### Tips
+- **Chapter numbers must be `font-weight:700`.** Without bold, the numbers dissolve visually into the lighter chapter title text.
+- **Last `li` has no `border-bottom`.** Every item except the last carries `border-bottom:1px solid var(--line)`. Remove it from the final entry to avoid a floating rule at the bottom of the list.
+- **accent-gold vertical rule.** The 3px left rule uses `var(--accent-gold)`. Do not substitute another color — it is the primary editorial accent in Summit.
+- **`justify-content:space-between` requires a defined height on the parent.** The panel must sit inside a container with a known height (grid cell, absolute position, or `height:100%` chain) or the footer will not pin to the bottom.
+<!-- @component:toc:end -->
 
 <!-- @design:components:end -->
