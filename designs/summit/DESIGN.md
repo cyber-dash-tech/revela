@@ -995,7 +995,8 @@ Horizontal editorial module: text on the left, image on the right. Extends the `
     display: flex;
     flex-direction: row;
     gap: 0;
-    height: 100%;
+    width: 100%;
+    aspect-ratio: 4 / 3;
     overflow: hidden;
 }
 
@@ -1023,7 +1024,7 @@ Rules:
 - When the card carries a large statistic or callout number, place it between the heading and the description paragraph using an inline style (`font-size: 48px; font-family: IBM Plex Sans Condensed; font-weight: 700; color: var(--accent-gold); line-height: 1;`). This keeps the number inside the reading flow without requiring a separate component.
 
 ##### Tips
-- **Height must be set by parent.** `.editorial-text-left` uses `height: 100%`. It does not set its own height — the parent slot (e.g., `.brief-grid-card`) must provide a concrete height via flex stretch or explicit sizing.
+- **Fixed 4:3 aspect ratio.** `.editorial-text-left` uses `width: 100%; aspect-ratio: 4/3`. Height is derived automatically from width — no parent height constraint required.
 - **Text-to-image flex ratio.** Default is `1.1 : 1` (text slightly wider). For cards with more copy, try `1.3 : 1`. For cards that need a more dramatic image, try `1 : 1` or even `0.9 : 1`. Do not go below `0.8` — the text will start to feel compressed.
 - **Large inline statistic.** When adding a big callout number (e.g., `75%`), give it `margin: 12px 0 4px` and keep the label below it in a `<p class="caption">` tag. This naturally reads as: heading → number → label → description — a clear visual hierarchy without a bespoke component.
 - **Media frame background.** `.media-frame` already has `background: var(--bg-page-alt)` as a fallback. If the image has transparent padding or loads slowly, the fallback color will match the card tone.
@@ -1144,9 +1145,21 @@ Horizontal step or phase sequence. Use for process stages, numbered definitions,
 
 ```css
 .flow-horizontal {
+    position: relative;
     display: flex;
     align-items: flex-start;
     width: 100%;
+}
+
+.flow-horizontal::before {
+    content: '';
+    position: absolute;
+    top: 17px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--line-strong);
+    z-index: 0;
 }
 
 .flow-horizontal .flow-item {
@@ -1155,17 +1168,16 @@ Horizontal step or phase sequence. Use for process stages, numbered definitions,
     flex-direction: column;
     gap: 18px;
     padding-right: 40px;
-    border-right: 1px solid var(--line-strong);
-    margin-right: 40px;
 }
 
 .flow-horizontal .flow-item:last-child {
-    border-right: none;
     padding-right: 0;
-    margin-right: 0;
 }
 
 .flow-horizontal .flow-number {
+    position: relative;
+    z-index: 1;
+    background: var(--bg-page);
     font-family: 'IBM Plex Sans Condensed', sans-serif;
     font-size: 13px;
     font-weight: 700;
@@ -1195,14 +1207,14 @@ Horizontal step or phase sequence. Use for process stages, numbered definitions,
 
 Rules:
 - Prefer 3–4 items for balanced layout; 5 items work when copy is very short.
-- Do not use arrowheads or chevrons between items; the thin vertical rule is the only connector.
+- Do not use arrowheads or chevrons between items; the horizontal rule threading through the numbers is the only connector.
 - Number labels are report-style (`01`, `02`, `03`), not circles or bullets.
 - Keep each item's body copy short — this is a reference summary, not a detailed explanation.
 
 ##### Tips
-- **Dark background color overrides.** Flow-number: `border-color:rgba(247,244,238,0.3); color:rgba(247,244,238,0.6)`. Heading h4: `color:#f7f4ee`. Body p: `color:rgba(247,244,238,0.7)`. Apply inline on each element — CSS cascade does not automatically inherit from the slide background.
+- **Dark background color overrides.** Flow-number: `border-color:rgba(247,244,238,0.3); color:rgba(247,244,238,0.6); background:<dark-bg-color>`. Heading h4: `color:#f7f4ee`. Body p: `color:rgba(247,244,238,0.7)`. Apply inline on each element — CSS cascade does not automatically inherit from the slide background.
 - **Step copy length directly affects column balance.** One step with a long paragraph will push its column taller than the others and break the horizontal rhythm. Trim all steps to roughly equal length (2–4 lines each).
-- **Vertical rule connector.** The `border-right` on `.flow-item` is the visual connector. On dark backgrounds, override it to `border-right-color:rgba(247,244,238,0.15)`. Do not add custom decorative elements as connectors.
+- **Horizontal rule connector.** The `::before` pseudo-element on `.flow-horizontal` draws a full-width line at `top: 17px` (vertical centre of the 34px number box). `.flow-number` sits above it via `z-index: 1` and `background: var(--bg-page)`, creating the effect of the line threading through the numbers. On dark backgrounds, override `background` on `.flow-number` to match the slide background color, and set `.flow-horizontal::before { background: rgba(247,244,238,0.15); }`.
 <!-- @component:flow-horizontal:end -->
 
 <!-- @component:flow-vertical:start -->
