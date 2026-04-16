@@ -437,9 +437,6 @@ Structural intent:
 
 Every slot accepts 1 or more components. The LLM decides what goes in each slot based on the slide purpose.
 
-Suggested components:
-- bg slot: `full-bleed-media` (photography, hero image)
-- fg slot: `cover-title-stack` for a full cover treatment; `closing-title-stack` for a closing slide; a custom copy stack for a lighter variant
 
 ```html
 <section class="slide" slide-qa="false" data-index="N">
@@ -480,9 +477,6 @@ Structural intent:
 
 Every slot accepts 1 or more components. The LLM decides what each slot contains — there is no text/visual semantic preset.
 
-Suggested components:
-- left slot: `full-bleed-media`, `echart-panel`, `report-text-panel`, `flow-vertical`, `data-table`
-- right slot: `report-text-panel`, `flow-vertical`, `editorial-text-top`, `echart-panel`
 
 ```html
 <section class="slide" slide-qa="true" data-index="N">
@@ -542,9 +536,6 @@ Structural intent:
 
 Every slot accepts 1 or more components. The LLM decides what each slot contains — there is no text/visual semantic preset.
 
-Suggested components:
-- left slot: `report-text-panel`, `flow-vertical`, `editorial-text-top`, `echart-panel`
-- right slot: `full-bleed-media`, `echart-panel`, `report-text-panel`, `data-table`
 
 ```html
 <section class="slide" slide-qa="true" data-index="N">
@@ -583,13 +574,6 @@ Structural intent:
 - right slot: 1fr column — any component(s)
 
 Every slot accepts 1 or more components. The LLM decides what each slot contains — columns are fully equal with no hierarchy preset.
-
-Suggested components (per slot):
-- `editorial-image-top` for an image-led proof block
-- `editorial-text-top` for a text-and-stat block
-- `echart-panel` for a chart per column
-- `flow-vertical` for a short step sequence
-- `report-text-panel` for dense copy
 
 ```html
 <section class="slide" slide-qa="true" data-index="N">
@@ -646,12 +630,6 @@ Structural intent:
 
 Every slot accepts 1 or more components. The LLM decides what each slot contains — both columns are fully equal with no hierarchy preset.
 
-Suggested components (per slot):
-- `echart-panel` for a chart
-- `data-table` for tabular data
-- `editorial-image-top` for an image-led block
-- `report-text-panel` for dense copy
-- `flow-vertical` for a step sequence
 
 ```html
 <section class="slide" slide-qa="true" data-index="N">
@@ -705,9 +683,6 @@ Structural intent:
 
 Every slot accepts 1 or more components. The LLM decides what each slot contains — there is no semantic preset for either row.
 
-Suggested components:
-- top slot: `flow-horizontal`, a stat row, a header/eyebrow band
-- bottom slot: `echart-panel`, `data-table`, `full-bleed-media`
 
 ```html
 <section class="slide" slide-qa="true" data-index="N">
@@ -1743,5 +1718,37 @@ Narrow editorial panel for table-of-contents slides. A 3px accent-gold vertical 
 - **accent-gold vertical rule.** The 3px left rule uses `var(--accent-gold)`. Do not substitute another color — it is the primary editorial accent in Summit.
 - **`justify-content:space-between` requires a defined height on the parent.** The panel must sit inside a container with a known height (grid cell, absolute position, or `height:100%` chain) or the footer will not pin to the bottom.
 <!-- @component:toc:end -->
+
+<!-- @component:page-number:start -->
+#### Page Number (.page-number)
+
+Absolute-positioned slide counter, bottom-right corner. Always present on content slides.
+Use `.page-number--light` when the slide background is dark (which is most slides in Summit).
+
+```html
+<div class="page-number page-number--light">01 / 12</div>
+```
+
+Omit `--light` only on slides with a white/light background.
+
+```css
+.page-number {
+  position: absolute;
+  bottom: 36px;
+  right: 52px;
+  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+  z-index: 10;
+  pointer-events: none;
+}
+.page-number--light {
+  color: rgba(247, 244, 238, 0.45);
+}
+```
+
+<!-- @component:page-number:end -->
 
 <!-- @design:components:end -->
