@@ -474,10 +474,6 @@
     .data-table td:not(:first-child) {
       text-align: right;
     }
-    .hello {
-      padding: 9px 12px 9px 0;
-    }
-
     .data-table tbody tr {
       border-bottom: 1px solid var(--line);
     }
@@ -605,6 +601,7 @@
       grid-template-rows: minmax(0, 1fr);
       height: 100%;
       overflow: hidden;
+      align-items: start;
     }
 
     .narrative-grid--reverse {
@@ -612,7 +609,7 @@
     }
 
     .narrative-grid > *,
-    .three-col-grid > *,
+    .highlight-cols-grid > *,
     .halves-grid > *,
     .stacked-bottom,
     .stacked-top {
@@ -621,22 +618,25 @@
       min-width: 0;
     }
 
-    .three-col-grid {
+    .highlight-cols-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
       gap: 32px;
       overflow: hidden;
+      align-items: start;
     }
 
     .halves-grid {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 0px;
       overflow: hidden;
+      align-items: stretch;
     }
 
     .stacked-grid {
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) minmax(0, 1.618fr);
       height: 100%;
       width: 100%;
       overflow: hidden;
@@ -652,23 +652,6 @@
       padding: 32px 56px 42px;
     }
 
-    .slot-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 11px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--text-muted);
-    }
-
-    .slot-tag::before {
-      content: '';
-      width: 14px;
-      height: 1px;
-      background: var(--line-strong);
-    }
-
   </style>
 </head>
 <body>
@@ -681,15 +664,16 @@
               <img src="https://images.unsplash.com/photo-1511497584788-876760111969?q=80&w=1800&auto=format&fit=crop" alt="Snow ridge under alpine light">
             </div>
           </div>
-          <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(105deg,rgba(5,5,5,0.95) 0%,rgba(5,5,5,0.72) 55%,rgba(5,5,5,0.10) 100%);"></div>
-          <div class="cover-title-stack" style="position:relative;z-index:2;">
+          <div style="position:absolute;inset:0;z-index:1;backdrop-filter:blur(50px);-webkit-backdrop-filter:blur(50px);-webkit-mask-image:linear-gradient(to left, transparent 0%, transparent 20%, black 100%);mask-image:linear-gradient(to left, transparent 0%, transparent 20%, black 100%);"></div>
+          <div style="position:absolute;inset:0;z-index:2;background:linear-gradient(105deg,rgba(5,5,5,0.95) 0%,rgba(5,5,5,0.72) 55%,rgba(5,5,5,0.10) 100%);"></div>
+          <div class="cover-title-stack" style="position:relative;z-index:3;">
             <div class="cover-brand-label reveal">
               <span class="chevron-divider" style="color:rgba(247,244,238,0.55);">Summit Design</span>
             </div>
             <div class="cover-body">
               <p class="cover-eyebrow reveal">Layout Showcase · fullbleed</p>
               <h1 class="reveal">One layout.<br>One page.<br>Pure structure.</h1>
-              <p class="cover-subtitle reveal">The `fullbleed` layout is the outermost atmospheric frame in Summit. It is built from a background field, an overlay, and a foreground narrative layer.</p>
+              <p class="cover-subtitle reveal">The `fullbleed` layout is the outermost atmospheric frame in Summit. It is built from a background field, a directional blur layer, a gradient overlay, and a foreground narrative layer.</p>
             </div>
             <div class="cover-footer">
               <p class="caption reveal" style="color:rgba(247,244,238,0.5);">dominant background / controlled reading field</p>
@@ -702,10 +686,18 @@
     </div>
   </section>
 
-  <section class="slide" slide-qa="false" data-index="1">
+  <section class="slide" slide-qa="true" data-index="1">
     <div class="slide-canvas">
+      <div class="reveal" style="position:absolute;top:26px;left:80px;right:80px;display:flex;justify-content:space-between;align-items:center;z-index:3;color:rgba(247,244,238,0.52);">
+        <p class="caption" style="color:rgba(247,244,238,0.52);">narrative</p>
+        <p class="caption" style="color:rgba(247,244,238,0.52);">wide visual field / narrow reading field</p>
+      </div>
       <div class="page" style="padding:0;overflow:hidden;background:var(--bg-frame);">
-        <div class="narrative-grid">
+        <div class="reveal" style="display:flex;justify-content:space-between;align-items:center;gap:24px;padding:24px 40px;border-bottom:1px solid rgba(247,244,238,0.12);color:rgba(247,244,238,0.5);">
+          <p class="caption" style="color:rgba(247,244,238,0.5);">layout 02 · narrative · 1.618 / 1</p>
+          <p class="caption" style="color:rgba(247,244,238,0.5);">primary evidence field left, reading panel right</p>
+        </div>
+        <div class="narrative-grid" style="flex:1;min-height:0;">
           <div class="hero-field reveal">
             <div class="full-bleed-media" style="height:100%;">
               <img src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1800&auto=format&fit=crop" alt="Mountain meadow and stream">
@@ -718,9 +710,9 @@
               <div style="width:40px;height:2px;background:var(--accent-gold);margin:20px 0;"></div>
               <p style="color:rgba(243,238,230,0.84);">`narrative` gives the left slot more visual weight. It works best when the primary image, chart, or evidence block should set the pace, while the right slot condenses the explanation.</p>
               <ul style="list-style:none;display:flex;flex-direction:column;gap:12px;margin-top:18px;">
-                <li class="slot-tag">left slot · 1.618fr</li>
-                <li class="slot-tag">right slot · 1fr</li>
-                <li class="slot-tag">qa · true</li>
+                <li style="display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:rgba(243,238,230,0.58);"><span style="width:14px;height:1px;background:rgba(247,244,238,0.28);"></span>left slot · 1.618fr</li>
+                <li style="display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:rgba(243,238,230,0.58);"><span style="width:14px;height:1px;background:rgba(247,244,238,0.28);"></span>right slot · 1fr</li>
+                <li style="display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:rgba(243,238,230,0.58);"><span style="width:14px;height:1px;background:rgba(247,244,238,0.28);"></span>qa · true</li>
               </ul>
             </div>
             <div class="report-panel-footer" style="color:rgba(243,238,230,0.52);">
@@ -734,10 +726,18 @@
     </div>
   </section>
 
-  <section class="slide" slide-qa="false" data-index="2">
+  <section class="slide" slide-qa="true" data-index="2">
     <div class="slide-canvas">
+      <div class="reveal" style="position:absolute;top:26px;left:80px;right:80px;display:flex;justify-content:space-between;align-items:center;z-index:3;">
+        <p class="caption">narrative-reverse</p>
+        <p class="caption">compact explanation / wider media field</p>
+      </div>
       <div class="page alt" style="padding:0;overflow:hidden;">
-        <div class="narrative-grid narrative-grid--reverse">
+        <div class="reveal" style="display:flex;justify-content:space-between;align-items:center;gap:24px;padding:24px 40px;border-bottom:1px solid var(--line);">
+          <p class="caption">layout 03 · narrative-reverse · 1 / 1.618</p>
+          <p class="caption">compact explanation left, richer media surface right</p>
+        </div>
+        <div class="narrative-grid narrative-grid--reverse" style="flex:1;min-height:0;">
           <div class="report-text-panel report-text-panel--light reveal">
             <div style="max-width:350px;">
               <p class="eyebrow">Layout Showcase · narrative-reverse</p>
@@ -771,20 +771,28 @@
     </div>
   </section>
 
-  <section class="slide" slide-qa="false" data-index="3">
+  <section class="slide" slide-qa="true" data-index="3">
     <div class="slide-canvas">
+      <div class="reveal" style="position:absolute;top:26px;left:80px;right:80px;display:flex;justify-content:space-between;align-items:center;z-index:3;">
+        <p class="caption">highlight-cols</p>
+        <p class="caption">matched columns for parallel modules</p>
+      </div>
       <div class="page">
         <div class="reveal" style="display:flex;justify-content:space-between;align-items:end;gap:28px;margin-bottom:26px;">
-          <div class="hello">
-            <p class="eyebrow">Layout Showcase · three-col</p>
-            <h2 style="font-size:38px;line-height:0.96;text-transform:uppercase;">Three equal editorial lanes</h2>
+          <div style="padding:9px 12px 9px 0;">
+            <p class="eyebrow">Layout Showcase · highlight-cols</p>
+            <h2 style="font-size:38px;line-height:0.96;text-transform:uppercase;">Equal highlight columns</h2>
           </div>
-          <p style="max-width:560px;font-size:13px;line-height:1.55;">Use `three-col` when the argument should be read as a triad. None of the slots should overpower the others; balance comes from disciplined density rather than decorative compensation.</p>
+          <p style="max-width:560px;font-size:13px;line-height:1.55;">Use `highlight-cols` when 3 or more parallel items should read side by side with equal visual weight. Add or remove direct child columns without changing the CSS.</p>
         </div>
         <div class="rule" style="margin-bottom:24px;"></div>
-        <div class="three-col-grid" style="flex:1;min-height:0;">
+        <div class="reveal" style="display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:20px;">
+          <p class="caption">layout 04 · equal-width three-column spread</p>
+          <p class="caption">each direct child becomes one matched column</p>
+        </div>
+        <div class="highlight-cols-grid" style="flex:1;min-height:0;">
           <div class="reveal" style="height:100%;border:1px solid var(--line);padding:28px;display:flex;flex-direction:column;gap:16px;background:rgba(247,244,238,0.74);">
-            <p class="slot-tag">left slot</p>
+            <p style="display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-muted);"><span style="width:14px;height:1px;background:var(--line-strong);"></span>left slot</p>
             <h3>Proof block</h3>
             <p>Image-led or evidence-led column with restrained copy.</p>
             <div class="media-frame" style="height:280px;">
@@ -793,7 +801,7 @@
             <p class="media-caption">parallel module</p>
           </div>
           <div class="reveal" style="height:100%;border:1px solid var(--line);padding:28px;display:flex;flex-direction:column;gap:16px;background:rgba(247,244,238,0.74);">
-            <p class="slot-tag">center slot</p>
+            <p style="display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-muted);"><span style="width:14px;height:1px;background:var(--line-strong);"></span>center slot</p>
             <h3>Denser narrative spine</h3>
             <ul style="list-style:none;display:flex;flex-direction:column;gap:10px;">
               <li style="border-top:1px solid var(--line);padding-top:10px;font-size:13px;line-height:1.55;">The center column can legitimately carry more words than its neighbors.</li>
@@ -802,7 +810,7 @@
             </ul>
           </div>
           <div class="reveal" style="height:100%;border:1px solid var(--line);padding:28px;display:flex;flex-direction:column;gap:16px;background:rgba(247,244,238,0.74);">
-            <p class="slot-tag">right slot</p>
+            <p style="display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-muted);"><span style="width:14px;height:1px;background:var(--line-strong);"></span>right slot</p>
             <h3>Support or comparison</h3>
             <p>Another module of similar weight completes the triad without establishing a new primary axis.</p>
             <div style="margin-top:auto;border-top:1px solid var(--line);padding-top:12px;">
@@ -816,18 +824,26 @@
     </div>
   </section>
 
-  <section class="slide" slide-qa="false" data-index="4">
+  <section class="slide" slide-qa="true" data-index="4">
     <div class="slide-canvas">
+      <div class="reveal" style="position:absolute;top:26px;left:80px;right:80px;display:flex;justify-content:space-between;align-items:center;z-index:3;">
+        <p class="caption">halves</p>
+        <p class="caption">balanced two-column spread</p>
+      </div>
       <div class="page" style="padding:0;overflow:hidden;">
+        <div class="reveal" style="display:flex;justify-content:space-between;align-items:center;gap:24px;padding:24px 40px;border-bottom:1px solid var(--line);">
+          <p class="caption">layout 05 · halves · 1 / 1 split</p>
+          <p class="caption">paired reading, comparison, or text-plus-demo</p>
+        </div>
         <div class="halves-grid" style="flex:1;min-height:0;height:100%;">
           <div class="reveal" style="height:100%;padding:56px 52px;display:flex;flex-direction:column;gap:16px;background:var(--bg-page-alt);">
             <p class="eyebrow">Layout Showcase · halves</p>
             <h2 style="font-size:56px;line-height:0.92;text-transform:uppercase;margin-top:16px;">Equal left.<br>Equal right.</h2>
             <p style="margin-top:20px;max-width:420px;">`halves` is the neutral two-column spread. It is ideal for dual comparisons, paired evidence, or documentation-plus-demo pages like the component section that follows in this deck.</p>
             <ul style="list-style:none;display:flex;flex-direction:column;gap:12px;margin-top:22px;max-width:430px;">
-              <li class="slot-tag">left slot · 1fr</li>
-              <li class="slot-tag">right slot · 1fr</li>
-              <li class="slot-tag">recommended for paired reading</li>
+              <li style="display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-muted);"><span style="width:14px;height:1px;background:var(--line-strong);"></span>left slot · 1fr</li>
+              <li style="display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-muted);"><span style="width:14px;height:1px;background:var(--line-strong);"></span>right slot · 1fr</li>
+              <li style="display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-muted);"><span style="width:14px;height:1px;background:var(--line-strong);"></span>recommended for paired reading</li>
             </ul>
           </div>
           <div class="reveal" style="height:100%;padding:56px 52px;display:flex;flex-direction:column;justify-content:space-between;gap:16px;background:var(--bg-page);">
@@ -841,7 +857,7 @@
               <div class="media-frame" style="height:260px;margin-top:22px;">
                 <img src="https://images.unsplash.com/photo-1522163182402-834f871fd851?q=80&w=1200&auto=format&fit=crop" alt="Climbers on steep alpine wall">
               </div>
-              <p class="media-caption">40px gap keeps the spread open</p>
+              <p class="media-caption">edge-to-edge pairing keeps both columns equal</p>
             </div>
           </div>
         </div>
@@ -850,15 +866,23 @@
     </div>
   </section>
 
-  <section class="slide" slide-qa="false" data-index="5">
+  <section class="slide" slide-qa="true" data-index="5">
     <div class="slide-canvas">
+      <div class="reveal" style="position:absolute;top:26px;left:80px;right:80px;display:flex;justify-content:space-between;align-items:center;z-index:3;">
+        <p class="caption">stacked</p>
+        <p class="caption">framing band above a larger lower field</p>
+      </div>
       <div class="page" style="padding:0;">
+        <div class="reveal" style="display:flex;justify-content:space-between;align-items:center;gap:24px;padding:24px 40px;border-bottom:1px solid var(--line);background:var(--bg-page-alt);">
+          <p class="caption">layout 06 · stacked · 1 / 1.618 rows</p>
+          <p class="caption">top band frames the story before the lower evidence field</p>
+        </div>
         <div class="stacked-grid">
           <div class="stacked-top reveal">
             <p class="eyebrow">Layout Showcase · stacked</p>
             <div style="display:flex;justify-content:space-between;align-items:start;gap:28px;margin:10px 0 0;">
-              <h2 style="max-width:540px;font-size:38px;line-height:0.96;text-transform:uppercase;">Auto-height top band, flexible bottom zone</h2>
-              <p style="max-width:560px;font-size:13px;line-height:1.55;">Use `stacked` when a horizontal sequence or compact framing band should sit above a larger evidence field. The top row grows naturally from its content; the bottom row consumes the remaining height.</p>
+              <h2 style="max-width:540px;font-size:38px;line-height:0.96;text-transform:uppercase;">Fixed top band, larger bottom zone</h2>
+              <p style="max-width:560px;font-size:13px;line-height:1.55;">Use `stacked` when a horizontal sequence or compact framing band should sit above a larger evidence field. The rows follow a fixed 1 : 1.618 proportion across the full canvas height.</p>
             </div>
           </div>
           <div class="stacked-bottom reveal">
@@ -868,29 +892,29 @@
                   <div class="flow-item">
                     <div class="flow-number">01</div>
                     <div class="flow-body">
-                      <h4>Top row is content-sized</h4>
-                      <p>The upper band should remain concise and structural.</p>
+                      <h4>Top row anchors the frame</h4>
+                      <p>The upper band stays concise, but its height is still governed by the layout ratio.</p>
                     </div>
                   </div>
                   <div class="flow-item">
                     <div class="flow-number">02</div>
                     <div class="flow-body">
-                      <h4>Bottom row is the payload</h4>
-                      <p>Charts, tables, or media can fill the larger zone below.</p>
+                      <h4>Bottom row carries the payload</h4>
+                      <p>Charts, tables, or media fill the deliberately larger lower field.</p>
                     </div>
                   </div>
                   <div class="flow-item">
                     <div class="flow-number">03</div>
                     <div class="flow-body">
                       <h4>Read top to bottom</h4>
-                      <p>The layout establishes a clear vertical narrative sequence.</p>
+                      <p>The fixed ratio creates a stable vertical narrative sequence.</p>
                     </div>
                   </div>
                 </div>
               </div>
               <div style="height:100%;border:1px solid var(--line);padding:28px;display:flex;flex-direction:column;gap:16px;background:rgba(247,244,238,0.74);">
-                <p class="slot-tag">bottom slot</p>
-                <h3>Remaining height is deliberate</h3>
+                <p style="display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-muted);"><span style="width:14px;height:1px;background:var(--line-strong);"></span>bottom slot</p>
+                <h3>The larger lower field is deliberate</h3>
                 <p>This lower zone can hold one large component or a small pair, provided their combined density still reads as a single bottom field.</p>
                 <div class="media-frame" style="flex:1;min-height:0;margin-top:12px;">
                   <img src="https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?q=80&w=1200&auto=format&fit=crop" alt="Alpine ridge in morning fog">
@@ -1320,11 +1344,12 @@
           <div class="reveal" style="height:100%;display:flex;flex-direction:column;gap:18px;padding:20px 0 0;">
             <div style="flex:1;min-height:0;overflow:hidden;position:relative;background:#141313;color:#f7f4ee;">
               <div style="height:100%;position:relative;overflow:hidden;">
-                <div class="full-bleed-media" style="position:absolute;inset:0;z-index:0;">
-                  <img src="https://images.unsplash.com/photo-1511497584788-876760111969?q=80&w=1800&auto=format&fit=crop" alt="Snow ridge under overcast alpine sky">
-                </div>
-                <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(105deg, rgba(5, 5, 5, 0.95) 0%, rgba(5, 5, 5, 0.72) 55%, rgba(5, 5, 5, 0.10) 100%);"></div>
-                <div class="cover-title-stack" style="position:relative;z-index:2;padding:36px 40px;">
+                 <div class="full-bleed-media" style="position:absolute;inset:0;z-index:0;">
+                   <img src="https://images.unsplash.com/photo-1511497584788-876760111969?q=80&w=1800&auto=format&fit=crop" alt="Snow ridge under overcast alpine sky">
+                 </div>
+                 <div style="position:absolute;inset:0;z-index:1;backdrop-filter:blur(50px);-webkit-backdrop-filter:blur(50px);-webkit-mask-image:linear-gradient(to left, transparent 0%, transparent 20%, black 100%);mask-image:linear-gradient(to left, transparent 0%, transparent 20%, black 100%);"></div>
+                 <div style="position:absolute;inset:0;z-index:2;background:linear-gradient(105deg, rgba(5, 5, 5, 0.95) 0%, rgba(5, 5, 5, 0.72) 55%, rgba(5, 5, 5, 0.10) 100%);"></div>
+                 <div class="cover-title-stack" style="position:relative;z-index:3;padding:36px 40px;">
                   <div><span class="chevron-divider" style="color:rgba(247,244,238,0.55);">Summit</span></div>
                   <div>
                     <p class="caption" style="color:rgba(247,244,238,0.55);margin-bottom:14px;">Hero opening</p>
@@ -1366,10 +1391,11 @@
             <div style="flex:1;min-height:0;overflow:hidden;position:relative;background:#141313;color:#f7f4ee;">
               <div style="height:100%;position:relative;overflow:hidden;">
                 <div class="full-bleed-media" style="position:absolute;inset:0;z-index:0;">
-                  <img src="https://images.unsplash.com/photo-1522163182402-834f871fd851?q=80&w=1800&auto=format&fit=crop" alt="Alpine climbers at sunrise">
-                </div>
-                <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(180deg, rgba(0, 0, 0, 0.30) 0%, rgba(0, 0, 0, 0.72) 100%);"></div>
-                <div class="closing-title-stack" style="position:relative;z-index:2;padding:36px 40px;">
+                   <img src="https://images.unsplash.com/photo-1522163182402-834f871fd851?q=80&w=1800&auto=format&fit=crop" alt="Alpine climbers at sunrise">
+                 </div>
+                 <div style="position:absolute;inset:0;z-index:1;backdrop-filter:blur(50px);-webkit-backdrop-filter:blur(50px);-webkit-mask-image:linear-gradient(to right, transparent 0%, transparent 20%, black 100%);mask-image:linear-gradient(to right, transparent 0%, transparent 20%, black 100%);"></div>
+                 <div style="position:absolute;inset:0;z-index:2;background:linear-gradient(180deg, rgba(0, 0, 0, 0.30) 0%, rgba(0, 0, 0, 0.72) 100%);"></div>
+                 <div class="closing-title-stack" style="position:relative;z-index:3;padding:36px 40px;">
                   <div><span class="chevron-divider" style="color:rgba(247,244,238,0.6);">Summit</span></div>
                   <div>
                     <h3 style="color:#f7f4ee;font-size:42px;line-height:0.92;text-transform:uppercase;">The work<br>continues.</h3>
@@ -1409,31 +1435,24 @@
           <div class="reveal" style="height:100%;display:flex;flex-direction:column;gap:18px;padding:20px 0 0;">
             <div style="flex:1;min-height:0;overflow:hidden;position:relative;background:var(--bg-page);">
               <div style="height:100%;padding:24px;background:var(--bg-page-alt);">
-                <div class="narrative-grid" style="grid-template-columns:1.2fr 0.88fr;">
-                  <div class="hero-field">
-                    <div class="full-bleed-media" style="height:100%;">
-                      <img src="https://images.unsplash.com/photo-1522163182402-834f871fd851?q=80&w=1800&auto=format&fit=crop" alt="Climbers resting on a steep alpine wall at sunrise">
+                <div class="toc-panel">
+                  <div style="width:3px;background:var(--accent-gold);flex:0 0 3px;"></div>
+                  <div style="padding-left:22px;display:flex;flex-direction:column;justify-content:space-between;flex:1;min-height:0;">
+                    <div>
+                      <h2 style="font-size:34px;line-height:0.94;letter-spacing:-0.03em;text-transform:uppercase;max-width:220px;">Table of Contents</h2>
+                      <p style="margin-top:18px;font-size:11px;line-height:1.6;letter-spacing:0.06em;color:var(--text-secondary);max-width:255px;">A narrow report panel that introduces the structure of the pages that follow.</p>
+                      <ol style="list-style:none;display:flex;flex-direction:column;gap:10px;margin-top:26px;">
+                        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">01</span><span>Context</span></li>
+                        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">02</span><span>Evidence</span></li>
+                        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">03</span><span>Execution</span></li>
+                        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;"><span style="font-weight:700;">04</span><span>Disclosure</span></li>
+                      </ol>
                     </div>
-                  </div>
-                  <div class="toc-panel">
-                    <div style="width:3px;background:var(--accent-gold);flex:0 0 3px;"></div>
-                    <div style="padding-left:22px;display:flex;flex-direction:column;justify-content:space-between;flex:1;min-height:0;">
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                      <div class="rule"></div>
                       <div>
-                        <h2 style="font-size:34px;line-height:0.94;letter-spacing:-0.03em;text-transform:uppercase;max-width:220px;">Table of Contents</h2>
-                        <p style="margin-top:18px;font-size:11px;line-height:1.6;letter-spacing:0.06em;color:var(--text-secondary);max-width:255px;">A narrow report panel that introduces the structure of the pages that follow.</p>
-                        <ol style="list-style:none;display:flex;flex-direction:column;gap:10px;margin-top:26px;">
-                          <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">01</span><span>Context</span></li>
-                          <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">02</span><span>Evidence</span></li>
-                          <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">03</span><span>Execution</span></li>
-                          <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;"><span style="font-weight:700;">04</span><span>Disclosure</span></li>
-                        </ol>
-                      </div>
-                      <div style="display:flex;flex-direction:column;gap:14px;">
-                        <div class="rule"></div>
-                        <div>
-                          <p class="caption">Scope note</p>
-                          <p style="margin-top:10px;font-size:11px;line-height:1.6;color:var(--text-secondary);max-width:255px;">Footer content stays pinned because the wrapper owns the full available height.</p>
-                        </div>
+                        <p class="caption">Scope note</p>
+                        <p style="margin-top:10px;font-size:11px;line-height:1.6;color:var(--text-secondary);max-width:255px;">Footer content stays pinned because the wrapper owns the full available height.</p>
                       </div>
                     </div>
                   </div>
