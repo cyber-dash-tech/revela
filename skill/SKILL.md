@@ -302,6 +302,42 @@ Follow these rules on every generation. They are non-negotiable.
   Never use any other icon library (no Font Awesome, no Heroicons, no Material Icons).
 - All JS methods must be **fully implemented** — no empty stubs, no `// TODO` comments.
 
+### Design Compliance — Strict Mode
+
+The active design defines a **closed vocabulary** of layouts and components.
+You MUST use ONLY the layouts and components listed in the Layout Index and
+Component Index injected into this prompt.
+
+**Layouts:** Every `<section class="slide">` must use exactly one layout class
+from the Layout Index. Do NOT invent custom grid or flex structures.
+
+**Components:** Every content block must use a component class from the
+Component Index. Do NOT create novel CSS classes for content elements.
+
+**`<style>` block — no new class rules.** The design already provides all
+necessary CSS (foundation, layouts, components). Your `<style>` block should
+contain only CSS rules copied verbatim from the design's sections. Never define
+a CSS class rule (`.my-custom-thing { ... }`) that is not in the design.
+
+**Inline `style=""` — minor adjustments only.** Inline styles are permitted
+for fine-tuning spacing and sizing (`margin`, `padding`, `gap`, `font-size`,
+`max-width`, `min-height`, `width`, `height`). They must NOT be used to
+define new visual effects — no custom `background-image`, `box-shadow`,
+`border-radius`, `color`, or layout structures via inline style.
+
+**CSS variables:** Use only `var(--xxx)` properties defined in
+`@design:foundation`. Do NOT define new custom properties.
+
+**Fetch before use:** Before generating any slide, call the `revela-designs`
+tool to fetch the full HTML/CSS for each layout and component you plan to
+use. Generate HTML that matches the fetched examples exactly.
+
+**No suitable component?** Adapt the *content* to fit the closest available
+component — never adapt the component structure to fit content.
+
+The QA system will automatically flag any unrecognised CSS class as a
+compliance warning after you write the file.
+
 ### Inline Editing
 
 **Always include inline editing** in every generated presentation. The complete
@@ -315,8 +351,9 @@ element selector list, and `window.getEditedHTML()` definition.
 - Always use the **original** file path in HTML `<img src>` for full-quality rendering
 - Never repeat the same image on multiple slides (logos: title + closing only)
 - Image compression is handled automatically by the server
-- **Use the active design's image components** (`.image-card`, `.card-img`, `.avatar`)
-  for displaying images — they provide proper rounded corners and cropping
+- **Use the active design's image components** for displaying images — they
+  provide proper rounded corners and cropping. Use inline `style=""` only for
+  minor sizing adjustments; do not create custom image container classes.
 
 ### Accessibility
 
@@ -334,13 +371,15 @@ element selector list, and `window.getEditedHTML()` definition.
 
 ### Visual Quality Rules
 
-**Layout Diversity** — choose components and layout based on content type, never
-default to a bullet list. The active design's **Composition Guide** suggests
-which components work well for each content pattern — consult it first.
+**Layout Diversity** — choose from the design's defined layouts and components
+based on content type, never default to a bullet list. The active design's
+**Composition Guide** suggests which components work well for each content
+pattern — consult it first.
 
 The active design's **Component Library** defines the HTML/CSS for each
 component, and **Layout Primitives** defines the grid/flex patterns for
-arranging them. Combine components and layouts freely to serve the content.
+arranging them. Combine the design's defined layouts and components to serve
+the content — never invent new ones.
 
 **Visual Hierarchy** — every slide must have exactly 1 dominant visual focal point.
 Forbidden: plain background + unstyled bullet list with zero decorative elements.

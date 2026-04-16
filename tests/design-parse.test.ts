@@ -3,6 +3,8 @@ import {
   parseDesignSections,
   generateComponentIndex,
   generateLayoutIndex,
+  extractDesignClasses,
+  DEFAULT_PREFIX_EXEMPTIONS,
 } from "../lib/design/designs"
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -353,5 +355,48 @@ describe("generateComponentIndex", () => {
     const result = generateComponentIndex({ x: "#### X" })
     expect(result).toContain("revela-designs")
     expect(result).toContain("action")
+  })
+})
+
+// ── extractDesignClasses (active design integration) ─────────────────────
+
+describe("extractDesignClasses", () => {
+  it("returns a DesignClassVocabulary with classes Set and prefixExemptions", () => {
+    // Uses the active installed design (aurora or summit)
+    const vocab = extractDesignClasses()
+    expect(vocab.classes).toBeInstanceOf(Set)
+    expect(Array.isArray(vocab.prefixExemptions)).toBe(true)
+  })
+
+  it("always includes universal classes regardless of design", () => {
+    const vocab = extractDesignClasses()
+    const universals = ["slide", "slide-canvas", "visible", "reveal", "editable", "page"]
+    for (const cls of universals) {
+      expect(vocab.classes.has(cls)).toBe(true)
+    }
+  })
+
+  it("returns default prefix exemptions including lucide- and echarts-", () => {
+    const vocab = extractDesignClasses()
+    expect(vocab.prefixExemptions).toContain("lucide-")
+    expect(vocab.prefixExemptions).toContain("echarts-")
+  })
+
+  it("DEFAULT_PREFIX_EXEMPTIONS includes at least lucide-, echarts-, editable-", () => {
+    expect(DEFAULT_PREFIX_EXEMPTIONS).toContain("lucide-")
+    expect(DEFAULT_PREFIX_EXEMPTIONS).toContain("echarts-")
+    expect(DEFAULT_PREFIX_EXEMPTIONS).toContain("editable-")
+  })
+
+  it("throws or returns universal-only for a non-existent design name", () => {
+    // Should either throw or return the universal set gracefully
+    try {
+      const vocab = extractDesignClasses("non-existent-design-xyz")
+      // If it returns (design file not found → graceful fallback), check universals present
+      expect(vocab.classes.has("slide")).toBe(true)
+    } catch (e) {
+      // Acceptable — design not installed
+      expect(e).toBeDefined()
+    }
   })
 })

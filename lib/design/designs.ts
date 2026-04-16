@@ -436,6 +436,111 @@ function installFromPath(srcPath: string, name?: string): string {
   return designName
 }
 
+// ---------------------------------------------------------------------------
+// Design class vocabulary extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * The set of CSS class names that are always allowed, regardless of design.
+ * These are structural/behavioural classes used by every presentation.
+ */
+const UNIVERSAL_CLASSES = new Set([
+  "slide",
+  "slide-canvas",
+  "visible",
+  "reveal",
+  "editable",
+  "page",
+  "bg",
+  "fg",
+  "overlay",
+  "alt",
+  "strong",
+])
+
+/**
+ * CSS class prefixes that are always exempt from compliance checks.
+ * Third-party libraries (icons, charts) generate classes with these prefixes.
+ */
+export const DEFAULT_PREFIX_EXEMPTIONS: string[] = ["lucide-", "echarts-", "editable-"]
+
+export interface DesignClassVocabulary {
+  /** Complete set of allowed CSS class names. */
+  classes: Set<string>
+  /** Class name prefixes that bypass compliance checks. */
+  prefixExemptions: string[]
+}
+
+/**
+ * Extract all CSS class names defined in a DESIGN.md and return a closed
+ * vocabulary of allowed class names for compliance checking.
+ *
+ * Extraction sources:
+ * - @design:foundation — parses CSS `.class-name` selectors in code blocks
+ * - @layout:xxx — parses HTML class="..." attributes and CSS selectors
+ * - @component:xxx — same as layouts
+ *
+ * UNIVERSAL_CLASSES and DEFAULT_PREFIX_EXEMPTIONS are always included.
+ *
+ * Falls back to UNIVERSAL_CLASSES-only when the design has no markers.
+ */
+export function extractDesignClasses(designName?: string): DesignClassVocabulary {
+  const name = designName || activeDesign()
+  const mdPath = join(DESIGNS_DIR, name, "DESIGN.md")
+
+  if (!existsSync(mdPath)) {
+    return { classes: new Set(UNIVERSAL_CLASSES), prefixExemptions: DEFAULT_PREFIX_EXEMPTIONS }
+  }
+
+  const raw = readFileSync(mdPath, "utf-8")
+  const { body } = parseFrontmatter(raw)
+  const { sections, layouts, components, hasMarkers } = parseDesignSections(body)
+
+  if (!hasMarkers) {
+    // No markers — can't extract a reliable vocabulary; return universal only
+    return { classes: new Set(UNIVERSAL_CLASSES), prefixExemptions: DEFAULT_PREFIX_EXEMPTIONS }
+  }
+
+  const classes = new Set(UNIVERSAL_CLASSES)
+
+  // Regex patterns for extraction
+  const htmlClassRe = /class="([^"]*)"/g
+  const cssClassRe = /\.([a-zA-Z_][\w-]*)/g
+
+  function extractFromText(text: string): void {
+    // Extract from HTML class="..." attributes
+    let m: RegExpExecArray | null
+    htmlClassRe.lastIndex = 0
+    while ((m = htmlClassRe.exec(text)) !== null) {
+      for (const cls of m[1].split(/\s+/)) {
+        if (cls.trim()) classes.add(cls.trim())
+      }
+    }
+    // Extract from CSS .class-name selectors
+    cssClassRe.lastIndex = 0
+    while ((m = cssClassRe.exec(text)) !== null) {
+      if (m[1]) classes.add(m[1])
+    }
+  }
+
+  // Extract from all sections (foundation, rules, etc.)
+  for (const content of Object.values(sections)) {
+    extractFromText(content)
+  }
+
+  // Extract from all layouts
+  for (const { content } of Object.values(layouts)) {
+    extractFromText(content)
+  }
+
+  // Extract from all components
+  for (const content of Object.values(components)) {
+    extractFromText(content)
+  }
+
+  return { classes, prefixExemptions: DEFAULT_PREFIX_EXEMPTIONS }
+}
+
 async function installFromUrl(url: string, name?: string): Promise<string> {
   // Download zip to temp dir
   const tmp = join(tmpdir(), `revela-design-${Date.now()}`)

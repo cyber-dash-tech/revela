@@ -12,6 +12,7 @@ import { tool } from "@opencode-ai/plugin"
 import { resolve } from "path"
 import { existsSync } from "fs"
 import { runQA, formatReport } from "../lib/qa"
+import { extractDesignClasses } from "../lib/design/designs"
 
 export default tool({
   description:
@@ -42,7 +43,14 @@ export default tool({
     }
 
     try {
-      const report = await runQA(filePath)
+      // Extract design's allowed class vocabulary for compliance checking
+      let vocabulary
+      try {
+        vocabulary = extractDesignClasses()
+      } catch {
+        // Design may not be installed or may have no markers — skip compliance
+      }
+      const report = await runQA(filePath, vocabulary)
       const formatted = formatReport(report)
 
       // Prepend a compact JSON summary for programmatic use if needed

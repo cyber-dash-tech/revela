@@ -19,8 +19,9 @@ function makeElement(
   selector = "div.col",
   children: ElementInfo[] = [],
   visible = true,
+  classList: string[] = [],
 ): ElementInfo {
-  return { selector, rect, visible, children }
+  return { selector, rect, visible, children, classList }
 }
 
 /**
@@ -493,5 +494,189 @@ describe("formatReport", () => {
     const report = runChecks("test.html", [m])
     const formatted = formatReport(report)
     expect(formatted).toContain("balance/bottom_gap")
+  })
+})
+
+// ── Dimension 5: Compliance ────────────────────────────────────────────────
+
+describe("compliance / unknown_class", () => {
+  const allowed = new Set(["narrative-grid", "report-text-panel", "page", "slide", "slide-canvas"])
+  const prefixExemptions = ["lucide-", "echarts-"]
+
+  it("no issues when all element classes are in allowedClasses", () => {
+    const el = makeElement(
+      makeRect(100, 100, 900, 500),
+      "div.narrative-grid",
+      [],
+      true,
+      ["narrative-grid"],
+    )
+    const m = makeMetrics({ elements: [el] })
+    const report = runChecks("test.html", [m], { allowedClasses: allowed, prefixExemptions })
+    const complianceIssues = report.slides[0]?.issues.filter((i) => i.type === "compliance")
+    expect(complianceIssues).toHaveLength(0)
+  })
+
+  it("flags an element with an unknown class", () => {
+    const el = makeElement(
+      makeRect(100, 100, 900, 500),
+      "div.custom-box",
+      [],
+      true,
+      ["custom-box"],
+    )
+    const m = makeMetrics({ elements: [el] })
+    const report = runChecks("test.html", [m], { allowedClasses: allowed, prefixExemptions })
+    const issues = report.slides[0]?.issues.filter((i) => i.sub === "unknown_class")
+    expect(issues?.length).toBeGreaterThan(0)
+    expect(issues?.[0].detail).toContain("custom-box")
+  })
+
+  it("does not flag classes matching prefix exemptions", () => {
+    const el = makeElement(
+      makeRect(100, 100, 500, 300),
+      "i.lucide-leaf",
+      [],
+      true,
+      ["lucide-leaf"],
+    )
+    const m = makeMetrics({ elements: [el] })
+    const report = runChecks("test.html", [m], { allowedClasses: allowed, prefixExemptions })
+    const issues = report.slides[0]?.issues.filter((i) => i.sub === "unknown_class")
+    expect(issues).toHaveLength(0)
+  })
+
+  it("reports each unique unknown class only once per slide (deduplication)", () => {
+    const el1 = makeElement(makeRect(100, 100, 500, 300), "div.a", [], true, ["custom-box"])
+    const el2 = makeElement(makeRect(600, 100, 1000, 300), "div.b", [], true, ["custom-box"])
+    const m = makeMetrics({ elements: [el1, el2] })
+    const report = runChecks("test.html", [m], { allowedClasses: allowed, prefixExemptions })
+    const issues = report.slides[0]?.issues.filter((i) => i.sub === "unknown_class" && i.data?.class === "custom-box")
+    expect(issues).toHaveLength(1)
+  })
+
+  it("walks nested children to find unknown classes", () => {
+    const child = makeElement(makeRect(120, 120, 400, 300), "span.inner", [], true, ["mystery-span"])
+    const parent = makeElement(makeRect(100, 100, 500, 400), "div.page", [child], true, ["page"])
+    const m = makeMetrics({ elements: [parent] })
+    const report = runChecks("test.html", [m], { allowedClasses: allowed, prefixExemptions })
+    const issues = report.slides[0]?.issues.filter((i) => i.sub === "unknown_class")
+    expect(issues?.length).toBeGreaterThan(0)
+    expect(issues?.[0].detail).toContain("mystery-span")
+  })
+
+  it("no compliance issues when runChecks() called without options (backward compat)", () => {
+    const el = makeElement(makeRect(100, 100, 900, 500), "div.custom", [], true, ["custom-thing"])
+    const m = makeMetrics({ elements: [el] })
+    const report = runChecks("test.html", [m])
+    const complianceIssues = report.slides[0]?.issues.filter((i) => i.type === "compliance")
+    expect(complianceIssues).toHaveLength(0)
+  })
+
+  it("severity is 'warning' for unknown_class violations", () => {
+    const el = makeElement(makeRect(100, 100, 900, 500), "div.bad", [], true, ["bad-class"])
+    const m = makeMetrics({ elements: [el] })
+    const report = runChecks("test.html", [m], { allowedClasses: allowed, prefixExemptions })
+    const issues = report.slides[0]?.issues.filter((i) => i.sub === "unknown_class")
+    expect(issues?.[0].severity).toBe("warning")
+  })
+})
+
+describe("compliance / novel_css_rule", () => {
+  const allowed = new Set(["narrative-grid", "report-text-panel", "page", "slide", "slide-canvas"])
+  const prefixExemptions = ["lucide-", "echarts-"]
+
+  it("no issues when all defined CSS classes are in allowedClasses", () => {
+    const m = makeMetrics({ index: 0 })
+    const report = runChecks("test.html", [m], {
+      allowedClasses: allowed,
+      prefixExemptions,
+      cssDefinedClasses: ["narrative-grid", "page", "slide"],
+    })
+    const issues = report.slides[0]?.issues.filter((i) => i.sub === "novel_css_rule")
+    expect(issues).toHaveLength(0)
+  })
+
+  it("flags a CSS class defined in <style> that is not in allowedClasses", () => {
+    const m = makeMetrics({ index: 0 })
+    const report = runChecks("test.html", [m], {
+      allowedClasses: allowed,
+      prefixExemptions,
+      cssDefinedClasses: ["narrative-grid", "custom-hero-box"],
+    })
+    const issues = report.slides[0]?.issues.filter((i) => i.sub === "novel_css_rule")
+    expect(issues?.length).toBeGreaterThan(0)
+    expect(issues?.[0].detail).toContain("custom-hero-box")
+  })
+
+  it("does not flag CSS classes matching prefix exemptions", () => {
+    const m = makeMetrics({ index: 0 })
+    const report = runChecks("test.html", [m], {
+      allowedClasses: allowed,
+      prefixExemptions,
+      cssDefinedClasses: ["echarts-tooltip"],
+    })
+    const issues = report.slides[0]?.issues.filter((i) => i.sub === "novel_css_rule")
+    expect(issues).toHaveLength(0)
+  })
+
+  it("novel_css_rule issues are attached to slide 0 (index 0)", () => {
+    const m0 = makeMetrics({ index: 0 })
+    const m1 = makeMetrics({ index: 1 })
+    const report = runChecks("test.html", [m0, m1], {
+      allowedClasses: allowed,
+      prefixExemptions,
+      cssDefinedClasses: ["custom-widget"],
+    })
+    const issuesOnSlide0 = report.slides[0]?.issues.filter((i) => i.sub === "novel_css_rule")
+    const issuesOnSlide1 = report.slides[1]?.issues.filter((i) => i.sub === "novel_css_rule")
+    expect(issuesOnSlide0?.length).toBeGreaterThan(0)
+    expect(issuesOnSlide1).toHaveLength(0)
+  })
+
+  it("no novel_css_rule when cssDefinedClasses not provided", () => {
+    const m = makeMetrics({ index: 0 })
+    const report = runChecks("test.html", [m], {
+      allowedClasses: allowed,
+      prefixExemptions,
+      // cssDefinedClasses intentionally omitted
+    })
+    const issues = report.slides[0]?.issues.filter((i) => i.sub === "novel_css_rule")
+    expect(issues).toHaveLength(0)
+  })
+
+  it("severity is 'warning' for novel_css_rule violations", () => {
+    const m = makeMetrics({ index: 0 })
+    const report = runChecks("test.html", [m], {
+      allowedClasses: allowed,
+      prefixExemptions,
+      cssDefinedClasses: ["bad-custom-class"],
+    })
+    const issues = report.slides[0]?.issues.filter((i) => i.sub === "novel_css_rule")
+    expect(issues?.[0].severity).toBe("warning")
+  })
+})
+
+describe("compliance / formatReport", () => {
+  const allowed = new Set(["page", "slide"])
+  const prefixExemptions: string[] = []
+
+  it("includes compliance/unknown_class in Action Required section", () => {
+    const el = makeElement(makeRect(100, 100, 900, 500), "div.bad", [], true, ["bad-class"])
+    const m = makeMetrics({ elements: [el] })
+    const report = runChecks("test.html", [m], { allowedClasses: allowed, prefixExemptions })
+    const formatted = formatReport(report)
+    expect(formatted).toContain("compliance/unknown_class")
+  })
+
+  it("includes compliance/novel_css_rule in Action Required section", () => {
+    const m = makeMetrics({ index: 0 })
+    const report = runChecks("test.html", [m], {
+      allowedClasses: allowed,
+      prefixExemptions,
+      cssDefinedClasses: ["custom-thing"],
+    })
+    const formatted = formatReport(report)
+    expect(formatted).toContain("compliance/novel_css_rule")
   })
 })

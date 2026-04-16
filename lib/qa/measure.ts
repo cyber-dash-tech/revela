@@ -47,6 +47,8 @@ export interface ElementInfo {
   visible: boolean
   /** direct children that are also visible */
   children: ElementInfo[]
+  /** all CSS class names on this element */
+  classList: string[]
 }
 
 export interface SlideMetrics {
@@ -69,6 +71,16 @@ export interface SlideMetrics {
   contentRect: Rect
 }
 
+/**
+ * Result returned by measureSlides().
+ * Contains per-slide geometry data and CSS class names defined in <style> blocks.
+ */
+export interface MeasurementResult {
+  slides: SlideMetrics[]
+  /** All CSS class names defined in <style> blocks of the HTML (deduplicated). */
+  cssDefinedClasses: string[]
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function findChromePath(): string {
@@ -86,9 +98,9 @@ function findChromePath(): string {
 
 /**
  * Open `htmlFilePath` in a headless Chrome at 1920×1080, measure each slide,
- * and return an array of SlideMetrics (one per .slide element).
+ * and return slide geometry + CSS class names defined in <style> blocks.
  */
-export async function measureSlides(htmlFilePath: string): Promise<SlideMetrics[]> {
+export async function measureSlides(htmlFilePath: string): Promise<MeasurementResult> {
   const executablePath = findChromePath()
   const fileUrl = pathToFileURL(htmlFilePath).href
 
@@ -181,6 +193,7 @@ export async function measureSlides(htmlFilePath: string): Promise<SlideMetrics[
             rect: ReturnType<typeof toRectRelative>
             visible: boolean
             children: EI[]
+            classList: string[]
           }
 
           function collectChildren(
@@ -208,6 +221,7 @@ export async function measureSlides(htmlFilePath: string): Promise<SlideMetrics[
                 selector: selectorOf(child),
                 rect: relR,
                 visible: true,
+                classList: Array.from(child.classList),
                 children: collectChildren(child, offsetTop, offsetLeft, depth + 1),
               })
             }
@@ -281,7 +295,30 @@ export async function measureSlides(htmlFilePath: string): Promise<SlideMetrics[
       if (slideData) metrics.push(slideData as SlideMetrics)
     }
 
-    return metrics
+    // Extract all CSS class names defined in <style> blocks.
+    // Uses the browser's CSSStyleRule API for reliable selector parsing.
+    const cssDefinedClasses = await page.evaluate((): string[] => {
+      const classes: string[] = []
+      const classRe = /\.([a-zA-Z_][\w-]*)/g
+      for (const sheet of Array.from(document.styleSheets)) {
+        try {
+          for (const rule of Array.from(sheet.cssRules)) {
+            if (rule instanceof CSSStyleRule) {
+              let m: RegExpExecArray | null
+              classRe.lastIndex = 0
+              while ((m = classRe.exec(rule.selectorText)) !== null) {
+                classes.push(m[1])
+              }
+            }
+          }
+        } catch {
+          // Cross-origin or inaccessible sheets (e.g. external CDN) will throw
+        }
+      }
+      return [...new Set(classes)]
+    })
+
+    return { slides: metrics, cssDefinedClasses }
   } finally {
     await browser.close()
   }

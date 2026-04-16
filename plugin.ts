@@ -48,6 +48,7 @@ import workspaceScanTool from "./tools/workspace-scan"
 import qaTool from "./tools/qa"
 import { RESEARCH_PROMPT, RESEARCH_AGENT_SIGNATURE } from "./lib/agents/research-prompt"
 import { runQA, formatReport } from "./lib/qa"
+import { extractDesignClasses } from "./lib/design/designs"
 import { log, childLog } from "./lib/log"
 
 // OpenCode internal agent signatures — used to skip system prompt injection
@@ -339,7 +340,14 @@ const server: Plugin = (async (pluginCtx) => {
         if (!filePath.match(/slides\/[^/]+\.html$/)) return
 
         try {
-          const report = await runQA(filePath)
+          // Extract design's allowed class vocabulary for compliance checking
+          let vocabulary
+          try {
+            vocabulary = extractDesignClasses()
+          } catch {
+            // Design may not be installed or may have no markers — skip compliance
+          }
+          const report = await runQA(filePath, vocabulary)
           // Only append QA report to tool output if there are issues
           if (report.totalIssues > 0) {
             const formatted = formatReport(report)

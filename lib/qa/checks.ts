@@ -1,15 +1,18 @@
 /**
  * lib/qa/checks.ts
  *
- * Geometry-based layout quality checks — four orthogonal visual dimensions.
+ * Geometry-based layout quality checks — four orthogonal visual dimensions,
+ * plus a design-compliance dimension that verifies CSS class usage.
  *
- * Dimension 1: Overflow   — elements exceed canvas bounds (correctness)
- * Dimension 2: Balance    — content centroid & distribution (fill, sparsity)
- * Dimension 3: Symmetry   — side-by-side element consistency (height, density)
- * Dimension 4: Rhythm     — spacing regularity & internal whitespace
+ * Dimension 1: Overflow    — elements exceed canvas bounds (correctness)
+ * Dimension 2: Balance     — content centroid & distribution (fill, sparsity)
+ * Dimension 3: Symmetry    — side-by-side element consistency (height, density)
+ * Dimension 4: Rhythm      — spacing regularity & internal whitespace
+ * Dimension 5: Compliance  — CSS classes match the active design's vocabulary
  *
  * All checks operate on SlideMetrics produced by measure.ts.
- * Design-system-agnostic: no CSS class-name assumptions.
+ * Dimensions 1–4 are geometry-only (no CSS class-name assumptions).
+ * Dimension 5 requires an allowedClasses vocabulary from the design system.
  */
 
 import type { SlideMetrics, ElementInfo, Rect } from "./measure"
@@ -20,11 +23,12 @@ import { CANVAS_W, CANVAS_H } from "./measure"
 export type IssueSeverity = "error" | "warning" | "info"
 
 export interface LayoutIssue {
-  type: "overflow" | "balance" | "symmetry" | "rhythm"
+  type: "overflow" | "balance" | "symmetry" | "rhythm" | "compliance"
   /** Sub-category within the dimension */
   sub?: "centroid_offset" | "bottom_gap" | "sparse"
       | "height_mismatch" | "density_mismatch"
       | "gap_variance"
+      | "unknown_class" | "novel_css_rule"
   severity: IssueSeverity
   /** Human-readable description for the LLM to act on */
   detail: string
@@ -520,20 +524,138 @@ function checkRhythm(metrics: SlideMetrics): LayoutIssue[] {
   return issues
 }
 
+// ── Compliance checks ─────────────────────────────────────────────────────────
+
+/**
+ * Check whether a class name is exempt from compliance checking.
+ * Returns true if the class matches any of the given prefix exemptions.
+ */
+function isExemptClass(cls: string, prefixExemptions: string[]): boolean {
+  return prefixExemptions.some((prefix) => cls.startsWith(prefix))
+}
+
+/**
+ * Dimension 5a: unknown_class
+ *
+ * Walk the element tree and flag any CSS class not in `allowedClasses`
+ * and not matching any `prefixExemptions`. Each unique unknown class name
+ * is reported at most once per slide (de-duplicated).
+ */
+function checkCompliance(
+  slide: SlideMetrics,
+  allowedClasses: Set<string>,
+  prefixExemptions: string[],
+): LayoutIssue[] {
+  const issues: LayoutIssue[] = []
+  const reported = new Set<string>()
+
+  function walk(el: ElementInfo): void {
+    for (const cls of el.classList) {
+      if (!cls) continue
+      if (reported.has(cls)) continue
+      if (allowedClasses.has(cls)) continue
+      if (isExemptClass(cls, prefixExemptions)) continue
+
+      reported.add(cls)
+      issues.push({
+        type: "compliance",
+        sub: "unknown_class",
+        severity: "warning",
+        detail: `Element \`${el.selector}\` uses CSS class \`${cls}\` which is not defined in the active design. Replace it with a class from the Component Index or Layout Index.`,
+        data: { class: cls, selector: el.selector },
+      })
+    }
+    for (const child of el.children) {
+      walk(child)
+    }
+  }
+
+  for (const el of slide.elements) {
+    walk(el)
+  }
+
+  return issues
+}
+
+/**
+ * Dimension 5b: novel_css_rule
+ *
+ * Check whether the <style> block defines CSS classes not in `allowedClasses`.
+ * Returns issues as a flat list (caller attaches them to slide 0).
+ */
+function checkNovelCssRules(
+  cssDefinedClasses: string[],
+  allowedClasses: Set<string>,
+  prefixExemptions: string[],
+): LayoutIssue[] {
+  const issues: LayoutIssue[] = []
+  const reported = new Set<string>()
+
+  for (const cls of cssDefinedClasses) {
+    if (!cls) continue
+    if (reported.has(cls)) continue
+    if (allowedClasses.has(cls)) continue
+    if (isExemptClass(cls, prefixExemptions)) continue
+
+    reported.add(cls)
+    issues.push({
+      type: "compliance",
+      sub: "novel_css_rule",
+      severity: "warning",
+      detail: `<style> defines CSS class \`.${cls}\` which is not part of the active design. Remove this custom rule and use the design's existing component styles. For minor adjustments, use inline \`style=""\` instead.`,
+      data: { class: cls },
+    })
+  }
+
+  return issues
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 /**
- * Run all four dimension checks on a set of slide metrics and produce a QA report.
+ * Options for runChecks(). All fields are optional — omitting them disables
+ * the corresponding checks (backward compatible).
  */
-export function runChecks(filePath: string, allMetrics: SlideMetrics[]): QAReport {
+export interface RunChecksOptions {
+  /** Allowed CSS class vocabulary from the active design (enables compliance checks). */
+  allowedClasses?: Set<string>
+  /** Class name prefixes exempt from compliance checks (e.g. "lucide-", "echarts-"). */
+  prefixExemptions?: string[]
+  /** CSS class names defined in <style> blocks (enables novel_css_rule check). */
+  cssDefinedClasses?: string[]
+}
+
+/**
+ * Run all dimension checks on a set of slide metrics and produce a QA report.
+ */
+export function runChecks(
+  filePath: string,
+  allMetrics: SlideMetrics[],
+  options?: RunChecksOptions,
+): QAReport {
   const slides: SlideReport[] = []
+  const { allowedClasses, prefixExemptions = [], cssDefinedClasses } = options ?? {}
+
+  // novel_css_rule issues are global (not per-slide); attach to slide 0.
+  const novelCssIssues: LayoutIssue[] =
+    allowedClasses && cssDefinedClasses
+      ? checkNovelCssRules(cssDefinedClasses, allowedClasses, prefixExemptions)
+      : []
 
   for (const metrics of allMetrics) {
+    const complianceIssues: LayoutIssue[] =
+      allowedClasses
+        ? checkCompliance(metrics, allowedClasses, prefixExemptions)
+        : []
+
     const issues: LayoutIssue[] = [
       ...checkOverflow(metrics),
       ...checkBalance(metrics),
       ...checkSymmetry(metrics),
       ...checkRhythm(metrics),
+      ...complianceIssues,
+      // Attach novel_css_rule issues to slide 0 only
+      ...(metrics.index === 0 ? novelCssIssues : []),
     ]
 
     slides.push({ index: metrics.index, title: metrics.title, issues })
@@ -597,6 +719,8 @@ export function formatReport(report: QAReport): string {
     `- **symmetry/height_mismatch**: equalise side-by-side column heights — use \`align-items: stretch\` or match content density.`,
     `- **symmetry/density_mismatch**: balance content between columns — add items to the sparse column or reduce items in the dense one.`,
     `- **rhythm/gap_variance**: use consistent \`gap\` or \`margin\` values between stacked elements instead of mixing sizes.`,
+    `- **compliance/unknown_class**: an HTML element uses a CSS class not defined in the active design. Replace it with a class from the Component Index or Layout Index. Fetch the component/layout details with the \`revela-designs\` tool if needed.`,
+    `- **compliance/novel_css_rule**: \`<style>\` defines a CSS class that is not part of the active design. Remove the custom rule and use the design's existing component styles. For minor spacing/sizing adjustments, use inline \`style=""\` instead.`,
   )
 
   return lines.join("\n")
