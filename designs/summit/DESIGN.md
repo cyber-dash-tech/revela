@@ -505,6 +505,7 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
     grid-template-rows: minmax(0, 1fr);
     height: 100%;
     overflow: hidden;
+    align-items: start;
 }
 
 .narrative-grid--reverse {
@@ -563,33 +564,32 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 - **Dark panel variant.** Same CSS variable override pattern as `narrative`: set `--text-primary` etc. to white-family values on the panel container, all child components inherit automatically.
 <!-- @layout:narrative-reverse:end -->
 
-<!-- @layout:three-col:start qa=true -->
-#### Three Col
+<!-- @layout:highlight-cols:start qa=true -->
+#### Highlight Cols
 
-Equal three-column layout. Use when three parallel items of roughly equal visual weight should appear side by side — proof blocks, highlights, feature comparisons, or any triad of editorial modules.
+Equal N-column layout. Use when 3 or more parallel items of roughly equal visual weight should appear side by side — proof blocks, highlights, feature comparisons, stat groups, or any multi-column editorial spread.
 
 Structural intent:
-- left slot: 1fr column — any component(s)
-- center slot: 1fr column — any component(s)
-- right slot: 1fr column — any component(s)
+- each slot: 1fr column — any component(s)
+- column count: determined by the number of direct child divs in the grid container; `auto-fit` distributes space equally
 
-Every slot accepts 1 or more components. The LLM decides what each slot contains — columns are fully equal with no hierarchy preset.
+Every slot accepts 1 or more components. Add or remove child divs to control column count — 3 is the default, but 4 or 5 columns work equally well.
 
 ```html
 <section class="slide" slide-qa="true" data-index="N">
   <div class="slide-canvas">
     <div class="page">
-      <div class="three-col-grid" style="flex:1;min-height:0;">
+      <div class="highlight-cols-grid" style="flex:1;min-height:0;">
 
-        <!-- [slot: left] — 1+ components; suggested: editorial-image-top, editorial-text-top, echart-panel -->
+        <!-- [slot: 1] — 1+ components; suggested: editorial-image-top, editorial-text-top, echart-panel -->
         <div>
         </div>
 
-        <!-- [slot: center] — 1+ components; suggested: editorial-text-top, echart-panel, flow-vertical -->
+        <!-- [slot: 2] — 1+ components; suggested: editorial-text-top, echart-panel, flow-vertical -->
         <div>
         </div>
 
-        <!-- [slot: right] — 1+ components; suggested: editorial-image-top, editorial-text-top, echart-panel -->
+        <!-- [slot: 3] — 1+ components; suggested: editorial-image-top, editorial-text-top, echart-panel -->
         <div>
         </div>
 
@@ -600,14 +600,15 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 ```
 
 ```css
-.three-col-grid {
+.highlight-cols-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
     gap: 32px;
     overflow: hidden;
+    align-items: start;
 }
 
-.three-col-grid > * {
+.highlight-cols-grid > * {
     overflow: hidden;
     min-height: 0;
 }
@@ -615,9 +616,10 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 
 ##### Tips
 - **Grid container needs `flex:1;min-height:0` inline** when inside `.page` (which is flex-column). The class handles column sizing; the inline style handles row stretch.
-- **Equal columns — no hierarchy.** Unlike `narrative`, all three columns are equal. Adjust content density to suit the slide purpose; do not artificially inflate one column to create false hierarchy.
+- **Column count = number of direct child divs.** `repeat(auto-fit, minmax(0, 1fr))` distributes available width equally across however many children exist. Add a 4th or 5th div to get 4 or 5 columns — no CSS change needed.
+- **Equal columns — no hierarchy.** All slots carry the same visual weight. Adjust content density to suit the slide purpose; do not artificially inflate one column to create false hierarchy.
 - **Do not set fixed heights on editorial components.** Let components fill height via flexbox stretch.
-<!-- @layout:three-col:end -->
+<!-- @layout:highlight-cols:end -->
 
 <!-- @layout:halves:start qa=true -->
 #### Halves
@@ -657,6 +659,7 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 0px;
     overflow: hidden;
+    align-items: stretch;
 }
 
 .halves-grid > * {
@@ -675,11 +678,11 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 <!-- @layout:stacked:start qa=true -->
 #### Stacked
 
-Two-row vertical layout: a top band with natural height and a bottom zone that fills remaining space. Use when a horizontal component (process flow, stat row, header band) should anchor the top, with a taller content zone below.
+Two-row vertical layout in a fixed golden-ratio proportion: top row takes 1fr and bottom row takes 1.618fr. Use when a horizontal component (process flow, stat row, header band) should anchor the top, with a taller content zone below.
 
 Structural intent:
-- top slot: `auto` height — sized by its content
-- bottom slot: `1fr` height — fills remaining vertical space
+- top slot: `1fr` height — upper zone in golden-ratio proportion
+- bottom slot: `1.618fr` height — larger lower zone fills remaining space
 
 Every slot accepts 1 or more components. The LLM decides what each slot contains — there is no semantic preset for either row.
 
@@ -707,7 +710,7 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 ```css
 .stacked-grid {
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1.618fr);
     height: 100%;
     width: 100%;
     overflow: hidden;
@@ -715,6 +718,7 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 
 .stacked-top {
     overflow: hidden;
+    min-height: 0;
 }
 
 .stacked-bottom {
@@ -724,8 +728,8 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 ```
 
 ##### Tips
-- **Top slot height is driven by its content.** `auto` means the row grows to wrap whatever is placed in `.stacked-top`. Do not set a fixed `max-height` on the grid row — let the component dictate its natural height.
-- **Bottom slot fills remaining space.** `minmax(0, 1fr)` ensures the bottom row takes all leftover vertical space and clips overflow cleanly.
+- **Top and bottom rows follow a fixed 1 : 1.618 golden-ratio proportion.** The top slot takes 1fr and the bottom takes 1.618fr — both rows are sized relative to the total canvas height, not by their content.
+- **Both slots clip overflow.** `min-height: 0` on both `.stacked-top` and `.stacked-bottom` ensures content cannot break out of its row.
 - **Both slots are fully equal in kind.** There is no preset for which slot holds "process" vs "data" — place any combination of components that fits the slide narrative.
 - **Dark background variant.** Set CSS variable overrides (`--text-primary` etc.) on `.stacked-grid` to cascade into both slots automatically.
 <!-- @layout:stacked:end -->
@@ -1681,12 +1685,12 @@ Narrow editorial panel for table-of-contents slides. A 3px accent-gold vertical 
       <h2 style="font-size:34px;line-height:0.94;letter-spacing:-0.03em;text-transform:uppercase;max-width:220px;">Table of Contents</h2>
       <p style="margin-top:18px;font-size:11px;line-height:1.6;letter-spacing:0.06em;color:var(--text-secondary);max-width:255px;">Short introductory note describing the scope of the sections that follow.</p>
       <ol style="list-style:none;display:flex;flex-direction:column;gap:10px;margin-top:26px;">
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">01</span><span>Chapter title or section theme</span></li>
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">02</span><span>Chapter title or section theme</span></li>
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">03</span><span>Chapter title or section theme</span></li>
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">04</span><span>Chapter title or section theme</span></li>
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">05</span><span>Chapter title or section theme</span></li>
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;"><span style="font-weight:700;">06</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">01</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">02</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">03</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">04</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">05</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;"><span style="font-weight:700;">06</span><span>Chapter title or section theme</span></li>
       </ol>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px;">
