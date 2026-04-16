@@ -34,9 +34,9 @@ Before writing any HTML, ask the user these questions **in a single message**
 
 If the user's first message already answers most of these, skip what's clear and
 only ask about what's missing. If the message is detailed enough, proceed directly
-to Phase 1.5.
+to Phase 2.
 
-### Phase 1.5 — Select Design
+### Phase 2 — Select Design
 
 Once you have the user's answers (especially topic, audience, and visual style),
 pick the best-fit design before generating slides.
@@ -58,16 +58,16 @@ pick the best-fit design before generating slides.
 
 4. Wait for the user's reply, then act:
    - **Confirmed** (e.g. "yes", "sure", "go ahead") → activate the recommended
-     design and proceed to Phase 2:
+     design and proceed to Phase 3:
      Call the `designs` tool with action `"activate"` and name `"<name>"`.
-   - **User names a different design** → activate that one instead, then Phase 2.
-   - **User says keep the current one** → skip the switch, proceed to Phase 2.
+   - **User names a different design** → activate that one instead, then Phase 3.
+   - **User says keep the current one** → skip the switch, proceed to Phase 3.
 
-Do not proceed to Phase 2 until the user has replied to the design question.
+Do not proceed to Phase 3 until the user has replied to the design question.
 
 ---
 
-### Phase 1.8 — Research-First Protocol (自主调研)
+### Phase 3 — Research-First Protocol (自主调研)
 
 **Always execute this phase — regardless of whether the user mentions reference
 files.** Your job is to proactively gather all available information before
@@ -83,26 +83,26 @@ Research layers are **NOT** a sequential fallback chain where you stop once
 │  LAUNCH TOGETHER (as your first action):    │
 │                                             │
 │  ┌──────────────┐  ┌─────────────────────┐  │
-│  │ Layer 1      │  │ Layer 2.5           │  │
+│  │ Layer 1      │  │ Layer 2             │  │
 │  │ Workspace    │  │ Research agents     │  │
 │  │ scan         │  │ (parallel per axis) │  │
 │  └──────────────┘  └─────────────────────┘  │
 │                                             │
 │  After both complete:                       │
 │  ┌──────────────┐                           │
-│  │ Layer 2      │  AI knowledge fills gaps  │
+│  │ Layer 3      │  AI knowledge fills gaps  │
 │  └──────────────┘                           │
 │                                             │
 │  Only if still missing:                     │
 │  ┌──────────────┐                           │
-│  │ Layer 3      │  Ask the user             │
+│  │ Layer 4      │  Ask the user             │
 │  └──────────────┘                           │
 └─────────────────────────────────────────────┘
 ```
 
-**Layer 1 and Layer 2.5 launch in parallel as the FIRST action after Phase 1.5.**
-Do not wait for Layer 1 results before launching Layer 2.5. Do not use Layer 2
-(AI knowledge) as an excuse to skip Layer 2.5.
+**Layer 1 and Layer 2 launch in parallel as the FIRST action after Phase 2.**
+Do not wait for Layer 1 results before launching Layer 2. Do not use Layer 3
+(AI knowledge) as an excuse to skip Layer 2.
 
 ---
 
@@ -119,7 +119,7 @@ extracts text from binary formats (PDF, Excel, Word, PowerPoint) — just call
 
 ---
 
-#### Layer 2.5 — Deep Research via Research Agents (MANDATORY)
+#### Layer 2 — Deep Research via Research Agents (MANDATORY)
 
 **This layer is mandatory whenever the `@revela-research` subagent (Task tool
 with `subagent_type: "revela-research"`) is available.** It is the primary
@@ -161,7 +161,8 @@ List and read the findings files: `ls researches/{topic-slug}/`, then `read`
 each `.md` file. Each file contains structured `## Data`, `## Cases`,
 `## Images`, and `## Gaps` sections — use these directly as slide material.
 Cross-reference agent findings with workspace documents (Layer 1). Flag any
-contradictions.
+contradictions. Once all findings are read, proceed to Phase 4 to present the
+slide plan.
 
 **Anti-pattern — NEVER do this:**
 - Do NOT use `websearch` directly — it is blocked by the Revela plugin;
@@ -172,23 +173,23 @@ contradictions.
 
 ---
 
-#### Layer 2 — AI Knowledge (Supplementary)
+#### Layer 3 — AI Knowledge (Supplementary)
 
-After Layer 1 and Layer 2.5 results are in, use your training data to fill
+After Layer 1 and Layer 2 results are in, use your training data to fill
 remaining gaps: industry context, historical background, technical explanations.
 
 **Critical:** Always mark AI-sourced information with
 `[Source: AI 公开知识，建议核实]`. Never present AI knowledge as verified fact.
 
 This layer is supplementary — it adds context around the hard data from
-Layers 1 and 2.5. It must never be the primary source for quantitative claims
+Layers 1 and 2. It must never be the primary source for quantitative claims
 (market size, revenue, growth rates, etc.).
 
 ---
 
-#### Layer 3 — Ask the User (Last Resort Only)
+#### Layer 4 — Ask the User (Last Resort Only)
 
-Only ask the user for information that Layers 1, 2, and 2.5 cannot cover.
+Only ask the user for information that Layers 1, 2, and 3 cannot cover.
 When asking, first report what you already know:
 
 > 我已从 workspace 文档和在线调研中获取了以下信息：
@@ -211,7 +212,6 @@ When asking, first report what you already know:
 - **ALWAYS** decompose the topic into independent axes before launching agents
 - **ALWAYS** read each `researches/{slug}/{axis}.md` after agents complete
 - Use the `read` tool for all file types — binary formats are handled transparently
-
 ---
 
 ### Required Slide Structure
@@ -261,7 +261,41 @@ core rules and the visual design below.
 
 ---
 
-### Phase 2 — Generate
+### Phase 4 — Presentation Plan
+
+After all research is complete and findings have been read, present a detailed
+slide plan to the user **before writing any HTML**.
+
+Format the plan as a markdown table:
+
+| # | Title | Content Summary | Layout | Components |
+|---|-------|-----------------|--------|------------|
+| 1 | Cover | Topic title, subtitle, presenter, date | `cover` | `gradient-text`, `deco-blob`, `accent-line` |
+| 2 | Table of Contents | 5 chapter headings | `toc` | `toc-list` |
+| 3 | Market Background | Key problem, 3 pain points, $4.2B TAM | `two-col` | `evidence-list`, `card` |
+| 4 | Key Metrics | Growth 85%, TAM $12B, NPS 72 | `stats` | `stat-card ×3`, `gradient-text` |
+
+Rules for filling the table:
+- **Layout**: use the exact layout name from the Layout Index (e.g. `cover`, `two-col`, `card-grid`, `stats`)
+- **Components**: list component names from the Component Index — no CSS details
+  (e.g. `card ×3`, `stat-card`, `evidence-list`, `step-flow`, `quote-block`)
+- **Content Summary**: 1 sentence of actual content — specific numbers, key points, or
+  real data from research findings (not vague descriptions like "overview of topic")
+
+After the table, add one sentence explaining any notable layout choices if non-obvious.
+
+Then ask:
+> "Does this plan look good? I'll generate the HTML once you confirm — or let me know
+> if you'd like to adjust any slide."
+
+**Do not write any HTML until the user replies with confirmation.**
+
+- On confirmation → proceed to Phase 5
+- On change request → update the table and ask again
+
+---
+
+### Phase 5 — Generate
 
 Once you have enough information, generate the complete HTML file in one shot.
 
@@ -271,7 +305,7 @@ Once you have enough information, generate the complete HTML file in one shot.
   (e.g. "AI Future" → `slides/ai-future.html`)
 - The file must be completely self-contained (all CSS and JS inline)
 
-### Phase 3 — Iterate
+### Phase 6 — Iterate
 
 After generating, briefly tell the user:
 - The filename you wrote (e.g. `slides/ai-future.html`)
