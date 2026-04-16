@@ -503,39 +503,92 @@ export function extractDesignClasses(designName?: string): DesignClassVocabulary
 
   const classes = new Set(UNIVERSAL_CLASSES)
 
-  // Regex patterns for extraction
+  // Regex patterns for extraction (stateless — reset lastIndex before each use)
   const htmlClassRe = /class="([^"]*)"/g
   const cssClassRe = /\.([a-zA-Z_][\w-]*)/g
 
-  function extractFromText(text: string): void {
-    // Extract from HTML class="..." attributes
+  /** Extract CSS class names from a CSS string (selector context only).
+   * Strips url(...) and string literals before scanning to avoid false positives
+   * from inline SVG data URIs and other non-selector content.
+   */
+  function extractFromCss(css: string): void {
+    // Remove url(...) values (may contain encoded paths like w3.org, data URIs, etc.)
+    const stripped = css
+      .replace(/url\([^)]*\)/gi, "url()")
+      // Remove quoted strings (single or double)
+      .replace(/"[^"]*"/g, '""')
+      .replace(/'[^']*'/g, "''")
+    cssClassRe.lastIndex = 0
     let m: RegExpExecArray | null
+    while ((m = cssClassRe.exec(stripped)) !== null) {
+      if (m[1]) classes.add(m[1])
+    }
+  }
+
+  /** Extract CSS class names from an HTML string (class="..." attributes only). */
+  function extractFromHtml(html: string): void {
     htmlClassRe.lastIndex = 0
-    while ((m = htmlClassRe.exec(text)) !== null) {
+    let m: RegExpExecArray | null
+    while ((m = htmlClassRe.exec(html)) !== null) {
       for (const cls of m[1].split(/\s+/)) {
         if (cls.trim()) classes.add(cls.trim())
       }
     }
-    // Extract from CSS .class-name selectors
-    cssClassRe.lastIndex = 0
-    while ((m = cssClassRe.exec(text)) !== null) {
-      if (m[1]) classes.add(m[1])
+    // Also scan inline <style>...</style> blocks inside HTML snippets
+    const styleBlockRe = /<style[^>]*>([\s\S]*?)<\/style>/gi
+    styleBlockRe.lastIndex = 0
+    while ((m = styleBlockRe.exec(html)) !== null) {
+      extractFromCss(m[1])
+    }
+  }
+
+  /**
+   * Scan a DESIGN.md section body and extract CSS class names only from:
+   *   - ```css ... ``` code blocks  → CSS selector extraction
+   *   - ```html ... ``` code blocks → HTML class="..." attribute extraction
+   *   - <style>...</style> blocks   → CSS selector extraction
+   *
+   * Skips ```javascript / ```js / ```ts code blocks entirely to avoid
+   * extracting JS method names (e.g. .classList, .forEach) as class names.
+   */
+  function extractFromSection(text: string): void {
+    // Match fenced code blocks: ```<lang>\n...\n```
+    const fenceRe = /```(\w*)\n([\s\S]*?)```/g
+    let m: RegExpExecArray | null
+    fenceRe.lastIndex = 0
+    while ((m = fenceRe.exec(text)) !== null) {
+      const lang = m[1].toLowerCase()
+      const body = m[2]
+      if (lang === "css" || lang === "scss" || lang === "less") {
+        extractFromCss(body)
+      } else if (lang === "html" || lang === "xml" || lang === "") {
+        // Unknown-lang fences in DESIGN.md are usually HTML snippets
+        extractFromHtml(body)
+      }
+      // javascript / js / ts / typescript → skip entirely
+    }
+
+    // Also scan top-level <style>...</style> outside code blocks
+    const styleBlockRe = /<style[^>]*>([\s\S]*?)<\/style>/gi
+    styleBlockRe.lastIndex = 0
+    while ((m = styleBlockRe.exec(text)) !== null) {
+      extractFromCss(m[1])
     }
   }
 
   // Extract from all sections (foundation, rules, etc.)
   for (const content of Object.values(sections)) {
-    extractFromText(content)
+    extractFromSection(content)
   }
 
   // Extract from all layouts
   for (const { content } of Object.values(layouts)) {
-    extractFromText(content)
+    extractFromSection(content)
   }
 
   // Extract from all components
   for (const content of Object.values(components)) {
-    extractFromText(content)
+    extractFromSection(content)
   }
 
   return { classes, prefixExemptions: DEFAULT_PREFIX_EXEMPTIONS }

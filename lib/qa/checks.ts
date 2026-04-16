@@ -6,9 +6,8 @@
  *
  * Dimension 1: Overflow    — elements exceed canvas bounds (correctness)
  * Dimension 2: Balance     — content centroid & distribution (fill, sparsity)
- * Dimension 3: Symmetry    — side-by-side element consistency (height, density)
- * Dimension 4: Rhythm      — spacing regularity & internal whitespace
- * Dimension 5: Compliance  — CSS classes match the active design's vocabulary
+ * Dimension 3: Rhythm      — spacing regularity & internal whitespace
+ * Dimension 4: Compliance  — CSS classes match the active design's vocabulary
  *
  * All checks operate on SlideMetrics produced by measure.ts.
  * Dimensions 1–4 are geometry-only (no CSS class-name assumptions).
@@ -651,7 +650,6 @@ export function runChecks(
     const issues: LayoutIssue[] = [
       ...checkOverflow(metrics),
       ...checkBalance(metrics),
-      ...checkSymmetry(metrics),
       ...checkRhythm(metrics),
       ...complianceIssues,
       // Attach novel_css_rule issues to slide 0 only
@@ -716,8 +714,6 @@ export function formatReport(report: QAReport): string {
     `- **balance/centroid_offset**: redistribute content so the visual weight is centred — avoid concentrating everything in one corner or side.`,
     `- **balance/bottom_gap**: expand content to fill the slide, use \`flex: 1\` on containers, add more content blocks, or reduce top padding.`,
     `- **balance/sparse**: add more content components, increase font sizes, or use a layout with fewer columns.`,
-    `- **symmetry/height_mismatch**: equalise side-by-side column heights — use \`align-items: stretch\` or match content density.`,
-    `- **symmetry/density_mismatch**: balance content between columns — add items to the sparse column or reduce items in the dense one.`,
     `- **rhythm/gap_variance**: use consistent \`gap\` or \`margin\` values between stacked elements instead of mixing sizes.`,
     `- **compliance/unknown_class**: an HTML element uses a CSS class not defined in the active design. Replace it with a class from the Component Index or Layout Index. Fetch the component/layout details with the \`revela-designs\` tool if needed.`,
     `- **compliance/novel_css_rule**: \`<style>\` defines a CSS class that is not part of the active design. Remove the custom rule and use the design's existing component styles. For minor spacing/sizing adjustments, use inline \`style=""\` instead.`,

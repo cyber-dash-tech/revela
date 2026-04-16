@@ -1,4 +1,7 @@
 import { describe, it, expect } from "bun:test"
+import { mkdirSync, writeFileSync, rmSync } from "fs"
+import { join } from "path"
+import { tmpdir } from "os"
 import {
   parseDesignSections,
   generateComponentIndex,
@@ -398,5 +401,199 @@ describe("extractDesignClasses", () => {
       // Acceptable — design not installed
       expect(e).toBeDefined()
     }
+  })
+})
+
+// ── extractDesignClasses — fixture-based unit tests ───────────────────────
+
+/**
+ * Write a temporary design to a temp directory and call extractDesignClasses()
+ * on it by temporarily pointing DESIGNS_DIR at the temp dir.
+ *
+ * Since extractDesignClasses() reads from DESIGNS_DIR, we use a helper that
+ * writes a real DESIGN.md file to a temp dir and reads it back using the
+ * public parseDesignSections + internal logic. Instead we test the observable
+ * contract: given a DESIGN.md with known content, the returned Set must
+ * contain expected classes and must NOT contain known false positives.
+ *
+ * We do this by installing a tiny mock design in OS tmpdir.
+ */
+function withTempDesign(body: string, fn: (designName: string) => void): void {
+  const tmpBase = join(tmpdir(), `revela-test-design-${Date.now()}`)
+  const designName = "test-fixture"
+  const designDir = join(tmpBase, designName)
+  mkdirSync(designDir, { recursive: true })
+  writeFileSync(
+    join(designDir, "DESIGN.md"),
+    `---\nname: ${designName}\ndescription: test\nauthor: test\nversion: 0.0.1\n---\n\n${body}`
+  )
+
+  // Temporarily override DESIGNS_DIR by shimming extractDesignClasses to point
+  // at our tmpBase. Since we can't easily monkey-patch the module constant,
+  // we use parseDesignSections directly and validate the subset of behaviour
+  // we care about.
+  //
+  // Instead: call the real extractDesignClasses with the tmp dir design.
+  // The function reads from DESIGNS_DIR — so we need to install the mock there.
+  // Simplest approach: use the package's own DESIGNS_DIR path (it's seeded to
+  // ~/.config/revela/designs/). We install a temp design there, test, then remove.
+  const { DESIGNS_DIR } = require("../lib/config")
+  const targetDir = join(DESIGNS_DIR, designName)
+  mkdirSync(targetDir, { recursive: true })
+  writeFileSync(
+    join(targetDir, "DESIGN.md"),
+    `---\nname: ${designName}\ndescription: test\nauthor: test\nversion: 0.0.1\n---\n\n${body}`
+  )
+  try {
+    fn(designName)
+  } finally {
+    rmSync(targetDir, { recursive: true, force: true })
+    rmSync(tmpBase, { recursive: true, force: true })
+  }
+}
+
+describe("extractDesignClasses — CSS context isolation", () => {
+  it("extracts classes from ```css code blocks", () => {
+    withTempDesign(
+      wrapSection("foundation", `
+\`\`\`css
+.my-card { color: red; }
+.my-title { font-size: 24px; }
+\`\`\`
+`),
+      (name) => {
+        const vocab = extractDesignClasses(name)
+        expect(vocab.classes.has("my-card")).toBe(true)
+        expect(vocab.classes.has("my-title")).toBe(true)
+      }
+    )
+  })
+
+  it("extracts classes from ```html class= attributes", () => {
+    withTempDesign(
+      wrapSection("foundation", `
+\`\`\`html
+<div class="hero-block main-col">
+  <span class="eyebrow">text</span>
+</div>
+\`\`\`
+`),
+      (name) => {
+        const vocab = extractDesignClasses(name)
+        expect(vocab.classes.has("hero-block")).toBe(true)
+        expect(vocab.classes.has("main-col")).toBe(true)
+        expect(vocab.classes.has("eyebrow")).toBe(true)
+      }
+    )
+  })
+
+  it("does NOT extract JS method names from ```javascript blocks", () => {
+    withTempDesign(
+      wrapSection("foundation", `
+\`\`\`javascript
+class Foo {
+  constructor() {
+    this.el.addEventListener('click', () => {})
+    this.el.classList.add('active')
+    const delta = event.deltaY
+    this.slides.forEach(s => s.scrollIntoView())
+    document.querySelectorAll('.slide').length
+  }
+}
+\`\`\`
+`),
+      (name) => {
+        const vocab = extractDesignClasses(name)
+        // JS method names must NOT be in the vocabulary
+        const jsFalsePositives = [
+          "addEventListener", "classList", "forEach", "querySelectorAll",
+          "scrollIntoView", "deltaY", "currentSlide", "innerHeight",
+          "preventDefault", "stopPropagation",
+        ]
+        for (const cls of jsFalsePositives) {
+          expect(vocab.classes.has(cls)).toBe(false)
+        }
+      }
+    )
+  })
+
+  it("does NOT extract URL fragments from CSS url() values", () => {
+    withTempDesign(
+      wrapSection("foundation", `
+\`\`\`css
+.noise-bg {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E");
+}
+.cdn-icon {
+  background: url(https://cdn.jsdelivr.net/icons/foo.svg);
+}
+\`\`\`
+`),
+      (name) => {
+        const vocab = extractDesignClasses(name)
+        // URL fragments must NOT appear as classes
+        expect(vocab.classes.has("w3")).toBe(false)
+        expect(vocab.classes.has("org")).toBe(false)
+        expect(vocab.classes.has("net")).toBe(false)
+        expect(vocab.classes.has("jsdelivr")).toBe(false)
+        // The actual class should still be extracted
+        expect(vocab.classes.has("noise-bg")).toBe(true)
+        expect(vocab.classes.has("cdn-icon")).toBe(true)
+      }
+    )
+  })
+
+  it("extracts classes from layout and component markers", () => {
+    const body = `
+<!-- @layout:two-col:start qa=true -->
+\`\`\`html
+<div class="two-col-wrap">
+  <div class="col-primary"></div>
+  <div class="col-secondary"></div>
+</div>
+\`\`\`
+<!-- @layout:two-col:end -->
+
+<!-- @component:stat-card:start -->
+\`\`\`css
+.stat-card { padding: 24px; }
+.stat-number { font-size: 72px; }
+\`\`\`
+<!-- @component:stat-card:end -->
+`
+    withTempDesign(body, (name) => {
+      const vocab = extractDesignClasses(name)
+      expect(vocab.classes.has("two-col-wrap")).toBe(true)
+      expect(vocab.classes.has("col-primary")).toBe(true)
+      expect(vocab.classes.has("col-secondary")).toBe(true)
+      expect(vocab.classes.has("stat-card")).toBe(true)
+      expect(vocab.classes.has("stat-number")).toBe(true)
+    })
+  })
+
+  it("skips ```js and ```typescript blocks just like ```javascript", () => {
+    withTempDesign(
+      wrapSection("foundation", `
+\`\`\`js
+const el = document.getElementById('foo')
+el.classList.toggle('active')
+el.appendChild(child)
+\`\`\`
+
+\`\`\`typescript
+function goTo(index: number) {
+  this.slides.forEach((s: HTMLElement) => s.scrollIntoView())
+}
+\`\`\`
+`),
+      (name) => {
+        const vocab = extractDesignClasses(name)
+        expect(vocab.classes.has("getElementById")).toBe(false)
+        expect(vocab.classes.has("classList")).toBe(false)
+        expect(vocab.classes.has("appendChild")).toBe(false)
+        expect(vocab.classes.has("forEach")).toBe(false)
+        expect(vocab.classes.has("scrollIntoView")).toBe(false)
+      }
+    )
   })
 })

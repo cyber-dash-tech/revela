@@ -118,9 +118,22 @@ export async function measureSlides(htmlFilePath: string): Promise<MeasurementRe
   try {
     const page = await browser.newPage()
 
+    // Block all external (http/https) requests — fonts, CDN scripts, images.
+    // QA checks are purely geometry-based and do not require network resources.
+    // This makes measurement fast and reliable regardless of network conditions.
+    await page.setRequestInterception(true)
+    page.on("request", (req) => {
+      const url = req.url()
+      if (url.startsWith("https://") || url.startsWith("http://")) {
+        req.abort()
+      } else {
+        req.continue()
+      }
+    })
+
     // Set viewport to exact canvas size so scale === 1 (no CSS transform needed).
     await page.setViewport({ width: CANVAS_W, height: CANVAS_H })
-    await page.goto(fileUrl, { waitUntil: "networkidle0", timeout: 30000 })
+    await page.goto(fileUrl, { waitUntil: "domcontentloaded", timeout: 15000 })
 
     // Wait for any entrance animations / intersection observers to fire.
     await new Promise((r) => setTimeout(r, 600))
