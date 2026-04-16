@@ -17,8 +17,9 @@ export const log = new Logger({
   type: "json",
   hideLogPositionForProduction: true,
   overwrite: {
-    transportJSON: (logObj: unknown) => {
-      process.stderr.write(JSON.stringify(logObj) + "\n")
+    transportJSON: (_logObj: unknown) => {
+      // Silenced: revela runs as an OpenCode plugin; writing to stderr
+      // pollutes the host terminal. Logs are intentionally suppressed.
     },
   },
 })

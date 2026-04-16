@@ -111,6 +111,7 @@ const server: Plugin = (async (pluginCtx) => {
       // Permissions: read-only on edit/bash; write allowed to create researches/ files.
       // No model override — inherits from the calling primary agent.
       opencodeConfig.agent ??= {}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       opencodeConfig.agent["revela-research"] = {
         description: "Revela research agent — searches and collects raw materials for presentations",
         mode: "subagent",
@@ -123,7 +124,19 @@ const server: Plugin = (async (pluginCtx) => {
             "ls": "allow",
           },
           webfetch: "allow",
-        },
+        } as any,
+      }
+      // Give revela-research explicit websearch allow (overrides global deny below)
+      ;(opencodeConfig.agent["revela-research"].permission as any).websearch = "allow"
+
+      // Block websearch for the primary agent globally.
+      // permission.ask hook is not triggered by OpenCode (no R.trigger call in binary).
+      // tool.execute.before throw is swallowed (trigger().catch(()=>{})).
+      // The only working mechanism is the config-level permission ruleset.
+      // revela-research agent overrides this with websearch: "allow" above.
+      opencodeConfig.permission ??= {}
+      if (!(opencodeConfig.permission as Record<string, unknown>)["websearch"]) {
+        ;(opencodeConfig.permission as Record<string, unknown>)["websearch"] = "deny"
       }
     },
 
@@ -283,21 +296,9 @@ const server: Plugin = (async (pluginCtx) => {
     // ── Pre-read: intercept binary files before read executes ──────────────
     // Handles DOCX/PPTX/XLSX — read tool would Effect.fail on these.
     // Extracts text → writes temp .txt → redirects args.filePath.
-    //
-    // Also blocks websearch for the primary agent — websearch must be delegated
-    // to the revela-research subagent. Use webfetch for specific URLs instead.
     "tool.execute.before": async (input, output) => {
+      log.info("[hook] tool.execute.before fired", { tool: input.tool, enabled: ctx.enabled, isResearch: ctx.isResearchAgent })
       if (!ctx.enabled) return
-
-      // ── Block websearch for primary agent ──────────────────────────────
-      if (input.tool === "websearch" && !ctx.isResearchAgent) {
-        throw new Error(
-          "[revela] websearch is not available for the primary agent. " +
-          "Delegate web research to the revela-research subagent via the Task tool — " +
-          "it searches systematically and saves structured findings for reuse across sessions. " +
-          "Use the webfetch tool if you need to read a specific URL directly.",
-        )
-      }
 
       if (input.tool !== "read") return
       try {

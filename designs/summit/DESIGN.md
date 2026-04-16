@@ -172,7 +172,7 @@ body {
     height: 100%;
     background: var(--bg-page);
     color: var(--text-primary);
-    padding: 56px 64px 64px;
+    padding: 0;
     box-shadow: 0 24px 80px var(--shadow-soft);
     display: flex;
     flex-direction: column;
@@ -677,7 +677,7 @@ Suggested components (per slot):
 .halves-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 40px;
+    gap: 0px;
     overflow: hidden;
 }
 

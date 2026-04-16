@@ -125,9 +125,10 @@ extracts text from binary formats (PDF, Excel, Word, PowerPoint) — just call
 with `subagent_type: "revela-research"`) is available.** It is the primary
 research workhorse — not an optional enhancement.
 
-The research agent searches the web aggressively using `webfetch` on targeted
-URLs, reads workspace documents, and writes structured findings to a single
-file `researches/{topic-slug}/{axis-name}.md` in the workspace.
+The research agent searches the web using `websearch` for broad discovery and
+`webfetch` for depth on specific pages, reads workspace documents, and writes
+structured findings to a single file `researches/{topic-slug}/{axis-name}.md`
+in the workspace.
 
 ##### Parallelization Rule
 

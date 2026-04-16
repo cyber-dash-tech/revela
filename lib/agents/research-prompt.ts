@@ -53,9 +53,13 @@ Formulate **3–6 targeted search queries** for your specific axis, covering:
 
 For Chinese topics: search in **both Chinese and English**.
 
-Use \`webfetch\` to retrieve specific pages for depth. Do NOT use \`websearch\` —
-it is not available. Use \`webfetch\` with targeted URLs from your knowledge or
-from initial search results.
+Use **\`websearch\`** for broad keyword queries to find relevant pages, reports,
+and data. Then use **\`webfetch\`** to retrieve specific pages for depth.
+
+Search strategy:
+- Start with \`websearch\` to discover relevant URLs (market reports, company pages, news)
+- Follow up with \`webfetch\` on the most promising URLs for full content
+- For Chinese topics: run \`websearch\` queries in both Chinese and English
 
 ---
 
