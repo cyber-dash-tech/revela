@@ -30,6 +30,8 @@ export async function handleHelp(
     `\`/revela domains\`             — list installed domains\n` +
     `\`/revela domains <name>\`      — activate a domain\n` +
     `\`/revela designs-add <url>\`   — install a design from URL / github:user/repo\n` +
-    `\`/revela domains-add <url>\`   — install a domain from URL / github:user/repo`
+    `\`/revela domains-add <url>\`   — install a domain from URL / github:user/repo\n` +
+    `\`/revela designs-rm <name>\`   — remove an installed design\n` +
+    `\`/revela domains-rm <name>\`   — remove an installed domain`
   )
 }

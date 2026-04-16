@@ -5,9 +5,10 @@
  *   /revela domains             — list installed domains
  *   /revela domains <name>      — activate a domain
  *   /revela domains-add <url>   — install a domain from URL / github:user/repo / local path
+ *   /revela domains-rm <name>   — remove an installed domain
  */
 
-import { listDomains, activeDomain, activateDomain, installDomain } from "../domain/domains"
+import { listDomains, activeDomain, activateDomain, installDomain, removeDomain } from "../domain/domains"
 import { buildPrompt } from "../prompt-builder"
 
 export async function handleDomainsList(
@@ -55,5 +56,21 @@ export async function handleDomainsAdd(
     await send(`**Domain installed:** \`${name}\`\nUse \`/revela domains ${name}\` to activate it.`)
   } catch (e: any) {
     await send(`**Install failed:** ${e.message}`)
+  }
+}
+
+export async function handleDomainsRemove(
+  name: string,
+  send: (text: string) => Promise<void>,
+): Promise<void> {
+  if (!name) {
+    await send(`**Usage:** \`/revela domains-rm <name>\``)
+    return
+  }
+  try {
+    removeDomain(name)
+    await send(`**Domain removed:** \`${name}\``)
+  } catch (e: any) {
+    await send(`**Error:** ${e.message}`)
   }
 }

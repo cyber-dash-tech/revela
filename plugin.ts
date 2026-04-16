@@ -35,11 +35,13 @@ import {
   handleDesignsList,
   handleDesignsActivate,
   handleDesignsAdd,
+  handleDesignsRemove,
 } from "./lib/commands/designs"
 import {
   handleDomainsList,
   handleDomainsActivate,
   handleDomainsAdd,
+  handleDomainsRemove,
 } from "./lib/commands/domains"
 import designsTool from "./tools/designs"
 import domainsTool from "./tools/domains"
@@ -187,6 +189,14 @@ const server: Plugin = (async (pluginCtx) => {
       if (sub === "domains-add") {
         await handleDomainsAdd(param, send)
         throw new Error("__REVELA_DOMAINS_ADD_HANDLED__")
+      }
+      if (sub === "designs-rm") {
+        await handleDesignsRemove(param, send)
+        throw new Error("__REVELA_DESIGNS_RM_HANDLED__")
+      }
+      if (sub === "domains-rm") {
+        await handleDomainsRemove(param, send)
+        throw new Error("__REVELA_DOMAINS_RM_HANDLED__")
       }
 
       await send(`**Unknown sub-command:** \`${sub}\`\nRun \`/revela\` to see available commands.`)

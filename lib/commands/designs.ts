@@ -5,9 +5,10 @@
  *   /revela designs             — list installed designs
  *   /revela designs <name>      — activate a design
  *   /revela designs-add <url>   — install a design from URL / github:user/repo / local path
+ *   /revela designs-rm <name>   — remove an installed design
  */
 
-import { listDesigns, activeDesign, activateDesign, installDesign } from "../design/designs"
+import { listDesigns, activeDesign, activateDesign, installDesign, removeDesign } from "../design/designs"
 import { buildPrompt } from "../prompt-builder"
 
 export async function handleDesignsList(
@@ -55,5 +56,21 @@ export async function handleDesignsAdd(
     await send(`**Design installed:** \`${name}\`\nUse \`/revela designs ${name}\` to activate it.`)
   } catch (e: any) {
     await send(`**Install failed:** ${e.message}`)
+  }
+}
+
+export async function handleDesignsRemove(
+  name: string,
+  send: (text: string) => Promise<void>,
+): Promise<void> {
+  if (!name) {
+    await send(`**Usage:** \`/revela designs-rm <name>\``)
+    return
+  }
+  try {
+    removeDesign(name)
+    await send(`**Design removed:** \`${name}\``)
+  } catch (e: any) {
+    await send(`**Error:** ${e.message}`)
   }
 }
