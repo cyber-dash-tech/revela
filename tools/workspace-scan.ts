@@ -1,6 +1,6 @@
 import { tool } from "@opencode-ai/plugin"
 import { readdirSync, statSync, existsSync } from "fs"
-import { join, relative, extname } from "path"
+import { join, relative, extname, resolve, sep, isAbsolute } from "path"
 
 const DOC_EXTENSIONS = new Set([
   ".pdf", ".docx", ".doc", ".xlsx", ".xls",
@@ -113,7 +113,22 @@ export default tool({
   async execute(args, context) {
     try {
       const workspaceDir = context.directory ?? process.cwd()
-      const scanRoot = args.path ? join(workspaceDir, args.path) : workspaceDir
+
+      // Validate and resolve scanRoot — must stay within workspaceDir
+      let scanRoot = workspaceDir
+      if (args.path) {
+        if (isAbsolute(args.path)) {
+          return JSON.stringify({ error: "path must be relative to workspace root" })
+        }
+        const candidate = join(workspaceDir, args.path)
+        const resolvedCandidate = resolve(candidate)
+        const resolvedWorkspace = resolve(workspaceDir)
+        if (resolvedCandidate !== resolvedWorkspace && !resolvedCandidate.startsWith(resolvedWorkspace + sep)) {
+          return JSON.stringify({ error: "path must be within workspace" })
+        }
+        scanRoot = candidate
+      }
+
       const maxDepth = args.max_depth ?? 6
 
       if (!existsSync(scanRoot)) {
