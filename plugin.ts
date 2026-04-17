@@ -17,6 +17,7 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import { existsSync, readFileSync } from "fs"
 import { extname, basename } from "path"
+import { tmpdir } from "os"
 import { seedBuiltinDesigns } from "./lib/design/designs"
 import { seedBuiltinDomains } from "./lib/domain/domains"
 import { buildPrompt } from "./lib/prompt-builder"
@@ -141,6 +142,17 @@ const server: Plugin = (async (pluginCtx) => {
       opencodeConfig.permission ??= {}
       if (!(opencodeConfig.permission as Record<string, unknown>)["websearch"]) {
         ;(opencodeConfig.permission as Record<string, unknown>)["websearch"] = "deny"
+      }
+
+      // Allow read access to OS tmp dir for revela-extracted temp files.
+      // pre-read.ts writes DOCX/PPTX/XLSX extracted text to os.tmpdir(), then redirects
+      // args.filePath to that temp file. Without this, the read tool triggers an
+      // external_directory permission prompt (default: "ask") on every binary file extraction.
+      const tmp = tmpdir()
+      const perm = opencodeConfig.permission as Record<string, unknown>
+      if (typeof perm["external_directory"] !== "string") {
+        perm["external_directory"] ??= {}
+        ;(perm["external_directory"] as Record<string, unknown>)[`${tmp}/**`] = "allow"
       }
     },
 
