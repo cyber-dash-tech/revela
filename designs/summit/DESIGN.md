@@ -1856,6 +1856,59 @@ Flat editorial quote block. Wide and short (width > height). Transparent backgro
 
 <!-- @component:quote:end -->
 
+<!-- @component:brand-watermark:start -->
+#### Brand Watermark
+
+Decorative brand watermark for selected slides. Use it as a quiet print-style brand trace in the top-right corner, not as a header logo. The image is typically a user-provided transparent PNG.
+
+```html
+<div class="brand-watermark" aria-hidden="true">
+  <img src="assets/brand-watermark-dark.png" alt="">
+</div>
+```
+
+```css
+.brand-watermark {
+    position: absolute;
+    top: 46px;
+    right: 54px;
+    height: 28px;
+    max-width: 360px;
+    opacity: 0.10;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.brand-watermark img {
+    height: 100%;
+    width: auto;
+    display: block;
+    object-fit: contain;
+}
+
+.brand-watermark--light {
+    opacity: 0.14;
+}
+```
+
+Rules:
+- Use a transparent-background, monochrome image. Prefer a simplified brand mark rather than a full logo lockup.
+- Default placement is the top-right corner. Keep it inside the paper page, not floating in the outer black frame.
+- Treat it as decorative. It must remain weaker than the slide title, image, and main narrative content.
+- Use a dark watermark image on light pages and a light watermark image on dark or fullbleed pages.
+- Do not pair it with another top-corner brand label, heading, or caption in the same region.
+- Omit it when the top-right area contains important photography detail or dense content.
+
+##### Tips
+- **Preferred asset format.** Use a user-provided transparent PNG with no background box. WebP or SVG can also work, but transparent PNG is the default assumption for Summit.
+- **Light vs dark variants.** Prepare two assets when possible: `brand-watermark-dark.png` for light pages and `brand-watermark-light.png` for dark pages. PNG cannot reliably recolor like inline SVG, so separate assets are safer.
+- **Size control.** Default to controlling the watermark by `height`, not fixed `width`. This keeps user-provided marks with very different aspect ratios visually consistent while preserving their natural proportions.
+- **Opacity range.** On light pages, keep opacity around `0.08` to `0.12`. On dark pages, `0.12` to `0.18` is usually enough.
+- **Aspect ratio.** Do not force the mark into a square crop if the supplied artwork is wide or tall. Use `height: 100%` and `width: auto` on the image so the artwork keeps its natural proportions.
+- **Overflow guard.** Keep a `max-width` on the wrapper for unusually long horizontal wordmarks so they do not intrude into the title field.
+- **Best usage.** Works best on section openers, TOC pages, and selected content slides with enough negative space. Cover and closing slides usually rely on their existing brand labels instead.
+<!-- @component:brand-watermark:end -->
+
 <!-- @component:page-number:start -->
 #### Page Number (.page-number)
 
