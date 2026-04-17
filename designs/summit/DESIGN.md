@@ -29,9 +29,18 @@ Apply this visual style when generating all slides in this session.
     --accent-stone: #b9afa1;
     --accent-gold: #c9992a;
     --accent-danger: #b94a3c;
+    --accent-sage: #9eb0a6;
     --shadow-soft: rgba(0, 0, 0, 0.18);
 }
 ```
+
+Accent usage guidance:
+- `--accent-gold` — primary emphasis, TOC dividers, key data callouts
+- `--accent-earth` — warm secondary accent, image captions, secondary labels
+- `--accent-olive` — muted structural accent, chart fills, subtle dividers
+- `--accent-stone` — lightest accent, disabled states, faint decorative lines
+- `--accent-sage` — desaturated cool green; use for environmental, sustainability, or positive-signal content (e.g. quote decorations, positive indicators, nature-themed slides)
+- `--accent-danger` — negative indicators, alerts, down-trend markers only
 
 ### Typography
 
@@ -46,7 +55,7 @@ Apply this visual style when generating all slides in this session.
 - cover h1: `108px` to `124px`, weight `600` to `700`, line-height `0.88` to `0.94`, uppercase
 - inner-layout h2: `30px` to `36px`, weight `600` to `700`, line-height `1.06` to `1.12`
 - inner-layout h3: `20px` to `24px`, weight `600`, line-height `1.12` to `1.18`
-- Body: `15px` to `18px`, line-height `1.6`
+- Body: `17px`, line-height `1.6`
 - Eyebrow / caption: `11px` to `13px`, uppercase, letter-spacing `0.16em` to `0.2em`
 - Stat number: `72px` to `88px`, weight `500`, line-height `0.95`
 - Never use text shadows or glow.
@@ -204,7 +213,7 @@ h2 { font-size: 34px; line-height: 1.08; }
 h3 { font-size: 24px; line-height: 1.14; }
 
 p, li {
-    font-size: 14px;
+    font-size: 17px;
     line-height: 1.6;
     color: var(--text-secondary);
 }
@@ -1742,6 +1751,110 @@ Narrow editorial panel for table-of-contents slides. A 3px accent-gold vertical 
 - **accent-gold vertical rule.** The 3px left rule uses `var(--accent-gold)`. Do not substitute another color — it is the primary editorial accent in Summit.
 - **`justify-content:space-between` requires a defined height on the parent.** The panel must sit inside a container with a known height (grid cell, absolute position, or `height:100%` chain) or the footer will not pin to the bottom.
 <!-- @component:toc:end -->
+
+<!-- @component:quote:start -->
+#### Quote (.quote-block)
+
+Flat editorial quote block. Wide and short (width > height). Transparent background — place it inside any layout slot. The large decorative quotation mark is CSS-rendered (no icon dependency).
+
+```html
+<div class="quote-block">
+  <div class="quote-mark" aria-hidden="true">“</div>
+  <p class="quote-text">The mountains teach us that progress is measured not in speed, but in the ground gained against resistance.</p>
+  <div class="quote-attribution">
+    <div class="quote-avatar">JD</div><!-- or <img src="avatar.jpg" alt="Jane Doe"> -->
+    <div class="quote-meta">
+      <p class="quote-name">Jane Doe</p>
+      <p class="caption">CEO, Acme Corporation</p>
+    </div>
+  </div>
+</div>
+```
+
+```css
+.quote-block {
+    position: relative;
+    padding: 36px 44px 32px;
+    overflow: hidden;
+}
+
+.quote-mark {
+    position: absolute;
+    top: -18px;
+    left: 28px;
+    font-family: Baskerville, Georgia, serif;
+    font-size: 140px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--accent-sage);
+    opacity: 0.42;
+    pointer-events: none;
+    user-select: none;
+}
+
+.quote-text {
+    position: relative;
+    font-size: 20px;
+    font-style: italic;
+    line-height: 1.5;
+    color: var(--text-primary);
+    max-width: 860px;
+    padding-top: 48px; /* clears the decorative mark */
+}
+
+.quote-attribution {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 24px;
+}
+
+.quote-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--bg-page-alt);
+    border: 1px solid var(--line-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'IBM Plex Sans Condensed', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.quote-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.quote-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.quote-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.3;
+}
+```
+
+**Tips:**
+
+- **Dark background**: override text colors on the parent slot — `color: var(--bg-page)` for `.quote-text` and `.quote-name`; increase `.quote-mark` opacity to `0.15` (the sage hue reads better against dark at lower opacity).
+- **Avatar with photo**: replace `<div class="quote-avatar">JD</div>` with `<div class="quote-avatar"><img src="path/to/photo.jpg" alt="Jane Doe"></div>`. The `overflow: hidden` + `object-fit: cover` handles any image aspect ratio.
+- **Quote text length**: adjust `font-size` between `18px` (longer quotes, 3+ lines) and `24px` (short punchy quotes, 1 line). Keep `line-height: 1.5`.
+- **Opacity guidance**: on `--bg-page` (warm paper), `.quote-mark` opacity `0.25` works well. On dark `--bg-frame` backgrounds, reduce to `0.15`.
+- **Source-only attribution** (no person): omit `.quote-avatar` entirely and use `.quote-name` for the source text (e.g. a report title or publication name).
+
+<!-- @component:quote:end -->
 
 <!-- @component:page-number:start -->
 #### Page Number (.page-number)
