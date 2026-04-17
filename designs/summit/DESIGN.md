@@ -46,7 +46,7 @@ Apply this visual style when generating all slides in this session.
 - cover h1: `108px` to `124px`, weight `600` to `700`, line-height `0.88` to `0.94`, uppercase
 - inner-layout h2: `30px` to `36px`, weight `600` to `700`, line-height `1.06` to `1.12`
 - inner-layout h3: `20px` to `24px`, weight `600`, line-height `1.12` to `1.18`
-- Body: `13px` to `15px`, line-height `1.6`
+- Body: `15px` to `18px`, line-height `1.6`
 - Eyebrow / caption: `11px` to `13px`, uppercase, letter-spacing `0.16em` to `0.2em`
 - Stat number: `72px` to `88px`, weight `500`, line-height `0.95`
 - Never use text shadows or glow.
