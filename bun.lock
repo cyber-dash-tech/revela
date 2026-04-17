@@ -9,6 +9,7 @@
         "fflate": "^0.8.2",
         "jimp": "^1.6.1",
         "mammoth": "^1.12.0",
+        "pdf-lib": "^1.17.1",
         "puppeteer-core": "^24.40.0",
         "tslog": "^4.10.2",
         "unpdf": "^1.4.0",
@@ -84,6 +85,10 @@
     "@opencode-ai/plugin": ["@opencode-ai/plugin@1.4.1", "https://registry.npmmirror.com/@opencode-ai/plugin/-/plugin-1.4.1.tgz", { "dependencies": { "@opencode-ai/sdk": "1.4.1", "zod": "4.1.8" }, "peerDependencies": { "@opentui/core": ">=0.1.97", "@opentui/solid": ">=0.1.97" }, "optionalPeers": ["@opentui/core", "@opentui/solid"] }, "sha512-5PqQGUAVeNPNM6PyQATSe5q7ICwFSIFYEMFHzD6Efw2fSd1ij5vskgtxEZFl/oiXkPx/w8/DPR9EZS9bkoHYnA=="],
 
     "@opencode-ai/sdk": ["@opencode-ai/sdk@1.4.1", "https://registry.npmmirror.com/@opencode-ai/sdk/-/sdk-1.4.1.tgz", { "dependencies": { "cross-spawn": "7.0.6" } }, "sha512-7wWHs8Og5W5+fuJmHDi7oy1yK6c9mmVfK1Ll9hPHZZ5xj357fVl+oI4i0jeUdjonEoXb3Svq/U5blraSArX5OQ=="],
+
+    "@pdf-lib/standard-fonts": ["@pdf-lib/standard-fonts@1.0.0", "https://registry.npmmirror.com/@pdf-lib/standard-fonts/-/standard-fonts-1.0.0.tgz", { "dependencies": { "pako": "^1.0.6" } }, "sha512-hU30BK9IUN/su0Mn9VdlVKsWBS6GyhVfqjwl1FjZN4TxP6cCw0jP2w7V3Hf5uX7M0AZJ16vey9yE0ny7Sa59ZA=="],
+
+    "@pdf-lib/upng": ["@pdf-lib/upng@1.0.1", "https://registry.npmmirror.com/@pdf-lib/upng/-/upng-1.0.1.tgz", { "dependencies": { "pako": "^1.0.10" } }, "sha512-dQK2FUMQtowVP00mtIksrlZhdFXQZPC+taih1q4CvPZ5vqdxR/LKBaFg0oAfzd1GlHZXXSPdQfzQnt+ViGvEIQ=="],
 
     "@puppeteer/browsers": ["@puppeteer/browsers@2.13.0", "https://registry.npmmirror.com/@puppeteer/browsers/-/browsers-2.13.0.tgz", { "dependencies": { "debug": "^4.4.3", "extract-zip": "^2.0.1", "progress": "^2.0.3", "proxy-agent": "^6.5.0", "semver": "^7.7.4", "tar-fs": "^3.1.1", "yargs": "^17.7.2" }, "bin": { "browsers": "lib/cjs/main-cli.js" } }, "sha512-46BZJYJjc/WwmKjsvDFykHtXrtomsCIrwYQPOP7VfMJoZY2bsDF9oROBABR3paDjDcmkUye1Pb1BqdcdiipaWA=="],
 
@@ -265,6 +270,8 @@
 
     "path-key": ["path-key@3.1.1", "https://registry.npmmirror.com/path-key/-/path-key-3.1.1.tgz", {}, "sha512-ojmeN0qd+y0jszEtoY48r0Peq5dwMEkIlCOu6Q5f41lfkswXuKtYrhgoTpLnyIcHm24Uhqx+5Tqm2InSwLhE6Q=="],
 
+    "pdf-lib": ["pdf-lib@1.17.1", "https://registry.npmmirror.com/pdf-lib/-/pdf-lib-1.17.1.tgz", { "dependencies": { "@pdf-lib/standard-fonts": "^1.0.0", "@pdf-lib/upng": "^1.0.1", "pako": "^1.0.11", "tslib": "^1.11.1" } }, "sha512-V/mpyJAoTsN4cnP31vc0wfNA1+p20evqqnap0KLoRUN0Yk/p3wN52DOEsL4oBFcLdb76hlpKPtzJIgo67j/XLw=="],
+
     "pend": ["pend@1.2.0", "https://registry.npmmirror.com/pend/-/pend-1.2.0.tgz", {}, "sha512-F3asv42UuXchdzt+xXqfW1OGlVBe+mxa2mqI0pg5yAHZPvFmY3Y6drSf/GQ1A86WgWEN9Kzh/WrgKa6iGcHXLg=="],
 
     "pixelmatch": ["pixelmatch@5.3.0", "https://registry.npmmirror.com/pixelmatch/-/pixelmatch-5.3.0.tgz", { "dependencies": { "pngjs": "^6.0.0" }, "bin": "bin/pixelmatch" }, "sha512-o8mkY4E/+LNUf6LzX96ht6k6CEDi65k9G2rjMtBe9Oo+VPKSvl+0GKHuH/AlG+GA5LPG/i5hrekkxUc3s2HU+Q=="],
@@ -333,7 +340,7 @@
 
     "token-types": ["token-types@6.1.2", "https://registry.npmmirror.com/token-types/-/token-types-6.1.2.tgz", { "dependencies": { "@borewit/text-codec": "^0.2.1", "@tokenizer/token": "^0.3.0", "ieee754": "^1.2.1" } }, "sha512-dRXchy+C0IgK8WPC6xvCHFRIWYUbqqdEIKPaKo/AcTUNzwLTK6AH7RjdLWsEZcAN/TBdtfUw3PYEgPr5VPr6ww=="],
 
-    "tslib": ["tslib@2.8.1", "https://registry.npmmirror.com/tslib/-/tslib-2.8.1.tgz", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
+    "tslib": ["tslib@1.14.1", "https://registry.npmmirror.com/tslib/-/tslib-1.14.1.tgz", {}, "sha512-Xni35NKzjgMrwevysHTCArtLDpPvye8zV/0E4EyYn43P7/7qvQwPh9BGkHewbMulVntbigmcT7rdX3BNo9wRJg=="],
 
     "tslog": ["tslog@4.10.2", "https://registry.npmmirror.com/tslog/-/tslog-4.10.2.tgz", {}, "sha512-XuELoRpMR+sq8fuWwX7P0bcj+PRNiicOKDEb3fGNURhxWVyykCi9BNq7c4uVz7h7P0sj8qgBsr5SWS6yBClq3g=="],
 
@@ -408,6 +415,8 @@
     "@jimp/plugin-threshold/zod": ["zod@3.25.76", "https://registry.npmmirror.com/zod/-/zod-3.25.76.tgz", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
 
     "@jimp/types/zod": ["zod@3.25.76", "https://registry.npmmirror.com/zod/-/zod-3.25.76.tgz", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
+
+    "ast-types/tslib": ["tslib@2.8.1", "https://registry.npmmirror.com/tslib/-/tslib-2.8.1.tgz", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
 
     "chromium-bidi/zod": ["zod@3.25.76", "https://registry.npmmirror.com/zod/-/zod-3.25.76.tgz", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
 

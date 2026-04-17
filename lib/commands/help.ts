@@ -32,6 +32,7 @@ export async function handleHelp(
     `\`/revela designs-add <url>\`   — install a design from URL / github:user/repo\n` +
     `\`/revela domains-add <url>\`   — install a domain from URL / github:user/repo\n` +
     `\`/revela designs-rm <name>\`   — remove an installed design\n` +
-    `\`/revela domains-rm <name>\`   — remove an installed domain`
+    `\`/revela domains-rm <name>\`   — remove an installed domain\n` +
+    `\`/revela pdf <file>\`          — export HTML slide deck to PDF`
   )
 }
