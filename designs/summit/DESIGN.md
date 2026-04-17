@@ -447,11 +447,16 @@ Every slot accepts 1 or more components. The LLM decides what goes in each slot 
       <div style="position:absolute;inset:0;z-index:0;">
       </div>
 
+      <!-- directional blur layer — cover: mask to-left (left heavy); closing: mask to-right (right heavy) -->
+      <!-- cover:   mask-image: linear-gradient(to left,  transparent 0%, transparent 20%, black 100%) -->
+      <!-- closing: mask-image: linear-gradient(to right, transparent 0%, transparent 20%, black 100%) -->
+      <div style="position:absolute;inset:0;z-index:1;backdrop-filter:blur(50px);-webkit-backdrop-filter:blur(50px);-webkit-mask-image:/* see above */;mask-image:/* see above */;"></div>
+
       <!-- gradient overlay — adjust direction and opacity based on fg content position -->
-      <div style="position:absolute;inset:0;z-index:1;background:/* linear-gradient(...) */"></div>
+      <div style="position:absolute;inset:0;z-index:2;background:/* linear-gradient(...) */"></div>
 
       <!-- [slot: fg] — 1+ components; suggested: cover-title-stack, closing-title-stack -->
-      <div style="position:relative;z-index:2;height:100%;">
+      <div style="position:relative;z-index:3;height:100%;">
       </div>
 
     </div>
@@ -460,7 +465,8 @@ Every slot accepts 1 or more components. The LLM decides what goes in each slot 
 ```
 
 ##### Tips
-- **Z-index stacking is mandatory.** Always declare explicit z-index for all three layers: bg slot `z-index:0`, gradient overlay `z-index:1`, fg slot `z-index:2`. Relying on DOM order alone is fragile — `.full-bleed-media` creates a new stacking context that can trap the image above the overlay.
+- **Z-index stacking is mandatory.** Always declare explicit z-index for all four layers: bg slot `z-index:0`, blur layer `z-index:1`, gradient overlay `z-index:2`, fg slot `z-index:3`. Relying on DOM order alone is fragile — `.full-bleed-media` creates a new stacking context that can trap the image above the overlay.
+- **Directional blur layer.** Insert a `backdrop-filter:blur(50px)` div at `z-index:1` between the image and the gradient overlay. Use a `mask-image` linear-gradient to restrict blur to one side: cover scene uses `linear-gradient(to left, transparent 0%, transparent 20%, black 100%)` (left-heavy blur, right stays sharp); closing scene uses `linear-gradient(to right, transparent 0%, transparent 20%, black 100%)` (right-heavy blur, left stays sharp). Both `-webkit-mask-image` and `mask-image` must be set for cross-browser support.
 - **Overlay direction.** Cover scene: use a diagonal gradient fading left-dark to right-transparent, e.g. `linear-gradient(105deg, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.72) 55%, rgba(5,5,5,0.10) 100%)`. Closing scene: use a bottom-heavy gradient, e.g. `linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.72) 100%)`.
 - **All text in fg slot must be white-family.** Headings `#f7f4ee`, body `rgba(247,244,238,0.72)`, captions/eyebrows `rgba(247,244,238,0.50–0.55)`.
 - **Page number.** Use `.page-number--light` since the background is always dark.
@@ -1596,7 +1602,7 @@ Full-height foreground text layer for the cover layout. Sits above the hero imag
 ```
 
 Rules:
-- Always place at `z-index:2` above the image (`z-index:0`) and gradient overlay (`z-index:1`).
+- Always place at `z-index:3` above the image (`z-index:0`), blur layer (`z-index:1`), and gradient overlay (`z-index:2`).
 - The gradient overlay on the parent is what creates the reading field — do not add a background to `.cover-title-stack` itself.
 - Use `chevron-divider` for the brand label, not a plain eyebrow. It is the primary editorial accent at the top of the cover.
 - Keep `.cover-body` width under `700px` so the right half of the image remains visible through the gradient.
@@ -1606,6 +1612,7 @@ Rules:
 - **h1 size range.** Scale between `88px` and `120px` depending on title length. Three short lines at `96px` is the default. Longer titles should reduce to `80–88px` to prevent overflow.
 - **Gradient direction.** The parent overlay uses `linear-gradient(105deg, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.72) 55%, rgba(5,5,5,0.10) 100%)`. Adjust the degree if the hero image has strong content on the left edge — a shallower angle (around `90deg`) protects more of the left zone.
 - **Dark overlay opacity.** The left stop (`0.95`) must stay high — the title needs a near-opaque dark backing on all hero imagery. The mid stop (`0.72`) keeps body text legible. Only the right tail (`0.10`) fades to near-transparent so the image breathes on the right side.
+- **Directional blur.** Add a `backdrop-filter:blur(50px)` layer at `z-index:1` with `mask-image:linear-gradient(to left, transparent 0%, transparent 20%, black 100%)`. This concentrates blur on the left (text) side and keeps the right side of the image sharp. Always set both `-webkit-mask-image` and `mask-image`.
 <!-- @component:cover-title-stack:end -->
 
 <!-- @component:closing-title-stack:start -->
@@ -1672,7 +1679,7 @@ Full-height foreground text layer for the closing layout. Mirrors `cover-title-s
 ```
 
 Rules:
-- Always place at `z-index:2` above the hero image (`z-index:0`) and overlay (`z-index:1`).
+- Always place at `z-index:3` above the hero image (`z-index:0`), blur layer (`z-index:1`), and overlay (`z-index:2`).
 - The closing overlay gradient runs `180deg` (top → bottom), opposite to the cover overlay. This is not a mistake — the bottom-heavy dark zone ensures the text sits in the densest part of the gradient.
 - **Text is right-aligned** (`text-align:right`). `.closing-body` uses `margin-left:auto` so the content block itself anchors to the right side. This mirrors cover's left anchor and creates bookend symmetry.
 - Keep content minimal. One headline, one short paragraph, two footer captions. Do not add data, bullet points, or section labels.
@@ -1682,6 +1689,7 @@ Rules:
 - **h1 size range.** Scale between `88px` and `120px`. Closing titles are often short declarative sentences; `100px` is a good default for 3–7 words.
 - **Gradient direction is bottom-heavy by design.** Cover fades left-to-right; closing fades top-to-bottom. This creates visual symmetry between the two bookend slides: the text always sits in the densest dark zone of its respective overlay.
 - **Overlay opacity.** Use `linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.72) 100%)`. The top stop is `0.30` so the image is still visible at the top; the bottom stop `0.72` gives the right-aligned text and footer a strong dark backing. Do not drop the bottom stop below `0.60`.
+- **Directional blur.** Add a `backdrop-filter:blur(50px)` layer at `z-index:1` with `mask-image:linear-gradient(to right, transparent 0%, transparent 20%, black 100%)`. This concentrates blur on the right (text) side and keeps the left side of the image sharp — the mirror of the cover blur. Always set both `-webkit-mask-image` and `mask-image`.
 <!-- @component:closing-title-stack:end -->
 
 <!-- @component:toc:start -->
