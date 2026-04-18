@@ -267,26 +267,32 @@ p, li {
     color: var(--text-muted);
 }
 
+/* editorial-list: square bullet + optional <strong> lead phrase per item.
+   Usage: <li><strong>Lead phrase.</strong> Supporting copy.</li>
+   Dark bg override: set --accent-earth to rgba(247,244,238,0.72) on the list wrapper. */
 .editorial-list {
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 14px;
 }
 
 .editorial-list li {
     position: relative;
-    padding-left: 22px;
+    padding-left: 20px;
+    font-size: 14px;
+    line-height: 1.58;
+    color: var(--text-secondary);
 }
 
 .editorial-list li::before {
     content: '';
     position: absolute;
     left: 0;
-    top: 13px;
-    width: 10px;
-    height: 1px;
-    background: var(--line-strong);
+    top: 8px;
+    width: 6px;
+    height: 6px;
+    background: var(--accent-earth);
 }
 
 .reveal {
@@ -929,20 +935,55 @@ Rules:
 <!-- @component:editorial-text-left:start -->
 #### Editorial Text Left
 
-Horizontal editorial module: text on the left, image on the right. Extends the `editorial-image-top` / `editorial-text-top` family into the horizontal axis. Best for bottom-row cards inside `brief-grid`, compact feature rows, and any slot where the layout supplies a wider-than-tall frame that suits a side-by-side composition.
+Horizontal editorial module: a full-width title band on top, with text on the left and a visual slot on the right below. Best for compact feature rows, bottom cards inside `brief-grid`, or any slot where a wide-but-short frame suits a side-by-side composition with a clear heading above.
+
+Structure:
+- **header zone** (full width): holds the `h3` module title — independent of the copy below
+- **left: `.editorial-text-left-copy`** — kicker, description, optional `editorial-list`
+- **right: `.editorial-text-left-visual`** — accepts any of: `media-frame img`, `echart-container`, or `image-title`
 
 ```html
 <div class="editorial-text-left">
-  <div class="editorial-module-body">
-    <div class="module-kicker-row">
-      <i data-lucide="zap" class="module-icon"></i>
-      <p class="caption">Category label</p>
-    </div>
-    <h3 style="margin-top:10px;font-size:18px;line-height:1.08;">Card heading text</h3>
-    <p style="font-size:13px;line-height:1.5;margin-top:8px;color:var(--text-secondary);">Supporting description. One or two sentences that position this card within the broader page argument. Keep it concise — this component is a support module, not the primary narrative.</p>
+
+  <!-- header: module title spans full width -->
+  <div class="editorial-text-left-header">
+    <h3 style="font-size:20px;line-height:1.08;">Module title — a single standalone heading above both columns</h3>
   </div>
-  <div class="media-frame editorial-media editorial-text-left-media">
-    <img src="https://images.unsplash.com/photo-1519904981063-b0cf448d479e?q=80&w=800&auto=format&fit=crop" alt="Supporting visual">
+
+  <div class="editorial-text-left-content">
+
+    <!-- left: editorial copy -->
+    <div class="editorial-text-left-copy">
+      <div class="module-kicker-row">
+        <i data-lucide="zap" class="module-icon"></i>
+        <p class="caption">Category label</p>
+      </div>
+      <!-- prose variant -->
+      <p style="font-size:13px;line-height:1.5;margin-top:12px;color:var(--text-secondary);">Supporting description. One or two sentences that position this card within the broader page argument.</p>
+      <!-- bullet variant: use <strong> for the lead phrase of each item -->
+      <ul class="editorial-list" style="margin-top:14px;font-size:13px;gap:10px;">
+        <li><strong>Lead phrase.</strong> Supporting explanation for this point.</li>
+        <li><strong>Second point.</strong> One sentence of context or evidence.</li>
+        <li><strong>Third point.</strong> Keep each item roughly equal in length.</li>
+      </ul>
+    </div>
+
+    <!-- right: visual slot — choose one -->
+    <div class="editorial-text-left-visual">
+
+      <!-- option A: plain image -->
+      <div class="media-frame" style="width:100%;height:100%;">
+        <img src="https://images.unsplash.com/photo-1519904981063-b0cf448d479e?q=80&w=800&auto=format&fit=crop" alt="Supporting visual">
+      </div>
+
+      <!-- option B: echart -->
+      <!-- <div class="echart-container" id="chart-unique-id" style="width:100%;height:100%;"></div> -->
+
+      <!-- option C: image-title (self-contained, handles its own overlay and text layers) -->
+      <!-- <div class="image-title image-title--right"> ... </div> -->
+
+    </div>
+
   </div>
 </div>
 ```
@@ -950,42 +991,56 @@ Horizontal editorial module: text on the left, image on the right. Extends the `
 ```css
 .editorial-text-left {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     gap: 0;
-    width: 100%;
-    aspect-ratio: 4 / 3;
+    height: 100%;
     overflow: hidden;
 }
 
-.editorial-text-left .editorial-module-body {
+.editorial-text-left-header {
+    flex-shrink: 0;
+    padding: 20px 24px 16px;
+}
+
+.editorial-text-left-content {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+.editorial-text-left-copy {
     flex: 1.1;
     min-width: 0;
-    padding: 24px 20px 20px 24px;
+    padding: 16px 20px 20px 24px;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
 }
 
-.editorial-text-left-media {
+.editorial-text-left-visual {
     flex: 1;
     min-width: 0;
-    height: auto;
+    min-height: 0;
     align-self: stretch;
+    overflow: hidden;
+    position: relative;
 }
 ```
 
 Rules:
-- Use when the slot is wider than it is tall and a side-by-side reading order is natural.
-- The text zone (left) should hold the argument; the image (right) should confirm or contextualise it.
-- Icon is optional. Use it only to distinguish categories across a set of parallel cards.
-- When the card carries a large statistic or callout number, place it between the heading and the description paragraph using an inline style (`font-size: 48px; font-family: IBM Plex Sans Condensed; font-weight: 700; color: var(--accent-gold); line-height: 1;`). This keeps the number inside the reading flow without requiring a separate component.
+- The `h3` in `.editorial-text-left-header` is the module's top-level title; it must not be repeated inside the copy zone.
+- The left copy zone holds supporting content: kicker, prose, or `editorial-list`. Do not place a second heading here.
+- The right visual slot is open: use a plain `media-frame img`, an `echart-container`, or a full `image-title` component. Choose based on content — there is no default.
+- When using `editorial-list` inside `.editorial-text-left-copy`, always add `<strong>` around the first 2–5 words of each `<li>` to create a bold lead phrase. This provides scannable hierarchy within the narrow copy column.
+- When the card carries a large statistic or callout number, place it between the header and the copy zone using an inline style (`font-size: 48px; font-family: IBM Plex Sans Condensed; font-weight: 700; color: var(--accent-gold); line-height: 1;`).
 
 ##### Tips
-- **Fixed 4:3 aspect ratio.** `.editorial-text-left` uses `width: 100%; aspect-ratio: 4/3`. Height is derived automatically from width — no parent height constraint required.
-- **Text-to-image flex ratio.** Default is `1.1 : 1` (text slightly wider). For cards with more copy, try `1.3 : 1`. For cards that need a more dramatic image, try `1 : 1` or even `0.9 : 1`. Do not go below `0.8` — the text will start to feel compressed.
-- **Large inline statistic.** When adding a big callout number (e.g., `75%`), give it `margin: 12px 0 4px` and keep the label below it in a `<p class="caption">` tag. This naturally reads as: heading → number → label → description — a clear visual hierarchy without a bespoke component.
-- **Media frame background.** `.media-frame` already has `background: var(--bg-page-alt)` as a fallback. If the image has transparent padding or loads slowly, the fallback color will match the card tone.
-- **Vertical alignment.** `justify-content: flex-start` is intentional — keep heading and text anchored to the top. Centering them vertically creates floating copy that looks disconnected from the image edge.
+- **Parent must supply height.** `.editorial-text-left` uses `height: 100%` and `flex: 1` internally. The parent slot must have a defined height (grid cell, `height:100%` chain, or `flex:1;min-height:0`). Unlike the old version, there is no `aspect-ratio` fallback.
+- **Text-to-visual flex ratio.** Default is `1.1 : 1` (copy slightly wider). For more copy, try `1.3 : 1`. For a visually dominant right panel, try `1 : 1.2`. Do not go below `0.8` on the copy side.
+- **`editorial-list` font-size inside copy zone.** Override to `font-size:13px` and `gap:10px` inline — the base `editorial-list` uses `14px / gap:14px`, which is slightly large for the narrow copy column.
+- **`echart-container` in visual slot.** Set `width:100%;height:100%` on the container and call `echarts.init()` after `SlidePresentation` is instantiated. The `position:relative;overflow:hidden` on `.editorial-text-left-visual` contains the canvas correctly.
+- **`image-title` in visual slot.** The component is self-contained and fills `width:100%;height:100%` automatically. Use `image-title--right` modifier with a bottom-heavy overlay and right-biased blur mask for the most common editorial orientation.
+- **Dark background.** Override CSS variables on `.editorial-text-left` to cascade into both the copy and visual zones: `--text-primary`, `--text-secondary`, `--text-muted`, `--line`, `--line-strong` — all set to white-family values.
 <!-- @component:editorial-text-left:end -->
 
 <!-- @component:echart-panel:start -->
@@ -1891,5 +1946,364 @@ Omit `--light` only on slides with a white/light background.
 ```
 
 <!-- @component:page-number:end -->
+
+<!-- @component:timeline-journey-horizontal:start -->
+#### Timeline Journey Horizontal
+
+A horizontal milestone timeline with a central axis line. Nodes sit on the axis; a dashed vertical stem leads to a tip node, with date, title, and description text alongside. Alternate nodes above and below the axis for rhythm. Suitable for 4–8 milestones across a chronological arc, transformation story, or multi-year programme recap.
+
+```html
+<div class="tjh">
+  <div class="tjh-axis"></div>
+
+  <!-- UP node: item bottom edge sits on axis, content grows upward.
+       DOM order (top→bottom): label, tip-dot, stem, axis-dot -->
+  <div class="tjh-item tjh-item--up" style="left:7%; --tjh-item-color:var(--accent-earth);">
+    <div class="tjh-label">
+      <span class="tjh-date">Mar 2019</span>
+      <span class="tjh-title">Programme Launch</span>
+      <span class="tjh-text">Cross-regional baseline mapping and legacy risk exposure formally catalogued.</span>
+    </div>
+    <div class="tjh-tip-dot"></div>
+    <div class="tjh-stem"></div>
+    <div class="tjh-axis-dot"></div>
+  </div>
+
+  <!-- DOWN node: item top edge sits on axis, content grows downward.
+       DOM order (top→bottom): axis-dot, stem, tip-dot, label -->
+  <div class="tjh-item tjh-item--down" style="left:21%; --tjh-item-color:var(--accent-gold);">
+    <div class="tjh-axis-dot"></div>
+    <div class="tjh-stem"></div>
+    <div class="tjh-tip-dot"></div>
+    <div class="tjh-label">
+      <span class="tjh-date">Nov 2019</span>
+      <span class="tjh-title">Supplier Audit</span>
+      <span class="tjh-text">Sprint completed across all strategic mills.</span>
+    </div>
+  </div>
+
+  <!-- Add more nodes following the same up/down pattern -->
+</div>
+```
+
+```css
+.tjh {
+  --tjh-node: 12px;
+  --tjh-stem-h: 80px;
+  --tjh-col: calc(100% / 7); /* adjust denominator to match node count */
+
+  position: relative;
+  width: 100%;
+  height: 360px;
+}
+
+/* Axis line */
+.tjh-axis {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--line-strong);
+  transform: translateY(-50%);
+}
+
+/* Item base */
+.tjh-item {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: var(--tjh-col);
+  transform: translateX(-50%);
+}
+
+/* --up: bottom edge on axis, content grows upward */
+.tjh-item--up  { bottom: 50%; }
+
+/* --down: top edge on axis, content grows downward */
+.tjh-item--down { top: 50%; }
+
+/* Dots */
+.tjh-axis-dot,
+.tjh-tip-dot {
+  width: var(--tjh-node);
+  height: var(--tjh-node);
+  border-radius: 50%;
+  background: var(--tjh-item-color);
+  flex-shrink: 0;
+}
+
+/* Straddle the axis line */
+.tjh-item--up   .tjh-axis-dot { margin-bottom: calc(-1 * var(--tjh-node) / 2); }
+.tjh-item--down .tjh-axis-dot { margin-top:    calc(-1 * var(--tjh-node) / 2); }
+
+/* Dashed stem */
+.tjh-stem {
+  width: 1px;
+  height: var(--tjh-stem-h);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--line-strong) 0px,
+    var(--line-strong) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  flex-shrink: 0;
+}
+
+/* Label */
+.tjh-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 0 6px;
+}
+
+.tjh-item--up   .tjh-label { margin-bottom: 6px; }
+.tjh-item--down .tjh-label { margin-top: 6px; }
+
+/* Date: inherits node colour via --tjh-item-color */
+.tjh-date {
+  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--tjh-item-color);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.tjh-title {
+  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  line-height: 1.15;
+}
+
+.tjh-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+```
+
+Rules:
+- Position nodes with `left: X%` inline style. For N nodes, space them at `(100/(N+1)) * k %` or manually distribute to reflect time proportions.
+- Each node requires `--tjh-item-color` set inline (use any summit accent colour).
+- **`--up` DOM order**: label → tip-dot → stem → axis-dot (label at top, axis-dot at bottom touching axis).
+- **`--down` DOM order**: axis-dot → stem → tip-dot → label (axis-dot at top touching axis, label at bottom).
+- Label order within `.tjh-label` is always: date → title → text (top to bottom).
+- Keep `.tjh-text` short (1–2 lines). The column width (`--tjh-col`) limits wrapping naturally.
+- Alternate up/down across nodes for visual rhythm. Do not stack multiple up or multiple down nodes consecutively unless intentional.
+- `--tjh-col` denominator should match the total number of nodes so each item gets equal horizontal space.
+
+##### Tips
+- **Adjust height**: Increase `.tjh { height }` if label text is tall or stems feel cramped.
+- **Adjust stem length**: Change `--tjh-stem-h` to lengthen or shorten the dashed connector.
+- **Dark background overrides**: Set `--line-strong: rgba(247,244,238,0.25)` on `.tjh`, override `.tjh-axis { background }`, set `.tjh-title { color: #f7f4ee }`, `.tjh-text { color: rgba(247,244,238,0.7) }`. The `--tjh-item-color` accent colours work on dark backgrounds without change.
+- **Fewer nodes**: For 4–5 nodes, widen `--tjh-col` by using a smaller denominator (e.g. `calc(100% / 5)`), and space `left` values accordingly.
+<!-- @component:timeline-journey-horizontal:end -->
+
+<!-- @component:timeline-journey-vertical:start -->
+#### Timeline Journey Vertical
+
+A vertical milestone timeline with a central axis line. Nodes sit on the axis; a horizontal dashed stem leads to a tip dot, with date, title, and description text alongside. Alternate nodes left and right of the axis for rhythm. Suitable for 3–8 milestones across a chronological arc, transformation story, or multi-year programme recap.
+
+Can be placed inside any layout slot that provides a defined height (`narrative`, `halves`, `highlight-cols`, `stacked`, or a full-page content zone). The component fills `width: 100%; height: 100%` of its parent.
+
+```html
+<div class="tjv">
+  <div class="tjv-axis"></div>
+
+  <!-- LEFT node: DOM order axis-dot → stem → tip-dot → label.
+       flex-direction: row-reverse flips visual order to: label | tip-dot | stem | axis-dot
+       → axis-dot ends up on the right touching the axis; label on the far left, right-aligned. -->
+  <div class="tjv-item tjv-item--left" style="top:14%;--tjv-item-color:var(--accent-earth);">
+    <div class="tjv-axis-dot"></div>
+    <div class="tjv-stem"></div>
+    <div class="tjv-tip-dot"></div>
+    <div class="tjv-label">
+      <span class="tjv-date">Mar 2019</span>
+      <span class="tjv-title">Programme Launch</span>
+      <span class="tjv-text">Cross-regional baseline mapping and legacy risk exposure formally catalogued across all operating units.</span>
+    </div>
+  </div>
+
+  <!-- RIGHT node: DOM order axis-dot → stem → tip-dot → label.
+       flex-direction: row renders as: axis-dot | stem | tip-dot | label
+       → axis-dot on the left touching the axis; label on the far right, left-aligned. -->
+  <div class="tjv-item tjv-item--right" style="top:30%;--tjv-item-color:var(--accent-gold);">
+    <div class="tjv-axis-dot"></div>
+    <div class="tjv-stem"></div>
+    <div class="tjv-tip-dot"></div>
+    <div class="tjv-label">
+      <span class="tjv-date">Nov 2019</span>
+      <span class="tjv-title">Supplier Audit Completed</span>
+      <span class="tjv-text">Full sprint completed across all strategic mills. 94% of Tier 1 suppliers assessed against new emissions criteria.</span>
+    </div>
+  </div>
+
+  <!-- Add more nodes following the same left/right pattern -->
+</div>
+```
+
+```css
+.tjv {
+  --tjv-node:   12px;  /* axis-dot diameter */
+  --tjv-stem-w: 80px;  /* horizontal dashed stem width */
+
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Vertical axis — horizontally centered, full height */
+.tjv-axis {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line-strong);
+  transform: translateX(-50%);
+}
+
+/* Item base */
+.tjv-item {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  height: 80px;           /* vertical size of the clickable/hover zone */
+  transform: translateY(-50%); /* center the row on the top: Y% point */
+}
+
+/* LEFT: row-reverse flips DOM order so axis-dot appears on the right (on the axis) */
+.tjv-item--left {
+  right: 50%;
+  flex-direction: row-reverse;
+}
+
+/* RIGHT: standard row; axis-dot appears on the left (on the axis) */
+.tjv-item--right {
+  left: 50%;
+  flex-direction: row;
+}
+
+/* Axis dot — straddles the axis line */
+.tjv-axis-dot {
+  width: var(--tjv-node);
+  height: var(--tjv-node);
+  border-radius: 50%;
+  background: var(--tjv-item-color);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+/* LEFT: axis-dot is visually rightmost (row-reverse); push right to straddle axis */
+.tjv-item--left .tjv-axis-dot {
+  margin-right: calc(-1 * var(--tjv-node) / 2);
+}
+
+/* RIGHT: axis-dot is visually leftmost; push left to straddle axis */
+.tjv-item--right .tjv-axis-dot {
+  margin-left: calc(-1 * var(--tjv-node) / 2);
+}
+
+/* Tip dot — smaller circle at the stem end near the label */
+.tjv-tip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tjv-item-color);
+  flex-shrink: 0;
+}
+
+/* Horizontal dashed stem */
+.tjv-stem {
+  width: var(--tjv-stem-w);
+  height: 1px;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--line-strong) 0px,
+    var(--line-strong) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  flex-shrink: 0;
+}
+
+/* Label block */
+.tjv-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tjv-item--left .tjv-label {
+  text-align: right;
+  align-items: flex-end;
+  padding-right: 20px;
+  max-width: 560px;
+}
+
+.tjv-item--right .tjv-label {
+  text-align: left;
+  align-items: flex-start;
+  padding-left: 20px;
+  max-width: 560px;
+}
+
+/* Date — colored per node via --tjv-item-color */
+.tjv-date {
+  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--tjv-item-color);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.tjv-title {
+  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  line-height: 1.15;
+}
+
+.tjv-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  max-width: 380px;
+}
+```
+
+Rules:
+- **DOM order is identical for left and right nodes**: `axis-dot → stem → tip-dot → label`. The visual direction is controlled by CSS (`row-reverse` for left, `row` for right) — never by changing the DOM order.
+- Position each node with `top: Y%` inline style. For N nodes, distribute evenly: `(100 / (N + 1)) * k %` or manually to reflect actual time proportions.
+- Every node must set `--tjv-item-color` inline (use any Summit accent: `--accent-earth`, `--accent-gold`, `--accent-olive`, `--accent-sage`).
+- Alternate `--left` and `--right` across nodes for visual rhythm. Do not place consecutive same-side nodes unless intentional.
+- The parent container must have a defined height. Use `height: 100%` when inside a layout slot, or set an explicit `px` height when used standalone.
+- Keep `.tjv-text` to 2–4 lines. Longer text shifts the effective visual centre of the item away from the `axis-dot`.
+
+##### Tips
+- **Adjust stem length**: Change `--tjv-stem-w` on `.tjv` (or inline on a single item) to lengthen or shorten the dashed connector. Wider columns benefit from a longer stem (`120px`); narrow slots look cleaner at `60px`.
+- **Adjust node slot height**: The `height: 80px` on `.tjv-item` sets the vertical click/hover zone. It does not clip label text — labels overflow naturally below the slot. If labels are tall, increase `top` spacing between nodes to avoid overlap.
+- **In a layout slot** (`narrative`, `halves`, `highlight-cols`): wrap `.tjv` in a `div` with `height: 100%` and `position: relative` so the absolute positioning resolves correctly.
+- **Standalone full-page use**: set an explicit height on the `.tjv` wrapper (e.g. `height: 720px`) when used outside a height-constrained layout.
+- **Dark background overrides**: set on the `.tjv` wrapper — `--line-strong: rgba(247,244,238,0.25)` (axis + stem), `.tjv-title { color: #f7f4ee }`, `.tjv-text { color: rgba(247,244,238,0.7) }`. The `--tjv-item-color` accent colours work on dark backgrounds without change.
+- **Fewer nodes (3–4)**: increase spacing — use `top` values like `15%, 35%, 55%, 75%` to prevent the timeline from clustering at the top.
+- **More nodes (6–8)**: reduce `.tjv-text` to 1–2 lines and consider reducing `font-size` to `12px` to avoid label collisions.
+<!-- @component:timeline-journey-vertical:end -->
 
 <!-- @design:components:end -->
