@@ -487,11 +487,11 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
     <div class="page" style="padding:0;overflow:hidden;">
       <div class="narrative-grid">
 
-        <!-- [slot: left] — 1+ components; suggested: image-title, echart-panel, report-text-panel -->
+        <!-- [slot: left] — 1+ components; suggested: image-title, echart-panel, text-panel -->
         <div>
         </div>
 
-        <!-- [slot: right] — 1+ components; suggested: report-text-panel, toc, flow-vertical, data-table -->
+        <!-- [slot: right] — 1+ components; suggested: text-panel, toc, flow-vertical, data-table -->
         <div>
         </div>
 
@@ -547,7 +547,7 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
     <div class="page" style="padding:0;overflow:hidden;">
       <div class="narrative-grid narrative-grid--reverse">
 
-        <!-- [slot: left] — 1+ components; suggested: report-text-panel, toc, flow-vertical, echart-panel -->
+        <!-- [slot: left] — 1+ components; suggested: text-panel, toc, flow-vertical, echart-panel -->
         <div>
         </div>
 
@@ -646,7 +646,7 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
         <div>
         </div>
 
-        <!-- [slot: right] — 1+ components; suggested: echart-panel, data-table, report-text-panel -->
+        <!-- [slot: right] — 1+ components; suggested: echart-panel, data-table, text-panel -->
         <div>
         </div>
 
@@ -748,19 +748,62 @@ Use these components when a page needs repeatable editorial modules inside a lar
 
 
 
-<!-- @component:report-text-panel:start -->
-#### Report Text Panel
+<!-- @component:text-panel:start -->
+#### Text Panel
 
-Base narrative component for dense annual-report copy. Use it inside structural layouts that need a compact reading surface with heading, body copy, and footer metadata.
+<!-- renamed from report-text-panel -->
+
+Unified narrative text container. Use inside any layout slot that needs a self-contained reading surface with heading, body copy, and optional footer metadata. The body zone accepts prose, a bullet list, or both — choose based on content, not convention.
 
 ```html
-<div class="report-text-panel report-text-panel--dark">
+<!-- variant A: prose only (--dark) -->
+<div class="text-panel text-panel--dark">
   <div style="max-width:420px;">
     <p class="eyebrow" style="color:rgba(243,238,230,0.72);">Section label / annual review</p>
     <h2 style="margin-top:16px;font-size:60px;line-height:0.92;letter-spacing:-0.03em;text-transform:uppercase;color:#f7f4ee;max-width:360px;">Narrative heading</h2>
-    <p style="margin-top:20px;font-size:13px;line-height:1.58;color:rgba(243,238,230,0.84);max-width:390px;">Use one or two compact paragraphs. This component should read like a printed report page, not a presentation summary.</p>
+    <div class="text-panel-body" style="margin-top:20px;">
+      <p style="font-size:13px;line-height:1.58;color:rgba(243,238,230,0.84);max-width:390px;">Use one or two compact paragraphs when continuous prose fits the content better than a list.</p>
+    </div>
   </div>
-  <div class="report-panel-footer" style="color:rgba(243,238,230,0.68);">
+  <div class="text-panel-footer" style="color:rgba(243,238,230,0.68);">
+    <p class="caption">Summit / Climate Report 2026</p>
+    <p class="caption">03</p>
+  </div>
+</div>
+
+<!-- variant B: bullet list only (--light) -->
+<div class="text-panel text-panel--light">
+  <div style="max-width:420px;">
+    <p class="eyebrow">Key findings</p>
+    <h3 style="margin-top:12px;">Three priorities for 2026</h3>
+    <div class="text-panel-body" style="margin-top:16px;">
+      <ul class="editorial-list">
+        <li><strong>Lead phrase.</strong> Supporting explanation for this point.</li>
+        <li><strong>Second point.</strong> One sentence of context or evidence.</li>
+        <li><strong>Third point.</strong> Keep each item roughly equal in length.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="text-panel-footer">
+    <p class="caption">Summit / Climate Report 2026</p>
+    <p class="caption">03</p>
+  </div>
+</div>
+
+<!-- variant C: prose + bullets mixed (--dark) -->
+<div class="text-panel text-panel--dark">
+  <div style="max-width:420px;">
+    <p class="eyebrow" style="color:rgba(243,238,230,0.72);">Context</p>
+    <h3 style="margin-top:12px;color:#f7f4ee;">Heading here</h3>
+    <div class="text-panel-body" style="margin-top:16px;">
+      <p style="font-size:13px;line-height:1.58;color:rgba(243,238,230,0.84);">Introductory sentence that frames what follows. Then the list expands the argument:</p>
+      <ul class="editorial-list" style="margin-top:12px;">
+        <li><strong>Lead phrase.</strong> Supporting explanation.</li>
+        <li><strong>Second point.</strong> One sentence of evidence.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="text-panel-footer" style="color:rgba(243,238,230,0.68);">
     <p class="caption">Summit / Climate Report 2026</p>
     <p class="caption">03</p>
   </div>
@@ -768,7 +811,8 @@ Base narrative component for dense annual-report copy. Use it inside structural 
 ```
 
 ```css
-.report-text-panel {
+/* renamed from .report-text-panel */
+.text-panel {
     height: 100%;
     padding: 56px 48px 34px;
     display: flex;
@@ -776,17 +820,25 @@ Base narrative component for dense annual-report copy. Use it inside structural 
     justify-content: space-between;
 }
 
-.report-text-panel--dark {
+.text-panel--dark {
     background: #2c2828;
     color: #f3eee6;
 }
 
-.report-text-panel--light {
+.text-panel--light {
     background: var(--bg-page-alt);
     color: var(--text-primary);
 }
 
-.report-panel-footer {
+/* body zone: flex column so prose <p> and <ul> stack naturally with consistent gap */
+.text-panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* renamed from .report-panel-footer */
+.text-panel-footer {
     display: flex;
     justify-content: space-between;
     align-items: end;
@@ -795,21 +847,25 @@ Base narrative component for dense annual-report copy. Use it inside structural 
 ```
 
 Rules:
-- Use for dense, factual report copy rather than slide-deck bullets.
-- Pair with a structurally dominant hero field when the layout needs strong visual contrast.
-- Dark and light variants should follow page tone, but the content structure stays the same.
+- `.text-panel-body` is the only required structural child. Place `<p>` elements, an `<ul class="editorial-list">`, or both inside it.
+- Eyebrow, heading, and footer are all optional — include them only when the content calls for them.
+- Choose `--dark` or `--light` to match the slide's tone. Do not mix variants within a single panel.
+- Pair with a visually dominant neighbor (image, chart) when the layout needs strong contrast against the text zone.
 
 ##### Tips
 - **`--dark` with background image: three-layer z-index required.** Place the `<img>` absolutely at `z-index:0`, the dark scrim at `z-index:1`, and all text content divs at `z-index:2`. Without explicit z-index, the image may render above the overlay in some stacking contexts.
 - **Dark scrim opacity.** Use `rgba(23,18,14, 0.78→0.70)` for the gradient direction (top darker, bottom slightly lighter) or a flat `rgba(14,12,10,0.75)` for uniform depth. Avoid going below 0.65 — text legibility degrades on busy photography.
 - **`--dark` text is already white-family in the built-in CSS.** Do not add inline color overrides to individual text nodes unless you are modifying the base variant — it creates maintenance debt.
 - **`--light` on dark-background slides.** If a light panel sits on a slide with a dark background overlay, ensure the panel has an explicit background (e.g., `var(--bg-page)`) and is above the overlay in z-index.
-<!-- @component:report-text-panel:end -->
+- **`editorial-list` inside `--dark`.** Add `style="--accent-earth:rgba(247,244,238,0.72)"` on the `<ul>` wrapper so the bullet squares read against the dark background.
+<!-- @component:text-panel:end -->
 
 <!-- @component:editorial-image-top:start -->
 #### Editorial Image Top
 
 Image-first editorial module: image on top, text below. Best for highlight grids, product/material stories, and any module where the picture should lead before the reader enters the copy.
+
+The copy zone uses `text-panel-body` for consistent prose/bullet handling across all editorial modules.
 
 ```html
 <div class="editorial-image-top">
@@ -822,7 +878,16 @@ Image-first editorial module: image on top, text below. Best for highlight grids
       <p class="caption">Alpine materials</p>
     </div>
     <h3>Use the image to set tone before the copy explains the point.</h3>
-    <p>Choose this component when the visual should establish texture, materiality, or field context before the audience reads the narrative.</p>
+    <!-- text-panel-body: place <p>, <ul class="editorial-list">, or both -->
+    <div class="text-panel-body">
+      <p>Choose this component when the visual should establish texture, materiality, or field context before the audience reads the narrative.</p>
+      <!-- optional bullets:
+      <ul class="editorial-list">
+        <li><strong>Lead phrase.</strong> Supporting point.</li>
+        <li><strong>Second point.</strong> One sentence.</li>
+      </ul>
+      -->
+    </div>
   </div>
 </div>
 ```
@@ -871,18 +936,22 @@ Rules:
 - Use when the image should lead and the text should read as a follow-on explanation.
 - The image should usually occupy more visual weight than the text.
 - Icon is optional. If used, keep it small, single-color, and subordinate to the caption.
+- The `text-panel-body` inside `.editorial-module-body` accepts prose `<p>`, an `<ul class="editorial-list">`, or both. Use whichever form suits the content.
 - When used inside multi-column layouts, keep this component's copy shorter than the primary reading column unless the page hierarchy explicitly promotes it.
 
 ##### Tips
-- **Do not set a fixed height on this component when used inside `three-highlights`.** Let the parent grid's `align-items:stretch` control the column height. Fixed heights fight against the stretch and create misaligned baselines.
+- **Do not set a fixed height on this component when used inside `highlight-cols`.** Let the parent grid's `align-items:stretch` control the column height. Fixed heights fight against the stretch and create misaligned baselines.
 - **Image aspect ratio.** Aim for 16:9 or 3:2 crops for the image block. Portrait crops create tall image zones that push text down and unbalance the composition.
 - **Kicker icon size.** Keep Lucide SVG icons at 16–20px. Larger icons shift visual weight from the image to the label zone.
+- **`editorial-list` font-size.** Override to `font-size:13px;gap:10px` inline — the base `editorial-list` is `14px/gap:14px`, which is slightly large for the narrow copy zone here.
 <!-- @component:editorial-image-top:end -->
 
 <!-- @component:editorial-text-top:start -->
 #### Editorial Text Top
 
 Text-first editorial module: text on top, image below. Best for narrative snippets, report-style explanations, or blocks where the image serves as evidence rather than the primary hook.
+
+The copy zone uses `text-panel-body` for consistent prose/bullet handling across all editorial modules.
 
 ```html
 <div class="editorial-text-top">
@@ -892,7 +961,16 @@ Text-first editorial module: text on top, image below. Best for narrative snippe
       <p class="caption">Mountain operations</p>
     </div>
     <h3>Lead with the argument, then let the image confirm it.</h3>
-    <p>Use this component when the audience should understand the point first and only then read the image as supporting evidence or context.</p>
+    <!-- text-panel-body: place <p>, <ul class="editorial-list">, or both -->
+    <div class="text-panel-body">
+      <p>Use this component when the audience should understand the point first and only then read the image as supporting evidence or context.</p>
+      <!-- optional bullets:
+      <ul class="editorial-list">
+        <li><strong>Lead phrase.</strong> Supporting point.</li>
+        <li><strong>Second point.</strong> One sentence.</li>
+      </ul>
+      -->
+    </div>
   </div>
   <div class="media-frame editorial-media">
     <img src="https://images.unsplash.com/photo-1519904981063-b0cf448d479e?q=80&w=1200&auto=format&fit=crop" alt="Hiker in alpine basin">
@@ -923,23 +1001,25 @@ Text-first editorial module: text on top, image below. Best for narrative snippe
 
 Rules:
 - Use when the text must establish the idea before the image appears.
+- The `text-panel-body` inside `.editorial-module-body` accepts prose `<p>`, an `<ul class="editorial-list">`, or both. Use whichever form suits the content.
 - Keep the lower image block quieter than a hero image; it is supporting evidence, not the whole slide's focal point.
 - Icon is optional. Prefer it only when it helps distinguish categories across repeated modules.
 - In multi-column layouts, this component can carry more reading weight than neighboring support modules when the page hierarchy needs a denser narrative block.
 
 ##### Tips
 - **Same height/stretch rule as `editorial-image-top`.** Do not set fixed heights; let parent grid stretch control the column.
-- **When used as the center spine in `three-highlights`,** this is the one component that may legitimately be taller than its neighbors. That density imbalance is intentional — do not try to equalize it with padding or extra content in the outer columns.
+- **When used as a center spine in `highlight-cols`,** this is the one component that may legitimately be taller than its neighbors. That density imbalance is intentional — do not try to equalize it with padding or extra content in the outer columns.
+- **`editorial-list` font-size.** Override to `font-size:13px;gap:10px` inline — the base `editorial-list` is `14px/gap:14px`, which is slightly large for the narrow copy zone here.
 <!-- @component:editorial-text-top:end -->
 
 <!-- @component:editorial-text-left:start -->
 #### Editorial Text Left
 
-Horizontal editorial module: a full-width title band on top, with text on the left and a visual slot on the right below. Best for compact feature rows, bottom cards inside `brief-grid`, or any slot where a wide-but-short frame suits a side-by-side composition with a clear heading above.
+Horizontal editorial module: a full-width title band on top, with text on the left and a visual slot on the right below. Best for compact feature rows or any slot where a wide-but-short frame suits a side-by-side composition with a clear heading above.
 
 Structure:
 - **header zone** (full width): holds the `h3` module title — independent of the copy below
-- **left: `.editorial-text-left-copy`** — kicker, description, optional `editorial-list`
+- **left: `.editorial-text-left-copy`** — kicker, then `text-panel-body` (prose, bullets, or both)
 - **right: `.editorial-text-left-visual`** — accepts any of: `media-frame img`, `echart-container`, or `image-title`
 
 ```html
@@ -958,14 +1038,17 @@ Structure:
         <i data-lucide="zap" class="module-icon"></i>
         <p class="caption">Category label</p>
       </div>
-      <!-- prose variant -->
-      <p style="font-size:13px;line-height:1.5;margin-top:12px;color:var(--text-secondary);">Supporting description. One or two sentences that position this card within the broader page argument.</p>
-      <!-- bullet variant: use <strong> for the lead phrase of each item -->
-      <ul class="editorial-list" style="margin-top:14px;font-size:13px;gap:10px;">
-        <li><strong>Lead phrase.</strong> Supporting explanation for this point.</li>
-        <li><strong>Second point.</strong> One sentence of context or evidence.</li>
-        <li><strong>Third point.</strong> Keep each item roughly equal in length.</li>
-      </ul>
+      <!-- text-panel-body: place <p>, <ul class="editorial-list">, or both — choose based on content -->
+      <div class="text-panel-body" style="margin-top:12px;">
+        <!-- prose variant -->
+        <p style="font-size:13px;line-height:1.5;color:var(--text-secondary);">Supporting description. One or two sentences that position this card within the broader page argument.</p>
+        <!-- bullet variant (use instead of or after prose): -->
+        <!-- <ul class="editorial-list" style="font-size:13px;gap:10px;">
+          <li><strong>Lead phrase.</strong> Supporting explanation for this point.</li>
+          <li><strong>Second point.</strong> One sentence of context or evidence.</li>
+          <li><strong>Third point.</strong> Keep each item roughly equal in length.</li>
+        </ul> -->
+      </div>
     </div>
 
     <!-- right: visual slot — choose one -->
@@ -1029,13 +1112,13 @@ Structure:
 
 Rules:
 - The `h3` in `.editorial-text-left-header` is the module's top-level title; it must not be repeated inside the copy zone.
-- The left copy zone holds supporting content: kicker, prose, or `editorial-list`. Do not place a second heading here.
+- The left copy zone holds a kicker row followed by a `text-panel-body`. The body accepts prose `<p>`, an `<ul class="editorial-list">`, or both — choose based on content.
 - The right visual slot is open: use a plain `media-frame img`, an `echart-container`, or a full `image-title` component. Choose based on content — there is no default.
-- When using `editorial-list` inside `.editorial-text-left-copy`, always add `<strong>` around the first 2–5 words of each `<li>` to create a bold lead phrase. This provides scannable hierarchy within the narrow copy column.
+- When using `editorial-list` inside `text-panel-body`, add `<strong>` around the first 2–5 words of each `<li>` to create a bold lead phrase for scannable hierarchy.
 - When the card carries a large statistic or callout number, place it between the header and the copy zone using an inline style (`font-size: 48px; font-family: IBM Plex Sans Condensed; font-weight: 700; color: var(--accent-gold); line-height: 1;`).
 
 ##### Tips
-- **Parent must supply height.** `.editorial-text-left` uses `height: 100%` and `flex: 1` internally. The parent slot must have a defined height (grid cell, `height:100%` chain, or `flex:1;min-height:0`). Unlike the old version, there is no `aspect-ratio` fallback.
+- **Parent must supply height.** `.editorial-text-left` uses `height: 100%` and `flex: 1` internally. The parent slot must have a defined height (grid cell, `height:100%` chain, or `flex:1;min-height:0`).
 - **Text-to-visual flex ratio.** Default is `1.1 : 1` (copy slightly wider). For more copy, try `1.3 : 1`. For a visually dominant right panel, try `1 : 1.2`. Do not go below `0.8` on the copy side.
 - **`editorial-list` font-size inside copy zone.** Override to `font-size:13px` and `gap:10px` inline — the base `editorial-list` uses `14px / gap:14px`, which is slightly large for the narrow copy column.
 - **`echart-container` in visual slot.** Set `width:100%;height:100%` on the container and call `echarts.init()` after `SlidePresentation` is instantiated. The `position:relative;overflow:hidden` on `.editorial-text-left-visual` contains the canvas correctly.
@@ -1340,13 +1423,13 @@ Rules:
 - The connecting line grows to fill the vertical space between items via `flex: 1`.
 - Number boxes share the same border-only square style as `flow-horizontal` for visual consistency.
 - Copy per item can be slightly longer than horizontal flow since vertical reading allows more density.
-- Combine with `report-text-panel` or `echart-panel` on the opposing side of a layout when needed.
+- Combine with `text-panel` or `echart-panel` on the opposing side of a layout when needed.
 
 ##### Tips
 - **`.last` class on final item is mandatory.** Without it, the connecting line extends past the last item and exits the component boundary. Always add `.last` to the final `div.flow-item`.
 - **Dark background with background image.** When the column containing `flow-vertical` has a background image, use the same three-layer z-index pattern: background `z-index:0`, dark scrim `z-index:1`, component content `z-index:2`. Set the parent column to `position:relative;overflow:hidden`.
 - **Dark text overrides (same as flow-horizontal).** Flow-number border `rgba(247,244,238,0.3)`, color `rgba(247,244,238,0.6)`; h4 `#f7f4ee`; p `rgba(247,244,238,0.7)`. Also override the connecting line color: `background:rgba(247,244,238,0.2)`.
-- **Column height constraint.** `flow-vertical` expands naturally with content. In a two-column layout, ensure the opposing column (report-text-panel or echart-panel) has enough content to avoid a large height mismatch.
+- **Column height constraint.** `flow-vertical` expands naturally with content. In a two-column layout, ensure the opposing column (`text-panel` or `echart-panel`) has enough content to avoid a large height mismatch.
 <!-- @component:flow-vertical:end -->
 
 <!-- @component:data-table:start -->
