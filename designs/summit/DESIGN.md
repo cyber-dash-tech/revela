@@ -1,7 +1,7 @@
 ---
 name: summit
-description: Editorial outdoor annual-report theme with cinematic photography and restrained print-style layouts
-author: OpenCode
+description: genneral clean template for presentation
+author: cyber-dash
 version: 1.0.0
 preview:
 ---
