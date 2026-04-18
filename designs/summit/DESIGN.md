@@ -438,35 +438,18 @@ Each `<section class="slide">` must set `slide-qa="true"` or `slide-qa="false"`.
 <!-- @layout:fullbleed:start qa=false -->
 #### Fullbleed
 
-Full-canvas three-layer layout for slides that need a dominant background field behind all foreground content. Use for opening (cover) and closing slides, atmospheric section dividers, or any spread where a single background field should dominate the entire canvas.
+Full-canvas layout for slides where a single image dominates the entire canvas with text composited over it. Use for opening (cover) and closing slides, or atmospheric section dividers.
 
 Structural intent:
-- bg slot: full-canvas background zone, sits below everything
-- fg slot: foreground content zone, positioned above the gradient overlay
-
-Every slot accepts 1 or more components. The LLM decides what goes in each slot based on the slide purpose.
-
+- Single slot: place one `image-title` component directly inside `.page`. The component is self-contained — it manages its own image, blur, overlay, and text layers internally.
 
 ```html
 <section class="slide" slide-qa="false" data-index="N">
   <div class="slide-canvas">
     <div class="page" style="padding:0;">
 
-      <!-- [slot: bg] — 1+ components; suggested: full-bleed-media -->
-      <div style="position:absolute;inset:0;z-index:0;">
-      </div>
-
-      <!-- directional blur layer — cover: mask to-left (left heavy); closing: mask to-right (right heavy) -->
-      <!-- cover:   mask-image: linear-gradient(to left,  transparent 0%, transparent 20%, black 100%) -->
-      <!-- closing: mask-image: linear-gradient(to right, transparent 0%, transparent 20%, black 100%) -->
-      <div style="position:absolute;inset:0;z-index:1;backdrop-filter:blur(50px);-webkit-backdrop-filter:blur(50px);-webkit-mask-image:/* see above */;mask-image:/* see above */;"></div>
-
-      <!-- gradient overlay — adjust direction and opacity based on fg content position -->
-      <div style="position:absolute;inset:0;z-index:2;background:/* linear-gradient(...) */"></div>
-
-      <!-- [slot: fg] — 1+ components; suggested: cover-title-stack, closing-title-stack -->
-      <div style="position:relative;z-index:3;height:100%;">
-      </div>
+      <!-- [slot: content] — use image-title component; set --left for cover, --right for closing -->
+      <!-- image-title handles all internal z-index layering (image → blur → overlay → text) -->
 
     </div>
   </div>
@@ -474,11 +457,10 @@ Every slot accepts 1 or more components. The LLM decides what goes in each slot 
 ```
 
 ##### Tips
-- **Z-index stacking is mandatory.** Always declare explicit z-index for all four layers: bg slot `z-index:0`, blur layer `z-index:1`, gradient overlay `z-index:2`, fg slot `z-index:3`. Relying on DOM order alone is fragile — `.full-bleed-media` creates a new stacking context that can trap the image above the overlay.
-- **Directional blur layer.** Insert a `backdrop-filter:blur(50px)` div at `z-index:1` between the image and the gradient overlay. Use a `mask-image` linear-gradient to restrict blur to one side: cover scene uses `linear-gradient(to left, transparent 0%, transparent 20%, black 100%)` (left-heavy blur, right stays sharp); closing scene uses `linear-gradient(to right, transparent 0%, transparent 20%, black 100%)` (right-heavy blur, left stays sharp). Both `-webkit-mask-image` and `mask-image` must be set for cross-browser support.
-- **Overlay direction.** Cover scene: use a diagonal gradient fading left-dark to right-transparent, e.g. `linear-gradient(105deg, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.72) 55%, rgba(5,5,5,0.10) 100%)`. Closing scene: use a bottom-heavy gradient, e.g. `linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.72) 100%)`.
-- **All text in fg slot must be white-family.** Headings `#f7f4ee`, body `rgba(247,244,238,0.72)`, captions/eyebrows `rgba(247,244,238,0.50–0.55)`.
-- **Page number.** Use `.page-number--light` since the background is always dark.
+- **Use `image-title` as the sole child.** The component is self-contained and fills `width:100%; height:100%` automatically. Do not add extra wrapper divs around it.
+- **Cover vs closing.** Cover: `image-title--left` with a diagonal overlay (`105deg`, left-dark to right-transparent) and left-biased blur mask. Closing: `image-title--right` with a bottom-heavy overlay (`180deg`) and right-biased blur mask.
+- **Page number.** Use `.page-number--light` — position it inside `.page` at `z-index:10` so it sits above the `image-title` stacking context.
+- **Text opacity.** For atmospheric section dividers where content is minimal, add `style="opacity:0.85"` on the `.image-title` container to soften the foreground text layer against the image.
 <!-- @layout:fullbleed:end -->
 
 <!-- @layout:narrative:start qa=true -->
@@ -499,7 +481,7 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
     <div class="page" style="padding:0;overflow:hidden;">
       <div class="narrative-grid">
 
-        <!-- [slot: left] — 1+ components; suggested: full-bleed-media, echart-panel, report-text-panel -->
+        <!-- [slot: left] — 1+ components; suggested: image-title, echart-panel, report-text-panel -->
         <div>
         </div>
 
@@ -563,7 +545,7 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
         <div>
         </div>
 
-        <!-- [slot: right] — 1+ components; suggested: full-bleed-media, echart-panel, data-table -->
+        <!-- [slot: right] — 1+ components; suggested: image-title, echart-panel, data-table -->
         <div>
         </div>
 
@@ -758,47 +740,7 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 
 Use these components when a page needs repeatable editorial modules inside a larger layout. Components define the block itself, not the page grid around it.
 
-<!-- @component:full-bleed-media:start -->
-#### Full Bleed Media
 
-Base hero-field component for any dominant visual area. This is not tied to a specific layout. Use it whenever a layout needs one large visual block that fully occupies its assigned region.
-
-```html
-<div class="full-bleed-media" style="height:100%;">
-  <img src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1800&auto=format&fit=crop" alt="Mountain meadow and stream under dramatic alpine sky">
-</div>
-```
-
-```css
-.hero-field {
-    height: 100%;
-    position: relative;
-}
-
-.full-bleed-media {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    overflow: hidden;
-}
-
-.full-bleed-media img {
-    width: 100%;
-    height: 100%;
-    display: block;
-    object-fit: cover;
-}
-```
-
-Rules:
-- Use when a layout needs one dominant visual field that fills its region completely.
-- The content is often an image, but it may also be another visual component if the layout calls for it.
-- Do not inset this component inside a hero field unless the layout explicitly requires inset treatment.
-
-##### Tips
-- When used as a background behind an overlay and foreground content, always set `z-index:0` on its parent container. `.full-bleed-media` has `position:relative` and creates a new stacking context — without explicit z-index, the overlay div that follows it in DOM order may still lose the stacking battle in some browsers.
-- Pair the parent with `overflow:hidden` to prevent image edges from bleeding outside the intended region.
-<!-- @component:full-bleed-media:end -->
 
 <!-- @component:report-text-panel:start -->
 #### Report Text Panel
@@ -1540,45 +1482,126 @@ Rules:
 
 
 
-<!-- @component:cover-title-stack:start -->
-#### Cover Title Stack
 
-Full-height foreground text layer for the cover layout. Sits above the hero image and its directional gradient overlay as `z-index:2`. The gradient runs from left-dark to right-transparent (diagonal `105deg`), creating a charcoal reading field on the left that dissolves naturally into the image without forming a boxed card.
+
+
+
+<!-- @component:image-title:start -->
+#### Image Title
+
+Self-contained full-canvas component: a dominant photograph with a directional blur layer, a gradient overlay, and a foreground text stack — all composited inside one element. Use for cover slides, closing slides, atmospheric section dividers, or any full-bleed spread where a single image should dominate the entire canvas.
+
+The LLM controls three key variables via inline style or modifier class:
+- **Alignment**: `image-title--left` (cover default), `image-title--right` (closing default), `image-title--center`
+- **Overlay opacity / direction**: set the `background` gradient on `.image-title-overlay` inline
+- **Text opacity**: set `opacity` on `.image-title` itself (range `0.7`–`1.0`; default `1.0`)
 
 ```html
-<div class="cover-title-stack">
-  <div class="cover-brand-label reveal">
-    <span class="chevron-divider" style="color:rgba(247,244,238,0.55);">Organisation Name</span>
+<div class="image-title image-title--left">
+
+  <!-- Layer 0: background image -->
+  <img class="image-title-media" src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=1920&auto=format&fit=crop" alt="Alpine ridge at dawn">
+
+  <!-- Layer 1: directional blur — mask gradient concentrates blur on the text side -->
+  <!-- cover (--left):   mask to-left  → blur left,  sharp right -->
+  <!-- closing (--right): mask to-right → blur right, sharp left -->
+  <div class="image-title-blur" style="-webkit-mask-image:linear-gradient(to left, transparent 0%, transparent 20%, black 100%);mask-image:linear-gradient(to left, transparent 0%, transparent 20%, black 100%);"></div>
+
+  <!-- Layer 2: gradient overlay — adjust direction and opacity to suit slide purpose -->
+  <!-- cover default:   linear-gradient(105deg, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.72) 55%, rgba(5,5,5,0.10) 100%) -->
+  <!-- closing default: linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.72) 100%) -->
+  <div class="image-title-overlay" style="background:linear-gradient(105deg, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.72) 55%, rgba(5,5,5,0.10) 100%);"></div>
+
+  <!-- Layer 3: foreground text -->
+  <div class="image-title-fg">
+    <div class="image-title-brand reveal">
+      <span class="chevron-divider" style="color:rgba(247,244,238,0.55);">Organisation Name</span>
+    </div>
+    <div class="image-title-body">
+      <p class="image-title-eyebrow reveal">Report Title · Year</p>
+      <h1 class="reveal">Opening<br>Statement<br>Here.</h1>
+      <p class="image-title-subtitle reveal">One or two lines of supporting copy. Keep it short — the image does the visual work.</p>
+    </div>
+    <div class="image-title-footer">
+      <p class="caption reveal" style="color:rgba(247,244,238,0.5);">website or location</p>
+      <p class="caption reveal" style="color:rgba(247,244,238,0.5);">Organisation · Year</p>
+    </div>
   </div>
-  <div class="cover-body">
-    <p class="cover-eyebrow reveal">Report Title · Year</p>
-    <h1 class="reveal">Opening<br>Statement<br>Here.</h1>
-    <p class="cover-subtitle reveal">One or two lines of supporting copy. Keep it short — the image does the visual work.</p>
-  </div>
-  <div class="cover-footer">
-    <p class="caption reveal" style="color:rgba(247,244,238,0.5);">website or location</p>
-    <p class="caption reveal" style="color:rgba(247,244,238,0.5);">Organisation · Year</p>
-  </div>
+
 </div>
 ```
 
 ```css
-.cover-title-stack {
+/* Container — clips all layers, holds stacking context */
+.image-title {
     position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    color: #f7f4ee;
+}
+
+/* Layer 0: background image */
+.image-title-media {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    z-index: 0;
+}
+
+/* Layer 1: directional blur */
+.image-title-blur {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    backdrop-filter: blur(50px);
+    -webkit-backdrop-filter: blur(50px);
+}
+
+/* Layer 2: gradient overlay — background set inline by LLM */
+.image-title-overlay {
+    position: absolute;
+    inset: 0;
     z-index: 2;
+}
+
+/* Layer 3: foreground text */
+.image-title-fg {
+    position: relative;
+    z-index: 3;
     height: 100%;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     padding: 72px 84px;
-    color: #f7f4ee;
 }
 
-.cover-body {
+/* Alignment variants */
+.image-title--left .image-title-body {
     max-width: 680px;
 }
 
-.cover-eyebrow {
+.image-title--right .image-title-fg {
+    text-align: right;
+}
+.image-title--right .image-title-body {
+    max-width: 860px;
+    margin-left: auto;
+}
+
+.image-title--center .image-title-fg {
+    text-align: center;
+    align-items: center;
+}
+.image-title--center .image-title-body {
+    max-width: 900px;
+}
+
+/* Text elements */
+.image-title-eyebrow {
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.18em;
@@ -1587,7 +1610,7 @@ Full-height foreground text layer for the cover layout. Sits above the hero imag
     margin-bottom: 20px;
 }
 
-.cover-title-stack h1 {
+.image-title h1 {
     color: #f7f4ee;
     font-size: 96px;
     line-height: 0.92;
@@ -1595,91 +1618,15 @@ Full-height foreground text layer for the cover layout. Sits above the hero imag
     text-transform: uppercase;
 }
 
-.cover-subtitle {
-    margin-top: 28px;
+.image-title-subtitle {
+    margin-top: 24px;
     font-size: 15px;
     line-height: 1.56;
     color: rgba(247, 244, 238, 0.72);
-    max-width: 460px;
+    max-width: 480px;
 }
 
-.cover-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-}
-```
-
-Rules:
-- Always place at `z-index:3` above the image (`z-index:0`), blur layer (`z-index:1`), and gradient overlay (`z-index:2`).
-- The gradient overlay on the parent is what creates the reading field — do not add a background to `.cover-title-stack` itself.
-- Use `chevron-divider` for the brand label, not a plain eyebrow. It is the primary editorial accent at the top of the cover.
-- Keep `.cover-body` width under `700px` so the right half of the image remains visible through the gradient.
-- Footer captions should use `rgba(247,244,238,0.5)` — quieter than body copy.
-
-##### Tips
-- **h1 size range.** Scale between `88px` and `120px` depending on title length. Three short lines at `96px` is the default. Longer titles should reduce to `80–88px` to prevent overflow.
-- **Gradient direction.** The parent overlay uses `linear-gradient(105deg, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.72) 55%, rgba(5,5,5,0.10) 100%)`. Adjust the degree if the hero image has strong content on the left edge — a shallower angle (around `90deg`) protects more of the left zone.
-- **Dark overlay opacity.** The left stop (`0.95`) must stay high — the title needs a near-opaque dark backing on all hero imagery. The mid stop (`0.72`) keeps body text legible. Only the right tail (`0.10`) fades to near-transparent so the image breathes on the right side.
-- **Directional blur.** Add a `backdrop-filter:blur(50px)` layer at `z-index:1` with `mask-image:linear-gradient(to left, transparent 0%, transparent 20%, black 100%)`. This concentrates blur on the left (text) side and keeps the right side of the image sharp. Always set both `-webkit-mask-image` and `mask-image`.
-<!-- @component:cover-title-stack:end -->
-
-<!-- @component:closing-title-stack:start -->
-#### Closing Title Stack
-
-Full-height foreground text layer for the closing layout. Mirrors `cover-title-stack` in structure but reverses the gradient direction — the overlay fades from top-transparent to bottom-dark (180deg), so the sign-off text at the bottom has the strongest backing while the image breathes through at the top.
-
-```html
-<div class="closing-title-stack">
-  <div class="closing-brand-label reveal">
-    <span class="chevron-divider" style="color:rgba(247,244,238,0.6);">Organisation Name</span>
-  </div>
-  <div class="closing-body">
-    <h1 class="reveal">The work continues<br>beyond the page.</h1>
-    <p class="closing-subtitle reveal">One short supporting sentence. Keep it restrained — the closing is atmospheric, not informational.</p>
-  </div>
-  <div class="closing-footer">
-    <p class="caption reveal" style="color:rgba(247,244,238,0.62);">website or location</p>
-    <p class="caption reveal" style="color:rgba(247,244,238,0.62);">Report Title · Organisation</p>
-  </div>
-</div>
-```
-
-```css
-.closing-title-stack {
-    position: relative;
-    z-index: 2;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 72px 84px;
-    color: #f7f4ee;
-    text-align: right;
-}
-
-.closing-body {
-    max-width: 860px;
-    margin-left: auto;
-}
-
-.closing-title-stack h1 {
-    color: #f7f4ee;
-    font-size: 100px;
-    line-height: 0.9;
-    letter-spacing: -0.03em;
-    text-transform: uppercase;
-}
-
-.closing-subtitle {
-    margin-top: 24px;
-    font-size: 16px;
-    line-height: 1.56;
-    color: rgba(247, 244, 238, 0.78);
-    max-width: 520px;
-}
-
-.closing-footer {
+.image-title-footer {
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
@@ -1688,18 +1635,22 @@ Full-height foreground text layer for the closing layout. Mirrors `cover-title-s
 ```
 
 Rules:
-- Always place at `z-index:3` above the hero image (`z-index:0`), blur layer (`z-index:1`), and overlay (`z-index:2`).
-- The closing overlay gradient runs `180deg` (top → bottom), opposite to the cover overlay. This is not a mistake — the bottom-heavy dark zone ensures the text sits in the densest part of the gradient.
-- **Text is right-aligned** (`text-align:right`). `.closing-body` uses `margin-left:auto` so the content block itself anchors to the right side. This mirrors cover's left anchor and creates bookend symmetry.
-- Keep content minimal. One headline, one short paragraph, two footer captions. Do not add data, bullet points, or section labels.
-- `.closing-body` can extend to `max-width:960px` for very short single-line titles.
+- Always use one of the three modifier classes: `image-title--left`, `image-title--right`, or `image-title--center`. Never omit the modifier.
+- Set the `background` gradient on `.image-title-overlay` inline — never use a static class value. The direction and opacity must match the text position: dense dark on the text side, fading toward the open image side.
+- The blur mask direction must mirror the text alignment: `--left` uses `to left`, `--right` uses `to right`. Both `-webkit-mask-image` and `mask-image` are required for cross-browser support.
+- All text inside `.image-title-fg` must be white-family: headings `#f7f4ee`, body `rgba(247,244,238,0.72)`, captions and eyebrows `rgba(247,244,238,0.50–0.55)`.
+- Use `.page-number--light` on any slide using this component.
+- When used inside `fullbleed` layout, place this component directly as the sole child of the `.page` div — the layout provides no additional framing.
 
 ##### Tips
-- **h1 size range.** Scale between `88px` and `120px`. Closing titles are often short declarative sentences; `100px` is a good default for 3–7 words.
-- **Gradient direction is bottom-heavy by design.** Cover fades left-to-right; closing fades top-to-bottom. This creates visual symmetry between the two bookend slides: the text always sits in the densest dark zone of its respective overlay.
-- **Overlay opacity.** Use `linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.72) 100%)`. The top stop is `0.30` so the image is still visible at the top; the bottom stop `0.72` gives the right-aligned text and footer a strong dark backing. Do not drop the bottom stop below `0.60`.
-- **Directional blur.** Add a `backdrop-filter:blur(50px)` layer at `z-index:1` with `mask-image:linear-gradient(to right, transparent 0%, transparent 20%, black 100%)`. This concentrates blur on the right (text) side and keeps the left side of the image sharp — the mirror of the cover blur. Always set both `-webkit-mask-image` and `mask-image`.
-<!-- @component:closing-title-stack:end -->
+- **h1 size range.** Scale between `88px` and `120px` depending on title length. Three short lines at `96px` is the default for cover; `100px` works well for short closing statements. Longer titles should reduce to `80–88px`.
+- **Cover overlay (--left).** Use `linear-gradient(105deg, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.72) 55%, rgba(5,5,5,0.10) 100%)`. Left stop must stay near `0.95` — the title needs a near-opaque dark backing on all hero imagery. Only the right tail fades to near-transparent so the image breathes.
+- **Closing overlay (--right).** Use `linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.72) 100%)`. Bottom-heavy dark zone backs the right-aligned text. Do not drop the bottom stop below `0.60`.
+- **Text opacity.** Add `style="opacity:0.85"` (or similar) to the `.image-title` container itself to softly blend the entire foreground text layer into the image — useful for atmospheric or section-divider slides where editorial restraint is the goal. Do not go below `0.70`.
+- **`--right` closing variant.** Mirror the blur mask: use `mask-image:linear-gradient(to right, transparent 0%, transparent 20%, black 100%)`. The right side stays blurred (text zone); the left side of the image stays sharp.
+- **`--center` variant.** Use a radial or symmetric overlay: `radial-gradient(ellipse at center, rgba(5,5,5,0.72) 0%, rgba(5,5,5,0.20) 100%)` or a flat `rgba(5,5,5,0.55)`. Center blur mask: `mask-image:radial-gradient(ellipse at center, black 0%, transparent 80%)`.
+- **Subtitle width on `--right`.** `.image-title-subtitle` inherits `max-width:480px` which is set for left-aligned text. On `--right`, override to match the `.image-title-body` width: `style="max-width:520px;margin-left:auto;"`.
+<!-- @component:image-title:end -->
 
 <!-- @component:toc:start -->
 #### TOC Panel
