@@ -154,6 +154,7 @@ Each agent's brief should specify:
 - The topic slug (shared, e.g. `ai-investment-shift`)
 - The axis name for their file (e.g. `anthropic-profile`, `openai-challenges`, `market-trends`)
 - What to research and what time period to focus on
+- An explicit instruction to use `websearch` (e.g. "Use the websearch tool to find relevant market reports, news, and data for this axis.")
 
 ##### After Agents Complete
 
