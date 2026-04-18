@@ -98,7 +98,7 @@ All commands execute locally — zero LLM cost, instant feedback.
 
 ## Built-in Designs
 
-Three designs are bundled. Switch with `/revela designs <name>`.
+Two designs are bundled. Switch with `/revela designs <name>`.
 
 | Name | Description | Preview |
 |---|---|---|
