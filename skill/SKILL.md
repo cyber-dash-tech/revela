@@ -38,7 +38,7 @@ to Phase 1.5.
 
 Once you have the user's answers, **derive the deck slug** from the topic:
 lowercase, hyphens, no spaces (e.g. "AI Investment Shift" → `ai-investment-shift`).
-Tell the user: "I'll save this deck as `slides/{slug}.html`." They can correct the
+Tell the user: "I'll save this deck as `decks/{slug}.html`." They can correct the
 name at this point.
 
 ### Phase 1.5 — Deck Initialization & Resume Check
@@ -65,7 +65,7 @@ After confirming the deck slug, check whether this deck has been worked on befor
    - **c** → proceed to Phase 2 normally (full research)
 
 All subsequent file paths in this session use the confirmed slug:
-- Slides file: `slides/{slug}.html`
+- Slides file: `decks/{slug}.html`
 - Research dir: `researches/{slug}/`
 
 ### Phase 2 — Select Design
@@ -345,19 +345,19 @@ Then ask:
 Once the fetch is complete, generate the complete HTML file in one shot.
 
 - Output **only** the raw HTML — no markdown fences, no explanation before or after
-- Create a `slides/` directory in the current working directory if it doesn't already exist
-- Write the file to `slides/{slug}.html` using the deck slug confirmed in Phase 1.5
+- Create a `decks/` directory in the current working directory if it doesn't already exist
+- Write the file to `decks/{slug}.html` using the deck slug confirmed in Phase 1.5
 - The file must be completely self-contained (all CSS and JS inline)
 
 ### Phase 6 — Iterate
 
 After generating, briefly tell the user:
-- The filename you wrote (e.g. `slides/ai-future.html`)
+- The filename you wrote (e.g. `decks/ai-future.html`)
 - How to navigate (arrow keys / swipe)
 - One line invitation to request changes
 
 For change requests: re-generate the **entire** file (don't patch). Apply the
-change and silently overwrite the same `slides/{slug}.html` filename.
+change and silently overwrite the same `decks/{slug}.html` filename.
 
 ---
 
@@ -474,11 +474,11 @@ decorative fill patterns.
 
 | Topic | Filename |
 |-------|----------|
-| "AI in Healthcare" | `slides/ai-in-healthcare.html` |
-| "Q3 Sales Review" | `slides/q3-sales-review.html` |
-| "Intro to Python" | `slides/intro-to-python.html` |
+| "AI in Healthcare" | `decks/ai-in-healthcare.html` |
+| "Q3 Sales Review" | `decks/q3-sales-review.html` |
+| "Intro to Python" | `decks/intro-to-python.html` |
 
-Lowercase, hyphens, no spaces, `.html` extension. Always place files inside the `slides/` subdirectory.
+Lowercase, hyphens, no spaces, `.html` extension. Always place files inside the `decks/` subdirectory.
 
 ---
 

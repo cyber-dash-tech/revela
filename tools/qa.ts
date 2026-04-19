@@ -5,7 +5,7 @@
  *
  * Exposed to the LLM so it can run layout checks after writing a slides file.
  * Also called automatically by the tool.execute.after hook in plugin.ts
- * when the LLM writes a file matching slides/*.html.
+ * when the LLM writes a file matching decks/*.html.
  */
 
 import { tool } from "@opencode-ai/plugin"
@@ -21,7 +21,7 @@ export default tool({
     "Checks for: canvas underfill (too much empty space), bottom whitespace, " +
     "left-right column asymmetry, element overflow, and card height variance. " +
     "Returns a structured report with specific issues and fix instructions. " +
-    "Call this after writing or editing any slides/*.html file to verify layout quality.",
+    "Call this after writing or editing any decks/*.html file to verify layout quality.",
   args: {
     file: tool.schema
       .string()

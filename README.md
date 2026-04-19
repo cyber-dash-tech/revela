@@ -9,7 +9,7 @@
 </p>
 
 Revela is an [OpenCode](https://opencode.ai) plugin that turns your current agent into an HTML slide deck generator.
-Enable it for a session, give the agent a presentation task, and it can research, structure, write, and QA a complete deck in `slides/*.html`.
+Enable it for a session, give the agent a presentation task, and it can research, structure, write, and QA a complete deck in `decks/*.html`.
 
 **[Live Demo — The AI Power Shift](https://cyber-dash-tech.github.io/revela/assets/html/ai-power-shift.html)** · A 5-slide investment brief generated with Revela.
 
@@ -99,13 +99,13 @@ Enable Revela in the current session:
 Then give the agent a slide task, for example:
 
 ```text
-Create a 6-slide HTML deck on humanoid robotics supply chains. Use the summit design, cite the main market drivers, and save the result to slides/humanoid-robotics.html.
+Create a 6-slide HTML deck on humanoid robotics supply chains. Use the summit design, cite the main market drivers, and save the result to decks/humanoid-robotics.html.
 ```
 
 Export the resulting HTML deck to PDF if needed:
 
 ```text
-/revela pdf slides/humanoid-robotics.html
+/revela pdf decks/humanoid-robotics.html
 ```
 
 Disable Revela and return the current agent to normal mode:
@@ -175,7 +175,7 @@ Revela transparently extracts text from these binary files before the main agent
 
 ## Layout QA And Compliance
 
-Every time the agent writes `slides/*.html`, Revela automatically runs a Puppeteer-based QA pass at `1920x1080`.
+Every time the agent writes `decks/*.html`, Revela automatically runs a Puppeteer-based QA pass at `1920x1080`.
 The QA report is fed back immediately so the agent can fix layout or compliance problems before moving on.
 
 Current QA dimensions:
@@ -313,7 +313,7 @@ A custom domain is a folder containing `INDUSTRY.md` with frontmatter metadata s
 Export a generated HTML deck to PDF:
 
 ```text
-/revela pdf slides/my-deck.html
+/revela pdf decks/my-deck.html
 ```
 
 Revela renders each slide through Chrome/Chromium and assembles the final PDF in the same directory.

@@ -4,7 +4,7 @@
  * Handler for `/revela pdf <file_path>` — exports an HTML slide deck to PDF.
  *
  * Output: same directory and base name as the input, with .pdf extension.
- * Example: slides/my-deck.html → slides/my-deck.pdf
+ * Example: decks/my-deck.html → decks/my-deck.pdf
  */
 
 import { resolve } from "path"
@@ -17,7 +17,7 @@ export async function handlePdf(
   if (!filePath) {
     await send(
       "**Usage:** `/revela pdf <file_path>`\n\n" +
-      "Example: `/revela pdf slides/my-deck.html`"
+      "Example: `/revela pdf decks/my-deck.html`"
     )
     return
   }

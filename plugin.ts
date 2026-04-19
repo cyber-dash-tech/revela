@@ -343,7 +343,7 @@ const server: Plugin = (async (pluginCtx) => {
     // Handles PDF and images — read tool succeeds with base64 attachment.
     // PDF: extract text, remove base64. Images: jimp compress.
     //
-    // Also handles: auto layout QA after writing slides/*.html
+    // Also handles: auto layout QA after writing decks/*.html
     "tool.execute.after": async (input, output) => {
       if (!ctx.enabled) return
 
@@ -360,11 +360,11 @@ const server: Plugin = (async (pluginCtx) => {
         return
       }
 
-      // ── Auto layout QA after writing slides/*.html ─────────────────────
+      // ── Auto layout QA after writing decks/*.html ─────────────────────
       if (input.tool === "write") {
         const filePath: string = input.args?.filePath ?? ""
-        // Only trigger for HTML files inside a slides/ directory
-        if (!filePath.match(/slides\/[^/]+\.html$/)) return
+        // Only trigger for HTML files inside a decks/ directory
+        if (!filePath.match(/decks\/[^/]+\.html$/)) return
 
         try {
           // Extract design's allowed class vocabulary for compliance checking
