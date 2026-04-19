@@ -860,6 +860,79 @@ Rules:
 - **`editorial-list` inside `--dark`.** Add `style="--accent-earth:rgba(247,244,238,0.72)"` on the `<ul>` wrapper so the bullet squares read against the dark background.
 <!-- @component:text-panel:end -->
 
+<!-- @component:stat-card:start -->
+#### Stat Card
+
+Lightweight editorial metric module for a single highlighted number. Use when one data point should carry the visual emphasis while the metric name and guiding sentence stay quiet and compact.
+
+This is **not** a dashboard card. It has no border, no background fill, no shadow, and no corner treatment. Hierarchy comes from number scale, spacing, and restrained typography.
+
+```html
+<!-- variant A: default vertical composition -->
+<div class="stat-card">
+  <p class="caption" style="color:var(--text-muted);">Performance signal</p>
+  <div class="stat-card-value" style="color: var(--accent-gold);">27%</div>
+  <div class="text-panel-body" style="gap:10px;max-width:330px;">
+    <h3 style="font-size:24px;line-height:1.04;text-transform:uppercase;">EBIT Margin</h3>
+    <p style="font-size:14px;line-height:1.56;color:var(--text-secondary);">Expanded for the third consecutive quarter as premium mix offset freight pressure and held pricing discipline through softer volume.</p>
+  </div>
+</div>
+
+<!-- variant B: horizontal composition -->
+<div class="stat-card stat-card--horizontal">
+  <div style="display:flex;flex-direction:column;gap:12px;flex:0 0 220px;min-width:0;">
+    <p class="caption" style="color:var(--text-muted);">Operational baseline</p>
+    <div class="stat-card-value" style="color: var(--accent-olive);">4.8x</div>
+  </div>
+  <div class="text-panel-body" style="gap:10px;max-width:330px;">
+    <h3 style="font-size:24px;line-height:1.04;text-transform:uppercase;">Inventory Turnover</h3>
+    <p style="font-size:14px;line-height:1.56;color:var(--text-secondary);">Higher cycle efficiency reduced working-capital drag without adding new capacity, leaving more headroom for seasonal demand swings.</p>
+  </div>
+</div>
+```
+
+```css
+.stat-card {
+    height: 100%;
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 16px;
+    padding-top: 8px;
+}
+
+.stat-card--horizontal {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 30px;
+}
+
+.stat-card-value {
+    font-family: 'IBM Plex Sans Condensed', 'Inter', ui-sans-serif, sans-serif;
+    font-size: 88px;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: inherit;
+}
+```
+
+Rules:
+- Use this component only for a **single** highlighted metric. If the slide needs several peer metrics, switch to a multi-item layout instead of stacking several stat cards together without hierarchy.
+- The number color is chosen semantically from the Summit palette via inline `style="color: var(--accent-xxx)"`; do not hardcode a fixed color in the component CSS.
+- Do not add background fills, borders, shadows, or rounded corners. The module must remain typographic and editorial.
+- Use `h3` for the metric name and a single compact `p` for the guiding sentence. Keep the copy to one or two sentences.
+- Default `stat-card` is vertical. Add `stat-card--horizontal` only when the number and explanation need a side-by-side read.
+
+##### Tips
+- **Horizontal width discipline.** In the horizontal variant, keep the number column narrow (`~220px`) so the prose still reads as the explanatory side, not as a second visual block.
+- **Long numbers.** For values such as `12,450` or `83.6%`, reduce the inline font size slightly before tightening letter-spacing further.
+- **Semantic color choice.** `--accent-gold` works for primary emphasis, `--accent-olive` for stable or positive operational metrics, `--accent-danger` for negative indicators, and `--accent-sage` for environmental or resilience-oriented signals.
+- **Do not over-explain.** If the description starts to become paragraph-length, switch to `text-panel` or pair the stat card with a narrative component in the neighboring slot.
+<!-- @component:stat-card:end -->
+
 <!-- @component:editorial-image-top:start -->
 #### Editorial Image Top
 
