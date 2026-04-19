@@ -31,6 +31,8 @@ Apply this visual style when generating all slides in this session.
     --accent-danger: #b94a3c;
     --accent-sage: #9eb0a6;
     --shadow-soft: rgba(0, 0, 0, 0.18);
+    --font-display: 'IBM Plex Sans Condensed', 'Inter', ui-sans-serif, sans-serif;
+    --font-body: 'Inter', ui-sans-serif, sans-serif;
 }
 ```
 
@@ -150,7 +152,7 @@ html {
 body {
     background: var(--bg-frame);
     color: var(--text-primary);
-    font-family: 'Inter', ui-sans-serif, sans-serif;
+    font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
     height: 100%;
 }
@@ -202,7 +204,7 @@ body {
 }
 
 h1, h2, h3, h4 {
-    font-family: 'IBM Plex Sans Condensed', 'Inter', ui-sans-serif, sans-serif;
+    font-family: var(--font-display);
     font-weight: 600;
     letter-spacing: -0.02em;
     color: var(--text-primary);
@@ -918,7 +920,7 @@ This is **not** a dashboard card. It has no border, no background fill, no shado
 }
 
 .stat-card-value {
-    font-family: 'IBM Plex Sans Condensed', 'Inter', ui-sans-serif, sans-serif;
+    font-family: var(--font-display);
     font-size: 88px;
     line-height: 0.9;
     letter-spacing: -0.04em;
@@ -1197,7 +1199,7 @@ Rules:
 - The left copy zone holds a kicker row followed by a `text-panel-body`. The body accepts prose `<p>`, an `<ul class="editorial-list">`, or both — choose based on content.
 - The right visual slot is open: use a plain `media-frame img`, an `echart-container`, or a full `image-title` component. Choose based on content — there is no default.
 - When using `editorial-list` inside `text-panel-body`, add `<strong>` around the first 2–5 words of each `<li>` to create a bold lead phrase for scannable hierarchy.
-- When the card carries a large statistic or callout number, place it between the header and the copy zone using an inline style (`font-size: 48px; font-family: IBM Plex Sans Condensed; font-weight: 700; color: var(--accent-gold); line-height: 1;`).
+- When the card carries a large statistic or callout number, place it between the header and the copy zone using an inline style (`font-size: 48px; font-family: var(--font-display); font-weight: 700; color: var(--accent-gold); line-height: 1;`).
 
 ##### Tips
 - **Parent must supply height.** `.editorial-text-left` uses `height: 100%` and `flex: 1` internally. The parent slot must have a defined height (grid cell, `height:100%` chain, or `flex:1;min-height:0`).
@@ -1321,6 +1323,34 @@ Horizontal step or phase sequence. Use for process stages, numbered definitions,
 ```
 
 ```css
+/* Shared by flow-horizontal and flow-vertical */
+.flow-number {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    border: 1px solid var(--line-strong);
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.flow-body h4 {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.14;
+}
+
+.flow-body p {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
 .flow-horizontal {
     position: relative;
     display: flex;
@@ -1355,30 +1385,6 @@ Horizontal step or phase sequence. Use for process stages, numbered definitions,
     position: relative;
     z-index: 1;
     background: var(--bg-page);
-    font-family: 'IBM Plex Sans Condensed', sans-serif;
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: var(--text-muted);
-    border: 1px solid var(--line-strong);
-    width: 34px;
-    height: 34px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.flow-horizontal .flow-body h4 {
-    font-size: 20px;
-    font-weight: 600;
-    line-height: 1.14;
-}
-
-.flow-horizontal .flow-body p {
-    font-size: 14px;
-    line-height: 1.6;
-    color: var(--text-secondary);
 }
 ```
 
@@ -1454,21 +1460,6 @@ Vertical step or timeline sequence. Use for chronological phases, execution stag
     flex-shrink: 0;
 }
 
-.flow-vertical .flow-number {
-    font-family: 'IBM Plex Sans Condensed', sans-serif;
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: var(--text-muted);
-    border: 1px solid var(--line-strong);
-    width: 34px;
-    height: 34px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
 .flow-vertical .flow-line {
     width: 1px;
     flex: 1;
@@ -1486,17 +1477,11 @@ Vertical step or timeline sequence. Use for chronological phases, execution stag
 }
 
 .flow-vertical .flow-body h4 {
-    font-size: 20px;
-    font-weight: 600;
-    line-height: 1.14;
     margin-top: 4px;
 }
 
 .flow-vertical .flow-body p {
     margin-top: 8px;
-    font-size: 14px;
-    line-height: 1.6;
-    color: var(--text-secondary);
 }
 ```
 
@@ -1584,7 +1569,7 @@ Annual-report format data table. Use for year-on-year comparisons, emissions dat
 .data-table {
     width: 100%;
     border-collapse: collapse;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body);
     font-size: 13px;
     font-variant-numeric: tabular-nums;
     color: var(--text-primary);
@@ -1989,7 +1974,7 @@ Flat editorial quote block. Wide and short (width > height). Transparent backgro
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'IBM Plex Sans Condensed', sans-serif;
+    font-family: var(--font-display);
     font-size: 14px;
     font-weight: 700;
     color: var(--text-muted);
@@ -2097,7 +2082,7 @@ Omit `--light` only on slides with a white/light background.
   position: absolute;
   bottom: 36px;
   right: 52px;
-  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-family: var(--font-display);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -2231,7 +2216,7 @@ A horizontal milestone timeline with a central axis line. Nodes sit on the axis;
 
 /* Date: inherits node colour via --tjh-item-color */
 .tjh-date {
-  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-family: var(--font-display);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -2242,7 +2227,7 @@ A horizontal milestone timeline with a central axis line. Nodes sit on the axis;
 }
 
 .tjh-title {
-  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-family: var(--font-display);
   font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -2426,7 +2411,7 @@ Can be placed inside any layout slot that provides a defined height (`narrative`
 
 /* Date — colored per node via --tjv-item-color */
 .tjv-date {
-  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-family: var(--font-display);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -2437,7 +2422,7 @@ Can be placed inside any layout slot that provides a defined height (`narrative`
 }
 
 .tjv-title {
-  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-family: var(--font-display);
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.01em;
