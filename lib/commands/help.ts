@@ -7,6 +7,7 @@
 import { activeDesign } from "../design/designs"
 import { activeDomain } from "../domain/domains"
 import { ctx } from "../ctx"
+import pkg from "../../package.json"
 
 export async function handleHelp(
   send: (text: string) => Promise<void>,
@@ -16,7 +17,7 @@ export async function handleHelp(
   const status = ctx.enabled ? "enabled ✓" : "disabled"
   await send(
     `\`\`\`\n` +
-    `             R E V E L A\n` +
+    `             R E V E L A   v${pkg.version}\n` +
     `\`\`\`\n` +
     `**Status:** ${status}\n` +
     `🟠 **Design:** \`${design}\`\n` +
