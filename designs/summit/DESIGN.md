@@ -572,6 +572,8 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 
 Equal N-column layout. Use when 3 or more parallel items of roughly equal visual weight should appear side by side — proof blocks, highlights, feature comparisons, stat groups, or any multi-column editorial spread.
 
+A short section header is optional but recommended. In Summit, that header should stay lean: eyebrow plus title only, with no intro paragraph competing with the columns below.
+
 Structural intent:
 - each slot: 1fr column — any component(s)
 - column count: determined by the number of direct child divs in the grid container; `auto-fit` distributes space equally
@@ -582,6 +584,11 @@ Every slot accepts 1 or more components. Add or remove child divs to control col
 <section class="slide" slide-qa="true" data-index="N">
   <div class="slide-canvas">
     <div class="page">
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px;max-width:520px;">
+        <p class="eyebrow">Section Label</p>
+        <h2 style="font-size:52px;line-height:0.94;text-transform:uppercase;">Short framing title for the parallel columns</h2>
+      </div>
+
       <div class="highlight-cols-grid" style="flex:1;min-height:0;">
 
         <!-- [slot: 1] — 1+ components; suggested: editorial-image-top, editorial-text-top, echart-panel -->
@@ -619,8 +626,10 @@ Every slot accepts 1 or more components. Add or remove child divs to control col
 
 ##### Tips
 - **Grid container needs `flex:1;min-height:0` inline** when inside `.page` (which is flex-column). The class handles column sizing; the inline style handles row stretch.
+- **Header stays lean.** If you add a section header above the grid, use only `eyebrow + title`. Do not add an intro paragraph; the columns themselves should carry the explanation.
 - **Column count = number of direct child divs.** `repeat(auto-fit, minmax(0, 1fr))` distributes available width equally across however many children exist. Add a 4th or 5th div to get 4 or 5 columns — no CSS change needed.
 - **Equal columns — no hierarchy.** All slots carry the same visual weight. Adjust content density to suit the slide purpose; do not artificially inflate one column to create false hierarchy.
+- **When using 4-5 columns, compress the header.** Keep the title to one or two short lines so the grid retains most of the slide height.
 - **Do not set fixed heights on editorial components.** Let components fill height via flexbox stretch.
 <!-- @layout:highlight-cols:end -->
 
