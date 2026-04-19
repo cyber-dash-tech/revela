@@ -34,7 +34,39 @@ Before writing any HTML, ask the user these questions **in a single message**
 
 If the user's first message already answers most of these, skip what's clear and
 only ask about what's missing. If the message is detailed enough, proceed directly
-to Phase 2.
+to Phase 1.5.
+
+Once you have the user's answers, **derive the deck slug** from the topic:
+lowercase, hyphens, no spaces (e.g. "AI Investment Shift" → `ai-investment-shift`).
+Tell the user: "I'll save this deck as `slides/{slug}.html`." They can correct the
+name at this point.
+
+### Phase 1.5 — Deck Initialization & Resume Check
+
+After confirming the deck slug, check whether this deck has been worked on before:
+
+1. Run `ls researches/{slug}/` (or `glob researches/{slug}/*.md`).
+2. **If the directory does not exist (new deck):** proceed to Phase 2.
+3. **If research files already exist (resuming):** list the files and ask the user:
+
+   > 我发现 `researches/{slug}/` 下已有以下研究文件：
+   > - `market-data.md`
+   > - `competitor-profile.md`
+   > - _(etc.)_
+   >
+   > 你想：
+   > a. 直接使用现有研究，跳到幻灯片计划阶段
+   > b. 补充某些方向的研究（请告诉我哪些方向）
+   > c. 全部重新研究
+
+   Then act based on the user's reply:
+   - **a** → skip Phase 3, go directly to Phase 4 (read existing files first)
+   - **b** → run research agents only for the specified axes, then Phase 4
+   - **c** → proceed to Phase 2 normally (full research)
+
+All subsequent file paths in this session use the confirmed slug:
+- Slides file: `slides/{slug}.html`
+- Research dir: `researches/{slug}/`
 
 ### Phase 2 — Select Design
 
@@ -127,8 +159,9 @@ research workhorse — not an optional enhancement.
 
 The research agent searches the web using `websearch` for broad discovery and
 `webfetch` for depth on specific pages, reads workspace documents, and writes
-structured findings to a single file `researches/{topic-slug}/{axis-name}.md`
-in the workspace.
+structured findings to a single file `researches/{slug}/{axis-name}.md`
+in the workspace. Use the deck slug confirmed in Phase 1.5 — do not invent a
+different slug at this point.
 
 ##### Parallelization Rule
 
@@ -151,14 +184,14 @@ need 2 axes; a complex comparison may need 4 or more. Typical decompositions:
 Launch ALL agents in a single message (parallel Task tool calls).
 
 Each agent's brief should specify:
-- The topic slug (shared, e.g. `ai-investment-shift`)
+- The deck slug from Phase 1.5 (e.g. `ai-investment-shift`) — all agents share the same slug
 - The axis name for their file (e.g. `anthropic-profile`, `openai-challenges`, `market-trends`)
 - What to research and what time period to focus on
 - An explicit instruction to use `websearch` (e.g. "Use the websearch tool to find relevant market reports, news, and data for this axis.")
 
 ##### After Agents Complete
 
-List and read the findings files: `ls researches/{topic-slug}/`, then `read`
+List and read the findings files: `ls researches/{slug}/`, then `read`
 each `.md` file. Each file contains structured `## Data`, `## Cases`,
 `## Images`, and `## Gaps` sections — use these directly as slide material.
 Cross-reference agent findings with workspace documents (Layer 1). Flag any
@@ -313,8 +346,7 @@ Once the fetch is complete, generate the complete HTML file in one shot.
 
 - Output **only** the raw HTML — no markdown fences, no explanation before or after
 - Create a `slides/` directory in the current working directory if it doesn't already exist
-- Write the file to `slides/<topic-slug>.html`
-  (e.g. "AI Future" → `slides/ai-future.html`)
+- Write the file to `slides/{slug}.html` using the deck slug confirmed in Phase 1.5
 - The file must be completely self-contained (all CSS and JS inline)
 
 ### Phase 6 — Iterate
@@ -325,7 +357,7 @@ After generating, briefly tell the user:
 - One line invitation to request changes
 
 For change requests: re-generate the **entire** file (don't patch). Apply the
-change and silently overwrite the same `slides/<topic-slug>.html` filename.
+change and silently overwrite the same `slides/{slug}.html` filename.
 
 ---
 
@@ -447,130 +479,6 @@ decorative fill patterns.
 | "Intro to Python" | `slides/intro-to-python.html` |
 
 Lowercase, hyphens, no spaces, `.html` extension. Always place files inside the `slides/` subdirectory.
-
----
-
-## Design Generation Mode
-
-Enter this mode when the user wants to create a new visual design — triggered by
-phrases like "create a design", "save this style as a design", "generate a
-design from this image/screenshot/design", "make a design based on this".
-
-Design generation produces a reusable **style definition** (not a full
-presentation). Once saved, the design appears in the design picker and
-applies its visual style to all future presentations.
-
----
-
-### Phase T1 — Analyse the reference
-
-Study the uploaded image(s) or described style and extract:
-
-- **Color palette**: exact hex values for background, surface, text (primary +
-  secondary), accent, border. If extracting from an image, sample the dominant
-  colors precisely.
-- **Typography feel**: serif vs sans-serif, weight choices, size hierarchy.
-  Pick real web fonts from Fontshare (`https://api.fontshare.com`) or Google
-  Fonts that match the feel — never use system fonts.
-- **Layout density**: generous whitespace vs compact, centered vs left-aligned.
-- **Animation mood**: subtle & professional, bold & energetic, or minimal
-  (no animation).
-  - **Aesthetic name**: 2–3 words in kebab-case that describe the look, e.g.
-    `warm-editorial`, `neon-brutalist`, `soft-corporate`. Never include the word
-    "design".
-
-Briefly tell the user what you extracted (palette, fonts, mood) and the name
-you chose. Ask if they want any adjustments before proceeding.
-
----
-
-### Phase T2 — Generate skill text
-
-Write the complete DESIGN.md body for the new design. Use the **default design's
-DESIGN.md** as the canonical reference for section structure. Your output must
-include all of the same sections: Color Palette, Typography, Background Layers,
-Slide Layout, Component Library, Layout Primitives, Data Visualization (ECharts),
-Composition Guide, Code Blocks, Do & Don't, Reduced Motion.
-
----
-
-### Phase T3 — Generate preview.html
-
-Write a self-contained HTML file with **at least 7 slides** that demonstrates
-the design can handle all common presentation content types:
-
-1. **Cover** — title, subtitle, date/author
-2. **Content with parallel items** — multiple items presented side by side
-   (e.g., features, principles, team members)
-3. **Content with quantitative data** — large numbers, metrics, or statistics
-4. **Content with two distinct areas** — narrative paired with supporting
-   evidence, or data paired with explanation
-5. **Content with sequential process** — ordered steps or timeline
-6. **Content with a quote or key message** — emphasis on a single statement
-7. **Closing** — thank you, CTA, or summary
-
-Rules:
-- Use the exact CSS variables from the skill text you just generated
-- Each slide should demonstrate the design's visual style — collectively
-  showcase all components at least once (cards, stat cards, quote block,
-  step flow, evidence lists, chart containers, decorative fills, etc.)
-- Must use the 1920×1080 canvas with `transform: scale()` and `setupScaling()` JS
-- Must look great at 900×600px (DesignModal preview iframe size — canvas auto-scales)
-- Include working keyboard navigation, nav dots, and progress bar
-
----
-
-### Phase T4 — Save the design
-
-Save the new design by writing the files and installing via the `designs` tool.
-
-**Step 1 — Write files to a temporary directory:**
-
-Create a temporary directory and write two files:
-- `DESIGN.md` — with YAML frontmatter (`name`, `description`, `author`, `version`)
-  followed by the full skill text body from Phase T2
-- `preview.html` — the full HTML from Phase T3
-
-```
-/tmp/revela-design-<name>/
-├── DESIGN.md
-└── preview.html
-```
-
-**Step 2 — Install the design:**
-
-Call the `designs` tool with action `"install"` and `source` pointing to the
-temporary directory path. Optionally pass `name` to override the design name.
-
-**Step 3 — Activate the design:**
-
-Call the `designs` tool with action `"activate"` and the design name.
-
-**Step 4 — Clean up:**
-
-Remove the temporary directory.
-
----
-
-### Phase T5 — Confirm
-
-Tell the user:
-
-> Design **`<name>`** has been created and activated.
-> Open the design picker (the design button in the bottom bar) to see it.
-> Your next presentation will use this style automatically.
-
-Do not generate a presentation unless the user asks for one.
-
----
-
-### Design Generation Rules
-
-- **Never** hardcode colors — always use CSS custom properties.
-- **Never** name a design after a brand or person. Use descriptive aesthetic names.
-- The `skill_md` you generate becomes the AI's only style reference — be precise.
-- preview.html must use the **exact same CSS variables** as the skill text.
-- If the user uploads multiple images with conflicting styles, ask which one to use.
 
 ---
 
