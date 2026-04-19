@@ -298,7 +298,18 @@ Then ask:
 
 ### Phase 5 — Generate
 
-Once you have enough information, generate the complete HTML file in one shot.
+**BEFORE writing any HTML, you MUST complete these steps in order:**
+
+1. Look at the layout and component names from your Phase 4 plan table.
+2. Call `revela-designs` tool with `action: "read"` and `layout` set to ALL layout names
+   you plan to use (comma-separated, e.g. `layout: "cover,two-col,stats,card-grid"`).
+3. Call `revela-designs` tool with `action: "read"` and `component` set to ALL component
+   names you plan to use (comma-separated, e.g. `component: "card,stat-card,evidence-list"`).
+4. Generate HTML that **exactly matches** the fetched examples — copy the HTML structure verbatim.
+
+**NEVER skip steps 2–3. NEVER generate HTML from memory or prior knowledge of the design.**
+
+Once the fetch is complete, generate the complete HTML file in one shot.
 
 - Output **only** the raw HTML — no markdown fences, no explanation before or after
 - Create a `slides/` directory in the current working directory if it doesn't already exist
@@ -344,34 +355,36 @@ You MUST use ONLY the layouts and components listed in the Layout Index and
 Component Index injected into this prompt.
 
 **Layouts:** Every `<section class="slide">` must use exactly one layout class
-from the Layout Index. Do NOT invent custom grid or flex structures.
+from the Layout Index. **NEVER invent a layout class. NEVER create custom grid
+or flex structures outside of the defined layouts.**
 
 **Components:** Every content block must use a component class from the
-Component Index. Do NOT create novel CSS classes for content elements.
+Component Index. **NEVER create a CSS class that is not in the Component Index.
+NEVER invent component names.**
 
 **`<style>` block — no new class rules.** The design already provides all
-necessary CSS (foundation, layouts, components). Your `<style>` block should
-contain only CSS rules copied verbatim from the design's sections. Never define
-a CSS class rule (`.my-custom-thing { ... }`) that is not in the design.
+necessary CSS (foundation, layouts, components). **ALWAYS copy CSS rules
+verbatim from the design's sections. NEVER define a new CSS class rule**
+(`.my-custom-thing { ... }`) that is not in the design.
 
-**Inline `style=""` — minor adjustments only.** Inline styles are permitted
-for fine-tuning spacing and sizing (`margin`, `padding`, `gap`, `font-size`,
-`max-width`, `min-height`, `width`, `height`). They must NOT be used to
-define new visual effects — no custom `background-image`, `box-shadow`,
-`border-radius`, `color`, or layout structures via inline style.
+**Inline `style=""` — spacing and sizing ONLY.** Inline styles are permitted
+exclusively for fine-tuning spacing and sizing (`margin`, `padding`, `gap`,
+`font-size`, `max-width`, `min-height`, `width`, `height`). **NEVER use inline
+`style=""` for visual effects** — no custom `background-image`, `box-shadow`,
+`border-radius`, `color`, `gradient`, or layout structures.
 
-**CSS variables:** Use only `var(--xxx)` properties defined in
-`@design:foundation`. Do NOT define new custom properties.
-
-**Fetch before use:** Before generating any slide, call the `revela-designs`
-tool to fetch the full HTML/CSS for each layout and component you plan to
-use. Generate HTML that matches the fetched examples exactly.
+**CSS variables:** **ALWAYS use only `var(--xxx)` properties defined in
+`@design:foundation`. NEVER define new `--xxx` custom properties.**
 
 **No suitable component?** Adapt the *content* to fit the closest available
-component — never adapt the component structure to fit content.
+component — **NEVER adapt the component structure to fit content. NEVER create
+a new component because the existing ones "don't quite fit".**
 
-The QA system will automatically flag any unrecognised CSS class as a
-compliance warning after you write the file.
+The QA system will flag any unrecognised CSS class as a **compliance error**.
+If the QA report contains compliance issues after you write the file, you MUST
+fix them immediately — remove the offending classes and replace them with the
+closest component from the Component Index. Do not move on until all compliance
+errors are resolved.
 
 ### Inline Editing
 
