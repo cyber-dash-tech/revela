@@ -59,7 +59,8 @@ Accent usage guidance:
 - cover h1: `108px` to `124px`, weight `500` to `600`, line-height `0.90` to `0.96`
 - inner-layout h2: `30px` to `36px`, weight `500` to `600`, line-height `1.10` to `1.16`
 - inner-layout h3: `20px` to `24px`, weight `500`, line-height `1.16` to `1.22`
-- Body: `18px`, line-height `1.65`
+- Body: `17px`, line-height `1.65`
+- Quote text: `20px`, italic, line-height `1.5`
 - Eyebrow / caption: `12px` to `13px`, uppercase, letter-spacing `0.14em` to `0.18em`
 - Stat number: `72px` to `88px`, weight `400` to `500`, line-height `0.95`
 - Never use text shadows or glow.
@@ -216,7 +217,7 @@ h2 { font-size: 34px; line-height: 1.10; }
 h3 { font-size: 24px; line-height: 1.16; }
 
 p, li {
-    font-size: 18px;
+    font-size: 17px;
     line-height: 1.65;
     color: var(--text-secondary);
 }
@@ -283,7 +284,7 @@ p, li {
 .editorial-list li {
     position: relative;
     padding-left: 20px;
-    font-size: 14px;
+    font-size: 17px;
     line-height: 1.58;
     color: var(--text-secondary);
 }
@@ -774,7 +775,7 @@ Unified narrative text container. Use inside any layout slot that needs a self-c
     <p class="eyebrow" style="color:rgba(243,238,230,0.72);">Section label / annual review</p>
     <h2 style="margin-top:16px;font-size:60px;line-height:0.92;letter-spacing:-0.03em;text-transform:uppercase;color:#f0f4f7;max-width:360px;">Narrative heading</h2>
     <div class="text-panel-body" style="margin-top:20px;">
-      <p style="font-size:13px;line-height:1.58;color:rgba(243,238,230,0.84);max-width:390px;">Use one or two compact paragraphs when continuous prose fits the content better than a list.</p>
+      <p style="font-size:17px;line-height:1.58;color:rgba(243,238,230,0.84);max-width:390px;">Use one or two compact paragraphs when continuous prose fits the content better than a list.</p>
     </div>
   </div>
   <div class="text-panel-footer" style="color:rgba(243,238,230,0.68);">
@@ -808,7 +809,7 @@ Unified narrative text container. Use inside any layout slot that needs a self-c
     <p class="eyebrow" style="color:rgba(243,238,230,0.72);">Context</p>
     <h3 style="margin-top:12px;color:#f0f4f7;">Heading here</h3>
     <div class="text-panel-body" style="margin-top:16px;">
-      <p style="font-size:13px;line-height:1.58;color:rgba(243,238,230,0.84);">Introductory sentence that frames what follows. Then the list expands the argument:</p>
+      <p style="font-size:17px;line-height:1.58;color:rgba(243,238,230,0.84);">Introductory sentence that frames what follows. Then the list expands the argument:</p>
       <ul class="editorial-list" style="margin-top:12px;">
         <li><strong>Lead phrase.</strong> Supporting explanation.</li>
         <li><strong>Second point.</strong> One sentence of evidence.</li>
@@ -886,7 +887,7 @@ This is **not** a dashboard card. It has no border, no background fill, no shado
   <div class="stat-card-value" style="color: var(--accent-gold);">27%</div>
   <div class="text-panel-body" style="gap:10px;max-width:330px;">
     <h3 style="font-size:24px;line-height:1.04;text-transform:uppercase;">EBIT Margin</h3>
-    <p style="font-size:14px;line-height:1.56;color:var(--text-secondary);">Expanded for the third consecutive quarter as premium mix offset freight pressure and held pricing discipline through softer volume.</p>
+    <p style="font-size:17px;line-height:1.56;color:var(--text-secondary);">Expanded for the third consecutive quarter as premium mix offset freight pressure and held pricing discipline through softer volume.</p>
   </div>
 </div>
 
@@ -898,7 +899,7 @@ This is **not** a dashboard card. It has no border, no background fill, no shado
   </div>
   <div class="text-panel-body" style="gap:10px;max-width:330px;">
     <h3 style="font-size:24px;line-height:1.04;text-transform:uppercase;">Inventory Turnover</h3>
-    <p style="font-size:14px;line-height:1.56;color:var(--text-secondary);">Higher cycle efficiency reduced working-capital drag without adding new capacity, leaving more headroom for seasonal demand swings.</p>
+    <p style="font-size:17px;line-height:1.56;color:var(--text-secondary);">Higher cycle efficiency reduced working-capital drag without adding new capacity, leaving more headroom for seasonal demand swings.</p>
   </div>
 </div>
 ```
@@ -1028,7 +1029,7 @@ Rules:
 - **Do not set a fixed height on this component when used inside `highlight-cols`.** Let the parent grid's `align-items:stretch` control the column height. Fixed heights fight against the stretch and create misaligned baselines.
 - **Image aspect ratio.** Aim for 16:9 or 3:2 crops for the image block. Portrait crops create tall image zones that push text down and unbalance the composition.
 - **Kicker icon size.** Keep Lucide SVG icons at 16–20px. Larger icons shift visual weight from the image to the label zone.
-- **`editorial-list` font-size.** Override to `font-size:13px;gap:10px` inline — the base `editorial-list` is `14px/gap:14px`, which is slightly large for the narrow copy zone here.
+- **`editorial-list` font-size.** Override to `font-size:13px;gap:10px` inline when used inside a very narrow copy zone — the base `editorial-list` is `17px/gap:14px`, which may be too large for tight columns.
 <!-- @component:editorial-image-top:end -->
 
 <!-- @component:editorial-text-top:start -->
@@ -1094,7 +1095,7 @@ Rules:
 ##### Tips
 - **Same height/stretch rule as `editorial-image-top`.** Do not set fixed heights; let parent grid stretch control the column.
 - **When used as a center spine in `highlight-cols`,** this is the one component that may legitimately be taller than its neighbors. That density imbalance is intentional — do not try to equalize it with padding or extra content in the outer columns.
-- **`editorial-list` font-size.** Override to `font-size:13px;gap:10px` inline — the base `editorial-list` is `14px/gap:14px`, which is slightly large for the narrow copy zone here.
+- **`editorial-list` font-size.** Override to `font-size:13px;gap:10px` inline when used inside a very narrow copy zone — the base `editorial-list` is `17px/gap:14px`, which may be too large for tight columns.
 <!-- @component:editorial-text-top:end -->
 
 <!-- @component:editorial-text-left:start -->
@@ -1126,7 +1127,7 @@ Structure:
       <!-- text-panel-body: place <p>, <ul class="editorial-list">, or both — choose based on content -->
       <div class="text-panel-body" style="margin-top:12px;">
         <!-- prose variant -->
-        <p style="font-size:13px;line-height:1.5;color:var(--text-secondary);">Supporting description. One or two sentences that position this card within the broader page argument.</p>
+        <p style="font-size:17px;line-height:1.5;color:var(--text-secondary);">Supporting description. One or two sentences that position this card within the broader page argument.</p>
         <!-- bullet variant (use instead of or after prose): -->
         <!-- <ul class="editorial-list" style="font-size:13px;gap:10px;">
           <li><strong>Lead phrase.</strong> Supporting explanation for this point.</li>
@@ -1205,7 +1206,7 @@ Rules:
 ##### Tips
 - **Parent must supply height.** `.editorial-text-left` uses `height: 100%` and `flex: 1` internally. The parent slot must have a defined height (grid cell, `height:100%` chain, or `flex:1;min-height:0`).
 - **Text-to-visual flex ratio.** Default is `1.1 : 1` (copy slightly wider). For more copy, try `1.3 : 1`. For a visually dominant right panel, try `1 : 1.2`. Do not go below `0.8` on the copy side.
-- **`editorial-list` font-size inside copy zone.** Override to `font-size:13px` and `gap:10px` inline — the base `editorial-list` uses `14px / gap:14px`, which is slightly large for the narrow copy column.
+- **`editorial-list` font-size inside copy zone.** Override to `font-size:13px` and `gap:10px` inline when the copy column is very narrow — the base `editorial-list` uses `17px / gap:14px`.
 - **`echart-container` in visual slot.** Set `width:100%;height:100%` on the container and call `echarts.init()` after `SlidePresentation` is instantiated. The `position:relative;overflow:hidden` on `.editorial-text-left-visual` contains the canvas correctly.
 - **`image-title` in visual slot.** The component is self-contained and fills `width:100%;height:100%` automatically. Use `image-title--right` modifier with a bottom-heavy overlay and right-biased blur mask for the most common editorial orientation.
 - **Dark background.** Override CSS variables on `.editorial-text-left` to cascade into both the copy and visual zones: `--text-primary`, `--text-secondary`, `--text-muted`, `--line`, `--line-strong` — all set to white-family values.
@@ -1366,7 +1367,7 @@ Horizontal step or phase sequence. Use for process stages, numbered definitions,
 }
 
 .flow-body p {
-    font-size: 14px;
+    font-size: 17px;
     line-height: 1.6;
     color: var(--text-secondary);
 }
@@ -1595,7 +1596,7 @@ Annual-report format data table. Use for year-on-year comparisons, emissions dat
     width: 100%;
     border-collapse: collapse;
     font-family: var(--font-body);
-    font-size: 13px;
+    font-size: 17px;
     font-variant-numeric: tabular-nums;
     color: var(--text-primary);
 }
@@ -1607,7 +1608,7 @@ Annual-report format data table. Use for year-on-year comparisons, emissions dat
 .data-table th {
     padding: 0 12px 10px 0;
     text-align: left;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -1654,7 +1655,7 @@ Annual-report format data table. Use for year-on-year comparisons, emissions dat
 }
 
 .data-table tr.section-header td {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.10em;
     text-transform: uppercase;
@@ -2051,7 +2052,7 @@ Flat editorial quote block. Wide and short (width > height). Transparent backgro
 - **Dark background**: override text colors on the parent slot — `color: var(--bg-page)` for `.quote-text` and `.quote-name`; increase `.quote-mark` opacity to `0.15` (the sage hue reads better against dark at lower opacity).
 - **Avatar initials variant**: use `data-initials="JD"` and `style="--qa-rot:-11deg;"` on `.quote-avatar` (no child elements). The `::after` pseudo-element reads the initials and renders them on a rotated `--accent-earth` square over a white base square.
 - **Avatar photo variant**: add `<img>` inside `.quote-avatar` with `style="--qa-rot:8deg;"` on the parent. The image is fixed at `52×52px`, rotated by `--qa-rot`, and clips to the container via `overflow:hidden`. The white `::before` base square shows as corner peeking behind the rotated photo.
-- **Quote text length**: adjust `font-size` between `18px` (longer quotes, 3+ lines) and `24px` (short punchy quotes, 1 line). Keep `line-height: 1.5`.
+- **Quote text length**: adjust `font-size` between `17px` (longer quotes, 3+ lines) and `24px` (short punchy quotes, 1 line). Keep `line-height: 1.5`.
 - **Opacity guidance**: on `--bg-page` (warm paper), `.quote-mark` opacity `0.25` works well. On dark `--bg-frame` backgrounds, reduce to `0.15`.
 - **Source-only attribution** (no person): omit `.quote-avatar` entirely and use `.quote-name` for the source text (e.g. a report title or publication name).
 
