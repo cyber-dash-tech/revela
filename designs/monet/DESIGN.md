@@ -2158,7 +2158,7 @@ A horizontal milestone timeline with a central axis line. Nodes sit on the axis;
     <div class="tjh-label">
       <span class="tjh-date">Mar 2019</span>
       <span class="tjh-title">Programme Launch</span>
-      <span class="tjh-text">Cross-regional baseline mapping and legacy risk exposure formally catalogued.</span>
+      <span class="tjh-text">Baseline mapping launched.</span>
     </div>
     <div class="tjh-tip-dot"></div>
     <div class="tjh-stem"></div>
@@ -2174,7 +2174,7 @@ A horizontal milestone timeline with a central axis line. Nodes sit on the axis;
     <div class="tjh-label">
       <span class="tjh-date">Nov 2019</span>
       <span class="tjh-title">Supplier Audit</span>
-      <span class="tjh-text">Sprint completed across all strategic mills.</span>
+      <span class="tjh-text">Supplier sprint completed.</span>
     </div>
   </div>
 
@@ -2288,7 +2288,7 @@ A horizontal milestone timeline with a central axis line. Nodes sit on the axis;
 }
 
 .tjh-text {
-  font-size: 13px;
+  font-size: 17px;
   line-height: 1.5;
   color: var(--text-secondary);
 }
@@ -2300,7 +2300,7 @@ Rules:
 - **`--up` DOM order**: label → tip-dot → stem → axis-dot (label at top, axis-dot at bottom touching axis).
 - **`--down` DOM order**: axis-dot → stem → tip-dot → label (axis-dot at top touching axis, label at bottom).
 - Label order within `.tjh-label` is always: date → title → text (top to bottom).
-- Keep `.tjh-text` short (1–2 lines). The column width (`--tjh-col`) limits wrapping naturally.
+- Keep `.tjh-text` concise enough to stay within 1-2 lines at the default `17px`. If a node gets too dense, shorten the copy before changing the type scale.
 - Alternate up/down across nodes for visual rhythm. Do not stack multiple up or multiple down nodes consecutively unless intentional.
 - `--tjh-col` denominator should match the total number of nodes so each item gets equal horizontal space.
 
@@ -2332,7 +2332,7 @@ Can be placed inside any layout slot that provides a defined height (`narrative`
     <div class="tjv-label">
       <span class="tjv-date">Mar 2019</span>
       <span class="tjv-title">Programme Launch</span>
-      <span class="tjv-text">Cross-regional baseline mapping and legacy risk exposure formally catalogued across all operating units.</span>
+      <span class="tjv-text">Baseline mapping launched across all units.</span>
     </div>
   </div>
 
@@ -2346,7 +2346,7 @@ Can be placed inside any layout slot that provides a defined height (`narrative`
     <div class="tjv-label">
       <span class="tjv-date">Nov 2019</span>
       <span class="tjv-title">Supplier Audit Completed</span>
-      <span class="tjv-text">Full sprint completed across all strategic mills. 94% of Tier 1 suppliers assessed against new emissions criteria.</span>
+      <span class="tjv-text">94% of Tier 1 suppliers assessed.</span>
     </div>
   </div>
 
@@ -2483,7 +2483,7 @@ Can be placed inside any layout slot that provides a defined height (`narrative`
 }
 
 .tjv-text {
-  font-size: 13px;
+  font-size: 17px;
   line-height: 1.5;
   color: var(--text-secondary);
   max-width: 380px;
@@ -2496,7 +2496,7 @@ Rules:
 - Every node must set `--tjv-item-color` inline (use any Monet accent: `--accent-earth`, `--accent-gold`, `--accent-olive`, `--accent-sage`).
 - Alternate `--left` and `--right` across nodes for visual rhythm. Do not place consecutive same-side nodes unless intentional.
 - The parent container must have a defined height. Use `height: 100%` when inside a layout slot, or set an explicit `px` height when used standalone.
-- Keep `.tjv-text` to 2–4 lines. Longer text shifts the effective visual centre of the item away from the `axis-dot`.
+- Keep `.tjv-text` to roughly 2-3 lines at the default `17px`. Longer text shifts the effective visual centre of the item away from the `axis-dot`.
 
 ##### Tips
 - **Adjust stem length**: Change `--tjv-stem-w` on `.tjv` (or inline on a single item) to lengthen or shorten the dashed connector. Wider columns benefit from a longer stem (`120px`); narrow slots look cleaner at `60px`.
@@ -2505,7 +2505,7 @@ Rules:
 - **Standalone full-page use**: set an explicit height on the `.tjv` wrapper (e.g. `height: 720px`) when used outside a height-constrained layout.
 - **Dark background overrides**: set on the `.tjv` wrapper — `--line-strong: rgba(240,244,247,0.25)` (axis + stem), `.tjv-title { color: #f0f4f7 }`, `.tjv-text { color: rgba(240,244,247,0.7) }`. The `--tjv-item-color` accent colours work on dark backgrounds without change.
 - **Fewer nodes (3–4)**: increase spacing — use `top` values like `15%, 35%, 55%, 75%` to prevent the timeline from clustering at the top.
-- **More nodes (6–8)**: reduce `.tjv-text` to 1–2 lines and consider reducing `font-size` to `12px` to avoid label collisions.
+- **More nodes (6–8)**: keep `.tjv-text` to 1-2 lines and increase vertical spacing between nodes if needed. Treat `17px` as the default body size; only use a smaller local override in exceptional dense layouts.
 <!-- @component:timeline-journey-vertical:end -->
 
 <!-- @design:components:end -->
