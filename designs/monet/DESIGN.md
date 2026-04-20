@@ -30,7 +30,7 @@ Inspired by Claude Monet's *Le Bassin aux Nymphéas* — mist, water, and soft l
     --accent-olive: #00A2B0;
     --accent-stone: #83A5BA;
     --accent-gold: #738DC2;
-    --accent-danger: #b94a3c;
+    --accent-danger: #E593B4;
     --accent-sage: #7CBDC3;
     --shadow-soft: rgba(0, 55, 102, 0.18);
     --font-display: 'EB Garamond', 'Georgia', ui-serif, serif;
@@ -101,6 +101,70 @@ All sizes are fixed `px` for the 1920x1080 canvas. JS `transform: scale()` handl
 - Dense slides should rely on structure, not decoration.
 - Sparse slides can use a single atmospheric image or one quiet rule to hold composition.
 - Never use blobs, glow halos, glass cards, or dashboard chrome.
+
+### Editorial Index Motifs
+
+- Monet may use a **catalogue-style index language** for contents, section menus, and chapter navigators: compact rows, quiet page references, and airy spacing.
+- When numbering chapters or sections, prefer a **tilt plaque** over a bare utility numeral. The effect should feel like lightly layered paper, not a sticker or badge system.
+- Tilt plaques should stay restrained: usually two layers only, light border, soft shadow, and small rotation deltas. Keep the front/back rotation within about `3deg` to `9deg`.
+- Monet may use an **offset display heading** for short editorial titles. If a heading breaks across two lines, the second line may shift horizontally to create a composed art-book rhythm.
+- Offset headings are only for short titles. Do not use this treatment for dense multi-line copy blocks or long explanatory headlines.
+- For index-like structures, the information hierarchy should read **chapter label -> title -> page reference**. The label stays small and quiet; the title carries the main emphasis; the page reference stays right-aligned and understated.
+- TOC and index rows should avoid long summaries by default. Prefer short chapter titles plus page references. Add only a very short intro/dek when orientation is genuinely needed.
+
+Recommended reusable primitives:
+
+```css
+.tilt-plaque {
+    position: relative;
+    width: 68px;
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tilt-plaque::before,
+.tilt-plaque::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px solid rgba(15, 30, 42, 0.10);
+    box-shadow: 0 16px 36px rgba(41, 80, 104, 0.10);
+}
+
+.tilt-plaque::before {
+    transform: rotate(var(--plaque-back-rot, -7deg)) translate(-6px, 5px);
+    background: var(--plaque-back, rgba(123, 189, 195, 0.22));
+}
+
+.tilt-plaque::after {
+    transform: rotate(var(--plaque-front-rot, 4deg));
+    background: linear-gradient(145deg, rgba(255,255,255,0.92), rgba(255,255,255,0.66));
+}
+
+.tilt-plaque-value {
+    position: relative;
+    z-index: 1;
+    font-family: var(--font-display);
+    font-size: 31px;
+    line-height: 1;
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    transform: rotate(var(--plaque-value-rot, -3deg));
+    color: var(--plaque-ink, var(--text-primary));
+}
+
+.offset-title {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.offset-title-line--offset {
+    padding-left: 84px;
+}
+```
 
 ### Slide Layout
 
@@ -1288,7 +1352,7 @@ Rules:
 ##### Tips
 - **Dark background: always use `backgroundColor:'transparent'` in `setOption`.** Do not rely on CSS background — ECharts renders to a canvas element and ignores inherited CSS background.
 - **Dark background: override ALL text colors in the ECharts option.** Axis labels, legend text, axis line colors, and tooltip styles do not inherit from CSS. Set them explicitly: `rgba(240,244,247,0.65)` for labels, `rgba(240,244,247,0.2)` for grid lines.
-- **Candlestick on dark background.** Use `--accent-olive` (`#00A2B0`) for up candles and `--accent-danger` (`#b94a3c`) for down candles. These read clearly against dark backgrounds and stay within the Monet palette.
+- **Candlestick on dark background.** Use `--accent-olive` (`#00A2B0`) for up candles and `--accent-danger` (`#E593B4`) for down candles. These read clearly against dark backgrounds and stay within the Monet palette.
 - **`height:100%` vs fixed pixel height.** Use `flex:1;min-height:0` when the chart should fill available space automatically (e.g., inside `split-dashboard`). Use a fixed pixel height (e.g., `height:380px`) only when you need to cap the chart to a specific proportion of the slide.
 - **Chart sizing for `narrative-hero-left-dark`.** The left 7.8fr column is wide. A donut or candlestick chart works best centered with some breathing room. Add `padding: 24px 32px` to `.echart-container` to prevent the chart from touching the column edges.
 <!-- @component:echart-panel:end -->
@@ -1886,33 +1950,77 @@ Rules:
 <!-- @component:toc:start -->
 #### TOC Panel
 
-Narrow editorial panel for table-of-contents slides. A 3px accent-gold vertical rule on the left anchors the panel; the right body holds a title, short intro note, chapter list, and a footer block. The `justify-content:space-between` flex column pins the footer to the bottom of the panel.
+Catalogue-style table-of-contents panel for chaptered presentations. Use a composed title block, compact TOC rows, tilt chapter plaques, and quiet right-aligned page references. The panel should feel like an editorial contents spread, not a consulting report index.
 
 ```html
 <div class="toc-panel">
-  <div style="width:3px;background:var(--accent-gold);flex:0 0 3px;"></div>
-  <div style="padding-left:22px;display:flex;flex-direction:column;justify-content:space-between;flex:1;">
+  <div class="toc-panel-inner">
     <div>
-      <h2 style="font-size:34px;line-height:0.94;letter-spacing:-0.03em;text-transform:uppercase;max-width:220px;">Table of Contents</h2>
-      <p style="margin-top:18px;font-size:11px;line-height:1.6;letter-spacing:0.06em;color:var(--text-secondary);max-width:255px;">Short introductory note describing the scope of the sections that follow.</p>
-      <ol style="list-style:none;display:flex;flex-direction:column;gap:10px;margin-top:26px;">
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">01</span><span>Chapter title or section theme</span></li>
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">02</span><span>Chapter title or section theme</span></li>
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">03</span><span>Chapter title or section theme</span></li>
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">04</span><span>Chapter title or section theme</span></li>
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">05</span><span>Chapter title or section theme</span></li>
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;"><span style="font-weight:700;">06</span><span>Chapter title or section theme</span></li>
+      <div class="toc-header">
+        <p class="toc-kicker">Contents</p>
+        <h2 class="toc-title offset-title">
+          <span>A quieter way</span>
+          <span class="offset-title-line--offset">into the story.</span>
+        </h2>
+        <p class="toc-dek">Optional short orientation line. Keep this brief and remove it entirely when the chapter list can stand on its own.</p>
+      </div>
+      <ol class="toc-list">
+        <li class="toc-item">
+          <div class="tilt-plaque" style="--plaque-back:rgba(115, 141, 194, 0.24);--plaque-back-rot:-9deg;--plaque-front-rot:4deg;--plaque-value-rot:-3deg;--plaque-ink:#5879a8;">
+            <span class="tilt-plaque-value">01</span>
+          </div>
+          <div class="toc-item-body">
+            <div class="toc-item-meta">
+              <p class="toc-chapter-label">Chapter 1</p>
+              <p class="toc-page-number">06</p>
+            </div>
+            <p class="toc-item-title">Prelude &amp; Intent</p>
+          </div>
+        </li>
+        <li class="toc-item">
+          <div class="tilt-plaque" style="--plaque-back:rgba(123, 189, 195, 0.24);--plaque-back-rot:6deg;--plaque-front-rot:-5deg;--plaque-value-rot:2deg;--plaque-ink:#5f8f92;">
+            <span class="tilt-plaque-value">02</span>
+          </div>
+          <div class="toc-item-body">
+            <div class="toc-item-meta">
+              <p class="toc-chapter-label">Chapter 2</p>
+              <p class="toc-page-number">14</p>
+            </div>
+            <p class="toc-item-title">Landscape in Motion</p>
+          </div>
+        </li>
+        <li class="toc-item">
+          <div class="tilt-plaque" style="--plaque-back:rgba(41, 128, 175, 0.20);--plaque-back-rot:-5deg;--plaque-front-rot:3deg;--plaque-value-rot:-1deg;--plaque-ink:#3f6f8a;">
+            <span class="tilt-plaque-value">03</span>
+          </div>
+          <div class="toc-item-body">
+            <div class="toc-item-meta">
+              <p class="toc-chapter-label">Chapter 3</p>
+              <p class="toc-page-number">22</p>
+            </div>
+            <p class="toc-item-title">Findings &amp; Texture</p>
+          </div>
+        </li>
+        <li class="toc-item">
+          <div class="tilt-plaque" style="--plaque-back:rgba(229, 147, 180, 0.24);--plaque-back-rot:8deg;--plaque-front-rot:-4deg;--plaque-value-rot:3deg;--plaque-ink:#9c6482;">
+            <span class="tilt-plaque-value">04</span>
+          </div>
+          <div class="toc-item-body">
+            <div class="toc-item-meta">
+              <p class="toc-chapter-label">Chapter 4</p>
+              <p class="toc-page-number">31</p>
+            </div>
+            <p class="toc-item-title">Priorities for Action</p>
+          </div>
+        </li>
       </ol>
     </div>
-    <div style="display:flex;flex-direction:column;gap:14px;">
-      <div class="rule"></div>
+    <div class="toc-footer">
       <div>
-        <p class="caption">Scope of report</p>
-        <p style="margin-top:10px;font-size:11px;line-height:1.6;color:var(--text-secondary);max-width:255px;">Optional scope note, data coverage period, or brief methodology reference.</p>
+        <p class="caption">Curatorial note</p>
+        <p class="toc-footer-note">Optional note. Keep it quiet and short; this footer should support the TOC, not compete with it.</p>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:end;">
-        <p class="caption">Organisation · Year</p>
-      </div>
+      <p class="caption">Organisation · Year</p>
     </div>
   </div>
 </div>
@@ -1920,18 +2028,135 @@ Narrow editorial panel for table-of-contents slides. A 3px accent-gold vertical 
 
 ```css
 .toc-panel {
-    background: var(--bg-page);
+    position: relative;
+    background:
+        radial-gradient(circle at 18% 14%, rgba(123, 189, 195, 0.18), transparent 34%),
+        radial-gradient(circle at 76% 78%, rgba(229, 147, 180, 0.16), transparent 30%),
+        linear-gradient(135deg, rgba(255,255,255,0.34), rgba(255,255,255,0) 36%),
+        var(--bg-page);
     height: 100%;
-    padding: 42px 38px 30px;
+    padding: 54px 52px 42px;
     display: flex;
+    overflow: hidden;
+}
+
+.toc-panel-inner {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 100%;
+    gap: 32px;
+}
+
+.toc-header {
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.toc-kicker {
+    font-size: 12px;
+    line-height: 1.4;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.toc-title {
+    font-size: 54px;
+    line-height: 0.9;
+    letter-spacing: -0.035em;
+    max-width: 500px;
+}
+
+.toc-dek {
+    max-width: 460px;
+    font-size: 17px;
+    line-height: 1.62;
+    color: var(--text-secondary);
+}
+
+.toc-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 10px;
+    max-width: 640px;
+}
+
+.toc-item {
+    min-height: 84px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.toc-item-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(15, 30, 42, 0.09);
+    flex: 1;
+}
+
+.toc-item-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 18px;
+}
+
+.toc-chapter-label {
+    font-size: 10px;
+    line-height: 1.4;
+    letter-spacing: 0.20em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.toc-page-number {
+    font-family: var(--font-display);
+    font-size: 18px;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: rgba(15, 30, 42, 0.40);
+}
+
+.toc-item-title {
+    font-family: var(--font-display);
+    font-size: 22px;
+    line-height: 1.08;
+    color: var(--text-primary);
+}
+
+.toc-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 24px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(15, 30, 42, 0.09);
+}
+
+.toc-footer-note {
+    max-width: 320px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-muted);
 }
 ```
 
 ##### Tips
-- **Chapter numbers must be `font-weight:700`.** Without bold, the numbers dissolve visually into the lighter chapter title text.
-- **Last `li` has no `border-bottom`.** Every item except the last carries `border-bottom:1px solid var(--line)`. Remove it from the final entry to avoid a floating rule at the bottom of the list.
-- **accent-gold vertical rule.** The 3px left rule uses `var(--accent-gold)`. Do not substitute another color — it is the primary editorial accent in Monet.
-- **`justify-content:space-between` requires a defined height on the parent.** The panel must sit inside a container with a known height (grid cell, absolute position, or `height:100%` chain) or the footer will not pin to the bottom.
+- **TOC semantics come first.** Each row should read clearly as chapter label, title, and page number before any decorative treatment is added.
+- **Keep the rows compact.** Monet TOC rows should feel refined and quiet. Avoid oversized chapter plaques, wide gutters, or tall row heights.
+- **Tilt plaques must stay restrained.** Keep the rotation subtle and the palette drift soft; the plaque is an editorial accent, not the main subject.
+- **Skip long summaries by default.** If a TOC needs explanation, use one short dek under the main title rather than per-row body copy.
+- **Page references stay understated.** Right-align page numbers and keep them visually secondary to the chapter title.
 <!-- @component:toc:end -->
 
 <!-- @component:quote:start -->
