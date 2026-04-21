@@ -45,6 +45,7 @@ import {
   handleDomainsRemove,
 } from "./lib/commands/domains"
 import { handlePdf } from "./lib/commands/pdf"
+import { handlePptx } from "./lib/commands/pptx"
 import designsTool from "./tools/designs"
 import domainsTool from "./tools/domains"
 import researchSaveTool from "./tools/research-save"
@@ -214,6 +215,10 @@ const server: Plugin = (async (pluginCtx) => {
       if (sub === "pdf") {
         await handlePdf(param, send)
         throw new Error("__REVELA_PDF_HANDLED__")
+      }
+      if (sub === "pptx") {
+        await handlePptx(param, send)
+        throw new Error("__REVELA_PPTX_HANDLED__")
       }
 
       await send(`**Unknown sub-command:** \`${sub}\`\nRun \`/revela\` to see available commands.`)

@@ -2,36 +2,38 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-110%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-109%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
 </p>
 
 Revela is an [OpenCode](https://opencode.ai) plugin that turns your current agent into an HTML slide deck generator.
-Enable it for a session, give the agent a presentation task, and it can research, structure, write, and QA a complete deck in `decks/*.html`.
+Enable it for the current session, assign a presentation task, and the agent can research, structure, write, QA, and export a deck.
 
-**[Live Demo — The AI Power Shift](https://cyber-dash-tech.github.io/revela/assets/html/ai-power-shift.html)** · A 5-slide investment brief generated with Revela.
+**[Live Demo — The AI Power Shift](https://cyber-dash-tech.github.io/revela/assets/html/ai-power-shift.html)**
 
 ---
 
-## What Revela Is
+## What It Does
 
-Revela is a mode, not a separate chat agent.
+- injects a presentation-specific system prompt into your current agent with `/revela enable`
+- builds that prompt from 3 layers: core skill, active domain, active design
+- supports workspace document discovery plus transparent extraction for `.pdf`, `.docx`, `.pptx`, and `.xlsx`
+- runs automatic layout QA whenever the agent writes `decks/*.html`
+- exports finished decks to PDF and editable PPTX
+- switches designs and domains locally with zero LLM cost
 
-- `/revela enable` injects a presentation-specific system prompt into your current agent
-- the prompt is built from 3 layers: core skill, active domain, active design
-- the agent can scan workspace files, delegate web research, generate HTML slides, and run layout QA automatically
-- design and domain switching happen locally and rebuild the active prompt immediately
+Revela is a mode, not a separate agent.
 
 ---
 
 ## Requirements
 
 - [OpenCode](https://opencode.ai)
-- Bun runtime (`bun >= 1.0.0`)
-- [Google Chrome](https://www.google.com/chrome/) or Chromium for layout QA and PDF export
-- Git for source install
+- Bun runtime `>= 1.0.0`
+- [Google Chrome](https://www.google.com/chrome/) or Chromium for QA, PDF export, and PPTX export
+- Git if you install from source
 
 ---
 
@@ -48,19 +50,13 @@ Add `@cyber-dash-tech/revela` to the `plugin` array in `opencode.json`:
 }
 ```
 
-Restart OpenCode. The plugin is installed automatically via Bun.
+Restart OpenCode.
 
-To install globally, add the same `plugin` entry to `~/.config/opencode/opencode.json`.
+To install globally, add the same entry to `~/.config/opencode/opencode.json`.
 
 ### Local wrapper install
 
-Use this when:
-
-- Bun plugin install is blocked or unreliable
-- you are on a mainland China network
-- you want to run Revela from a local checkout
-
-From source:
+Use this when Bun-based plugin install is blocked, unreliable, or you want to run from a local checkout.
 
 ```bash
 git clone https://github.com/cyber-dash-tech/revela
@@ -74,21 +70,15 @@ Create `~/.config/opencode/plugins/revela.js`:
 export { default } from "/absolute/path/to/revela/index.ts";
 ```
 
-If you use the local wrapper route, make sure `~/.config/opencode/opencode.json` does not also contain a `plugin` entry for `@cyber-dash-tech/revela`, otherwise OpenCode will still try Bun-based installation.
+If you use the local wrapper route, remove any `@cyber-dash-tech/revela` entry from `opencode.json`, otherwise OpenCode may still try Bun installation.
 
 ### China mainland note
 
-OpenCode's npm plugin installer uses Bun and may ignore npm mirror configuration. If direct installation fails, use the local wrapper method above or install the package with npm under `~/.config/opencode/` and create a local wrapper file.
+OpenCode's npm plugin installer uses Bun and may ignore npm mirror settings. If direct installation fails, prefer the local wrapper method.
 
 ---
 
 ## Quick Start
-
-Start OpenCode:
-
-```bash
-opencode
-```
 
 Enable Revela in the current session:
 
@@ -96,19 +86,28 @@ Enable Revela in the current session:
 /revela enable
 ```
 
-Then give the agent a slide task, for example:
+Optionally switch design or domain:
 
 ```text
-Create a 6-slide HTML deck on humanoid robotics supply chains. Use the summit design, cite the main market drivers, and save the result to decks/humanoid-robotics.html.
+/revela designs
+/revela designs summit
+/revela domains deeptech-investment
 ```
 
-Export the resulting HTML deck to PDF if needed:
+Then give the agent a deck task:
+
+```text
+Create a 6-slide HTML deck on humanoid robotics supply chains. Cite the main market drivers, use the active design faithfully, and save the result to decks/humanoid-robotics.html.
+```
+
+Export when needed:
 
 ```text
 /revela pdf decks/humanoid-robotics.html
+/revela pptx decks/humanoid-robotics.html
 ```
 
-Disable Revela and return the current agent to normal mode:
+Disable presentation mode when done:
 
 ```text
 /revela disable
@@ -134,9 +133,10 @@ Disable Revela and return the current agent to normal mode:
 /revela domains-rm <name>        remove an installed domain
 
 /revela pdf <file>               export an HTML deck to PDF in the same directory
+/revela pptx <file>              export an HTML deck to editable PPTX in the same directory
 ```
 
-All `/revela` commands execute locally with zero LLM cost.
+All `/revela` commands run locally with zero LLM cost.
 
 ---
 
@@ -146,11 +146,12 @@ When Revela is enabled, it appends a generated prompt to the current agent's sys
 
 That prompt is built from 3 layers:
 
-1. `skill/SKILL.md` — the core slide-generation workflow
-2. active domain — domain-specific report structure and terminology
-3. active design — visual language, layouts, components, and chart rules
+1. `skill/SKILL.md` - the core slide-generation workflow
+2. active domain - domain-specific report structure and terminology
+3. active design - visual system, layouts, components, and chart rules
 
-The current design and domain are persisted in `~/.config/revela/config.json`. The session-level enabled/disabled state is not persisted.
+Persistent preferences live in `~/.config/revela/config.json`.
+The enabled or disabled state is session-level only.
 
 ---
 
@@ -159,66 +160,67 @@ The current design and domain are persisted in `~/.config/revela/config.json`. T
 When Revela is enabled, the agent can use:
 
 - `revela-workspace-scan` to discover PDFs, Office files, CSVs, Markdown, and text files in the workspace
-- the `revela-research` subagent to fetch targeted web sources and save structured findings into `researches/<topic>/`
-- `revela-research-save` to write one findings file per research axis
+- the `revela-research` subagent for targeted web research
+- `revela-research-save` to write structured findings into `researches/<topic>/`
 
-Supported file types for `@` reference and automatic text extraction:
+Supported document extraction paths:
+
+- `@` reference or pasted file in chat
+- `read` tool access while Revela is enabled
+
+Supported extracted file types:
 
 - `.pdf`
 - `.docx`
 - `.pptx`
 - `.xlsx`
 
-Revela transparently extracts text from these binary files before the main agent reasons over them.
+This extraction is transparent to the main agent.
 
 ---
 
 ## Layout QA And Compliance
 
-Every time the agent writes `decks/*.html`, Revela automatically runs a Puppeteer-based QA pass at `1920x1080`.
-The QA report is fed back immediately so the agent can fix layout or compliance problems before moving on.
+Every time the agent writes `decks/*.html`, Revela runs an automatic Puppeteer-based QA pass at `1920x1080`.
+The report is returned immediately so the agent can fix problems before moving on.
 
 Current QA dimensions:
 
 | Dimension | What it checks |
 |---|---|
 | `overflow` | Elements extending outside the slide canvas |
-| `balance` | Sparse slides, weak fill, centroid drift, and bottom-gap issues |
+| `balance` | Sparse slides, centroid drift, and bottom-gap issues |
 | `symmetry` | Side-by-side column imbalance in height or density |
 | `rhythm` | Irregular vertical spacing between stacked siblings |
 | `compliance` | Unknown design classes and novel CSS rules outside the active design vocabulary |
 
-Slides must declare `slide-qa="true"` or `slide-qa="false"`.
+Each slide must declare `slide-qa="true"` or `slide-qa="false"`.
 
-- use `slide-qa="true"` for content-heavy slides that should undergo full layout QA
+- use `slide-qa="true"` for content-heavy slides that should undergo full QA
 - use `slide-qa="false"` for structural slides such as cover, TOC, quote, summary, or closing pages
-
-Compliance is part of the generation loop, not a soft suggestion. If the agent introduces classes or CSS rules that are not defined by the active design, QA flags them and the file should be corrected.
 
 You can also run QA manually with the `revela-qa` tool.
 
 ---
 
-## Built-in Designs
+## Designs And Domains
 
-Switch designs with `/revela designs <name>`.
+Use `/revela designs` and `/revela domains` to inspect what is installed in your environment.
 
-| Name | Description | Preview |
-|---|---|---|
-| `aurora` | Dark executive style with structured information density and ECharts-ready data visualization patterns | ![aurora](assets/img/slide-example-aurora.jpg) |
-| `summit` | Editorial annual-report style for image-rich narrative slides and restrained business storytelling | ![summit](assets/img/slide-example-summit.jpg) |
-
----
-
-## Built-in Domains
-
-Switch domains with `/revela domains <name>`.
+Bundled domains in this repository:
 
 | Name | Description |
 |---|---|
 | `general` | No domain specialization |
 | `deeptech-investment` | VC and investment analysis: market sizing, technical readiness, moat, and investment thesis |
 | `consulting` | Strategic consulting: go/no-go decisions, strategy design, and belief-change reporting |
+
+Repository design examples:
+
+| Name | Description | Preview |
+|---|---|---|
+| `summit` | Editorial annual-report style for image-rich narrative slides and restrained business storytelling | ![summit](assets/img/slide-example-summit.jpg) |
+| `monet` | Light, serif-led visual system for quieter, art-directed business storytelling | `DESIGN.md` included in repo |
 
 ---
 
@@ -235,43 +237,31 @@ version: 1.0.0
 ---
 ```
 
-The body defines the visual system used by the agent.
-
-### Marker system
-
-For larger designs, use the current marker format:
+For larger designs, use the marker system:
 
 ```html
 <!-- @design:foundation:start -->
-Colors, typography, CSS variables, HTML shell, base JS...
+Foundation rules
 <!-- @design:foundation:end -->
 
 <!-- @design:rules:start -->
-Composition rules, do/don't guidance, design-specific constraints...
+Design rules
 <!-- @design:rules:end -->
 
 <!-- @design:layouts:start -->
 <!-- @layout:cover:start qa=false -->
-Layout details...
+Layout details
 <!-- @layout:cover:end -->
-
-<!-- @layout:two-col:start qa=true -->
-Layout details...
-<!-- @layout:two-col:end -->
 <!-- @design:layouts:end -->
 
 <!-- @design:components:start -->
 <!-- @component:card:start -->
-Component HTML + CSS...
+Component details
 <!-- @component:card:end -->
-
-<!-- @component:stat-card:start -->
-Component HTML + CSS...
-<!-- @component:stat-card:end -->
 <!-- @design:components:end -->
 
 <!-- @design:chart-rules:start -->
-Chart guidance...
+Chart rules
 <!-- @design:chart-rules:end -->
 ```
 
@@ -282,11 +272,7 @@ Prompt injection behavior:
 
 If a design has no markers, Revela falls back to injecting the full `DESIGN.md` body.
 
-### Compliance note for design authors
-
-Revela extracts the allowed CSS class vocabulary from your design and uses it during QA compliance checks. If the agent invents a class or defines a CSS rule outside that vocabulary, QA reports it.
-
-### Install a custom design
+Install a custom design:
 
 ```text
 /revela designs-add github:your-org/your-design
@@ -298,7 +284,7 @@ Revela extracts the allowed CSS class vocabulary from your design and uses it du
 
 ## Custom Domains
 
-A custom domain is a folder containing `INDUSTRY.md` with frontmatter metadata similar to a design.
+A custom domain is a folder containing `INDUSTRY.md`.
 
 ```text
 /revela domains-add github:your-org/your-domain
@@ -308,21 +294,32 @@ A custom domain is a folder containing `INDUSTRY.md` with frontmatter metadata s
 
 ---
 
-## PDF Export
+## Export
 
-Export a generated HTML deck to PDF:
+PDF export:
 
 ```text
 /revela pdf decks/my-deck.html
 ```
 
-Revela renders each slide through Chrome/Chromium and assembles the final PDF in the same directory.
+Editable PPTX export:
+
+```text
+/revela pptx decks/my-deck.html
+```
+
+Both commands write output beside the source HTML deck.
 
 ---
 
-## Logging
+## Development
 
-Revela uses structured logging via [tslog](https://tslog.js.org/). To enable verbose debug output:
+```bash
+bun test
+bun run typecheck
+```
+
+Enable verbose logs with:
 
 ```bash
 REVELA_DEBUG=1 opencode
@@ -332,4 +329,4 @@ REVELA_DEBUG=1 opencode
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT - see [LICENSE](LICENSE)
