@@ -50,6 +50,7 @@ import designsTool from "./tools/designs"
 import domainsTool from "./tools/domains"
 import researchSaveTool from "./tools/research-save"
 import workspaceScanTool from "./tools/workspace-scan"
+import extractDocumentMaterialsTool from "./tools/extract-document-materials"
 import qaTool from "./tools/qa"
 import { RESEARCH_PROMPT, RESEARCH_AGENT_SIGNATURE } from "./lib/agents/research-prompt"
 import { runQA, formatReport } from "./lib/qa"
@@ -225,12 +226,13 @@ const server: Plugin = (async (pluginCtx) => {
       throw new Error("__REVELA_UNKNOWN_HANDLED__")
     },
 
-    // ── LLM tools: designs, domains, research, qa ─────────────────────────
+    // ── LLM tools: designs, domains, research, document materials, qa ─────
     tool: {
       "revela-designs": designsTool,
       "revela-domains": domainsTool,
       "revela-research-save": researchSaveTool,
       "revela-workspace-scan": workspaceScanTool,
+      "revela-extract-document-materials": extractDocumentMaterialsTool,
       "revela-qa": qaTool,
     },
 

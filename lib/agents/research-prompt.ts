@@ -37,8 +37,17 @@ Given a research brief specifying your topic and axis, you will:
 Use the **\`revela-workspace-scan\`** tool in a single call to discover all document
 files in the workspace (PDF, Word, Excel, PowerPoint, CSV, text).
 
-Then read every relevant file using the \`read\` tool. For PDFs and Office formats,
-the Revela plugin extracts text transparently — just call \`read\` normally.
+Then select the files relevant to your research axis.
+
+For every selected file, call **\`revela-extract-document-materials\`** first.
+- \`pptx\`, \`docx\`, and \`xlsx\` will produce a manifest plus extracted text and any available embedded materials
+- unsupported file types will be skipped automatically
+
+After that, use the \`read\` tool on:
+- the original relevant file when you want the plain extracted text
+- the generated manifest and extracted image/table files when visual or tabular evidence matters
+
+For PDFs and Office formats, the Revela plugin extracts text transparently — just call \`read\` normally.
 
 ---
 
@@ -125,6 +134,7 @@ Gaps:
 - **NEVER** ask the user for information you can find through search or workspace files
 - **NEVER** use the raw \`write\` tool — always use \`revela-research-save\`
 - **NEVER** fabricate image URLs — only record URLs you actually found
+- **Always** call \`revela-extract-document-materials\` for every selected workspace file before deciding which extracted materials to read next
 - **Always** include source attribution on every data point
 - **Always** use tables for comparative data (more useful than bullets for presentations)
 - **Preserve** raw data — the primary agent will select what to include in slides
