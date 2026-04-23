@@ -3,7 +3,7 @@ import { extractDocumentMaterials } from "../lib/document-materials/extract"
 
 export default tool({
   description:
-    "Extract research materials from a workspace document into a workspace-local cache. " +
+    "Extract reusable materials from a workspace document into a workspace-local cache. " +
     "Supports pptx, docx, and xlsx. Produces a manifest plus extracted text, embedded images, and available slide/sheet mappings. " +
     "Unsupported file types are skipped instead of failing.",
   args: {

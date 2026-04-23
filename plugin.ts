@@ -25,10 +25,9 @@ import { ACTIVE_PROMPT_FILE } from "./lib/config"
 import { ctx } from "./lib/ctx"
 import { preRead } from "./lib/read-hooks"
 import { postRead } from "./lib/read-hooks"
-import { extractDocx } from "./lib/read-hooks/extractors/docx"
-import { extractPptx } from "./lib/read-hooks/extractors/pptx"
-import { extractXlsx } from "./lib/read-hooks/extractors/xlsx"
 import { extractPdfText } from "./lib/read-hooks/extractors/pdf"
+import { createOfficeReadView } from "./lib/read-hooks/office-read-view"
+import { OFFICE_EXTENSIONS, IMAGE_EXTENSIONS, formatExtractedText } from "./lib/read-hooks/dispatch"
 import { handleHelp } from "./lib/commands/help"
 import { handleEnable } from "./lib/commands/enable"
 import { handleDisable } from "./lib/commands/disable"
@@ -241,18 +240,10 @@ const server: Plugin = (async (pluginCtx) => {
     // directly — the read tool is never called, so tool.execute.before/after
     // hooks don't fire. This hook intercepts FileParts before LLM sees them.
     //
-    // DOCX/PPTX/XLSX/PDF → extract text → replace with TextPart
+    // DOCX/PPTX/XLSX/PDF → extract text/read view → replace with TextPart
     // Images              → replace with TextPart hint (LLM can use read tool)
     "chat.message": async (input, output) => {
       if (!ctx.enabled) return
-
-      const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".webp", ".gif"])
-      const DOC_HANDLERS: Record<string, (buf: Buffer) => Promise<string>> = {
-        ".docx": extractDocx,
-        ".pptx": extractPptx,
-        ".xlsx": extractXlsx,
-        ".pdf": extractPdfText,
-      }
 
       for (let i = 0; i < output.parts.length; i++) {
         const part = output.parts[i] as any
@@ -264,15 +255,22 @@ const server: Plugin = (async (pluginCtx) => {
         const name = basename(filePath)
 
         try {
-          if (DOC_HANDLERS[ext]) {
-            const buf = readFileSync(filePath)
-            const text = await DOC_HANDLERS[ext](buf)
+          if (OFFICE_EXTENSIONS.has(ext)) {
+            const text = await createOfficeReadView(filePath, process.cwd())
             output.parts[i] = {
               ...part,
               type: "text",
-              text: `[Extracted from: ${name}]\n\n${text}`,
+              text,
             } as any
-          } else if (IMAGE_EXTS.has(ext)) {
+          } else if (ext === ".pdf") {
+            const buf = readFileSync(filePath)
+            const text = await extractPdfText(buf)
+            output.parts[i] = {
+              ...part,
+              type: "text",
+              text: formatExtractedText(filePath, text),
+            } as any
+          } else if (IMAGE_EXTENSIONS.has(ext)) {
             output.parts[i] = {
               ...part,
               type: "text",
