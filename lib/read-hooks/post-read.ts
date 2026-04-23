@@ -16,11 +16,10 @@
  * of packages/opencode/src/session/prompt.ts.
  */
 
-import { extname, basename } from "path"
+import { basename } from "path"
 import { extractPdfText } from "./extractors/pdf"
 import { compressImage } from "./image/compress"
-
-const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".webp", ".gif"])
+import { classifyReadFile, formatExtractedText } from "./dispatch"
 
 interface ReadOutput {
   title: string
@@ -41,10 +40,10 @@ export async function postRead(
 ): Promise<void> {
   if (!output.attachments?.length) return
 
-  const ext = extname(args.filePath).toLowerCase()
+  const strategy = classifyReadFile(args.filePath)
 
   // ── PDF: extract text, drop base64 attachment ───────────────────────────
-  if (ext === ".pdf") {
+  if (strategy === "after-extract-text") {
     const attachment = output.attachments[0]
     const base64 = attachment.url.split(",")[1]
     if (!base64) return
@@ -52,14 +51,14 @@ export async function postRead(
     const buf = Buffer.from(base64, "base64")
     const text = await extractPdfText(buf)
 
-    output.output = `[Extracted from: ${basename(args.filePath)}]\n\n${text}`
+    output.output = formatExtractedText(args.filePath, text)
     output.title = `Extracted text from ${basename(args.filePath)}`
     output.attachments.length = 0 // Remove base64 — saves significant tokens
     return
   }
 
   // ── Images: compress attachment to reduce token cost ────────────────────
-  if (IMAGE_EXTS.has(ext)) {
+  if (strategy === "after-compress-image") {
     const attachment = output.attachments[0]
     const base64 = attachment.url.split(",")[1]
     if (!base64) return
