@@ -3,7 +3,10 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileS
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "path"
 import { DOMParser } from "@xmldom/xmldom"
 import { unzipSync } from "fflate"
+import { Jimp } from "jimp"
+import { extractImages, getDocumentProxy } from "unpdf"
 import { extractDocx } from "../read-hooks/extractors/docx"
+import { extractPdfText } from "../read-hooks/extractors/pdf"
 import { extractPptx } from "../read-hooks/extractors/pptx"
 import { extractXlsx } from "../read-hooks/extractors/xlsx"
 
@@ -48,7 +51,7 @@ export type PptxSlide = {
 export type DocumentMaterialsResult = {
   status: "processed" | "skipped" | "failed"
   source: string
-  type: "pptx" | "docx" | "xlsx" | "other"
+  type: "pptx" | "docx" | "xlsx" | "pdf" | "other"
   cache_dir?: string
   manifest_path?: string
   text_path?: string
@@ -83,7 +86,10 @@ const SUPPORTED_EXTENSIONS: Record<string, SupportedType> = {
   ".pptx": "pptx",
   ".docx": "docx",
   ".xlsx": "xlsx",
+  ".pdf": "pdf",
 }
+
+type PdfImageData = Awaited<ReturnType<typeof extractImages>>[number]
 
 function normalizeZipTarget(basePath: string, target: string): string {
   const segments = join(dirname(basePath), target).split("/")
@@ -149,6 +155,47 @@ function writeCachedBuffer(targetPath: string, buf: Uint8Array): void {
 
 function materialPath(cacheDir: string, workspaceDir: string, ...segments: string[]): string {
   return workspaceRelative(join(cacheDir, ...segments), workspaceDir)
+}
+
+function toRgbaBuffer(image: PdfImageData): Buffer {
+  const pixelCount = image.width * image.height
+
+  if (image.channels === 4) {
+    return Buffer.from(image.data.buffer, image.data.byteOffset, image.data.byteLength)
+  }
+
+  const rgba = Buffer.alloc(pixelCount * 4)
+
+  for (let i = 0; i < pixelCount; i++) {
+    const dest = i * 4
+    if (image.channels === 3) {
+      const src = i * 3
+      rgba[dest] = image.data[src]!
+      rgba[dest + 1] = image.data[src + 1]!
+      rgba[dest + 2] = image.data[src + 2]!
+      rgba[dest + 3] = 255
+      continue
+    }
+
+    const value = image.data[i]!
+    rgba[dest] = value
+    rgba[dest + 1] = value
+    rgba[dest + 2] = value
+    rgba[dest + 3] = 255
+  }
+
+  return rgba
+}
+
+async function encodePdfImageAsPng(image: PdfImageData): Promise<Buffer> {
+  const bitmap = {
+    data: toRgbaBuffer(image),
+    width: image.width,
+    height: image.height,
+  }
+
+  const png = Jimp.fromBitmap(bitmap)
+  return await png.getBuffer("image/png")
 }
 
 function parseXml(files: Record<string, Uint8Array>, path: string): any | null {
@@ -589,6 +636,94 @@ function extractTables(type: SupportedType, textPath: string): DocumentMaterial[
   return [{ path: textPath, source_ref: "workbook", note: "Sheet text and tables extracted to text file" }]
 }
 
+async function extractPdfImages(buf: Buffer, cacheDir: string, workspaceDir: string): Promise<DocumentMaterial[]> {
+  const pdf = await getDocumentProxy(new Uint8Array(buf))
+  const images: DocumentMaterial[] = []
+
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    const extracted = await extractImages(pdf, pageNumber)
+
+    for (let index = 0; index < extracted.length; index++) {
+      const image = extracted[index]!
+      const exportedName = `page-${String(pageNumber).padStart(2, "0")}-image-${String(index + 1).padStart(2, "0")}.png`
+      const outputPath = join(cacheDir, "images", exportedName)
+      const png = await encodePdfImageAsPng(image)
+      writeFileSync(outputPath, new Uint8Array(png))
+
+      images.push({
+        path: materialPath(cacheDir, workspaceDir, "images", exportedName),
+        source_ref: `pdf/page-${String(pageNumber).padStart(2, "0")}/${image.key}`,
+        page_or_slide: `page-${String(pageNumber).padStart(2, "0")}`,
+        note: `Embedded PDF image (${image.width}x${image.height}, ${image.channels} channel${image.channels === 1 ? "" : "s"})`,
+      })
+    }
+  }
+
+  return images
+}
+
+async function processPdfFile(filePath: string, workspaceDir: string): Promise<DocumentMaterialsResult> {
+  const relativeSource = workspaceRelative(filePath, workspaceDir)
+  const fingerprint = buildFingerprint(filePath)
+  const cacheDir = join(workspaceDir, ".opencode", "revela", "doc-materials", fingerprint)
+  const manifestPath = join(cacheDir, "manifest.json")
+
+  if (existsSync(manifestPath)) {
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf-8")) as CachedManifest
+    return {
+      status: "processed",
+      source: manifest.source,
+      type: manifest.type,
+      cache_dir: manifest.cache_dir,
+      manifest_path: manifest.manifest_path,
+      text_path: manifest.text_path,
+      images: manifest.images,
+      skipped_assets: manifest.skipped_assets,
+      slides: manifest.slides,
+      tables: manifest.tables,
+    }
+  }
+
+  mkdirSync(join(cacheDir, "images"), { recursive: true })
+  mkdirSync(join(cacheDir, "tables"), { recursive: true })
+
+  const buf = readFileSync(filePath)
+  const text = await extractPdfText(buf)
+  const textPath = join(cacheDir, "text.txt")
+  writeFileSync(textPath, `[Extracted from: ${basename(filePath)}]\n\n${text}`, "utf-8")
+
+  const images = await extractPdfImages(buf, cacheDir, workspaceDir)
+
+  const result: DocumentMaterialsResult = {
+    status: "processed",
+    source: relativeSource,
+    type: "pdf",
+    cache_dir: workspaceRelative(cacheDir, workspaceDir),
+    manifest_path: workspaceRelative(manifestPath, workspaceDir),
+    text_path: workspaceRelative(textPath, workspaceDir),
+    images,
+    skipped_assets: [],
+    slides: [],
+    tables: [],
+  }
+
+  const manifest: CachedManifest = {
+    source: result.source,
+    type: "pdf",
+    fingerprint,
+    cache_dir: result.cache_dir!,
+    manifest_path: result.manifest_path!,
+    text_path: result.text_path!,
+    images: result.images ?? [],
+    skipped_assets: [],
+    slides: [],
+    tables: [],
+  }
+
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf-8")
+  return result
+}
+
 async function processOfficeFile(filePath: string, workspaceDir: string, type: SupportedType): Promise<DocumentMaterialsResult> {
   const relativeSource = workspaceRelative(filePath, workspaceDir)
   const fingerprint = buildFingerprint(filePath)
@@ -683,7 +818,9 @@ export async function extractDocumentMaterials(filePath: string, workspaceDir: s
       }
     }
 
-    return await processOfficeFile(resolvedFile, workspaceDir, type)
+    return type === "pdf"
+      ? await processPdfFile(resolvedFile, workspaceDir)
+      : await processOfficeFile(resolvedFile, workspaceDir, type)
   } catch (e) {
     return {
       status: "failed",

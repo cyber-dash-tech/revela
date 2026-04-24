@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs
 import { tmpdir } from "os"
 import { join } from "path"
 import { zipSync, strToU8 } from "fflate"
+import { PDFDocument, StandardFonts } from "pdf-lib"
 import { extractDocumentMaterials } from "../lib/document-materials/extract"
 
 let workspaceDir = ""
@@ -11,9 +12,41 @@ function pngStub(): Uint8Array {
   return new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
 }
 
+function validPngBuffer(): Uint8Array {
+  return new Uint8Array(Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jx1EAAAAASUVORK5CYII=",
+    "base64",
+  ))
+}
+
 function writeZip(relativePath: string, files: Record<string, Uint8Array>): string {
   const filePath = join(workspaceDir, relativePath)
   writeFileSync(filePath, zipSync(files))
+  return filePath
+}
+
+async function writePdf(
+  relativePath: string,
+  options: { text: string; includeImage?: boolean },
+): Promise<string> {
+  const pdf = await PDFDocument.create()
+  const page = pdf.addPage([400, 300])
+  const font = await pdf.embedFont(StandardFonts.Helvetica)
+
+  page.drawText(options.text, {
+    x: 40,
+    y: 220,
+    size: 18,
+    font,
+  })
+
+  if (options.includeImage) {
+    const image = await pdf.embedPng(validPngBuffer())
+    page.drawImage(image, { x: 40, y: 80, width: 120, height: 120 })
+  }
+
+  const filePath = join(workspaceDir, relativePath)
+  writeFileSync(filePath, await pdf.save())
   return filePath
 }
 
@@ -388,6 +421,50 @@ describe("extractDocumentMaterials", () => {
     expect(readFileSync(join(workspaceDir, result.text_path!), "utf-8")).toContain("Revenue\t42")
   })
 
+  it("extracts pdf text and embedded images", async () => {
+    await writePdf("report.pdf", {
+      text: "Battery demand is accelerating",
+      includeImage: true,
+    })
+
+    const result = await extractDocumentMaterials("report.pdf", workspaceDir)
+
+    expect(result.status).toBe("processed")
+    expect(result.type).toBe("pdf")
+    expect(result.images).toHaveLength(1)
+    expect(result.images?.[0]).toEqual(
+      expect.objectContaining({
+        page_or_slide: "page-01",
+        source_ref: expect.stringContaining("pdf/page-01/"),
+      }),
+    )
+    expect(existsSync(join(workspaceDir, result.images![0].path))).toBe(true)
+    expect(readFileSync(join(workspaceDir, result.text_path!), "utf-8")).toContain("Battery demand is accelerating")
+    expect(JSON.parse(readFileSync(join(workspaceDir, result.manifest_path!), "utf-8"))).toMatchObject({
+      source: "report.pdf",
+      type: "pdf",
+      images: [
+        expect.objectContaining({
+          page_or_slide: "page-01",
+        }),
+      ],
+    })
+  })
+
+  it("extracts pdf text even when no embedded images exist", async () => {
+    await writePdf("text-only.pdf", {
+      text: "No visual assets on this page",
+      includeImage: false,
+    })
+
+    const result = await extractDocumentMaterials("text-only.pdf", workspaceDir)
+
+    expect(result.status).toBe("processed")
+    expect(result.type).toBe("pdf")
+    expect(result.images).toEqual([])
+    expect(readFileSync(join(workspaceDir, result.text_path!), "utf-8")).toContain("No visual assets on this page")
+  })
+
   it("skips unsupported file types", async () => {
     writeFileSync(join(workspaceDir, "notes.md"), "plain text", "utf-8")
 
@@ -439,6 +516,20 @@ describe("extractDocumentMaterials", () => {
         asset_status: "kept",
       },
     ])
+    expect(second).toEqual(first)
+  })
+
+  it("reuses cached manifest on repeated pdf extraction", async () => {
+    await writePdf("cached.pdf", {
+      text: "Cached PDF extraction",
+      includeImage: true,
+    })
+
+    const first = await extractDocumentMaterials("cached.pdf", workspaceDir)
+    const second = await extractDocumentMaterials("cached.pdf", workspaceDir)
+
+    expect(first.type).toBe("pdf")
+    expect(first.images).toHaveLength(1)
     expect(second).toEqual(first)
   })
 })
