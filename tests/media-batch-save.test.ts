@@ -76,7 +76,7 @@ describe("batchSaveMediaAssets", () => {
     expect(result.results[0]).toEqual(expect.objectContaining({
       candidateId: "tesla-profile:1",
       status: "success",
-      path: "assets/ev-market/media/tesla-logo-01.png",
+      path: "assets/ev-market/media/tesla-logo-tesla-profile-1.png",
     }))
     expect(result.results[1]).toEqual(expect.objectContaining({
       candidateId: "tesla-profile:2",
@@ -87,12 +87,12 @@ describe("batchSaveMediaAssets", () => {
       candidateId: "tesla-profile:3",
       status: "success",
     }))
-    expect(existsSync(join(workspaceDir, "assets/ev-market/media/tesla-logo-01.png"))).toBe(true)
+    expect(existsSync(join(workspaceDir, "assets/ev-market/media/tesla-logo-tesla-profile-1.png"))).toBe(true)
     expect(JSON.parse(readFileSync(join(workspaceDir, "assets/ev-market/media-manifest.json"), "utf-8"))).toMatchObject({
       topic: "ev-market",
       assets: [
-        expect.objectContaining({ id: "tesla-logo-01" }),
-        expect.objectContaining({ id: "elon-musk-portrait-01" }),
+        expect.objectContaining({ id: "tesla-logo-tesla-profile-1" }),
+        expect.objectContaining({ id: "elon-musk-portrait-tesla-profile-3" }),
       ],
     })
 
@@ -119,8 +119,8 @@ describe("batchSaveMediaAssets", () => {
     }, workspaceDir)
 
     expect(reordered.results).toEqual([
-      expect.objectContaining({ candidateId: "tesla-profile:3", assetId: "elon-musk-portrait-01" }),
-      expect.objectContaining({ candidateId: "tesla-profile:1", assetId: "tesla-logo-01" }),
+      expect.objectContaining({ candidateId: "tesla-profile:3", assetId: "elon-musk-portrait-tesla-profile-3" }),
+      expect.objectContaining({ candidateId: "tesla-profile:1", assetId: "tesla-logo-tesla-profile-1" }),
     ])
   })
 
@@ -166,7 +166,7 @@ describe("batchSaveMediaAssets", () => {
     expect(result.saved).toBe(1)
     expect(result.failed).toBe(2)
     expect(result.results).toEqual([
-      expect.objectContaining({ status: "success", path: "assets/ev-market/media/tesla-logo-01.png" }),
+      expect.objectContaining({ status: "success", path: "assets/ev-market/media/tesla-logo-tesla-profile-1.png" }),
       expect.objectContaining({ status: "cannot-download", path: null }),
       expect.objectContaining({ status: "invalid-url", path: null }),
     ])

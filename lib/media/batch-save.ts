@@ -34,6 +34,10 @@ export interface MediaBatchSaveResult {
   results: MediaBatchSaveResultItem[]
 }
 
+function candidateKey(candidateId: string): string {
+  return slugify(candidateId) || "item"
+}
+
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -52,29 +56,11 @@ function baseAssetId(item: MediaBatchItem): string {
 }
 
 function buildDeterministicAssetIds(items: MediaBatchItem[]): Map<string, string> {
-  const groups = new Map<string, MediaBatchItem[]>()
-
+  const assetIds = new Map<string, string>()
   for (const item of items) {
     const base = baseAssetId(item)
-    const group = groups.get(base)
-    if (group) group.push(item)
-    else groups.set(base, [item])
+    assetIds.set(item.candidateId, `${base}-${candidateKey(item.candidateId)}`)
   }
-
-  const assetIds = new Map<string, string>()
-  for (const [base, group] of groups) {
-    const ordered = [...group].sort((a, b) => {
-      const left = `${a.url}\n${a.candidateId}`
-      const right = `${b.url}\n${b.candidateId}`
-      return left.localeCompare(right)
-    })
-
-    for (let index = 0; index < ordered.length; index++) {
-      const item = ordered[index]
-      assetIds.set(item.candidateId, `${base}-${String(index + 1).padStart(2, "0")}`)
-    }
-  }
-
   return assetIds
 }
 

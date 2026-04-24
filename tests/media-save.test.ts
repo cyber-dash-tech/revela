@@ -217,4 +217,56 @@ describe("saveMediaAsset", () => {
       error: "failureReason is required when status is not 'success'",
     })
   })
+
+  it("preserves an existing successful asset when a later refresh attempt fails", async () => {
+    globalThis.fetch = mockFetchWith(() => new Response("png-bytes", {
+      status: 200,
+      headers: { "content-type": "image/png" },
+    }))
+
+    const first = await saveMediaAsset({
+      topic: "EV Market",
+      id: "Hero 01",
+      type: "image",
+      purpose: "hero",
+      brief: "EV charging hero image",
+      status: "success",
+      sourceUrl: "https://example.com/hero.png",
+    }, workspaceDir)
+
+    expect(first).toMatchObject({
+      ok: true,
+      path: "assets/ev-market/media/hero-01.png",
+      status: "success",
+    })
+    expect(existsSync(join(workspaceDir, "assets/ev-market/media/hero-01.png"))).toBe(true)
+
+    const failed = await saveMediaAsset({
+      topic: "EV Market",
+      id: "Hero 01",
+      type: "image",
+      purpose: "hero",
+      brief: "EV charging hero image",
+      status: "success",
+      sourceUrl: "not-a-url",
+    }, workspaceDir)
+
+    expect(failed).toMatchObject({
+      ok: true,
+      assetId: "hero-01",
+      status: "invalid-url",
+      path: null,
+    })
+    expect(existsSync(join(workspaceDir, "assets/ev-market/media/hero-01.png"))).toBe(true)
+    expect(JSON.parse(readFileSync(join(workspaceDir, "assets/ev-market/media-manifest.json"), "utf-8"))).toMatchObject({
+      assets: [
+        expect.objectContaining({
+          id: "hero-01",
+          status: "success",
+          path: "assets/ev-market/media/hero-01.png",
+          failureReason: "Invalid image URL",
+        }),
+      ],
+    })
+  })
 })

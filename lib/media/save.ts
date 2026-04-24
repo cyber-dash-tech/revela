@@ -104,11 +104,21 @@ function saveFailureResult(
   sourcePath?: string,
 ): MediaSaveResult {
   const manifest = readManifest(manifestPath, topic)
-  const record = buildFailureRecord(input, topic, status, failureReason, sourcePath)
+  const existing = manifest.assets.find((asset) => asset.id === slugify(input.id))
+  const record = existing?.path
+    ? {
+      ...existing,
+      sourceUrl: input.sourceUrl ?? existing.sourceUrl,
+      sourcePath: sourcePath ?? existing.sourcePath,
+      alt: input.alt ?? existing.alt,
+      notes: input.notes ?? existing.notes,
+      failureReason,
+    }
+    : buildFailureRecord(input, topic, status, failureReason, sourcePath)
   const { manifest: nextManifest, previous } = upsertAsset(manifest, record)
   writeManifest(manifestPath, nextManifest)
 
-  if (previous?.path) {
+  if (!existing?.path && previous?.path) {
     rmSync(join(workspaceDir, previous.path), { force: true })
   }
 
