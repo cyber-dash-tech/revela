@@ -47,6 +47,7 @@ import { handlePdf } from "./lib/commands/pdf"
 import { handlePptx } from "./lib/commands/pptx"
 import designsTool from "./tools/designs"
 import domainsTool from "./tools/domains"
+import mediaSaveTool from "./tools/media-save"
 import researchSaveTool from "./tools/research-save"
 import workspaceScanTool from "./tools/workspace-scan"
 import extractDocumentMaterialsTool from "./tools/extract-document-materials"
@@ -229,6 +230,7 @@ const server: Plugin = (async (pluginCtx) => {
     tool: {
       "revela-designs": designsTool,
       "revela-domains": domainsTool,
+      "revela-media-save": mediaSaveTool,
       "revela-research-save": researchSaveTool,
       "revela-workspace-scan": workspaceScanTool,
       "revela-extract-document-materials": extractDocumentMaterialsTool,

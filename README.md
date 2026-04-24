@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-125%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-132%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
@@ -162,6 +162,7 @@ When Revela is enabled, the agent can use:
 - `revela-workspace-scan` to discover PDFs, Office files, CSVs, Markdown, and text files in the workspace
 - the `revela-research` subagent for targeted web research
 - `revela-research-save` to write structured findings into `researches/<topic>/`
+- `revela-media-save` to turn chosen local or remote images into reusable workspace assets under `assets/<topic>/media/`
 
 Supported document extraction paths:
 
@@ -176,6 +177,32 @@ Supported extracted file types:
 - `.xlsx`
 
 This extraction is transparent to the main agent.
+
+---
+
+## Media Assets
+
+Research findings can record image leads in `## Images`, but those URLs are still just leads.
+Final slides should reference local workspace assets instead of remote image URLs.
+
+Use `revela-media-save` when the agent wants to promote one chosen image into a formal project asset.
+
+Current Stage 1 behavior:
+
+- accepts either `sourcePath` for a workspace-local image or `sourceUrl` for a remote image
+- saves successful results into `assets/<topic>/media/`
+- updates `assets/<topic>/media-manifest.json`
+- records failed attempts with explicit statuses such as `invalid-url` and `cannot-download`
+- lets the agent reference the returned local path directly in final HTML
+
+Typical flow:
+
+1. `revela-research` writes image leads into `researches/<topic>/*.md`
+2. the primary agent selects the image worth using
+3. `revela-media-save` downloads or copies it into `assets/<topic>/media/`
+4. the deck uses the returned local path in `<img src="...">`
+
+This keeps final decks stable, offline-friendly, and independent from expiring remote URLs.
 
 ---
 
