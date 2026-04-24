@@ -54,9 +54,12 @@ Revela 是一种工作模式，不是独立 agent。
 
 如果想全局安装，可以把同样配置写到 `~/.config/opencode/opencode.json`。
 
+OpenCode `v1.14.22+` 在插件安装时已经会遵循 `.npmrc` 设置，因此默认应优先使用
+`plugin` 字段直接安装。
+
 ### 本地 wrapper 安装
 
-如果 Bun 安装被网络阻塞、不稳定，或者你想直接运行本地源码仓库，建议使用本地 wrapper。
+如果你的环境里直接安装仍然受阻，或者你想在开发时直接运行本地源码仓库，可以使用本地 wrapper。
 
 ```bash
 git clone https://github.com/cyber-dash-tech/revela
@@ -74,7 +77,8 @@ export { default } from "/absolute/path/to/revela/index.ts";
 
 ### 中国大陆网络说明
 
-OpenCode 的 npm 插件安装依赖 Bun，而 Bun 可能不会遵循 npm mirror 设置。如果直接安装失败，优先使用上面的本地 wrapper 方案。
+在 OpenCode `v1.14.22` 之前，插件安装在某些环境下可能不会遵循镜像相关的 registry 设置。
+从 `v1.14.22+` 开始，直接安装应当会遵循 `.npmrc`。如果在你的本地网络或环境里仍然安装失败，再使用上面的本地 wrapper 方案作为 fallback。
 
 ---
 
@@ -226,7 +230,18 @@ Create a 6-slide HTML deck on humanoid robotics supply chains. Cite the main mar
 
 ## 自定义 Designs
 
-自定义 design 是一个包含 `DESIGN.md` 的文件夹，并带有 frontmatter：
+自定义 design 本质上是一个包含 `DESIGN.md` 的文件夹。目录名通常会成为安装后的 design 名称，
+除非安装器从来源中推断出其他名称。
+
+推荐目录结构：
+
+```text
+my-design/
+├── DESIGN.md
+└── preview.html        可选，但推荐，方便人工预览
+```
+
+`DESIGN.md` 顶部使用 frontmatter：
 
 ```yaml
 ---
@@ -237,7 +252,123 @@ version: 1.0.0
 ---
 ```
 
-对于较大的 design，建议使用 marker 体系：
+### 最小可用示例
+
+下面是一个最小但可工作的 `DESIGN.md` 结构。它至少给模型提供了明确的视觉系统、一个 layout 和一个可复用 component。
+
+```md
+---
+name: alpine-brief
+description: Minimal editorial design for strategy decks
+author: you
+version: 1.0.0
+---
+
+## Visual Style
+
+Apply this visual style to every slide in the deck.
+
+<!-- @design:foundation:start -->
+### Color Palette
+
+```css
+:root {
+  --bg: #f6f2ea;
+  --surface: #fffdf8;
+  --text-primary: #1c1a17;
+  --text-secondary: #625b52;
+  --accent: #8a6a45;
+  --line: rgba(28, 26, 23, 0.14);
+  --font-display: 'IBM Plex Sans Condensed', 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+```
+
+### Typography
+
+- 标题使用 `--font-display`
+- 正文使用 `--font-body`
+- 所有尺寸都固定为 `px`，基于 `1920x1080` 画布设计
+
+### HTML Structure
+
+- 每张 slide 都必须使用 `<section class="slide" slide-qa="true|false">`
+- 每张 slide 内都必须有一个 `.slide-canvas`
+- 所有 CSS 放在一个 `<style>` 块里，所有 JS 放在一个 `<script>` 块里
+<!-- @design:foundation:end -->
+
+<!-- @design:rules:start -->
+### Composition Rules
+
+- 使用偏暖的浅色背景和克制的棕色强调色
+- 文字列保持偏窄，给足留白
+- 避免 glow、glassmorphism、neon gradient 和 dashboard 风格
+<!-- @design:rules:end -->
+
+<!-- @design:layouts:start -->
+<!-- @layout:cover:start qa=false -->
+### Cover layout
+
+- 居中的标题堆叠
+- 顶部有小号 eyebrow
+- 标题下方有一条细的强调色分隔线
+<!-- @layout:cover:end -->
+
+<!-- @layout:two-col:start qa=true -->
+### Two-column layout
+
+- 左列负责论点，右列负责证据
+- 推荐比例：`5 / 7`
+- 左列宽度尽量控制在 `520px` 以内，保证段落可读性
+<!-- @layout:two-col:end -->
+<!-- @design:layouts:end -->
+
+<!-- @design:components:start -->
+<!-- @component:stat-card:start -->
+### Stat card (`.stat-card`)
+
+```html
+<div class="stat-card">
+  <div class="stat-label">Revenue CAGR</div>
+  <div class="stat-value">27%</div>
+  <div class="stat-note">2024-2028E</div>
+</div>
+```
+
+```css
+.stat-card {
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+
+.stat-label {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.stat-value {
+  margin-top: 10px;
+  font-family: var(--font-display);
+  font-size: 72px;
+  line-height: 0.95;
+}
+
+.stat-note {
+  margin-top: 8px;
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+```
+<!-- @component:stat-card:end -->
+<!-- @design:components:end -->
+```
+
+### Marker 体系
+
+对于较大的 design，建议使用 marker 体系，这样 Revela 可以把常驻 prompt 控制在较小体积，
+只在需要时按需读取 layout / component 细节：
 
 ```html
 <!-- @design:foundation:start -->
@@ -265,12 +396,39 @@ Chart rules
 <!-- @design:chart-rules:end -->
 ```
 
+各类 marker 的职责：
+
+- `@design:foundation`：设计 token、HTML 骨架、CSS 基础、字体、间距、页面 framing
+- `@design:rules`：构图原则、do / don't、art direction 限制、交互规则
+- `@design:layouts`：具名 layout 配方，例如 `cover`、`toc`、`two-col`、`data-vis`
+- `@design:components`：可复用组件，例如 `card`、`stat-card`、`quote-block`
+- `@design:chart-rules`：只有图表页才需要的图表规范
+
+Layout marker 编写建议：
+
+- 名称保持稳定、简单，例如 `cover`、`two-col`、`stats`、`timeline`
+- 内容密集型 layout 用 `qa=true`，结构型或刻意稀疏的 layout 用 `qa=false`
+- 每个 layout 都写成配方：用途、推荐结构、推荐比例、已知约束
+
+Component marker 编写建议：
+
+- 至少提供一个具体 HTML 示例
+- 明确列出组件依赖的 CSS class 名
+- 尽量复用少量稳定 class，不要堆太多一次性 class
+
 Prompt 注入规则：
 
 - 常驻注入：`@design:foundation`、`@design:rules`、layout index、component index
 - 按需获取：单个 `@layout:*`、单个 `@component:*`、`@design:chart-rules`
 
 如果 design 没有 marker，Revela 会退回到整份 `DESIGN.md` 全量注入。
+
+### 实际编写建议
+
+- 把不可妥协的规则放进 `foundation` 和 `rules`，不要只藏在某个 layout 里
+- layout 名称尽量语义化，因为模型在 layout index 里首先看到的就是这些名字
+- 如果定义了自定义 CSS class，记得在 `DESIGN.md` 里写出来；QA 会检查 design 词汇表之外的新 class
+- 如果条件允许，最好同时提供 `preview.html`，方便人工预览和验收
 
 安装自定义 design：
 
