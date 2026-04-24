@@ -427,6 +427,12 @@ element selector list, and `window.getEditedHTML()` definition.
 
 ### Image Rules
 
+- When research findings contain image leads that should appear in the final deck,
+  first call `revela-research-images-list` to inspect structured candidates from
+  `researches/{slug}/*.md`. When multiple images are needed, prefer
+  `revela-media-batch-save` to save the selected candidates in one call. Use
+  `revela-media-save` for one-off cases. Then reference the returned local file
+  path in HTML. Do not use remote image URLs directly in final slides.
 - Use direct file paths (`src="assets/logo.png"`) in HTML — not base64
 - Always use the **original** file path in HTML `<img src>` for full-quality rendering
 - Never repeat the same image on multiple slides (logos: title + closing only)

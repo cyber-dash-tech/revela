@@ -33,6 +33,9 @@ Apply this visual style when generating all slides in this session.
     --shadow-soft: rgba(0, 0, 0, 0.18);
     --font-display: 'IBM Plex Sans Condensed', 'Inter', ui-sans-serif, sans-serif;
     --font-body: 'Inter', ui-sans-serif, sans-serif;
+    --font-size-body: 17px;
+    --font-size-meta: 17px;
+    --font-size-body-strong: 20px;
 }
 ```
 
@@ -58,10 +61,11 @@ Accent usage guidance:
 - inner-layout h2: `30px` to `36px`, weight `600` to `700`, line-height `1.06` to `1.12`
 - inner-layout h3: `20px` to `24px`, weight `600`, line-height `1.12` to `1.18`
 - Body: `17px`, line-height `1.6`
-- Eyebrow / caption: `11px` to `13px`, uppercase, letter-spacing `0.16em` to `0.2em`
+- Eyebrow / caption / metadata: `17px`, uppercase, letter-spacing `0.12em` to `0.18em`
 - Stat number: `72px` to `88px`, weight `500`, line-height `0.95`
 - Never use text shadows or glow.
 - Never switch to a serif typeface; Summit is strictly sans-serif.
+- Foundation owns the default text scale. In components, let `p`, `li`, `.caption`, `.eyebrow`, and `h3` inherit the foundation sizes unless a component has a clear structural reason to differ.
 
 All sizes are fixed `px` for the 1920x1080 canvas. JS `transform: scale()` handles viewport adaptation. Never use `clamp()` or viewport-relative units.
 
@@ -196,9 +200,9 @@ body {
 .eyebrow,
 .caption,
 .meta-label {
-    font-size: 12px;
+    font-size: var(--font-size-meta);
     line-height: 1.4;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--text-muted);
 }
@@ -215,7 +219,7 @@ h2 { font-size: 34px; line-height: 1.08; }
 h3 { font-size: 24px; line-height: 1.14; }
 
 p, li {
-    font-size: 17px;
+    font-size: var(--font-size-body);
     line-height: 1.6;
     color: var(--text-secondary);
 }
@@ -234,8 +238,8 @@ p, li {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    font-size: 11px;
-    letter-spacing: 0.18em;
+    font-size: var(--font-size-meta);
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--text-muted);
 }
@@ -262,7 +266,7 @@ p, li {
 
 .media-caption {
     margin-top: 12px;
-    font-size: 12px;
+    font-size: var(--font-size-meta);
     line-height: 1.5;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -282,7 +286,7 @@ p, li {
 .editorial-list li {
     position: relative;
     padding-left: 20px;
-    font-size: 14px;
+    font-size: var(--font-size-body);
     line-height: 1.58;
     color: var(--text-secondary);
 }
@@ -773,7 +777,7 @@ Unified narrative text container. Use inside any layout slot that needs a self-c
     <p class="eyebrow" style="color:rgba(243,238,230,0.72);">Section label / annual review</p>
     <h2 style="margin-top:16px;font-size:60px;line-height:0.92;letter-spacing:-0.03em;text-transform:uppercase;color:#f7f4ee;max-width:360px;">Narrative heading</h2>
     <div class="text-panel-body" style="margin-top:20px;">
-      <p style="font-size:13px;line-height:1.58;color:rgba(243,238,230,0.84);max-width:390px;">Use one or two compact paragraphs when continuous prose fits the content better than a list.</p>
+      <p style="color:rgba(243,238,230,0.84);max-width:390px;">Use one or two compact paragraphs when continuous prose fits the content better than a list.</p>
     </div>
   </div>
   <div class="text-panel-footer" style="color:rgba(243,238,230,0.68);">
@@ -807,7 +811,7 @@ Unified narrative text container. Use inside any layout slot that needs a self-c
     <p class="eyebrow" style="color:rgba(243,238,230,0.72);">Context</p>
     <h3 style="margin-top:12px;color:#f7f4ee;">Heading here</h3>
     <div class="text-panel-body" style="margin-top:16px;">
-      <p style="font-size:13px;line-height:1.58;color:rgba(243,238,230,0.84);">Introductory sentence that frames what follows. Then the list expands the argument:</p>
+      <p style="color:rgba(243,238,230,0.84);">Introductory sentence that frames what follows. Then the list expands the argument:</p>
       <ul class="editorial-list" style="margin-top:12px;">
         <li><strong>Lead phrase.</strong> Supporting explanation.</li>
         <li><strong>Second point.</strong> One sentence of evidence.</li>
@@ -884,8 +888,8 @@ This is **not** a dashboard card. It has no border, no background fill, no shado
   <p class="caption" style="color:var(--text-muted);">Performance signal</p>
   <div class="stat-card-value" style="color: var(--accent-gold);">27%</div>
   <div class="text-panel-body" style="gap:10px;max-width:330px;">
-    <h3 style="font-size:24px;line-height:1.04;text-transform:uppercase;">EBIT Margin</h3>
-    <p style="font-size:14px;line-height:1.56;color:var(--text-secondary);">Expanded for the third consecutive quarter as premium mix offset freight pressure and held pricing discipline through softer volume.</p>
+    <h3 style="line-height:1.04;text-transform:uppercase;">EBIT Margin</h3>
+    <p>Expanded for the third consecutive quarter as premium mix offset freight pressure and held pricing discipline through softer volume.</p>
   </div>
 </div>
 
@@ -896,8 +900,8 @@ This is **not** a dashboard card. It has no border, no background fill, no shado
     <div class="stat-card-value" style="color: var(--accent-olive);">4.8x</div>
   </div>
   <div class="text-panel-body" style="gap:10px;max-width:330px;">
-    <h3 style="font-size:24px;line-height:1.04;text-transform:uppercase;">Inventory Turnover</h3>
-    <p style="font-size:14px;line-height:1.56;color:var(--text-secondary);">Higher cycle efficiency reduced working-capital drag without adding new capacity, leaving more headroom for seasonal demand swings.</p>
+    <h3 style="line-height:1.04;text-transform:uppercase;">Inventory Turnover</h3>
+    <p>Higher cycle efficiency reduced working-capital drag without adding new capacity, leaving more headroom for seasonal demand swings.</p>
   </div>
 </div>
 ```
@@ -1027,7 +1031,7 @@ Rules:
 - **Do not set a fixed height on this component when used inside `highlight-cols`.** Let the parent grid's `align-items:stretch` control the column height. Fixed heights fight against the stretch and create misaligned baselines.
 - **Image aspect ratio.** Aim for 16:9 or 3:2 crops for the image block. Portrait crops create tall image zones that push text down and unbalance the composition.
 - **Kicker icon size.** Keep Lucide SVG icons at 16–20px. Larger icons shift visual weight from the image to the label zone.
-- **`editorial-list` font-size.** Override to `font-size:13px;gap:10px` inline — the base `editorial-list` is `14px/gap:14px`, which is slightly large for the narrow copy zone here.
+- **`editorial-list` sizing.** Reuse the foundation list size. If a narrow column needs more room, shorten the copy before introducing a component-specific font override.
 <!-- @component:editorial-image-top:end -->
 
 <!-- @component:editorial-text-top:start -->
@@ -1093,7 +1097,7 @@ Rules:
 ##### Tips
 - **Same height/stretch rule as `editorial-image-top`.** Do not set fixed heights; let parent grid stretch control the column.
 - **When used as a center spine in `highlight-cols`,** this is the one component that may legitimately be taller than its neighbors. That density imbalance is intentional — do not try to equalize it with padding or extra content in the outer columns.
-- **`editorial-list` font-size.** Override to `font-size:13px;gap:10px` inline — the base `editorial-list` is `14px/gap:14px`, which is slightly large for the narrow copy zone here.
+- **`editorial-list` sizing.** Reuse the foundation list size. If a narrow column needs more room, shorten the copy before introducing a component-specific font override.
 <!-- @component:editorial-text-top:end -->
 
 <!-- @component:editorial-text-left:start -->
@@ -1111,7 +1115,7 @@ Structure:
 
   <!-- header: module title spans full width -->
   <div class="editorial-text-left-header">
-    <h3 style="font-size:20px;line-height:1.08;">Module title — a single standalone heading above both columns</h3>
+    <h3 style="line-height:1.08;">Module title — a single standalone heading above both columns</h3>
   </div>
 
   <div class="editorial-text-left-content">
@@ -1125,9 +1129,9 @@ Structure:
       <!-- text-panel-body: place <p>, <ul class="editorial-list">, or both — choose based on content -->
       <div class="text-panel-body" style="margin-top:12px;">
         <!-- prose variant -->
-        <p style="font-size:13px;line-height:1.5;color:var(--text-secondary);">Supporting description. One or two sentences that position this card within the broader page argument.</p>
+        <p>Supporting description. One or two sentences that position this card within the broader page argument.</p>
         <!-- bullet variant (use instead of or after prose): -->
-        <!-- <ul class="editorial-list" style="font-size:13px;gap:10px;">
+        <!-- <ul class="editorial-list">
           <li><strong>Lead phrase.</strong> Supporting explanation for this point.</li>
           <li><strong>Second point.</strong> One sentence of context or evidence.</li>
           <li><strong>Third point.</strong> Keep each item roughly equal in length.</li>
@@ -1204,7 +1208,7 @@ Rules:
 ##### Tips
 - **Parent must supply height.** `.editorial-text-left` uses `height: 100%` and `flex: 1` internally. The parent slot must have a defined height (grid cell, `height:100%` chain, or `flex:1;min-height:0`).
 - **Text-to-visual flex ratio.** Default is `1.1 : 1` (copy slightly wider). For more copy, try `1.3 : 1`. For a visually dominant right panel, try `1 : 1.2`. Do not go below `0.8` on the copy side.
-- **`editorial-list` font-size inside copy zone.** Override to `font-size:13px` and `gap:10px` inline — the base `editorial-list` uses `14px / gap:14px`, which is slightly large for the narrow copy column.
+- **`editorial-list` inside copy zone.** Keep the foundation size. If the column feels cramped, reduce the amount of copy or widen the text side instead of introducing a smaller local text scale.
 - **`echart-container` in visual slot.** Set `width:100%;height:100%` on the container and call `echarts.init()` after `SlidePresentation` is instantiated. The `position:relative;overflow:hidden` on `.editorial-text-left-visual` contains the canvas correctly.
 - **`image-title` in visual slot.** The component is self-contained and fills `width:100%;height:100%` automatically. Use `image-title--right` modifier with a bottom-heavy overlay and right-biased blur mask for the most common editorial orientation.
 - **Dark background.** Override CSS variables on `.editorial-text-left` to cascade into both the copy and visual zones: `--text-primary`, `--text-secondary`, `--text-muted`, `--line`, `--line-strong` — all set to white-family values.
@@ -1256,7 +1260,7 @@ chart.setOption({ /* LLM selects type and config */ });
 
 .chart-subtitle {
     margin-top: 4px;
-    font-size: 13px;
+    font-size: var(--font-size-body);
     color: var(--text-muted);
     line-height: 1.4;
 }
@@ -1269,7 +1273,7 @@ chart.setOption({ /* LLM selects type and config */ });
 .chart-caption {
     flex-shrink: 0;
     margin-top: 12px;
-    font-size: 11px;
+    font-size: var(--font-size-meta);
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--text-muted);
@@ -1326,13 +1330,13 @@ Horizontal step or phase sequence. Use for process stages, numbered definitions,
 /* Shared by flow-horizontal and flow-vertical */
 .flow-number {
     font-family: var(--font-display);
-    font-size: 13px;
+    font-size: var(--font-size-meta);
     font-weight: 700;
     letter-spacing: 0.12em;
     color: var(--text-muted);
     border: 1px solid var(--line-strong);
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1346,7 +1350,6 @@ Horizontal step or phase sequence. Use for process stages, numbered definitions,
 }
 
 .flow-body p {
-    font-size: 14px;
     line-height: 1.6;
     color: var(--text-secondary);
 }
@@ -1558,7 +1561,7 @@ Annual-report format data table. Use for year-on-year comparisons, emissions dat
 }
 
 .data-table-label {
-    font-size: 10px;
+    font-size: var(--font-size-meta);
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -1570,7 +1573,7 @@ Annual-report format data table. Use for year-on-year comparisons, emissions dat
     width: 100%;
     border-collapse: collapse;
     font-family: var(--font-body);
-    font-size: 13px;
+    font-size: var(--font-size-body);
     font-variant-numeric: tabular-nums;
     color: var(--text-primary);
 }
@@ -1582,7 +1585,7 @@ Annual-report format data table. Use for year-on-year comparisons, emissions dat
 .data-table th {
     padding: 0 12px 10px 0;
     text-align: left;
-    font-size: 11px;
+    font-size: var(--font-size-meta);
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -1629,7 +1632,7 @@ Annual-report format data table. Use for year-on-year comparisons, emissions dat
 }
 
 .data-table tr.section-header td {
-    font-size: 10px;
+    font-size: var(--font-size-meta);
     font-weight: 700;
     letter-spacing: 0.10em;
     text-transform: uppercase;
@@ -1658,7 +1661,7 @@ Annual-report format data table. Use for year-on-year comparisons, emissions dat
 
 .table-caption {
     margin-top: 12px;
-    font-size: 11px;
+    font-size: var(--font-size-meta);
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--text-muted);
@@ -1677,7 +1680,7 @@ Rules:
 - Include `.table-caption` below with the data source and unit.
 
 ##### Tips
-- **Compact variant.** For high-density datasets, reduce `.data-table` to `font-size:11px` and `.data-table td` padding to `6px 8px 6px 0`. No separate component needed.
+- **Dense tables.** Keep the table on the foundation text scale when possible. If the dataset is too large, simplify the table, split it into multiple tables, or reduce the number of columns before introducing a smaller local text size.
 - **Dark background: override CSS variables on `.data-table-wrap`.** Set `--text-primary:#f7f4ee`, `--text-secondary:rgba(247,244,238,0.7)`, `--text-muted:rgba(247,244,238,0.45)`, `--line:rgba(247,244,238,0.12)`, `--line-strong:rgba(247,244,238,0.28)`. All child elements inherit automatically via `var()`.
 - **`col-highlight` on dark.** Override background on `.data-table-wrap`: `.data-table th.col-highlight, .data-table td.col-highlight { background: rgba(247,244,238,0.06); }`. Also override `--accent-earth` → `var(--accent-gold)` so highlight header color remains visible.
 - **Delta positive on dark.** Override `--accent-olive` → `#8faf7e` on `.data-table-wrap`. The default `--accent-olive` (#6f7562) is nearly invisible on dark backgrounds.
@@ -1807,7 +1810,7 @@ The LLM controls three key variables via inline style or modifier class:
 
 /* Text elements */
 .image-title-eyebrow {
-    font-size: 11px;
+    font-size: var(--font-size-meta);
     font-weight: 700;
     letter-spacing: 0.18em;
     text-transform: uppercase;
@@ -1825,7 +1828,7 @@ The LLM controls three key variables via inline style or modifier class:
 
 .image-title-subtitle {
     margin-top: 24px;
-    font-size: 15px;
+    font-size: var(--font-size-body);
     line-height: 1.56;
     color: rgba(247, 244, 238, 0.72);
     max-width: 480px;
@@ -1868,21 +1871,21 @@ Narrow editorial panel for table-of-contents slides. A 3px accent-gold vertical 
   <div style="padding-left:22px;display:flex;flex-direction:column;justify-content:space-between;flex:1;">
     <div>
       <h2 style="font-size:34px;line-height:0.94;letter-spacing:-0.03em;text-transform:uppercase;max-width:220px;">Table of Contents</h2>
-      <p style="margin-top:18px;font-size:11px;line-height:1.6;letter-spacing:0.06em;color:var(--text-secondary);max-width:255px;">Short introductory note describing the scope of the sections that follow.</p>
+      <p style="margin-top:18px;letter-spacing:0.04em;color:var(--text-secondary);max-width:255px;">Short introductory note describing the scope of the sections that follow.</p>
       <ol style="list-style:none;display:flex;flex-direction:column;gap:10px;margin-top:26px;">
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">01</span><span>Chapter title or section theme</span></li>
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">02</span><span>Chapter title or section theme</span></li>
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">03</span><span>Chapter title or section theme</span></li>
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">04</span><span>Chapter title or section theme</span></li>
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">05</span><span>Chapter title or section theme</span></li>
-        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;"><span style="font-weight:700;">06</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">01</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">02</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">03</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">04</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">05</span><span>Chapter title or section theme</span></li>
+        <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:center;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;"><span style="font-weight:700;">06</span><span>Chapter title or section theme</span></li>
       </ol>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div class="rule"></div>
       <div>
         <p class="caption">Scope of report</p>
-        <p style="margin-top:10px;font-size:11px;line-height:1.6;color:var(--text-secondary);max-width:255px;">Optional scope note, data coverage period, or brief methodology reference.</p>
+        <p style="margin-top:10px;color:var(--text-secondary);max-width:255px;">Optional scope note, data coverage period, or brief methodology reference.</p>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:end;">
         <p class="caption">Organisation · Year</p>
@@ -1975,7 +1978,7 @@ Flat editorial quote block. Wide and short (width > height). Transparent backgro
     align-items: center;
     justify-content: center;
     font-family: var(--font-display);
-    font-size: 14px;
+    font-size: var(--font-size-body);
     font-weight: 700;
     color: var(--text-muted);
     flex-shrink: 0;
@@ -1995,7 +1998,7 @@ Flat editorial quote block. Wide and short (width > height). Transparent backgro
 }
 
 .quote-name {
-    font-size: 14px;
+    font-size: var(--font-size-body);
     font-weight: 600;
     color: var(--text-primary);
     line-height: 1.3;
@@ -2083,7 +2086,7 @@ Omit `--light` only on slides with a white/light background.
   bottom: 36px;
   right: 52px;
   font-family: var(--font-display);
-  font-size: 11px;
+  font-size: var(--font-size-meta);
   font-weight: 700;
   letter-spacing: 0.18em;
   color: var(--text-muted);
@@ -2217,7 +2220,7 @@ A horizontal milestone timeline with a central axis line. Nodes sit on the axis;
 /* Date: inherits node colour via --tjh-item-color */
 .tjh-date {
   font-family: var(--font-display);
-  font-size: 11px;
+  font-size: var(--font-size-meta);
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -2228,7 +2231,7 @@ A horizontal milestone timeline with a central axis line. Nodes sit on the axis;
 
 .tjh-title {
   font-family: var(--font-display);
-  font-size: 16px;
+  font-size: var(--font-size-body);
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text-primary);
@@ -2236,7 +2239,7 @@ A horizontal milestone timeline with a central axis line. Nodes sit on the axis;
 }
 
 .tjh-text {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   line-height: 1.5;
   color: var(--text-secondary);
 }
@@ -2412,7 +2415,7 @@ Can be placed inside any layout slot that provides a defined height (`narrative`
 /* Date — colored per node via --tjv-item-color */
 .tjv-date {
   font-family: var(--font-display);
-  font-size: 11px;
+  font-size: var(--font-size-meta);
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -2431,7 +2434,7 @@ Can be placed inside any layout slot that provides a defined height (`narrative`
 }
 
 .tjv-text {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   line-height: 1.5;
   color: var(--text-secondary);
   max-width: 380px;
@@ -2453,7 +2456,7 @@ Rules:
 - **Standalone full-page use**: set an explicit height on the `.tjv` wrapper (e.g. `height: 720px`) when used outside a height-constrained layout.
 - **Dark background overrides**: set on the `.tjv` wrapper — `--line-strong: rgba(247,244,238,0.25)` (axis + stem), `.tjv-title { color: #f7f4ee }`, `.tjv-text { color: rgba(247,244,238,0.7) }`. The `--tjv-item-color` accent colours work on dark backgrounds without change.
 - **Fewer nodes (3–4)**: increase spacing — use `top` values like `15%, 35%, 55%, 75%` to prevent the timeline from clustering at the top.
-- **More nodes (6–8)**: reduce `.tjv-text` to 1–2 lines and consider reducing `font-size` to `12px` to avoid label collisions.
+- **More nodes (6–8)**: keep `.tjv-text` to 1–2 lines and increase vertical spacing before shrinking the text scale.
 <!-- @component:timeline-journey-vertical:end -->
 
 <!-- @design:components:end -->
