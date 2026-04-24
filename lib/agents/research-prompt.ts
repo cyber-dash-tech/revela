@@ -40,7 +40,7 @@ files in the workspace (PDF, Word, Excel, PowerPoint, CSV, text).
 Then select the files relevant to your research axis.
 
 For every selected file, call **\`revela-extract-document-materials\`** first.
-- \`pptx\`, \`docx\`, and \`xlsx\` will produce a manifest plus extracted text and any available embedded materials
+- \`pdf\`, \`pptx\`, \`docx\`, and \`xlsx\` will produce a manifest plus extracted text and any available embedded materials
 - unsupported file types will be skipped automatically
 
 After that, use the \`read\` tool on:

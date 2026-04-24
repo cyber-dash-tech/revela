@@ -2,7 +2,7 @@
 
 [English](README.md) | **中文**
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-109%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-125%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
@@ -19,7 +19,7 @@ Revela 是一个 [OpenCode](https://opencode.ai) 插件，可以把你当前使�
 
 - 通过 `/revela enable` 向当前 agent 注入演示文稿专用 system prompt
 - prompt 由 3 层组成：核心 skill、当前 domain、当前 design
-- 支持工作区文档扫描，以及 `.pdf`、`.docx`、`.pptx`、`.xlsx` 的透明文本提取
+- 支持工作区文档扫描，以及 `.pdf`、`.docx`、`.pptx`、`.xlsx` 的透明文本提取和嵌入素材缓存提取
 - agent 每次写入 `decks/*.html` 时自动执行布局 QA
 - 支持导出成 PDF 和可编辑 PPTX
 - design 和 domain 的切换都在本地完成，不消耗 LLM token
