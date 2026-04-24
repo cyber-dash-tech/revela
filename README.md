@@ -76,12 +76,6 @@ export { default } from "/absolute/path/to/revela/index.ts";
 
 If you use the local wrapper route, remove any `@cyber-dash-tech/revela` entry from `opencode.json`, otherwise OpenCode may still try Bun installation.
 
-### China mainland note
-
-On OpenCode versions before `v1.14.22`, plugin installs could ignore mirror-related registry settings in
-some environments. On `v1.14.22+`, direct installation should respect `.npmrc`. If direct installation still
-fails because of your local network or environment, use the local wrapper method as a fallback.
-
 ---
 
 ## Quick Start

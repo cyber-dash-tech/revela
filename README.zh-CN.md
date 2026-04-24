@@ -75,11 +75,6 @@ export { default } from "/absolute/path/to/revela/index.ts";
 
 如果使用本地 wrapper，记得把 `opencode.json` 里的 `@cyber-dash-tech/revela` `plugin` 配置删掉，否则 OpenCode 仍可能尝试用 Bun 安装。
 
-### 中国大陆网络说明
-
-在 OpenCode `v1.14.22` 之前，插件安装在某些环境下可能不会遵循镜像相关的 registry 设置。
-从 `v1.14.22+` 开始，直接安装应当会遵循 `.npmrc`。如果在你的本地网络或环境里仍然安装失败，再使用上面的本地 wrapper 方案作为 fallback。
-
 ---
 
 ## 快速开始
