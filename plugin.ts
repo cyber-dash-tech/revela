@@ -45,6 +45,14 @@ import {
 } from "./lib/commands/domains"
 import { handlePdf } from "./lib/commands/pdf"
 import { handlePptx } from "./lib/commands/pptx"
+import { handleDesignsPreview } from "./lib/commands/designs-preview"
+import {
+  parseDesignsNewArgs,
+  buildDesignsNewPrompt,
+  parseDesignsEditArgs,
+  buildDesignsEditPrompt,
+} from "./lib/commands/designs-new"
+import designsAuthorTool from "./tools/designs-author"
 import designsTool from "./tools/designs"
 import domainsTool from "./tools/domains"
 import mediaBatchSaveTool from "./tools/media-batch-save"
@@ -203,6 +211,36 @@ const server: Plugin = (async (pluginCtx) => {
         await handleDesignsAdd(param, send)
         throw new Error("__REVELA_DESIGNS_ADD_HANDLED__")
       }
+      if (sub === "designs-new") {
+        const parsed = parseDesignsNewArgs(param)
+        if (!parsed.ok) {
+          await send(parsed.error)
+          throw new Error("__REVELA_DESIGNS_NEW_USAGE_HANDLED__")
+        }
+        output.parts.length = 0
+        output.parts.push({
+          type: "text",
+          text: buildDesignsNewPrompt({ name: parsed.name, base: parsed.base }),
+        } as any)
+        return
+      }
+      if (sub === "designs-edit") {
+        const parsed = parseDesignsEditArgs(param)
+        if (!parsed.ok) {
+          await send(parsed.error)
+          throw new Error("__REVELA_DESIGNS_EDIT_USAGE_HANDLED__")
+        }
+        output.parts.length = 0
+        output.parts.push({
+          type: "text",
+          text: buildDesignsEditPrompt({ name: parsed.name }),
+        } as any)
+        return
+      }
+      if (sub === "designs-preview") {
+        await handleDesignsPreview(param, send)
+        throw new Error("__REVELA_DESIGNS_PREVIEW_HANDLED__")
+      }
       if (sub === "domains-add") {
         await handleDomainsAdd(param, send)
         throw new Error("__REVELA_DOMAINS_ADD_HANDLED__")
@@ -231,6 +269,7 @@ const server: Plugin = (async (pluginCtx) => {
     // ── LLM tools: designs, domains, research, document materials, qa ─────
     tool: {
       "revela-designs": designsTool,
+      "revela-designs-author": designsAuthorTool,
       "revela-domains": domainsTool,
       "revela-media-batch-save": mediaBatchSaveTool,
       "revela-media-save": mediaSaveTool,

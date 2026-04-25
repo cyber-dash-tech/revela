@@ -5,6 +5,9 @@ AGENTS.md
 *.jsonc
 opencode.json
 designs/*/preview.html
+!designs/starter/preview.html
+!designs/summit/preview.html
+!designs/monet/preview.html
 researches
 slides
 # Python

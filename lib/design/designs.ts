@@ -39,7 +39,49 @@ export interface DesignInfo {
   description: string
   author: string
   version: string
+  internal: boolean
   skillText: string
+}
+
+export interface ListDesignsOptions {
+  includeInternal?: boolean
+}
+
+export interface CreateDesignPackageArgs {
+  name: string
+  base?: string
+  designMd: string
+  previewHtml: string
+  overwrite?: boolean
+}
+
+export interface CreateDesignPackageResult {
+  ok: true
+  name: string
+  path: string
+  files: string[]
+  base?: string
+  overwritten: boolean
+}
+
+export interface ValidateDesignPackageResult {
+  ok: boolean
+  name: string
+  path: string
+  hasDesignMd: boolean
+  hasPreview: boolean
+  hasMarkers: boolean
+  sections: string[]
+  layouts: string[]
+  components: string[]
+  errors: string[]
+}
+
+export interface DesignPreviewInfo {
+  name: string
+  designDir: string
+  previewPath: string
+  hasPreview: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -80,6 +122,7 @@ export function parseDesignFile(filePath: string): DesignInfo | null {
       description: meta.description || "",
       author: meta.author || "unknown",
       version: meta.version || "0.0.0",
+      internal: meta.internal === "true",
       skillText: body,
     }
   } catch (e) {
@@ -95,10 +138,11 @@ export function parseDesignFile(filePath: string): DesignInfo | null {
 // Public API
 // ---------------------------------------------------------------------------
 
-/** List all installed designs, sorted by name. */
-export function listDesigns(): DesignInfo[] {
+/** List installed designs, sorted by name. Internal designs are hidden by default. */
+export function listDesigns(options: ListDesignsOptions = {}): DesignInfo[] {
   if (!existsSync(DESIGNS_DIR)) return []
   const results: DesignInfo[] = []
+  const includeInternal = options.includeInternal ?? false
 
   for (const entry of readdirSync(DESIGNS_DIR).sort()) {
     const dir = join(DESIGNS_DIR, entry)
@@ -106,7 +150,7 @@ export function listDesigns(): DesignInfo[] {
     const mdPath = join(dir, "DESIGN.md")
     if (!existsSync(mdPath)) continue
     const info = parseDesignFile(mdPath)
-    if (info) results.push(info)
+    if (info && (includeInternal || !info.internal)) results.push(info)
   }
   return results
 }
@@ -139,6 +183,135 @@ export function getDesignSkillMd(name?: string): string {
     throw new Error(`Failed to parse DESIGN.md for '${designName}'`)
   }
   return info.skillText
+}
+
+/** Resolve a design's preview.html path. Throws if the design is not installed. */
+export function resolveDesignPreview(name?: string): DesignPreviewInfo {
+  const designName = normalizeDesignName(name || activeDesign())
+  const designDir = join(DESIGNS_DIR, designName)
+  const mdPath = join(designDir, "DESIGN.md")
+  if (!existsSync(designDir) || !existsSync(mdPath)) {
+    throw new Error(`Design '${designName}' is not installed`)
+  }
+
+  const previewPath = join(designDir, "preview.html")
+  return {
+    name: designName,
+    designDir,
+    previewPath,
+    hasPreview: existsSync(previewPath),
+  }
+}
+
+/** Normalize and validate a design package name. */
+export function normalizeDesignName(name: string): string {
+  const normalized = name.trim().toLowerCase()
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(normalized)) {
+    throw new Error("Design name must be kebab-case using lowercase letters, numbers, and hyphens")
+  }
+  return normalized
+}
+
+/** Create a local design package in ~/.config/revela/designs/<name>/. */
+export function createDesignPackage(args: CreateDesignPackageArgs): CreateDesignPackageResult {
+  const name = normalizeDesignName(args.name)
+  const designMd = args.designMd?.trim()
+  const previewHtml = args.previewHtml?.trim()
+
+  if (!designMd) throw new Error("designMd is required")
+  if (!previewHtml) throw new Error("previewHtml is required")
+
+  const target = join(DESIGNS_DIR, name)
+  const existed = existsSync(target)
+  if (existed && !args.overwrite) {
+    throw new Error(`Design '${name}' already exists. Pass overwrite=true to replace it.`)
+  }
+
+  mkdirSync(DESIGNS_DIR, { recursive: true })
+  if (existed) {
+    rmSync(target, { recursive: true, force: true })
+  }
+  mkdirSync(target, { recursive: true })
+  writeFileSync(join(target, "DESIGN.md"), `${designMd}\n`, "utf-8")
+  writeFileSync(join(target, "preview.html"), `${previewHtml}\n`, "utf-8")
+
+  const validation = validateDesignPackage(name)
+  if (!validation.ok) {
+    throw new Error(`Created design package is invalid: ${validation.errors.join("; ")}`)
+  }
+
+  return {
+    ok: true,
+    name,
+    path: target,
+    files: ["DESIGN.md", "preview.html"],
+    base: args.base,
+    overwritten: existed,
+  }
+}
+
+/** Validate a local design package for the minimum Revela design contract. */
+export function validateDesignPackage(nameInput: string): ValidateDesignPackageResult {
+  let name = nameInput
+  const errors: string[] = []
+  try {
+    name = normalizeDesignName(nameInput)
+  } catch (e) {
+    errors.push(e instanceof Error ? e.message : String(e))
+  }
+
+  const dir = join(DESIGNS_DIR, name)
+  const mdPath = join(dir, "DESIGN.md")
+  const previewPath = join(dir, "preview.html")
+  const hasDesignMd = existsSync(mdPath)
+  const hasPreview = existsSync(previewPath)
+  let hasMarkers = false
+  let sections: string[] = []
+  let layouts: string[] = []
+  let components: string[] = []
+
+  if (!existsSync(dir)) errors.push(`Design directory does not exist: ${dir}`)
+  if (!hasDesignMd) errors.push("DESIGN.md is missing")
+  if (!hasPreview) errors.push("preview.html is missing")
+
+  if (hasDesignMd) {
+    const info = parseDesignFile(mdPath)
+    if (!info) {
+      errors.push("DESIGN.md could not be parsed")
+    } else {
+      const parsed = parseDesignSections(info.skillText)
+      hasMarkers = parsed.hasMarkers
+      sections = Object.keys(parsed.sections)
+      layouts = Object.keys(parsed.layouts)
+      components = Object.keys(parsed.components)
+
+      if (!hasMarkers) errors.push("DESIGN.md must include marker sections")
+      if (!parsed.sections.foundation) errors.push("@design:foundation section is missing")
+      if (!parsed.sections.rules) errors.push("@design:rules section is missing")
+      if (layouts.length === 0) errors.push("At least one @layout section is required")
+      if (components.length === 0) errors.push("At least one @component section is required")
+    }
+  }
+
+  if (hasPreview) {
+    const preview = readFileSync(previewPath, "utf-8")
+    if (!preview.includes('<section class="slide"')) errors.push("preview.html must include slide sections")
+    if (!preview.includes("slide-qa=")) errors.push("preview.html slides must include slide-qa attributes")
+    if (!preview.includes("slide-canvas")) errors.push("preview.html must include .slide-canvas")
+  }
+
+  return {
+    ok: errors.length === 0,
+    name,
+    path: dir,
+    hasDesignMd,
+    hasPreview,
+    hasMarkers,
+    sections,
+    layouts,
+    components,
+    errors,
+  }
 }
 
 // ---------------------------------------------------------------------------

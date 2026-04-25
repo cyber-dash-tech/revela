@@ -28,6 +28,9 @@ export async function handleHelp(
     `\`/revela disable\`             — disable slide generation mode\n` +
     `\`/revela designs\`             — list installed designs\n` +
     `\`/revela designs <name>\`      — activate a design\n` +
+    `\`/revela designs-new <name>\`  — create a new custom design with AI\n` +
+    `\`/revela designs-edit <name>\` — refine an existing custom design with AI\n` +
+    `\`/revela designs-preview [name]\` — open a design preview in browser\n` +
     `\`/revela domains\`             — list installed domains\n` +
     `\`/revela domains <name>\`      — activate a domain\n` +
     `\`/revela designs-add <url>\`   — install a design from URL / github:user/repo\n` +
