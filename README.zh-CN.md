@@ -123,6 +123,9 @@ Create a 6-slide HTML deck on humanoid robotics supply chains. Cite the main mar
 
 /revela designs                  列出已安装 design
 /revela designs <name>           激活某个 design
+/revela designs-new <name>       通过 AI 创建一个自定义 design
+/revela designs-edit <name>      通过 AI 调整已有自定义 design
+/revela designs-preview [name]   在浏览器中打开 design preview
 /revela designs-add <source>     从 URL、本地路径或 github:user/repo 安装 design
 /revela designs-rm <name>        删除已安装 design
 
@@ -135,7 +138,7 @@ Create a 6-slide HTML deck on humanoid robotics supply chains. Cite the main mar
 /revela pptx <file>              将 HTML deck 导出为同目录可编辑 PPTX
 ```
 
-所有 `/revela` 命令都在本地执行，不消耗 LLM token。
+大多数 `/revela` 命令都在本地执行，不消耗 LLM token。`/revela designs-new` 和 `/revela designs-edit` 会启动 AI 辅助的 design 创建/编辑流程。
 
 ---
 
@@ -227,6 +230,30 @@ Create a 6-slide HTML deck on humanoid robotics supply chains. Cite the main mar
 
 自定义 design 本质上是一个包含 `DESIGN.md` 的文件夹。目录名通常会成为安装后的 design 名称，
 除非安装器从来源中推断出其他名称。
+
+你也可以让 Revela 交互式创建一个新的本地 design：
+
+```text
+/revela designs-new my-design
+```
+
+Agent 会先询问你的审美参考，整理设计 brief 并等待确认，然后把 `DESIGN.md` 和 `preview.html` 保存到本地 Revela designs 目录。默认结构底座是内部中性 `starter` design，它不会出现在普通 design 列表中。只有当你明确想从 `summit` 或 `monet` 的具体风格派生时，才建议使用 `--base summit` 或 `--base monet`。
+
+调整已有本地 design：
+
+```text
+/revela designs-edit my-design
+```
+
+Agent 会询问你想修改什么，读取当前 design，整理 edit brief 并等待确认，然后通过受控 authoring tool 覆盖保存本地 design 包。
+
+在浏览器中打开某个 design 的 preview：
+
+```text
+/revela designs-preview my-design
+```
+
+省略 name 时会打开当前 active design 的 preview。如果该 design 没有 `preview.html`，Revela 会提示没有可用 preview。
 
 推荐目录结构：
 

@@ -1,0 +1,2284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Summit — Climate Report 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    :root {
+      --bg-frame: #050505;
+      --bg-page: #f7f4ee;
+      --bg-page-alt: #efe9df;
+      --text-primary: #171411;
+      --text-secondary: #5e554c;
+      --text-muted: #8a7f73;
+      --line: rgba(23, 20, 17, 0.14);
+      --line-strong: rgba(23, 20, 17, 0.28);
+      --accent-earth: #8d6a49;
+      --accent-olive: #6f7562;
+      --accent-stone: #b9afa1;
+      --accent-gold: #c9992a;
+      --accent-danger: #b94a3c;
+      --shadow-soft: rgba(0, 0, 0, 0.18);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      scroll-snap-type: y mandatory;
+      overflow-y: scroll;
+      height: 100%;
+    }
+
+    body {
+      background: var(--bg-frame);
+      color: var(--text-primary);
+      font-family: 'Inter', ui-sans-serif, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      height: 100%;
+    }
+
+    .slide {
+      min-height: 100dvh;
+      scroll-snap-align: start;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: var(--bg-frame);
+    }
+
+    .slide-canvas {
+      width: 1920px;
+      height: 1080px;
+      flex-shrink: 0;
+      transform-origin: center center;
+      position: relative;
+      overflow: hidden;
+      padding: 72px 80px;
+    }
+
+    .page {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: var(--bg-page);
+      color: var(--text-primary);
+      padding: 56px 64px 64px;
+      box-shadow: 0 24px 80px var(--shadow-soft);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .page.alt {
+      background: var(--bg-page-alt);
+    }
+
+    .eyebrow,
+    .caption,
+    .meta-label {
+      font-size: 12px;
+      line-height: 1.4;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    h1, h2, h3, h4 {
+      font-family: 'IBM Plex Sans Condensed', 'Inter', ui-sans-serif, sans-serif;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+
+    h1 { font-size: 88px; line-height: 0.96; }
+    h2 { font-size: 34px; line-height: 1.08; }
+    h3 { font-size: 24px; line-height: 1.14; }
+
+    p, li {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+
+    .rule {
+      width: 100%;
+      height: 1px;
+      background: var(--line);
+    }
+
+    .rule.strong {
+      background: var(--line-strong);
+    }
+
+    .chevron-divider {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .chevron-divider::before,
+    .chevron-divider::after {
+      content: '';
+      width: 18px;
+      height: 1px;
+      background: var(--line-strong);
+    }
+
+    .media-frame {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .media-frame img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    .media-caption {
+      margin-top: 12px;
+      font-size: 12px;
+      line-height: 1.5;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .editorial-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .editorial-list li {
+      position: relative;
+      padding-left: 20px;
+      font-size: 14px;
+      line-height: 1.58;
+      color: var(--text-secondary);
+    }
+
+    .editorial-list li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 8px;
+      width: 6px;
+      height: 6px;
+      background: var(--accent-earth);
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+                  transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── full-bleed-media ─────────────────────────────────── */
+    .hero-field {
+      height: 100%;
+      position: relative;
+    }
+
+    .full-bleed-media {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .full-bleed-media img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    /* ── report-text-panel ───────────────────────────────── */
+    .report-text-panel {
+      height: 100%;
+      padding: 56px 48px 34px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .report-text-panel--dark {
+      background: #2c2828;
+      color: #f3eee6;
+    }
+
+    .report-text-panel--light {
+      background: var(--bg-page-alt);
+      color: var(--text-primary);
+    }
+
+    .report-panel-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 18px;
+    }
+
+    /* ── editorial modules ───────────────────────────────── */
+    .editorial-media {
+      width: 100%;
+    }
+
+    .editorial-module-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .module-kicker-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .module-icon {
+      width: 15px;
+      height: 15px;
+      stroke-width: 1.6;
+      color: var(--accent-earth);
+      flex-shrink: 0;
+    }
+
+    .editorial-image-top {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .editorial-image-top .editorial-media {
+      height: 240px;
+    }
+
+    .editorial-image-top .editorial-module-body h3 {
+      margin-top: 2px;
+    }
+
+    .editorial-text-top {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .editorial-text-top .editorial-module-body {
+      padding-bottom: 2px;
+    }
+
+    .editorial-text-top .editorial-media {
+      height: 200px;
+    }
+
+    .editorial-text-top .media-caption {
+      margin-top: -4px;
+    }
+
+    .editorial-text-left {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .editorial-text-left-header {
+      flex-shrink: 0;
+      padding: 20px 24px 16px;
+    }
+
+    .editorial-text-left-content {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .editorial-text-left-copy {
+      flex: 1.1;
+      min-width: 0;
+      padding: 16px 20px 20px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+
+    .editorial-text-left-visual {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      align-self: stretch;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ── echart-panel ────────────────────────────────────── */
+    .echart-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 100%;
+      gap: 0;
+      padding: 40px 48px;
+      background: var(--bg-page);
+    }
+
+    .echart-panel-header {
+      flex-shrink: 0;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 20px;
+    }
+
+    .echart-panel-header h3 {
+      margin-top: 6px;
+    }
+
+    .chart-subtitle {
+      margin-top: 4px;
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .echart-container {
+      flex: 0 0 auto;
+      height: 380px;
+    }
+
+    .chart-caption {
+      flex-shrink: 0;
+      margin-top: 12px;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .narrative-hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 4.2fr) minmax(0, 7.8fr);
+      grid-template-rows: minmax(0, 1fr);
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .narrative-hero-grid--reversed {
+      grid-template-columns: minmax(0, 7.8fr) minmax(0, 4.2fr);
+    }
+
+    .narrative-hero-grid > * {
+      overflow: hidden;
+      min-height: 0;
+      min-width: 0;
+    }
+
+    .three-highlights-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 3.8fr) minmax(0, 5.4fr) minmax(0, 3.8fr);
+      gap: 34px;
+      overflow: hidden;
+    }
+
+    .three-highlights-grid > * {
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* ── split-dashboard ─────────────────────────────────── */
+    .split-dashboard {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      height: 100%;
+      width: 100%;
+    }
+
+    .split-top {
+      max-height: 320px;
+      overflow: hidden;
+      padding-bottom: 36px;
+      border-bottom: 1px solid var(--line-strong);
+    }
+
+    .split-bottom {
+      display: grid;
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      gap: 56px;
+      padding-top: 36px;
+      overflow: hidden;
+    }
+
+    .split-bottom > * {
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .split-table-col {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .split-chart-col {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .split-chart-col .echart-container {
+      flex: 1;
+      min-height: 0;
+      height: 100% !important;
+    }
+
+    /* ── flow-horizontal ─────────────────────────────────── */
+    .flow-horizontal {
+      display: flex;
+      align-items: flex-start;
+      width: 100%;
+    }
+
+    .flow-horizontal .flow-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding-right: 40px;
+      margin-right: 40px;
+    }
+
+    .flow-horizontal .flow-item:last-child {
+      border-right: none;
+      padding-right: 0;
+      margin-right: 0;
+    }
+
+    .flow-horizontal .flow-number {
+      font-family: 'IBM Plex Sans Condensed', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      border: 1px solid var(--line-strong);
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .flow-horizontal .flow-body h4 {
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 1.14;
+    }
+
+    .flow-horizontal .flow-body p {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+
+    /* ── flow-vertical ───────────────────────────────────── */
+    .flow-vertical {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .flow-vertical .flow-item {
+      display: flex;
+      gap: 28px;
+      align-items: flex-start;
+    }
+
+    .flow-vertical .flow-marker {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .flow-vertical .flow-number {
+      font-family: 'IBM Plex Sans Condensed', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      border: 1px solid var(--line-strong);
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .flow-vertical .flow-line {
+      width: 1px;
+      flex: 1;
+      min-height: 28px;
+      background: var(--line-strong);
+      margin: 6px 0;
+    }
+
+    .flow-vertical .flow-body {
+      padding-bottom: 32px;
+    }
+
+    .flow-vertical .flow-item.last .flow-body {
+      padding-bottom: 0;
+    }
+
+    .flow-vertical .flow-body h4 {
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 1.14;
+      margin-top: 4px;
+    }
+
+    .flow-vertical .flow-body p {
+      margin-top: 8px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+
+    /* ── data-table ──────────────────────────────────────── */
+    .data-table-wrap {
+      width: 100%;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+    }
+
+    .data-table thead tr {
+      border-bottom: 1.5px solid var(--line-strong);
+    }
+
+    .data-table th {
+      padding: 0 12px 10px 0;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .data-table th:not(:first-child),
+    .data-table td:not(:first-child) {
+      text-align: right;
+    }
+
+    .data-table tbody tr {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .data-table td {
+      padding: 9px 12px 9px 0;
+      line-height: 1.4;
+      color: var(--text-secondary);
+    }
+
+    .data-table tr.subtotal td {
+      font-weight: 600;
+      color: var(--text-primary);
+      border-top: 1px solid var(--line-strong);
+      border-bottom: none;
+    }
+
+    .data-table .delta {
+      font-weight: 600;
+    }
+
+    .data-table .delta.positive {
+      color: var(--accent-olive);
+    }
+
+    .data-table .delta.negative {
+      color: var(--accent-danger);
+    }
+
+    .data-table .col-highlight {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .data-table thead .col-highlight {
+      color: var(--accent-earth);
+    }
+
+    .table-caption {
+      margin-top: 12px;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* ── dense-table ─────────────────────────────────────── */
+    .dense-table-wrap {
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .dense-table-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .dense-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-secondary);
+    }
+
+    .dense-table thead tr {
+      border-bottom: 1px solid var(--line-strong);
+    }
+
+    .dense-table th {
+      padding: 0 8px 7px 0;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .dense-table th:not(:first-child),
+    .dense-table td:not(:first-child) {
+      text-align: right;
+    }
+
+    .dense-table th.col-highlight,
+    .dense-table td.col-highlight {
+      color: var(--text-primary);
+      background: rgba(247, 244, 238, 0.06);
+      padding-left: 6px;
+      padding-right: 8px;
+    }
+
+    .dense-table th.col-highlight {
+      color: rgba(247, 244, 238, 0.72);
+    }
+
+    .dense-table tbody tr {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .dense-table tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    .dense-table td {
+      padding: 6px 8px 6px 0;
+      line-height: 1.35;
+      white-space: nowrap;
+    }
+
+    .dense-table tr.subtotal td {
+      font-weight: 600;
+      color: var(--text-primary);
+      border-top: 1px solid var(--line-strong);
+      border-bottom: 1px solid var(--line-strong);
+    }
+
+    .dense-table .delta {
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .dense-table .delta.positive {
+      color: var(--accent-olive);
+    }
+
+    .dense-table .delta.negative {
+      color: var(--accent-danger);
+    }
+
+    .dense-table-caption {
+      margin-top: 8px;
+      font-size: 10px;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* ── mini-chart-strip ────────────────────────────────── */
+    .mini-chart-strip {
+      display: flex;
+      align-items: flex-start;
+      width: 100%;
+      gap: 0;
+    }
+
+    .mini-chart-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-right: 24px;
+      border-right: 1px solid var(--line-strong);
+      margin-right: 24px;
+    }
+
+    .mini-chart-item:last-child {
+      border-right: none;
+      padding-right: 0;
+      margin-right: 0;
+    }
+
+    .mini-chart-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mini-chart-container {
+      width: 100%;
+      height: 160px;
+      flex-shrink: 0;
+    }
+
+    .mini-chart-caption {
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      opacity: 0.7;
+      line-height: 1.3;
+    }
+
+    /* ── data-brief ───────────────────────────────────────── */
+    .data-brief {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 58fr) minmax(0, 42fr);
+      grid-template-rows: minmax(0, 58fr) minmax(0, 42fr);
+      gap: 24px 48px;
+      background: #10131a;
+      color: #f7f4ee;
+      padding: 48px 56px 40px;
+      --text-primary: #f7f4ee;
+      --text-secondary: rgba(247, 244, 238, 0.75);
+      --text-muted: rgba(247, 244, 238, 0.45);
+      --line: rgba(247, 244, 238, 0.10);
+      --line-strong: rgba(247, 244, 238, 0.22);
+      --accent-earth: var(--accent-gold);
+      --accent-olive: #8faf7e;
+    }
+
+    .data-brief-narrative {
+      grid-column: 1;
+      grid-row: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      padding: 28px 32px;
+    }
+
+    .data-brief-data {
+      grid-column: 2;
+      grid-row: 1 / 3;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .data-brief-strip {
+      grid-column: 1;
+      grid-row: 2;
+      overflow: hidden;
+      padding-top: 20px;
+      border-top: 1px solid rgba(247, 244, 238, 0.14);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .data-brief-strip .mini-chart-strip {
+      flex: 1;
+      min-height: 0;
+      align-items: stretch;
+    }
+
+    .data-brief-strip .mini-chart-item {
+      min-height: 0;
+    }
+
+    .data-brief-strip .mini-chart-container {
+      flex: 1;
+      min-height: 0;
+      height: auto;
+    }
+
+    /* ── brief-grid ───────────────────────────────────────── */
+    .brief-grid {
+      display: grid;
+      grid-template-rows: minmax(0, 11fr) minmax(0, 9fr);
+      gap: 20px;
+      height: 100%;
+    }
+
+    .brief-grid-top {
+      display: grid;
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      gap: 24px;
+      overflow: hidden;
+    }
+
+    .brief-grid-top > * {
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .brief-grid-bottom {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 24px;
+      overflow: hidden;
+    }
+
+    .brief-grid-bottom > * {
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .brief-grid-narrative {
+      display: flex;
+      flex-direction: column;
+      padding-right: 24px;
+      border-right: 1px solid var(--line-strong);
+    }
+
+    .brief-grid-feature {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brief-grid-feature .editorial-image-top {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-page-alt);
+      border-radius: 3px;
+      overflow: hidden;
+      height: 100%;
+    }
+
+    .brief-grid-feature .editorial-image-top .editorial-media {
+      flex: 1;
+      min-height: 0;
+    }
+
+    .brief-grid-card {
+      background: var(--bg-page-alt);
+      border-radius: 3px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brief-grid-card .editorial-text-left {
+      flex: 1;
+      min-height: 0;
+      height: 0;
+    }
+
+    /* ── page number ─────────────────────────────────────── */
+    .page-number {
+      position: absolute;
+      bottom: 36px;
+      right: 52px;
+      font-family: 'IBM Plex Sans Condensed', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      color: var(--text-muted);
+      z-index: 10;
+      pointer-events: none;
+    }
+    .page-number--light {
+      color: rgba(247, 244, 238, 0.45);
+    }
+    /* ── cover-title-stack ─────────────────────────────────── */
+    .cover-title-stack {
+      position: relative;
+      z-index: 2;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 72px 84px;
+      color: #f7f4ee;
+    }
+    .cover-brand-label { flex: 0 0 auto; }
+    .cover-body {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      max-width: 680px;
+    }
+    .cover-body h1 {
+      color: #f7f4ee;
+      font-size: 96px;
+      line-height: 0.92;
+      letter-spacing: -0.03em;
+      text-transform: uppercase;
+    }
+    .cover-eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(247, 244, 238, 0.55);
+    }
+    .cover-subtitle {
+      font-size: 15px;
+      line-height: 1.56;
+      color: rgba(247, 244, 238, 0.72);
+      max-width: 460px;
+    }
+    .cover-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    /* ── closing-title-stack ───────────────────────────────── */
+    .closing-title-stack {
+      position: relative;
+      z-index: 2;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 72px 84px;
+      color: #f7f4ee;
+      text-align: right;
+    }
+    .closing-brand-label { flex: 0 0 auto; }
+    .closing-body {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 860px;
+      margin-left: auto;
+    }
+    .closing-body h1 {
+      color: #f7f4ee;
+      font-size: 100px;
+      line-height: 0.9;
+      letter-spacing: -0.03em;
+      text-transform: uppercase;
+    }
+    .closing-subtitle {
+      font-size: 16px;
+      line-height: 1.56;
+      color: rgba(247, 244, 238, 0.78);
+      max-width: 520px;
+    }
+    .closing-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 24px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ════════════════════════════════════════════════════════
+       SLIDE 0 — COVER
+       Layout: cover · slide-qa=false
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="slide cover-slide" slide-qa="false" data-index="0">
+    <div class="slide-canvas">
+      <div class="page" style="padding:0;">
+        <div class="hero-field" style="position:absolute;inset:0;z-index:0;">
+          <div class="full-bleed-media" style="height:100%;">
+            <img src="https://images.unsplash.com/photo-1511497584788-876760111969?q=80&w=1800&auto=format&fit=crop" alt="Snowline ridge under overcast alpine sky">
+          </div>
+        </div>
+        <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(105deg,rgba(5,5,5,0.95) 0%,rgba(5,5,5,0.72) 55%,rgba(5,5,5,0.10) 100%);"></div>
+        <div class="cover-title-stack">
+          <div class="cover-brand-label">
+            <div class="chevron-divider reveal" style="color:rgba(247,244,238,0.55);">Summit</div>
+          </div>
+          <div class="cover-body">
+            <p class="cover-eyebrow reveal">Climate Report 2026</p>
+            <h1 class="reveal">Measured.<br>Accountable.<br>Moving.</h1>
+            <p class="cover-subtitle reveal">Our fourth annual climate disclosure. Verified emissions data, updated targets, and a frank account of where we fell short.</p>
+          </div>
+          <div class="cover-footer">
+            <p class="caption reveal" style="color:rgba(247,244,238,0.5);">summit.fieldnotes.com</p>
+            <p class="caption reveal" style="color:rgba(247,244,238,0.5);">Summit Outdoor Co. · 2026</p>
+          </div>
+        </div>
+        <div class="page-number page-number--light">00 / 11</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SLIDE 1 — TABLE OF CONTENTS
+       Layout: toc · slide-qa=false
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="slide" slide-qa="false" data-index="1">
+    <div class="slide-canvas">
+      <div class="page reveal" style="padding:0;overflow:hidden;">
+        <div style="display:grid;grid-template-columns:8fr 4fr;height:100%;">
+          <div class="hero-field" style="height:100%;">
+            <div class="full-bleed-media" style="height:100%;">
+              <img src="https://images.unsplash.com/photo-1522163182402-834f871fd851?q=80&w=1800&auto=format&fit=crop" alt="Climbers resting on a steep alpine wall at sunrise">
+            </div>
+          </div>
+          <div style="background:var(--bg-page);height:100%;padding:42px 38px 30px;display:flex;">
+            <div style="width:3px;background:var(--accent-gold);flex:0 0 3px;"></div>
+            <div style="padding-left:22px;display:flex;flex-direction:column;justify-content:space-between;flex:1;">
+              <div>
+                <h2 style="font-size:34px;line-height:0.94;letter-spacing:-0.03em;text-transform:uppercase;max-width:220px;">Table of Contents</h2>
+                <p style="margin-top:18px;font-size:11px;line-height:1.6;letter-spacing:0.06em;color:var(--text-secondary);max-width:255px;">Six sections mapping our progress against the commitments made in our 2022 baseline report.</p>
+                <ol style="list-style:none;display:flex;flex-direction:column;gap:10px;margin-top:26px;">
+                  <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">01</span><span>Climate Commitments &amp; 2030 Targets</span></li>
+                  <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">02</span><span>Material Transition &amp; Circular Design</span></li>
+                  <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">03</span><span>Field Programme Action Highlights</span></li>
+                  <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">04</span><span>Carbon Emissions — Scope 1, 2 &amp; 3</span></li>
+                  <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">05</span><span>Decarbonisation Roadmap 2026–2030</span></li>
+                  <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;"><span style="font-weight:700;">06</span><span>Emissions Data &amp; Assurance Tables</span></li>
+                </ol>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:14px;">
+                <div class="rule"></div>
+                <div>
+                  <p class="caption">Scope of report</p>
+                  <p style="margin-top:10px;font-size:11px;line-height:1.6;color:var(--text-secondary);max-width:255px;">Data covers fiscal year 2026 (Jan–Dec). Scope 3 figures are independently verified by Bureau Veritas.</p>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:end;">
+                  <p class="caption">Summit Outdoor Co. · 2026</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="page-number">01 / 11</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SLIDE 2 — CLIMATE COMMITMENTS
+       Layout: narrative-hero-right · slide-qa=true
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="slide" slide-qa="true" data-index="2">
+    <div class="slide-canvas">
+      <div class="page" style="padding:0;overflow:hidden;background:var(--bg-frame);">
+        <div class="narrative-hero-grid">
+          <div class="report-text-panel report-text-panel--dark reveal">
+            <div style="max-width:420px;">
+              <p class="eyebrow" style="color:rgba(243,238,230,0.6);">01 · Climate Commitments</p>
+              <h2 style="margin-top:16px;font-size:58px;line-height:0.9;letter-spacing:-0.03em;text-transform:uppercase;color:#f7f4ee;max-width:360px;">Net Zero by 2030</h2>
+              <div style="width:40px;height:2px;background:var(--accent-gold);margin:20px 0;"></div>
+              <p style="margin-top:0;font-size:13px;line-height:1.6;color:rgba(243,238,230,0.84);max-width:390px;">In 2022 we set a binding commitment to reach net-zero greenhouse gas emissions across Scope 1, 2, and 3 by end of decade. This report marks our fourth annual review against that baseline.</p>
+              <p style="margin-top:16px;font-size:13px;line-height:1.6;color:rgba(243,238,230,0.76);max-width:390px;">Scope 1 and 2 emissions have declined 38% since 2022, driven by our transition to renewable electricity across all owned facilities and the closure of our diesel-heated Vancouver distribution centre.</p>
+              <p style="margin-top:16px;font-size:13px;line-height:1.6;color:rgba(243,238,230,0.76);max-width:390px;">Scope 3 — representing 84% of our total footprint — remains the hardest problem. Supply chain decarbonisation requires multi-year programmes with tier-2 and tier-3 suppliers in Southeast Asia, progress on which we detail in section five.</p>
+            </div>
+            <div class="report-panel-footer" style="color:rgba(243,238,230,0.5);">
+              <p class="caption">Summit Outdoor Co. · Climate Report 2026</p>
+              <p class="caption">05</p>
+            </div>
+          </div>
+          <div class="hero-field reveal">
+            <div class="full-bleed-media" style="height:100%;">
+              <img src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1800&auto=format&fit=crop" alt="Mountain meadow and stream under dramatic alpine sky">
+            </div>
+          </div>
+        </div>
+        <div class="page-number">02 / 11</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SLIDE 3 — MATERIAL TRANSITION
+       Layout: narrative-hero-left · slide-qa=true
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="slide" slide-qa="true" data-index="3">
+    <div class="slide-canvas">
+      <div class="page alt" style="padding:0;overflow:hidden;background:var(--bg-page-alt);">
+        <div class="narrative-hero-grid narrative-hero-grid--reversed">
+          <div class="hero-field reveal">
+            <div class="full-bleed-media" style="height:100%;">
+              <img src="https://images.unsplash.com/photo-1454496522488-7a8e488e8606?q=80&w=1800&auto=format&fit=crop" alt="Snow ridge landscape under alpine light">
+            </div>
+          </div>
+          <div class="report-text-panel report-text-panel--light reveal">
+            <div style="max-width:390px;">
+              <p class="eyebrow" style="color:var(--text-muted);">02 · Material Transition</p>
+              <h2 style="margin-top:16px;font-size:52px;line-height:0.9;letter-spacing:-0.03em;text-transform:uppercase;color:var(--text-primary);max-width:340px;">67% Recycled Fibre</h2>
+              <div style="width:40px;height:2px;background:var(--accent-earth);margin:20px 0;"></div>
+              <p style="margin-top:0;font-size:13px;line-height:1.6;color:var(--text-secondary);max-width:360px;">As of the 2026 product season, 67% of all fabric used across Summit's softshell, fleece, and base-layer categories is certified recycled or bio-based — up from 41% in 2022.</p>
+              <p style="margin-top:16px;font-size:13px;line-height:1.6;color:var(--text-secondary);max-width:360px;">This transition was enabled by long-term contracts with Bluesign-certified mills in Portugal and Taiwan, and by a redesign of our technical shell programme to accept fabrics with a higher rPET content without compromising DWR performance.</p>
+              <p style="margin-top:16px;font-size:13px;line-height:1.6;color:var(--text-secondary);max-width:360px;">Our virgin nylon and polyester volumes fell 29% by weight. The remaining 33% of virgin fibre is primarily structural components — webbing, buckles, and dyneema reinforcements — where recycled equivalents have not yet reached equivalent load ratings.</p>
+            </div>
+            <div class="report-panel-footer" style="color:var(--text-muted);">
+              <p class="caption">Summit Outdoor Co. · Climate Report 2026</p>
+              <p class="caption">07</p>
+            </div>
+          </div>
+        </div>
+        <div class="page-number">03 / 11</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SLIDE 4 — FIELD PROGRAMME HIGHLIGHTS
+       Layout: three-highlights · slide-qa=true
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="slide" slide-qa="true" data-index="4">
+    <div class="slide-canvas">
+      <div class="page">
+        <p class="eyebrow reveal">03 · Field Programme</p>
+        <h2 class="reveal" style="margin-top:12px;font-size:26px;line-height:1.0;letter-spacing:0.01em;text-transform:uppercase;max-width:560px;">Three Programmes Driving On-the-Ground Change</h2>
+        <div class="rule" style="margin:18px 0 26px;"></div>
+        <div class="three-highlights-grid" style="flex:1;min-height:0;">
+
+          <!-- Left column -->
+          <div class="editorial-image-top reveal" style="padding-top:12px;border-top:1px solid var(--line-strong);">
+            <div class="media-frame editorial-media">
+              <img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=1200&auto=format&fit=crop" alt="Climber on alpine ridge">
+            </div>
+            <div class="editorial-module-body">
+              <div class="module-kicker-row">
+                <i data-lucide="leaf" class="module-icon"></i>
+                <p class="caption">Alpine Stewardship</p>
+              </div>
+              <h3 style="font-size:18px;line-height:1.1;max-width:240px;">Trail Restoration · Chamonix Valley</h3>
+              <p style="font-size:13px;line-height:1.52;max-width:248px;">Over three field seasons, Summit crews have restored 34 km of degraded high-altitude trails alongside the PGHM mountain rescue service, removing invasive species and stabilising eroded sections above 2,400 m.</p>
+              <p class="media-caption">Chamonix Valley · 2024–2026</p>
+            </div>
+          </div>
+
+          <!-- Centre column -->
+          <div class="editorial-text-top reveal" style="padding-top:12px;border-top:1px solid var(--line-strong);">
+            <div class="editorial-module-body">
+              <div class="module-kicker-row">
+                <i data-lucide="recycle" class="module-icon"></i>
+                <p class="caption">Circular Economy</p>
+              </div>
+              <h3 style="font-size:21px;line-height:1.06;max-width:360px;">Take-Back &amp; Repair — 18,400 Units Diverted</h3>
+              <p style="font-size:13px;line-height:1.52;max-width:360px;">Summit's take-back programme — operational in 12 European markets — collected and assessed 18,400 end-of-life garments in 2026. Of those, 61% were repaired and returned to secondary market via our Refurbished line; 22% were downcycled into insulation fill; and 17% were recycled into raw fibre at our partner facility in Lyon.</p>
+              <p style="margin-top:4px;font-size:13px;line-height:1.52;max-width:360px;">The programme prevented an estimated 112 tonnes CO₂e of production emissions by extending garment lifespans beyond the primary owner cycle. In 2027 we will expand the collection network to North America.</p>
+            </div>
+            <div class="media-frame editorial-media">
+              <img src="https://images.unsplash.com/photo-1464823063530-08f10ed1a2dd?q=80&w=1200&auto=format&fit=crop" alt="Mountain landscape with distant ridge line">
+            </div>
+            <p class="media-caption">Lyon Recycling Facility · Partner Programme 2026</p>
+          </div>
+
+          <!-- Right column -->
+          <div class="editorial-image-top reveal" style="padding-top:12px;border-top:1px solid var(--line-strong);">
+            <div class="media-frame editorial-media">
+              <img src="https://images.unsplash.com/photo-1519904981063-b0cf448d479e?q=80&w=1200&auto=format&fit=crop" alt="Hiker in alpine basin">
+            </div>
+            <div class="editorial-module-body">
+              <div class="module-kicker-row">
+                <i data-lucide="droplets" class="module-icon"></i>
+                <p class="caption">Watershed Programme</p>
+              </div>
+              <h3 style="font-size:18px;line-height:1.1;max-width:240px;">Glacial Meltwater Monitoring · Mont Blanc</h3>
+              <p style="font-size:13px;line-height:1.52;max-width:245px;">Partnering with CNRS, Summit funds a network of 14 automated sensors measuring turbidity, flow rate, and mineral load in four glacial outwash streams on the Mont Blanc massif, generating data used in French government water management planning.</p>
+              <p class="media-caption">Mont Blanc Massif · CNRS Partnership</p>
+            </div>
+          </div>
+
+        </div>
+        <div class="page-number">04 / 11</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SLIDE 5 — DECARBONISATION PATHWAY (3 LEVERS)
+       Layout: narrative-hero-right · slide-qa=true
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="slide" slide-qa="true" data-index="5">
+    <div class="slide-canvas">
+      <div class="page" style="padding:0;overflow:hidden;background:var(--bg-frame);">
+        <div class="narrative-hero-grid">
+          <div class="report-text-panel report-text-panel--dark reveal" style="position:relative;overflow:hidden;">
+            <img src="https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?q=80&w=1200&auto=format&fit=crop" alt="Alpine ridge in morning fog" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;">
+            <div style="position:absolute;inset:0;background:linear-gradient(160deg,rgba(23,18,14,0.82) 0%,rgba(23,18,14,0.72) 100%);z-index:1;"></div>
+            <div style="position:relative;z-index:2;max-width:420px;">
+              <p class="eyebrow" style="color:rgba(243,238,230,0.6);">Strategic Approach</p>
+              <h2 style="margin-top:16px;font-size:52px;line-height:0.9;letter-spacing:-0.03em;text-transform:uppercase;color:#f7f4ee;max-width:380px;">Three Levers, One Deadline</h2>
+              <div style="width:40px;height:2px;background:var(--accent-gold);margin:20px 0;"></div>
+              <p style="margin-top:0;font-size:13px;line-height:1.6;color:rgba(243,238,230,0.84);max-width:390px;">Our net-zero strategy is built around three interdependent levers that must be pulled simultaneously. Each lever targets a distinct portion of our emissions inventory and requires a different organisational capability and investment horizon.</p>
+              <p style="margin-top:16px;font-size:13px;line-height:1.6;color:rgba(243,238,230,0.76);max-width:390px;">The sequence is not linear. Operational efficiency gains fund supplier transition programmes; improved supplier traceability unlocks material substitution at scale; and permanent carbon removal is held as a last resort, not an offset mechanism.</p>
+            </div>
+            <div class="report-panel-footer" style="color:rgba(243,238,230,0.5);position:relative;z-index:2;">
+              <p class="caption">Summit Outdoor Co. · Climate Report 2026</p>
+              <p class="caption">11</p>
+            </div>
+          </div>
+          <!-- Right side -->
+          <div class="reveal" style="background:var(--bg-page);height:100%;display:flex;flex-direction:column;justify-content:center;padding:72px 80px;">
+            <p class="eyebrow" style="margin-bottom:36px;">Decarbonisation Levers</p>
+            <div class="flow-horizontal">
+              <div class="flow-item">
+                <div class="flow-number">01</div>
+                <div class="flow-body">
+                  <h4>Operational Efficiency</h4>
+                  <p>Reduce direct energy consumption in owned and leased facilities. Target: 100% renewable electricity by end of 2026. Current status: 94% of global floor area on renewable tariffs or on-site generation.</p>
+                  <p style="margin-top:12px;font-size:13px;color:var(--text-muted);">Est. abatement: 4,200 tCO₂e / yr</p>
+                </div>
+              </div>
+              <div class="flow-item">
+                <div class="flow-number">02</div>
+                <div class="flow-body">
+                  <h4>Supply Chain Transition</h4>
+                  <p>Require Scope 1 and 2 decarbonisation plans from all tier-1 suppliers by 2027, with binding reduction targets embedded in contract renewals. Provide technical and financial support for mill efficiency upgrades.</p>
+                  <p style="margin-top:12px;font-size:13px;color:var(--text-muted);">Est. abatement: 28,600 tCO₂e / yr</p>
+                </div>
+              </div>
+              <div class="flow-item">
+                <div class="flow-number">03</div>
+                <div class="flow-body">
+                  <h4>Permanent Carbon Removal</h4>
+                  <p>Commission high-durability CDR (biochar, enhanced weathering) to address residual hard-to-abate emissions. No reliance on avoided-deforestation credits. Budget ring-fenced from 2028 onwards.</p>
+                  <p style="margin-top:12px;font-size:13px;color:var(--text-muted);">Target residual: &lt;3,000 tCO₂e</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="page-number">05 / 11</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SLIDE 6 — DECARBONISATION ROADMAP
+       Layout: narrative-hero-left · slide-qa=true
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="slide" slide-qa="true" data-index="6">
+    <div class="slide-canvas">
+      <div class="page alt" style="padding:0;overflow:hidden;background:var(--bg-page-alt);">
+        <div class="narrative-hero-grid narrative-hero-grid--reversed">
+          <!-- Left side -->
+          <div class="reveal" style="position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:center;padding:56px 64px;">
+            <img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=1800&auto=format&fit=crop" alt="Alpine trail at high altitude" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;">
+            <div style="position:absolute;inset:0;background:linear-gradient(160deg,rgba(23,18,14,0.82) 0%,rgba(23,18,14,0.72) 100%);z-index:1;"></div>
+            <div style="position:relative;z-index:2;">
+              <p class="eyebrow" style="margin-bottom:8px;color:rgba(247,244,238,0.6);">05 · Decarbonisation Roadmap</p>
+              <h2 style="font-size:36px;line-height:0.96;letter-spacing:-0.03em;text-transform:uppercase;margin-bottom:36px;max-width:520px;color:#f7f4ee;">Four Phases to Net Zero</h2>
+              <div class="rule" style="margin-bottom:36px;background:rgba(247,244,238,0.2);"></div>
+              <div class="flow-vertical">
+                <div class="flow-item">
+                  <div class="flow-marker">
+                    <div class="flow-number" style="border-color:rgba(247,244,238,0.3);color:rgba(247,244,238,0.55);">01</div>
+                    <div class="flow-line" style="background:rgba(247,244,238,0.25);"></div>
+                  </div>
+                  <div class="flow-body">
+                    <h4 style="color:#f7f4ee;">Raw Material Audit · 2024–2025</h4>
+                    <p style="color:rgba(247,244,238,0.75);">Full lifecycle assessment of every material category above 500 kg annual volume. Identifies hotspots and establishes substitution priorities. Completed across 94% of SKU volume.</p>
+                  </div>
+                </div>
+                <div class="flow-item">
+                  <div class="flow-marker">
+                    <div class="flow-number" style="border-color:rgba(247,244,238,0.3);color:rgba(247,244,238,0.55);">02</div>
+                    <div class="flow-line" style="background:rgba(247,244,238,0.25);"></div>
+                  </div>
+                  <div class="flow-body">
+                    <h4 style="color:#f7f4ee;">Supply Chain Transition · 2025–2027</h4>
+                    <p style="color:rgba(247,244,238,0.75);">Binding emission reduction schedules embedded in tier-1 supplier contracts. Technical support programme active with 18 mills. Traceability platform deployed for 76% of fabric spend.</p>
+                  </div>
+                </div>
+                <div class="flow-item">
+                  <div class="flow-marker">
+                    <div class="flow-number" style="border-color:rgba(247,244,238,0.3);color:rgba(247,244,238,0.55);">03</div>
+                    <div class="flow-line" style="background:rgba(247,244,238,0.25);"></div>
+                  </div>
+                  <div class="flow-body">
+                    <h4 style="color:#f7f4ee;">Product Life Extension · 2026–2029</h4>
+                    <p style="color:rgba(247,244,238,0.75);">Standardised repairability specs mandated across all technical outerwear. Take-back programme expansion to North America and Japan. Resale revenue target: €12M by 2029.</p>
+                  </div>
+                </div>
+                <div class="flow-item last">
+                  <div class="flow-marker">
+                    <div class="flow-number" style="border-color:rgba(247,244,238,0.3);color:rgba(247,244,238,0.55);">04</div>
+                  </div>
+                  <div class="flow-body">
+                    <h4 style="color:#f7f4ee;">Carbon Removal &amp; Closure · 2028–2030</h4>
+                    <p style="color:rgba(247,244,238,0.75);">Ring-fenced budget for high-durability CDR to address hard-to-abate residual. Net-zero declaration scheduled for 2030 subject to third-party verification against Science Based Targets initiative criteria.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Right side -->
+          <div class="report-text-panel report-text-panel--light reveal">
+            <div style="max-width:390px;">
+              <p class="eyebrow" style="color:var(--text-muted);">Roadmap Rationale</p>
+              <h2 style="margin-top:16px;font-size:44px;line-height:0.92;letter-spacing:-0.03em;text-transform:uppercase;color:var(--text-primary);max-width:340px;">Sequenced, Not Simultaneous</h2>
+              <div style="width:40px;height:2px;background:var(--accent-earth);margin:20px 0;"></div>
+              <p style="margin-top:0;font-size:13px;line-height:1.6;color:var(--text-secondary);max-width:360px;">The four phases are designed to compound. Each earlier phase builds the organisational capability, supplier relationships, and data infrastructure that the following phase depends on.</p>
+              <p style="margin-top:16px;font-size:13px;line-height:1.6;color:var(--text-secondary);max-width:360px;">Attempting all four phases simultaneously would dilute attention and create conflicting investment priorities. The sequenced model also allows us to retire each phase formally, with verified outcomes, before proceeding — a structure our board-level Climate Committee reviews annually.</p>
+              <p style="margin-top:16px;font-size:13px;line-height:1.6;color:var(--text-secondary);max-width:360px;">Independent progress reviews are conducted each August, with public disclosure in October. Phase 2 received its first formal midpoint review in August 2026; findings are referenced in the assurance annex.</p>
+            </div>
+            <div class="report-panel-footer" style="color:var(--text-muted);">
+              <p class="caption">Summit Outdoor Co. · Climate Report 2026</p>
+              <p class="caption">15</p>
+            </div>
+          </div>
+        </div>
+        <div class="page-number">06 / 11</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SLIDE 7 — EMISSIONS DATA TABLE
+       Layout: narrative-hero-right · slide-qa=true
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="slide" slide-qa="true" data-index="7">
+    <div class="slide-canvas">
+      <div class="page" style="padding:0;overflow:hidden;background:var(--bg-frame);">
+        <div class="narrative-hero-grid">
+          <div class="report-text-panel report-text-panel--dark reveal">
+            <div style="max-width:420px;">
+              <p class="eyebrow" style="color:rgba(243,238,230,0.6);">06 · Assurance Tables</p>
+              <h2 style="margin-top:16px;font-size:52px;line-height:0.9;letter-spacing:-0.03em;text-transform:uppercase;color:#f7f4ee;max-width:380px;">Emissions by Scope 2022–2026</h2>
+              <div style="width:40px;height:2px;background:var(--accent-gold);margin:20px 0;"></div>
+              <p style="margin-top:0;font-size:13px;line-height:1.6;color:rgba(243,238,230,0.84);max-width:390px;">All figures independently verified by Bureau Veritas to ISAE 3000 (Revised) limited assurance standard. Prior-year figures have been restated for the 2026 logistics reclassification.</p>
+              <p style="margin-top:16px;font-size:13px;line-height:1.6;color:rgba(243,238,230,0.76);max-width:390px;">Scope 3 categories included: purchased goods and services, upstream transportation, business travel, employee commuting, end-of-life treatment of sold products, and downstream leased assets.</p>
+              <p style="margin-top:16px;font-size:13px;line-height:1.6;color:rgba(243,238,230,0.76);max-width:390px;">Year-on-year delta columns use 2022 as the baseline year. The marked improvement in Scope 2 from 2023 onwards reflects the full-year effect of renewable electricity agreements signed in Q4 2022.</p>
+            </div>
+            <div class="report-panel-footer" style="color:rgba(243,238,230,0.5);">
+              <p class="caption">Summit Outdoor Co. · Climate Report 2026</p>
+              <p class="caption">17</p>
+            </div>
+          </div>
+          <!-- Right side -->
+          <div class="reveal" style="background:var(--bg-page);height:100%;display:flex;flex-direction:column;justify-content:center;padding:56px 60px;">
+            <p class="eyebrow" style="margin-bottom:24px;">GHG Inventory · kt CO₂e</p>
+            <div class="data-table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th style="min-width:160px;">Scope</th>
+                    <th>2022</th>
+                    <th>2023</th>
+                    <th>2024</th>
+                    <th>2025</th>
+                    <th>2026</th>
+                    <th>vs. 2022</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Scope 1 — Direct combustion</td>
+                    <td>3.2</td>
+                    <td>2.9</td>
+                    <td>2.4</td>
+                    <td>2.1</td>
+                    <td>1.9</td>
+                    <td class="delta negative">−41%</td>
+                  </tr>
+                  <tr>
+                    <td>Scope 2 — Purchased electricity</td>
+                    <td>6.8</td>
+                    <td>4.1</td>
+                    <td>2.6</td>
+                    <td>1.8</td>
+                    <td>1.4</td>
+                    <td class="delta negative">−79%</td>
+                  </tr>
+                  <tr class="subtotal">
+                    <td>Scope 1+2 (net)</td>
+                    <td>10.0</td>
+                    <td>7.0</td>
+                    <td>5.0</td>
+                    <td>3.9</td>
+                    <td>3.3</td>
+                    <td class="delta negative">−67%</td>
+                  </tr>
+                  <tr>
+                    <td>Scope 3 — Purchased goods &amp; services</td>
+                    <td>28.4</td>
+                    <td>27.1</td>
+                    <td>25.8</td>
+                    <td>23.6</td>
+                    <td>21.2</td>
+                    <td class="delta negative">−25%</td>
+                  </tr>
+                  <tr>
+                    <td>Scope 3 — Upstream logistics</td>
+                    <td>5.6</td>
+                    <td>5.2</td>
+                    <td>4.8</td>
+                    <td>4.3</td>
+                    <td>3.9</td>
+                    <td class="delta negative">−30%</td>
+                  </tr>
+                  <tr>
+                    <td>Scope 3 — Business travel &amp; commute</td>
+                    <td>1.8</td>
+                    <td>1.6</td>
+                    <td>1.4</td>
+                    <td>1.2</td>
+                    <td>1.0</td>
+                    <td class="delta negative">−44%</td>
+                  </tr>
+                  <tr>
+                    <td>Scope 3 — End-of-life treatment</td>
+                    <td>2.4</td>
+                    <td>2.2</td>
+                    <td>2.0</td>
+                    <td>1.8</td>
+                    <td>2.0</td>
+                    <td class="delta negative">−17%</td>
+                  </tr>
+                  <tr class="subtotal">
+                    <td>Scope 3 total</td>
+                    <td>38.2</td>
+                    <td>36.1</td>
+                    <td>34.0</td>
+                    <td>30.9</td>
+                    <td>28.1</td>
+                    <td class="delta negative">−26%</td>
+                  </tr>
+                  <tr class="subtotal">
+                    <td>Total gross emissions</td>
+                    <td>48.2</td>
+                    <td>43.1</td>
+                    <td>39.0</td>
+                    <td>34.8</td>
+                    <td>31.4</td>
+                    <td class="delta negative">−35%</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p class="table-caption">Thousands of tonnes CO₂e · Bureau Veritas ISAE 3000 Limited Assurance · Restated for 2026 logistics reclassification</p>
+            </div>
+          </div>
+        </div>
+        <div class="page-number">07 / 11</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SLIDE 8 — CARBON PATHWAY: ACTION PLAN
+       Layout: split-dashboard · slide-qa=true
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="slide" slide-qa="true" data-index="8">
+    <div class="slide-canvas">
+      <div class="page" style="overflow:hidden;position:relative;">
+        <!-- Full-page pine forest background -->
+        <img
+          src="https://images.unsplash.com/photo-1473773508845-188df298d2d1?q=80&w=1800&auto=format&fit=crop"
+          alt=""
+          style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 48%;z-index:0;"
+        >
+        <!-- Gradient overlay: dark forest overlay -->
+        <div style="position:absolute;inset:0;z-index:1;background:rgba(14,12,10,0.72);"></div>
+        <!-- Content above overlay -->
+        <div class="split-dashboard" style="position:relative;z-index:2;color:#f7f4ee;">
+
+          <!-- Top band: flow-horizontal -->
+          <div class="split-top">
+            <p class="slide-eyebrow" style="font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:rgba(247,244,238,0.55);margin-bottom:24px;">Carbon Pathway 2026–2030</p>
+            <div class="flow-horizontal">
+              <div class="flow-item">
+                <div class="flow-number" style="border-color:rgba(247,244,238,0.3);color:rgba(247,244,238,0.6);">01</div>
+                <div class="flow-body">
+                  <h4 style="color:#f7f4ee;">Assess</h4>
+                  <p style="color:rgba(247,244,238,0.7);">Full-scope baseline audit across Tier 1–3 suppliers, owned manufacturing, retail operations, and last-mile logistics. Results form the binding 2026 emissions inventory submitted to Bureau Veritas for third-party assurance. All data collected against the GHG Protocol Corporate Standard, with market-based Scope 2 accounting applied across 14 countries.</p>
+                </div>
+              </div>
+              <div class="flow-item">
+                <div class="flow-number" style="border-color:rgba(247,244,238,0.3);color:rgba(247,244,238,0.6);">02</div>
+                <div class="flow-body">
+                  <h4 style="color:#f7f4ee;">Reduce</h4>
+                  <p style="color:rgba(247,244,238,0.7);">Transition primary manufacturing sites to certified renewable electricity by 2027. Parallel workstream: packaging redesign targeting 40% virgin plastic elimination.</p>
+                </div>
+              </div>
+              <div class="flow-item">
+                <div class="flow-number" style="border-color:rgba(247,244,238,0.3);color:rgba(247,244,238,0.6);">03</div>
+                <div class="flow-body">
+                  <h4 style="color:#f7f4ee;">Offset</h4>
+                  <p style="color:rgba(247,244,238,0.7);">High-integrity forest and blue carbon credits verified under Gold Standard VER. Capped at 15% of residual emissions — not a substitute for reduction.</p>
+                </div>
+              </div>
+              <div class="flow-item">
+                <div class="flow-number" style="border-color:rgba(247,244,238,0.3);color:rgba(247,244,238,0.6);">04</div>
+                <div class="flow-body">
+                  <h4 style="color:#f7f4ee;">Certify</h4>
+                  <p style="color:rgba(247,244,238,0.7);">ISO 14064-3 third-party verification and Net Zero declaration by December 2030.</p>
+                </div>
+              </div>
+            </div>
+          </div><!-- /.split-top -->
+
+          <!-- Bottom zone -->
+          <div class="split-bottom">
+
+            <!-- Left: data-table -->
+            <div class="split-table-col">
+              <div class="data-table-wrap" style="--text-primary:#f7f4ee;--text-secondary:rgba(247,244,238,0.7);--text-muted:rgba(247,244,238,0.45);--line:rgba(247,244,238,0.12);--line-strong:rgba(247,244,238,0.28);--accent-earth:var(--accent-gold);--accent-olive:#8faf7e;color:#f7f4ee;">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Category</th>
+                      <th>2024</th>
+                      <th>2025</th>
+                      <th class="col-highlight">2026</th>
+                      <th>YoY</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Apparel</td>
+                      <td>18.4</td>
+                      <td>16.1</td>
+                      <td class="col-highlight">14.2</td>
+                      <td class="delta positive">−12%</td>
+                    </tr>
+                    <tr>
+                      <td>Footwear</td>
+                      <td>9.7</td>
+                      <td>8.4</td>
+                      <td class="col-highlight">7.3</td>
+                      <td class="delta positive">−13%</td>
+                    </tr>
+                    <tr>
+                      <td>Accessories</td>
+                      <td>4.2</td>
+                      <td>3.9</td>
+                      <td class="col-highlight">3.4</td>
+                      <td class="delta positive">−13%</td>
+                    </tr>
+                    <tr>
+                      <td>Logistics &amp; Ops</td>
+                      <td>5.1</td>
+                      <td>4.7</td>
+                      <td class="col-highlight">4.1</td>
+                      <td class="delta positive">−13%</td>
+                    </tr>
+                    <tr class="subtotal">
+                      <td>Total (kt CO₂e)</td>
+                      <td>37.4</td>
+                      <td>33.1</td>
+                      <td class="col-highlight">28.9</td>
+                      <td class="delta positive">−13%</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p class="table-caption" style="color:rgba(247,244,238,0.45);">Thousands of tonnes CO₂e · Scope 1+2+3 combined · Bureau Veritas assured</p>
+              </div>
+            </div>
+
+            <!-- Right: echart-panel (area) -->
+            <div class="echart-panel split-chart-col" style="display:flex;flex-direction:column;height:100%;background:transparent;padding:0;color:#f7f4ee;">
+              <div class="echart-header">
+                <p class="echart-title" style="color:#f7f4ee;">Internal Carbon Price</p>
+                <p class="echart-subtitle" style="color:rgba(247,244,238,0.55);">USD / tonne CO₂e · 2022–2026 monthly</p>
+              </div>
+              <div class="echart-container" id="chart-carbon-area" style="flex:1;min-height:0;height:100%;background:transparent;"></div>
+            </div>
+
+          </div><!-- /.split-bottom -->
+        </div><!-- /.split-dashboard -->
+        <div class="page-number page-number--light">08 / 11</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SLIDE 9 — YEAR IN BRIEF
+       Layout: brief-grid · slide-qa=true
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="slide" slide-qa="true" data-index="9">
+    <div class="slide-canvas">
+      <div class="page brief-grid">
+        <div class="brief-grid-top">
+          <div class="brief-grid-narrative reveal">
+            <p class="eyebrow">07 · Year In Brief</p>
+            <h2 style="margin-top:14px;font-size:38px;line-height:0.96;letter-spacing:-0.02em;text-transform:uppercase;max-width:520px;">2026 in brief</h2>
+            <div class="rule" style="margin:20px 0 22px;"></div>
+            <ul class="editorial-list">
+              <li style="font-size:13px;line-height:1.58;">67% of all fibre volume used in technical apparel now comes from recycled or bio-based inputs, up from 41% in the 2022 baseline year.</li>
+              <li style="font-size:13px;line-height:1.58;">Renewable electricity contracts now cover 94% of owned and leased floor area, reducing market-based Scope 2 emissions by 79% versus 2022.</li>
+              <li style="font-size:13px;line-height:1.58;">The repair and take-back programme processed 18,400 garments this year, diverting 112 tonnes CO₂e of production emissions through resale and refurbishment.</li>
+              <li style="font-size:13px;line-height:1.58;">Supplier transition plans are active across 18 strategic mills, representing 76% of fabric spend and 63% of category emissions.</li>
+              <li style="font-size:13px;line-height:1.58;">Our 2030 roadmap remains on track, but chemical finishes, trims, and high-load structural components remain the largest residual material challenge.</li>
+            </ul>
+          </div>
+
+          <div class="brief-grid-feature reveal">
+            <div class="editorial-image-top">
+              <div class="media-frame editorial-media" style="flex:1;min-height:0;">
+                <img src="https://images.unsplash.com/photo-1511497584788-876760111969?q=80&w=1200&auto=format&fit=crop" alt="Summit shell program redesign hero image">
+              </div>
+              <div class="editorial-module-body" style="padding:20px 24px 16px;">
+                <div class="module-kicker-row">
+                  <i data-lucide="mountain" class="module-icon"></i>
+                  <p class="caption">Feature programme</p>
+                </div>
+                <h3 style="margin-top:8px;font-size:20px;line-height:1.08;">Shell redesign programme enters commercial scale</h3>
+                <p style="font-size:13px;line-height:1.5;margin-top:8px;color:var(--text-secondary);">A three-season redesign of our alpine shell platform enabled higher rPET content while preserving waterproof-breathable performance in cold-weather field tests.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="brief-grid-bottom">
+          <div class="brief-grid-card reveal">
+            <div class="editorial-text-left">
+              <div class="editorial-text-left-header">
+                <h3 style="font-size:18px;line-height:1.08;">Repair network expands to 42 service points</h3>
+              </div>
+              <div class="editorial-text-left-content">
+                <div class="editorial-text-left-copy">
+                  <div class="module-kicker-row">
+                    <i data-lucide="refresh-ccw" class="module-icon"></i>
+                    <p class="caption">Circular systems</p>
+                  </div>
+                  <p style="font-size:13px;line-height:1.5;margin-top:10px;color:var(--text-secondary);">Lead times fell from 24 to 11 days as in-market repair hubs replaced centralized return handling across France, Germany, and the Nordics.</p>
+                </div>
+                <div class="editorial-text-left-visual">
+                  <div class="media-frame" style="width:100%;height:100%;">
+                    <img src="https://images.unsplash.com/photo-1522163182402-834f871fd851?q=80&w=900&auto=format&fit=crop" alt="Garment repair bench and technical apparel details">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="brief-grid-card reveal">
+            <div class="editorial-text-left">
+              <div class="editorial-text-left-header">
+                <h3 style="font-size:18px;line-height:1.08;">Mill electrification pilots reduce heat-process intensity</h3>
+              </div>
+              <div class="editorial-text-left-content">
+                <div class="editorial-text-left-copy">
+                  <div class="module-kicker-row">
+                    <i data-lucide="factory" class="module-icon"></i>
+                    <p class="caption">Supplier transition</p>
+                  </div>
+                  <p style="font-size:13px;line-height:1.5;margin-top:10px;color:var(--text-secondary);">Two strategic dyeing partners completed boiler retrofits and heat recovery pilots, cutting process emissions by 14% per metre of finished fabric.</p>
+                </div>
+                <div class="editorial-text-left-visual">
+                  <div class="media-frame" style="width:100%;height:100%;">
+                    <img src="https://images.unsplash.com/photo-1473448912268-2022ce9509d8?q=80&w=900&auto=format&fit=crop" alt="Industrial landscape representing supplier transition">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="page-number">09 / 11</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SLIDE 10 — DATA BRIEF
+       Layout: data-brief · slide-qa=true
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="slide" slide-qa="true" data-index="10">
+    <div class="slide-canvas">
+      <div class="data-brief">
+          <div class="data-brief-narrative reveal">
+            <div style="max-width:440px;">
+              <p class="eyebrow" style="color:rgba(243,238,230,0.55);">08 · Climate data brief</p>
+              <h2 style="margin-top:14px;font-size:52px;line-height:0.92;letter-spacing:-0.03em;text-transform:uppercase;color:#f7f4ee;max-width:420px;">Progress by source</h2>
+              <div style="width:36px;height:2px;background:var(--accent-gold);margin:20px 0;"></div>
+              <ul class="editorial-list" style="--list-color:rgba(243,238,230,0.80);">
+                <li style="font-size:13px;line-height:1.58;color:rgba(243,238,230,0.80);">Direct operations continue to decarbonise fastest, with Scope 1 and 2 now representing just 11% of gross emissions.</li>
+                <li style="font-size:13px;line-height:1.58;color:rgba(243,238,230,0.80);">Purchased goods and services remain the largest structural source, but intensity is falling as supplier transition plans move from reporting to equipment upgrades.</li>
+                <li style="font-size:13px;line-height:1.58;color:rgba(243,238,230,0.80);">Logistics and downstream end-of-life impacts show smaller absolute shares, but they require separate operational levers rather than material substitution alone.</li>
+              </ul>
+            </div>
+            <div style="margin-top:28px;padding-top:20px;border-top:1px solid rgba(247,244,238,0.14);max-width:440px;">
+              <p class="eyebrow" style="color:rgba(243,238,230,0.45);margin-bottom:10px;">Forward looking</p>
+              <p style="font-size:13px;line-height:1.58;color:rgba(243,238,230,0.70);">2027 focus shifts from quick operational wins to supplier-side energy, chemistry, and process redesign, where payback periods are longer but abatement potential is materially larger.</p>
+            </div>
+          </div>
+
+          <div class="data-brief-data reveal">
+            <div class="dense-table-wrap">
+              <p class="dense-table-label">Emissions by source — kt CO₂e</p>
+              <table class="dense-table">
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>2022</th>
+                    <th>2023</th>
+                    <th>2024</th>
+                    <th class="col-highlight">2025</th>
+                    <th class="col-highlight">2026</th>
+                    <th>vs. 2022</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Purchased goods &amp; services</td>
+                    <td>28.4</td>
+                    <td>27.1</td>
+                    <td>25.8</td>
+                    <td class="col-highlight">23.6</td>
+                    <td class="col-highlight">21.2</td>
+                    <td class="delta positive">-25%</td>
+                  </tr>
+                  <tr>
+                    <td>Upstream logistics</td>
+                    <td>5.6</td>
+                    <td>5.2</td>
+                    <td>4.8</td>
+                    <td class="col-highlight">4.3</td>
+                    <td class="col-highlight">3.9</td>
+                    <td class="delta positive">-30%</td>
+                  </tr>
+                  <tr>
+                    <td>Business travel &amp; commute</td>
+                    <td>1.8</td>
+                    <td>1.6</td>
+                    <td>1.4</td>
+                    <td class="col-highlight">1.2</td>
+                    <td class="col-highlight">1.0</td>
+                    <td class="delta positive">-44%</td>
+                  </tr>
+                  <tr class="subtotal">
+                    <td>Scope 3 total</td>
+                    <td>38.2</td>
+                    <td>36.1</td>
+                    <td>34.0</td>
+                    <td class="col-highlight">30.9</td>
+                    <td class="col-highlight">28.1</td>
+                    <td class="delta positive">-26%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="dense-table-wrap" style="margin-top:18px;">
+              <p class="dense-table-label">Operational indicators</p>
+              <table class="dense-table">
+                <thead>
+                  <tr>
+                    <th>Indicator</th>
+                    <th>2022</th>
+                    <th>2023</th>
+                    <th>2024</th>
+                    <th class="col-highlight">2025</th>
+                    <th class="col-highlight">2026</th>
+                    <th>YoY</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Renewable floor area %</td>
+                    <td>38</td>
+                    <td>61</td>
+                    <td>78</td>
+                    <td class="col-highlight">89</td>
+                    <td class="col-highlight">94</td>
+                    <td class="delta positive">+5pp</td>
+                  </tr>
+                  <tr>
+                    <td>Repair turnaround days</td>
+                    <td>29</td>
+                    <td>26</td>
+                    <td>18</td>
+                    <td class="col-highlight">14</td>
+                    <td class="col-highlight">11</td>
+                    <td class="delta positive">-3d</td>
+                  </tr>
+                  <tr>
+                    <td>Supplier plans active</td>
+                    <td>4</td>
+                    <td>7</td>
+                    <td>12</td>
+                    <td class="col-highlight">15</td>
+                    <td class="col-highlight">18</td>
+                     <td class="delta positive">+3</td>
+                  </tr>
+                  <tr class="subtotal">
+                    <td>Residual emissions intensity</td>
+                    <td>100</td>
+                    <td>92</td>
+                    <td>84</td>
+                    <td class="col-highlight">75</td>
+                    <td class="col-highlight">65</td>
+                    <td class="delta positive">-10 pts</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="dense-table-wrap" style="margin-top:18px;">
+              <p class="dense-table-label">Capital & Investment</p>
+              <table class="dense-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>2022</th>
+                    <th>2023</th>
+                    <th>2024</th>
+                    <th class="col-highlight">2025</th>
+                    <th class="col-highlight">2026</th>
+                    <th>YoY</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Green capex (SEKm)</td>
+                    <td>1,240</td>
+                    <td>1,580</td>
+                    <td>2,140</td>
+                    <td class="col-highlight">2,870</td>
+                    <td class="col-highlight">3,410</td>
+                    <td class="delta positive">+19%</td>
+                  </tr>
+                  <tr>
+                    <td>R&amp;D spend (SEKm)</td>
+                    <td>8,400</td>
+                    <td>9,100</td>
+                    <td>10,200</td>
+                    <td class="col-highlight">11,600</td>
+                    <td class="col-highlight">13,100</td>
+                    <td class="delta positive">+13%</td>
+                  </tr>
+                  <tr>
+                    <td>Carbon offset purchased (kt)</td>
+                    <td>420</td>
+                    <td>380</td>
+                    <td>310</td>
+                    <td class="col-highlight">240</td>
+                    <td class="col-highlight">180</td>
+                    <td class="delta positive">-25%</td>
+                  </tr>
+                  <tr class="subtotal">
+                    <td>Total climate investment</td>
+                    <td>9,640</td>
+                    <td>10,680</td>
+                    <td>12,340</td>
+                    <td class="col-highlight">14,470</td>
+                    <td class="col-highlight">16,510</td>
+                    <td class="delta positive">+14%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="data-brief-strip reveal">
+            <div class="mini-chart-strip">
+              <div class="mini-chart-item">
+                <p class="mini-chart-title">Scope 1+2</p>
+                <div class="mini-chart-container" id="chart-brief-01"></div>
+                <p class="mini-chart-caption">kt CO₂e · market based</p>
+              </div>
+              <div class="mini-chart-item">
+                <p class="mini-chart-title">Scope 3 total</p>
+                <div class="mini-chart-container" id="chart-brief-02"></div>
+                <p class="mini-chart-caption">kt CO₂e</p>
+              </div>
+              <div class="mini-chart-item">
+                <p class="mini-chart-title">Repair volumes</p>
+                <div class="mini-chart-container" id="chart-brief-03"></div>
+                <p class="mini-chart-caption">units processed</p>
+              </div>
+              <div class="mini-chart-item">
+                <p class="mini-chart-title">Renewable share</p>
+                <div class="mini-chart-container" id="chart-brief-04"></div>
+                <p class="mini-chart-caption">% of floor area</p>
+              </div>
+            </div>
+          </div>
+          <div class="page-number page-number--light">10 / 11</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SLIDE 11 — CLOSING
+       Layout: closing · slide-qa=false
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="slide" slide-qa="false" data-index="11">
+    <div class="slide-canvas">
+      <div class="page" style="padding:0;">
+        <div class="hero-field" style="position:absolute;inset:0;">
+          <div class="full-bleed-media" style="height:100%;">
+            <img src="https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?q=80&w=1800&auto=format&fit=crop" alt="Snowy summit ridge at dusk">
+          </div>
+        </div>
+        <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(0,0,0,0.30) 0%,rgba(0,0,0,0.72) 100%);"></div>
+        <div class="closing-title-stack">
+          <div class="closing-brand-label">
+            <div class="chevron-divider reveal" style="color:rgba(247,244,238,0.6);">Summit</div>
+          </div>
+          <div class="closing-body">
+            <h1 class="reveal">The work continues<br>beyond the page.</h1>
+            <p class="closing-subtitle reveal">Progress is verifiable. The targets are binding. We will report again in October 2027 with full Bureau Veritas verification of our 2027 emissions inventory.</p>
+          </div>
+          <div class="closing-footer">
+            <p class="caption reveal" style="color:rgba(247,244,238,0.62);">summit.fieldnotes.com</p>
+            <p class="caption reveal" style="color:rgba(247,244,238,0.62);">Climate Report 2026 · Summit Outdoor Co.</p>
+          </div>
+        </div>
+        <div class="page-number page-number--light">11 / 11</div>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    class SlidePresentation {
+      constructor() {
+        this.slides = document.querySelectorAll('.slide');
+        this.currentSlide = 0;
+        this.setupScaling();
+        this.setupIntersectionObserver();
+        this.setupKeyboardNav();
+        this.setupTouchNav();
+        this.setupMouseWheel();
+      }
+
+      setupScaling() {
+        const canvases = document.querySelectorAll('.slide-canvas');
+        const BASE_W = 1920;
+        const BASE_H = 1080;
+        const update = () => {
+          const vw = window.innerWidth;
+          const vh = window.innerHeight;
+          const scale = Math.min(vw / BASE_W, vh / BASE_H);
+          canvases.forEach((canvas) => {
+            canvas.style.transform = `scale(${scale})`;
+          });
+        };
+        window.addEventListener('resize', update);
+        update();
+      }
+
+      setupIntersectionObserver() {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.querySelectorAll('.reveal').forEach((el) => el.classList.add('visible'));
+            }
+          });
+        }, { threshold: 0.2 });
+        this.slides.forEach((slide) => observer.observe(slide));
+      }
+
+      setupKeyboardNav() {
+        document.addEventListener('keydown', (event) => {
+          if (['ArrowDown', 'ArrowRight', ' ', 'PageDown'].includes(event.key)) {
+            event.preventDefault();
+            this.goTo(this.currentSlide + 1);
+          } else if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(event.key)) {
+            event.preventDefault();
+            this.goTo(this.currentSlide - 1);
+          }
+        });
+      }
+
+      setupTouchNav() {
+        let startY = 0;
+        document.addEventListener('touchstart', (event) => {
+          startY = event.touches[0].clientY;
+        }, { passive: true });
+        document.addEventListener('touchend', (event) => {
+          const deltaY = startY - event.changedTouches[0].clientY;
+          if (Math.abs(deltaY) > 40) {
+            this.goTo(this.currentSlide + (deltaY > 0 ? 1 : -1));
+          }
+        }, { passive: true });
+      }
+
+      setupMouseWheel() {
+        let last = 0;
+        document.addEventListener('wheel', (event) => {
+          const now = Date.now();
+          if (now - last < 800) return;
+          last = now;
+          this.goTo(this.currentSlide + (event.deltaY > 0 ? 1 : -1));
+        }, { passive: true });
+      }
+
+      goTo(index) {
+        const clamped = Math.max(0, Math.min(this.slides.length - 1, index));
+        this.slides[clamped].scrollIntoView({ behavior: 'smooth' });
+        this.currentSlide = clamped;
+      }
+    }
+
+    const presentation = new SlidePresentation();
+
+    // Lucide icons
+    lucide.createIcons();
+
+    // ECharts — slide 6 emissions chart
+    const chartEl = document.getElementById('chart-emissions');
+    if (chartEl) {
+      const chart = echarts.init(chartEl);
+      chart.setOption({
+        grid: { top: 20, right: 40, bottom: 36, left: 60 },
+        legend: {
+          bottom: 0,
+          textStyle: { fontSize: 12, color: '#8a7f73', fontFamily: 'Inter, sans-serif' },
+          itemWidth: 14,
+          itemHeight: 8,
+        },
+        tooltip: {
+          trigger: 'axis',
+          backgroundColor: '#2c2828',
+          borderColor: 'rgba(243,238,230,0.12)',
+          textStyle: { color: '#f3eee6', fontSize: 12, fontFamily: 'Inter, sans-serif' },
+          formatter: (params) => {
+            let out = `<div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(243,238,230,0.6);margin-bottom:6px;">${params[0].name}</div>`;
+            params.forEach(p => {
+              out += `<div style="display:flex;justify-content:space-between;gap:24px;"><span>${p.marker} ${p.seriesName}</span><span style="font-weight:600;">${p.value} kt</span></div>`;
+            });
+            return out;
+          },
+        },
+        xAxis: {
+          type: 'category',
+          data: ['2022', '2023', '2024', '2025', '2026'],
+          axisLine: { lineStyle: { color: 'rgba(23,20,17,0.14)' } },
+          axisTick: { show: false },
+          axisLabel: { color: '#8a7f73', fontSize: 12, fontFamily: 'Inter, sans-serif', margin: 10 },
+        },
+        yAxis: {
+          type: 'value',
+          name: 'kt CO₂e',
+          nameTextStyle: { color: '#8a7f73', fontSize: 11, fontFamily: 'Inter, sans-serif' },
+          axisLine: { show: false },
+          axisTick: { show: false },
+          axisLabel: { color: '#8a7f73', fontSize: 12, fontFamily: 'Inter, sans-serif' },
+          splitLine: { lineStyle: { color: 'rgba(23,20,17,0.1)', type: 'dashed' } },
+        },
+        series: [
+          {
+            name: 'Scope 1',
+            type: 'line',
+            data: [3.2, 2.9, 2.4, 2.1, 1.9],
+            smooth: true,
+            lineStyle: { color: '#8d6a49', width: 2 },
+            itemStyle: { color: '#8d6a49' },
+            symbol: 'circle',
+            symbolSize: 7,
+          },
+          {
+            name: 'Scope 2',
+            type: 'line',
+            data: [6.8, 4.1, 2.6, 1.8, 1.4],
+            smooth: true,
+            lineStyle: { color: '#6f7562', width: 2 },
+            itemStyle: { color: '#6f7562' },
+            symbol: 'circle',
+            symbolSize: 7,
+          },
+          {
+            name: 'Scope 3',
+            type: 'bar',
+            data: [38.2, 36.1, 34.0, 30.9, 28.1],
+            itemStyle: { color: 'rgba(184,175,161,0.45)', borderColor: '#b9afa1', borderWidth: 1 },
+            barMaxWidth: 64,
+          },
+          {
+            name: 'Total',
+            type: 'line',
+            data: [48.2, 43.1, 39.0, 34.8, 31.4],
+            smooth: true,
+            lineStyle: { color: '#171411', width: 2, type: 'dashed' },
+            itemStyle: { color: '#171411' },
+            symbol: 'none',
+          },
+        ],
+      });
+    }
+
+    // ECharts — slide 8 internal carbon price (area)
+    const carbonAreaEl = document.getElementById('chart-carbon-area');
+    if (carbonAreaEl) {
+      const carbonArea = echarts.init(carbonAreaEl, null, { renderer: 'canvas' });
+      carbonArea.setOption({ backgroundColor: 'transparent' });
+
+      // Monthly data: [open, close, low, high] — internal carbon price USD/tonne CO2e
+      // Simulated 2022–2026 with general upward trend (policy tightening)
+      const months = [
+        '2022-01','2022-02','2022-03','2022-04','2022-05','2022-06',
+        '2022-07','2022-08','2022-09','2022-10','2022-11','2022-12',
+        '2023-01','2023-02','2023-03','2023-04','2023-05','2023-06',
+        '2023-07','2023-08','2023-09','2023-10','2023-11','2023-12',
+        '2024-01','2024-02','2024-03','2024-04','2024-05','2024-06',
+        '2024-07','2024-08','2024-09','2024-10','2024-11','2024-12',
+        '2025-01','2025-02','2025-03','2025-04','2025-05','2025-06',
+        '2025-07','2025-08','2025-09','2025-10','2025-11','2025-12',
+        '2026-01','2026-02','2026-03','2026-04','2026-05','2026-06',
+        '2026-07','2026-08','2026-09','2026-10','2026-11','2026-12',
+      ];
+      const ohlc = [
+        [18,19,17,20],[19,18,16,21],[18,20,17,21],[20,21,18,22],[21,20,18,23],[20,22,19,23],
+        [22,21,19,24],[21,23,20,24],[23,22,20,25],[22,24,21,25],[24,23,21,26],[23,25,22,27],
+        [25,26,23,27],[26,25,23,28],[25,27,24,28],[27,28,25,29],[28,27,25,30],[27,29,26,30],
+        [29,28,26,31],[28,30,27,31],[30,29,27,32],[29,31,28,33],[31,30,28,33],[30,32,29,34],
+        [32,33,30,34],[33,32,30,35],[32,34,31,35],[34,35,32,36],[35,34,32,37],[34,36,33,37],
+        [36,35,33,38],[35,37,34,38],[37,36,34,39],[36,38,35,40],[38,37,35,40],[37,39,36,41],
+        [39,40,37,41],[40,39,37,42],[39,41,38,43],[41,42,39,43],[42,41,39,44],[41,43,40,45],
+        [43,42,40,45],[42,44,41,46],[44,43,41,47],[43,45,42,47],[45,44,42,48],[44,46,43,49],
+        [46,47,44,49],[47,46,44,50],[46,48,45,51],[48,49,46,51],[49,48,46,52],[48,50,47,53],
+        [50,51,48,53],[51,50,48,54],[50,52,49,55],[52,53,50,55],[53,52,50,56],[52,54,51,57],
+      ];
+      const carbonPrice = ohlc.map(([, close]) => close);
+
+      carbonArea.setOption({
+        grid: { top: 16, right: 16, bottom: 48, left: 52 },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'cross' },
+          backgroundColor: '#2c2828',
+          borderColor: 'rgba(243,238,230,0.12)',
+          textStyle: { color: '#f3eee6', fontSize: 11, fontFamily: 'Inter, sans-serif' },
+          formatter: (params) => {
+            const p = params[0];
+            return `<div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(243,238,230,0.55);margin-bottom:6px;">${p.name}</div>` +
+              `<div style="display:flex;justify-content:space-between;gap:18px;font-size:11px;">` +
+              `<span style="color:rgba(243,238,230,0.6);">Carbon price</span><span style="font-weight:600;">$${p.value}</span>` +
+              `</div>`;
+          },
+        },
+        xAxis: {
+          type: 'category',
+          data: months,
+          axisLine: { lineStyle: { color: 'var(--line-strong)' } },
+          axisTick: { show: false },
+          axisLabel: {
+            fontFamily: 'Inter, sans-serif',
+            fontSize: 10,
+            color: '#8a7f73',
+            interval: 5,
+            formatter: (v) => v.slice(0, 7),
+          },
+          splitLine: { show: false },
+        },
+        yAxis: {
+          type: 'value',
+          min: 14,
+          axisLine: { show: false },
+          axisTick: { show: false },
+          axisLabel: {
+            fontFamily: 'Inter, sans-serif',
+            fontSize: 10,
+            color: '#8a7f73',
+            formatter: (v) => '$' + v,
+          },
+          splitLine: { lineStyle: { color: 'rgba(23,20,17,0.08)', type: 'dashed' } },
+        },
+        series: [{
+          type: 'line',
+          data: carbonPrice,
+          smooth: 0.3,
+          symbol: 'none',
+          lineStyle: {
+            color: 'rgba(247,244,238,0.96)',
+            width: 2,
+          },
+          areaStyle: {
+            color: 'rgba(247,244,238,0.26)',
+          },
+        }],
+      });
+    }
+
+    const commonMiniDark = {
+      backgroundColor: 'transparent',
+      grid: { top: 8, right: 4, bottom: 22, left: 32, containLabel: false },
+      xAxis: {
+        type: 'category',
+        data: ['22', '23', '24', '25', '26'],
+        axisLine: { lineStyle: { color: 'rgba(247,244,238,0.18)' } },
+        axisTick: { show: false },
+        axisLabel: { color: 'rgba(247,244,238,0.45)', fontSize: 9, interval: 0 },
+      },
+      yAxis: [{
+        type: 'value',
+        axisLabel: { color: 'rgba(247,244,238,0.45)', fontSize: 9 },
+        splitLine: { lineStyle: { color: 'rgba(247,244,238,0.08)' } },
+        axisLine: { show: false },
+        axisTick: { show: false },
+      }],
+    };
+
+    const briefCharts = [
+      { id: 'chart-brief-01', data: [10.0, 7.0, 5.0, 3.9, 3.3], color: '#8d6a49' },
+      { id: 'chart-brief-02', data: [38.2, 36.1, 34.0, 30.9, 28.1], color: '#6f7562' },
+      { id: 'chart-brief-03', data: [6200, 8400, 11300, 15100, 18400], color: '#c9992a' },
+      { id: 'chart-brief-04', data: [38, 61, 78, 89, 94], color: '#b9afa1' },
+    ];
+
+    briefCharts.forEach(({ id, data, color }) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const chart = echarts.init(el);
+      chart.setOption({
+        ...commonMiniDark,
+        series: [{
+          type: 'bar',
+          data,
+          barMaxWidth: 18,
+          itemStyle: { color },
+        }],
+      });
+    });
+  </script>
+</body>
+</html>

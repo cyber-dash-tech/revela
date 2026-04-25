@@ -124,6 +124,9 @@ Disable presentation mode when done:
 
 /revela designs                  list installed designs
 /revela designs <name>           activate a design
+/revela designs-new <name>       create a custom design with AI
+/revela designs-edit <name>      refine an existing custom design with AI
+/revela designs-preview [name]   open a design preview in the browser
 /revela designs-add <source>     install a design from URL, local path, or github:user/repo
 /revela designs-rm <name>        remove an installed design
 
@@ -136,7 +139,7 @@ Disable presentation mode when done:
 /revela pptx <file>              export an HTML deck to editable PPTX in the same directory
 ```
 
-All `/revela` commands run locally with zero LLM cost.
+Most `/revela` commands run locally with zero LLM cost. `/revela designs-new` and `/revela designs-edit` start AI-assisted design authoring workflows.
 
 ---
 
@@ -264,6 +267,30 @@ Repository design examples:
 
 A custom design is a folder containing `DESIGN.md`. The folder name becomes the install target name
 unless the installer infers another name from the source.
+
+You can ask Revela to create a new local design interactively:
+
+```text
+/revela designs-new my-design
+```
+
+The agent will interview you for visual references, summarize a design brief for confirmation, then save `DESIGN.md` and `preview.html` into your local Revela designs directory. The default structural base is an internal neutral `starter` design, which is hidden from the normal design list. Use `--base summit` or `--base monet` only when you want to derive from those specific styles.
+
+Refine an existing local design:
+
+```text
+/revela designs-edit my-design
+```
+
+The agent will ask what to change, inspect the current design, confirm an edit brief, then overwrite the local design package through the controlled authoring tool.
+
+Open a design preview in your browser:
+
+```text
+/revela designs-preview my-design
+```
+
+Omit the name to preview the active design. If a design has no `preview.html`, Revela will report that no preview is available.
 
 Recommended structure:
 
