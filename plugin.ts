@@ -52,6 +52,9 @@ import {
   parseDesignsEditArgs,
   buildDesignsEditPrompt,
 } from "./lib/commands/designs-new"
+import { buildInitPrompt } from "./lib/commands/init"
+import { parseRememberArgs, buildRememberPrompt } from "./lib/commands/remember"
+import { buildDecksMemoryLayer, hasDecksMemory } from "./lib/decks-memory"
 import designsAuthorTool from "./tools/designs-author"
 import designsTool from "./tools/designs"
 import domainsTool from "./tools/domains"
@@ -103,6 +106,7 @@ async function sendIgnoredMessage(
 
 const server: Plugin = (async (pluginCtx) => {
   const client = pluginCtx.client
+  const workspaceRoot = pluginCtx.directory
 
   // ── Startup: seed + build initial prompt ────────────────────────────────
   try {
@@ -190,6 +194,27 @@ const server: Plugin = (async (pluginCtx) => {
       if (sub === "disable") {
         await handleDisable(send)
         throw new Error("__REVELA_DISABLE_HANDLED__")
+      }
+      if (sub === "init") {
+        output.parts.length = 0
+        output.parts.push({
+          type: "text",
+          text: buildInitPrompt({ exists: hasDecksMemory(workspaceRoot) }),
+        } as any)
+        return
+      }
+      if (sub === "remember") {
+        const parsed = parseRememberArgs(param)
+        if (!parsed.ok) {
+          await send(parsed.error)
+          throw new Error("__REVELA_REMEMBER_USAGE_HANDLED__")
+        }
+        output.parts.length = 0
+        output.parts.push({
+          type: "text",
+          text: buildRememberPrompt({ memory: parsed.memory, exists: hasDecksMemory(workspaceRoot) }),
+        } as any)
+        return
       }
       if (sub === "designs" && !param) {
         await handleDesignsList(send)
@@ -354,7 +379,15 @@ const server: Plugin = (async (pluginCtx) => {
         // Skip OpenCode internal system agents (title generator, summary, compaction)
         if (INTERNAL_AGENT_SIGNATURES.some((sig) => systemText.includes(sig))) return
 
-        const prompt = readFileSync(ACTIVE_PROMPT_FILE, "utf-8")
+        let prompt = readFileSync(ACTIVE_PROMPT_FILE, "utf-8")
+        try {
+          const memoryLayer = buildDecksMemoryLayer(workspaceRoot)
+          if (memoryLayer) prompt += "\n\n" + memoryLayer
+        } catch (e) {
+          childLog("decks-memory").warn("failed to load DECKS.md memory", {
+            error: e instanceof Error ? e.message : String(e),
+          })
+        }
         if (output.system.length > 0) {
           output.system[output.system.length - 1] += "\n\n" + prompt
         } else {

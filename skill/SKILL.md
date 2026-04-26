@@ -36,35 +36,41 @@ If the user's first message already answers most of these, skip what's clear and
 only ask about what's missing. If the message is detailed enough, proceed directly
 to Phase 1.5.
 
-Once you have the user's answers, **derive the deck slug** from the topic:
-lowercase, hyphens, no spaces (e.g. "AI Investment Shift" → `ai-investment-shift`).
-Tell the user: "I'll save this deck as `decks/{slug}.html`." They can correct the
-name at this point.
+Once you have the user's answers, form a concise **Research Brief** before doing
+research or writing HTML. The brief should capture:
+- user goal and decision/context the deck must support
+- audience and language
+- working thesis or angle, if one has emerged
+- key questions the deck must answer
+- known workspace sources from `DECKS.md`, user attachments, or visible files
+- desired output shape, slide count, and visual direction
 
-### Phase 1.5 — Deck Initialization & Resume Check
+If the brief is unclear, ask 1–3 targeted clarification questions. Do not force
+the user to provide a research topic command; the working topic emerges from the
+conversation.
 
-After confirming the deck slug, check whether this deck has been worked on before:
+### Phase 1.5 — Project Memory, Working Slug & Resume Check
 
-1. Run `ls researches/{slug}/` (or `glob researches/{slug}/*.md`).
-2. **If the directory does not exist (new deck):** proceed to Phase 2.
-3. **If research files already exist (resuming):** list the files and ask the user:
+Before research, read `DECKS.md` if it exists. Treat it as workspace memory for
+project context, source material index, explicit user preferences, prior deck
+history, and open questions. If it does not exist, continue normally and mention
+that `/revela init` can create project memory later.
 
-   > 我发现 `researches/{slug}/` 下已有以下研究文件：
-   > - `market-data.md`
-   > - `competitor-profile.md`
-   > - _(etc.)_
-   >
-   > 你想：
-   > a. 直接使用现有研究，跳到幻灯片计划阶段
-   > b. 补充某些方向的研究（请告诉我哪些方向）
-   > c. 全部重新研究
+Derive a **working slug** from the Research Brief: lowercase, hyphens, no spaces
+(e.g. "AI Investment Shift" → `ai-investment-shift`). The slug is only a file
+path handle for this deck/research cache; the user does not need to supply it as
+a command. Tell the user: "I'll save this deck as `decks/{slug}.html`." They can
+correct the name at this point.
 
-   Then act based on the user's reply:
-   - **a** → skip Phase 3, go directly to Phase 4 (read existing files first)
-   - **b** → run research agents only for the specified axes, then Phase 4
-   - **c** → proceed to Phase 2 normally (full research)
+Check whether this deck has been worked on before:
+1. Run `glob researches/{slug}/*.md`.
+2. If research files already exist, list them and ask whether to reuse, supplement,
+   or replace the existing research.
+3. If the user chooses reuse, read the existing files before Phase 4.
+4. If the user chooses supplement or replace, use the existing files to avoid
+   duplicate work and proceed through Phase 3 only for missing or stale axes.
 
-All subsequent file paths in this session use the confirmed slug:
+All subsequent file paths in this session use the working slug:
 - Slides file: `decks/{slug}.html`
 - Research dir: `researches/{slug}/`
 
@@ -99,151 +105,91 @@ Do not proceed to Phase 3 until the user has replied to the design question.
 
 ---
 
-### Phase 3 — Research-First Protocol (自主调研)
+### Phase 3 — Conversation-Driven Research Protocol (自主调研)
 
-**Always execute this phase — regardless of whether the user mentions reference
-files.** Your job is to proactively gather all available information before
-writing a single slide.
+Research is gated by the Research Brief. Do not launch research just because a
+phase says so; launch it when the deck needs facts, numbers, case studies,
+competitive profiles, market data, external validation, or image/source leads
+that are not already available in the conversation and `DECKS.md`.
 
-#### Execution Model — Parallel, Not Sequential
+If the deck is simple, internal, or fully specified by the user, you may proceed
+to Phase 4 without new research. If the brief is too vague to research, ask the
+user 1–3 focused questions before launching agents.
 
-Research layers are **NOT** a sequential fallback chain where you stop once
-"enough" data is collected. Execute them as parallel workstreams:
+#### Research Brief Before Agents
 
-```
-┌─────────────────────────────────────────────┐
-│  LAUNCH TOGETHER (as your first action):    │
-│                                             │
-│  ┌──────────────┐  ┌─────────────────────┐  │
-│  │ Layer 1      │  │ Layer 2             │  │
-│  │ Workspace    │  │ Research agents     │  │
-│  │ scan         │  │ (parallel per axis) │  │
-│  └──────────────┘  └─────────────────────┘  │
-│                                             │
-│  After both complete:                       │
-│  ┌──────────────┐                           │
-│  │ Layer 3      │  AI knowledge fills gaps  │
-│  └──────────────┘                           │
-│                                             │
-│  Only if still missing:                     │
-│  ┌──────────────┐                           │
-│  │ Layer 4      │  Ask the user             │
-│  └──────────────┘                           │
-└─────────────────────────────────────────────┘
-```
+Before starting research agents, write a brief for yourself with:
+- working slug for `researches/{slug}/`
+- user goal and audience
+- thesis or decision the deck should support
+- key questions and time period
+- relevant `DECKS.md` Source Materials or user-provided files
+- axes to research and desired output for each axis
 
-**Layer 1 and Layer 2 launch in parallel as the FIRST action after Phase 2.**
-Do not wait for Layer 1 results before launching Layer 2. Do not use Layer 3
-(AI knowledge) as an excuse to skip Layer 2.
+You do not need to ask the user to approve the slug unless the filename matters.
 
----
+#### Deep Research via `revela-research` Subagents
 
-#### Layer 1 — Workspace Documents
+`revela-research` is an OpenCode subagent, **not a tool**. Launch it through the
+Task tool with `subagent_type: "revela-research"`. Do not write or imply a
+`revela-research(...)` tool call.
 
-Scan the workspace for reference documents using the built-in file tools
-(`ls`, `glob`). Look for files with extensions:
-`.pdf`, `.xlsx`, `.xls`, `.docx`, `.doc`, `.pptx`, `.ppt`, `.csv`
-and images: `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`
+Decompose the Research Brief into independent axes before launching agents. Each
+axis gets one focused subagent brief. When multiple axes are needed, launch all
+agents in a single message with parallel Task tool calls.
 
-Use the `read` tool to read each relevant file. The Revela plugin transparently
-extracts text from binary formats (PDF, Excel, Word, PowerPoint) — just call
-`read` normally on any file type.
+Each subagent brief must specify:
+- shared working slug for `researches/{slug}/`
+- axis filename, such as `market-data`, `competitor-profile`, or `technology-trends`
+- the research question, time period, geography, and evidence standard
+- relevant `DECKS.md` Source Materials or user files to prioritize
+- whether web research is needed and what types of sources are preferred
 
----
+The subagent writes exactly one file through `revela-research-save`:
+`researches/{slug}/{axis-name}.md`.
 
-#### Layer 2 — Deep Research via Research Agents (MANDATORY)
+#### Workspace Memory and Freshness
 
-**This layer is mandatory whenever the `@revela-research` subagent (Task tool
-with `subagent_type: "revela-research"`) is available.** It is the primary
-research workhorse — not an optional enhancement.
+Use `DECKS.md` before scanning from scratch. Its `Source Materials` section is a
+workspace material index created by `/revela init`. Use it to choose candidate
+files and avoid repeated deep reading.
 
-The research agent searches the web using `websearch` for broad discovery and
-`webfetch` for depth on specific pages, reads workspace documents, and writes
-structured findings to a single file `researches/{slug}/{axis-name}.md`
-in the workspace. Use the deck slug confirmed in Phase 1.5 — do not invent a
-different slug at this point.
+Use `revela-workspace-scan` or file tools as a freshness check when needed:
+- discover files added after `/revela init`
+- verify that listed source files still exist
+- find user-provided attachments or topic-specific files not in `DECKS.md`
 
-##### Parallelization Rule
+Avoid repeated expensive work. Only call `revela-extract-document-materials` or
+deep-read files that are relevant to the current Research Brief.
 
-Decompose the topic into **independent research axes** before launching agents.
-Each axis gets its own dedicated agent with a focused brief. Launch ALL agents
-in a single message (parallel Task tool calls).
+#### After Agents Complete
 
-**How to decompose:** Look at what the presentation needs to cover. Each major
-entity, comparison dimension, or macro question is a separate axis. Decompose
-based on topic breadth and the depth each axis warrants — a narrow topic may
-need 2 axes; a complex comparison may need 4 or more. Typical decompositions:
+List and read the findings files in `researches/{slug}/`. Each file contains
+structured `## Data`, `## Cases`, `## Images`, and `## Gaps` sections. Use these
+directly as slide material, cross-reference them with workspace documents, and
+flag contradictions.
 
-| Topic type | Example axes |
-|---|---|
-| Company comparison | Company A data, Company B data, market context |
-| Industry analysis | Market sizing, competitive landscape, technology trends, regulatory |
-| Investment thesis | Opportunity metrics, risk factors, comparable deals, macro trends |
-| Product strategy | User research, competitor features, technology feasibility, go-to-market |
+After research is complete, you may update `DECKS.md` only with stable,
+cross-session value: Research Notes, Deck Memory, or Open Questions. Do not write
+temporary hypotheses, unsupported conclusions, secrets, or inferred user
+preferences. User Preferences and Workflow Preferences require explicit user
+intent to remember.
 
-Launch ALL agents in a single message (parallel Task tool calls).
+#### AI Knowledge and User Questions
 
-Each agent's brief should specify:
-- The deck slug from Phase 1.5 (e.g. `ai-investment-shift`) — all agents share the same slug
-- The axis name for their file (e.g. `anthropic-profile`, `openai-challenges`, `market-trends`)
-- What to research and what time period to focus on
-- An explicit instruction to use `websearch` (e.g. "Use the websearch tool to find relevant market reports, news, and data for this axis.")
+Use AI knowledge only to fill remaining gaps around verified sources. Mark it
+with `[Source: AI 公开知识，建议核实]` and never present it as verified fact.
 
-##### After Agents Complete
-
-List and read the findings files: `ls researches/{slug}/`, then `read`
-each `.md` file. Each file contains structured `## Data`, `## Cases`,
-`## Images`, and `## Gaps` sections — use these directly as slide material.
-Cross-reference agent findings with workspace documents (Layer 1). Flag any
-contradictions. Once all findings are read, proceed to Phase 4 to present the
-slide plan.
-
-**Anti-pattern — NEVER do this:**
-- Do NOT use `websearch` directly — it is blocked by the Revela plugin;
-  use research agents instead.
-- Do NOT run a few quick searches, decide "that's enough data", and skip the
-  research agent. The agent's job is deep, systematic research — ad-hoc
-  fetches cannot replace it.
-
----
-
-#### Layer 3 — AI Knowledge (Supplementary)
-
-After Layer 1 and Layer 2 results are in, use your training data to fill
-remaining gaps: industry context, historical background, technical explanations.
-
-**Critical:** Always mark AI-sourced information with
-`[Source: AI 公开知识，建议核实]`. Never present AI knowledge as verified fact.
-
-This layer is supplementary — it adds context around the hard data from
-Layers 1 and 2. It must never be the primary source for quantitative claims
-(market size, revenue, growth rates, etc.).
-
----
-
-#### Layer 4 — Ask the User (Last Resort Only)
-
-Only ask the user for information that Layers 1, 2, and 3 cannot cover.
-When asking, first report what you already know:
-
-> 我已从 workspace 文档和在线调研中获取了以下信息：
-> [brief list of covered topics with source counts]
->
-> 以下关键信息我无法从现有资料中获取，需要您补充：
-> 1. [specific missing item]
-> 2. [specific missing item]
-
----
+Ask the user only for information that `DECKS.md`, workspace files, research
+agents, and AI knowledge cannot cover. When asking, briefly state what you have
+already checked and what specific missing information is needed.
 
 #### Rules
 
-- **NEVER** ask the user for information that exists in workspace documents
-- **NEVER** skip workspace scanning — even if the user's message seems self-contained
-- **NEVER** ask "do you have reference files?" — just scan and find out
-- **NEVER** use `websearch` — it is blocked; delegate to research agents instead
-- **NEVER** collapse multiple research axes into a single agent call
-- **ALWAYS** launch research agents as your first action (parallel with workspace scan)
-- **ALWAYS** decompose the topic into independent axes before launching agents
+- **NEVER** use `websearch` directly from the primary agent; delegate web research to `revela-research` subagents
+- **NEVER** call `revela-research` as a tool; use Task with `subagent_type: "revela-research"`
+- **NEVER** collapse distinct research axes into one broad agent brief when parallel focused briefs would be clearer
+- **ALWAYS** read `DECKS.md` when it exists before deciding what research is needed
 - **ALWAYS** read each `researches/{slug}/{axis}.md` after agents complete
 - Use the `read` tool for all file types — binary formats are handled transparently
 ---
