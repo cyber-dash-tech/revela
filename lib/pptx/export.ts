@@ -17,13 +17,15 @@ import puppeteer, { type Browser, type Page } from "puppeteer-core"
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom"
 import { unzipSync, zipSync, strFromU8, strToU8 } from "fflate"
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs"
+import { createRequire } from "module"
 import { basename, dirname, extname, join, posix as pathPosix, resolve } from "path"
 import { randomBytes } from "crypto"
-import { fileURLToPath, pathToFileURL } from "url"
+import { pathToFileURL } from "url"
 
 const CANVAS_W = 1920
 const CANVAS_H = 1080
 const PPT_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+const requireFromExportModule = createRequire(import.meta.url)
 
 const CHROME_PATHS = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -149,6 +151,17 @@ export function derivePptxPath(htmlFilePath: string): string {
   const dir = dirname(abs)
   const name = basename(abs).replace(/\.html?$/i, "")
   return join(dir, `${name}.pptx`)
+}
+
+export function resolveDomToPptxBundlePath(): string {
+  const entryPath = requireFromExportModule.resolve("dom-to-pptx")
+  const bundlePath = join(dirname(entryPath), "dom-to-pptx.bundle.js")
+
+  if (!existsSync(bundlePath)) {
+    throw new Error(`dom-to-pptx browser bundle not found: ${bundlePath}`)
+  }
+
+  return bundlePath
 }
 
 function isLocalImageRef(ref: string): boolean {
@@ -831,10 +844,7 @@ export async function exportToPptx(
 ): Promise<ExportPptxResult> {
   const startMs = Date.now()
   const abs = resolve(htmlFilePath)
-  const domToPptxBundlePath = resolve(
-    dirname(fileURLToPath(import.meta.url)),
-    "../../node_modules/dom-to-pptx/dist/dom-to-pptx.bundle.js"
-  )
+  const domToPptxBundlePath = resolveDomToPptxBundlePath()
 
   if (!existsSync(abs)) {
     throw new Error(`File not found: ${abs}`)
