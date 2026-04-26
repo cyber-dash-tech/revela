@@ -169,6 +169,19 @@ function isLocalImageRef(ref: string): boolean {
   return IMAGE_EXTS.has(extname(pathPart).toLowerCase())
 }
 
+export function extractImageAssetRefsForPptx(htmlContent: string): string[] {
+  const assetRefPattern = /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))|url\(\s*(?:"([^"]*)"|'([^']*)'|([^\s)]+))\s*\)/g
+  const refs = new Set<string>()
+  let match: RegExpExecArray | null
+
+  while ((match = assetRefPattern.exec(htmlContent)) !== null) {
+    const ref = match.slice(1).find((value): value is string => value !== undefined)
+    if (ref) refs.add(ref.trim())
+  }
+
+  return Array.from(refs)
+}
+
 async function toDataUrlFromRef(ref: string, baseDir: string): Promise<string | null> {
   if (!ref || ref.startsWith("data:") || ref.startsWith("blob:") || ref.startsWith("#")) {
     return null
@@ -195,21 +208,15 @@ async function toDataUrlFromRef(ref: string, baseDir: string): Promise<string | 
   }
 }
 
-async function inlineImageAssets(htmlContent: string, htmlFilePath: string): Promise<string> {
+export async function inlineImageAssets(htmlContent: string, htmlFilePath: string): Promise<string> {
   const baseDir = dirname(resolve(htmlFilePath))
-  const urlPattern = /(?:src=["']|url\(["']?)([^"')>\s]+)/g
-  const refs = new Set<string>()
-  let match: RegExpExecArray | null
+  const refs = extractImageAssetRefsForPptx(htmlContent)
 
-  while ((match = urlPattern.exec(htmlContent)) !== null) {
-    refs.add(match[1])
-  }
-
-  if (refs.size === 0) return htmlContent
+  if (refs.length === 0) return htmlContent
 
   const replacements = new Map<string, string>()
   await Promise.allSettled(
-    Array.from(refs).map(async (ref) => {
+    refs.map(async (ref) => {
       const dataUrl = await toDataUrlFromRef(ref, baseDir)
       if (dataUrl) replacements.set(ref, dataUrl)
     })
@@ -224,13 +231,9 @@ async function inlineImageAssets(htmlContent: string, htmlFilePath: string): Pro
 }
 
 async function localizeExternalImages(htmlContent: string, tmpDir: string): Promise<LocalizeExternalImagesResult> {
-  const urlPattern = /(?:src=["']|url\(["']?)(https?:\/\/[^"')>\s]+)/g
-  const uniqueUrls = new Set<string>()
-  let match: RegExpExecArray | null
-
-  while ((match = urlPattern.exec(htmlContent)) !== null) {
-    uniqueUrls.add(match[1])
-  }
+  const uniqueUrls = new Set(
+    extractImageAssetRefsForPptx(htmlContent).filter((ref) => ref.startsWith("http://") || ref.startsWith("https://"))
+  )
 
   if (uniqueUrls.size === 0) {
     return {
