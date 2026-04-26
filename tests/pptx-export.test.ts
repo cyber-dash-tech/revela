@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test"
+import { strFromU8, strToU8, unzipSync, zipSync } from "fflate"
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs"
 import { tmpdir } from "os"
 import { basename, join } from "path"
 import {
+  enforceMinimumPptxFontSize,
   extractImageAssetRefsForPptx,
   inlineImageAssets,
   resolveDomToPptxBundlePath,
@@ -56,5 +58,34 @@ describe("inlineImageAssets", () => {
     } finally {
       rmSync(tempRoot, { recursive: true, force: true })
     }
+  })
+})
+
+describe("enforceMinimumPptxFontSize", () => {
+  it("raises slide text sizes below 8pt without changing larger sizes", () => {
+    const pptxBytes = zipSync({
+      "ppt/slides/slide1.xml": strToU8(`<?xml version="1.0" encoding="UTF-8"?>
+        <p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+          <p:cSld>
+            <a:rPr sz="450"/>
+            <a:defRPr sz="799"/>
+            <a:endParaRPr sz="800"/>
+            <a:rPr sz="900"/>
+            <a:rPr sz="not-a-number"/>
+          </p:cSld>
+        </p:sld>`),
+      "ppt/theme/theme1.xml": strToU8(`<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:rPr sz="450"/></a:theme>`),
+    })
+
+    const patched = unzipSync(enforceMinimumPptxFontSize(pptxBytes))
+    const slideXml = strFromU8(patched["ppt/slides/slide1.xml"])
+    const themeXml = strFromU8(patched["ppt/theme/theme1.xml"])
+
+    expect(slideXml).toContain('sz="800"')
+    expect(slideXml).not.toContain('sz="450"')
+    expect(slideXml).not.toContain('sz="799"')
+    expect(slideXml).toContain('sz="900"')
+    expect(slideXml).toContain('sz="not-a-number"')
+    expect(themeXml).toContain('sz="450"')
   })
 })

@@ -24,6 +24,7 @@ import { pathToFileURL } from "url"
 
 const CANVAS_W = 1920
 const CANVAS_H = 1080
+const MIN_PPTX_FONT_SIZE_PT = 8
 const PPT_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 const requireFromExportModule = createRequire(import.meta.url)
 
@@ -228,6 +229,39 @@ export async function inlineImageAssets(htmlContent: string, htmlFilePath: strin
     patched = patched.replace(new RegExp(escaped, "g"), replacement)
   }
   return patched
+}
+
+export function enforceMinimumPptxFontSize(
+  pptxBytes: Uint8Array,
+  minFontSizePt = MIN_PPTX_FONT_SIZE_PT,
+): Uint8Array {
+  const files = unzipSync(pptxBytes)
+  const minSz = Math.round(minFontSizePt * 100)
+  const textPropertyTags = ["a:rPr", "a:defRPr", "a:endParaRPr"]
+
+  for (const path of Object.keys(files)) {
+    if (!/^ppt\/slides\/slide\d+\.xml$/.test(path)) continue
+
+    const doc = parseXml(strFromU8(files[path]))
+    let changed = false
+
+    for (const tag of textPropertyTags) {
+      for (const node of Array.from(doc.getElementsByTagName(tag))) {
+        const raw = node.getAttribute("sz")
+        if (!raw) continue
+
+        const sz = Number(raw)
+        if (!Number.isFinite(sz) || sz >= minSz) continue
+
+        node.setAttribute("sz", String(minSz))
+        changed = true
+      }
+    }
+
+    if (changed) files[path] = xmlToBytes(doc)
+  }
+
+  return zipSync(files)
 }
 
 async function localizeExternalImages(htmlContent: string, tmpDir: string): Promise<LocalizeExternalImagesResult> {
@@ -512,7 +546,7 @@ async function exportSlidePptx(
 
     return {
       ...slide,
-      bytes: Uint8Array.from(pptxBytes),
+      bytes: enforceMinimumPptxFontSize(Uint8Array.from(pptxBytes)),
     }
   } catch (error) {
     throw formatSlideFailure(error, diagnostics.slice(diagStart ?? 0), slide)
