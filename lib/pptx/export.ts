@@ -24,7 +24,7 @@ import { pathToFileURL } from "url"
 
 const CANVAS_W = 1920
 const CANVAS_H = 1080
-const MIN_PPTX_FONT_SIZE_PT = 7
+const MIN_PPTX_FONT_SIZE_PT = 6
 const PPT_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 const requireFromExportModule = createRequire(import.meta.url)
 

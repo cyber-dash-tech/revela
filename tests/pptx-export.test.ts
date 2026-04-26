@@ -62,14 +62,14 @@ describe("inlineImageAssets", () => {
 })
 
 describe("enforceMinimumPptxFontSize", () => {
-  it("raises slide text sizes below 7pt without changing larger sizes", () => {
+  it("raises slide text sizes below 6pt without changing larger sizes", () => {
     const pptxBytes = zipSync({
       "ppt/slides/slide1.xml": strToU8(`<?xml version="1.0" encoding="UTF-8"?>
         <p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
           <p:cSld>
             <a:rPr sz="450"/>
-            <a:defRPr sz="699"/>
-            <a:endParaRPr sz="700"/>
+            <a:defRPr sz="599"/>
+            <a:endParaRPr sz="600"/>
             <a:rPr sz="900"/>
             <a:rPr sz="not-a-number"/>
           </p:cSld>
@@ -81,9 +81,9 @@ describe("enforceMinimumPptxFontSize", () => {
     const slideXml = strFromU8(patched["ppt/slides/slide1.xml"])
     const themeXml = strFromU8(patched["ppt/theme/theme1.xml"])
 
-    expect(slideXml).toContain('sz="700"')
+    expect(slideXml).toContain('sz="600"')
     expect(slideXml).not.toContain('sz="450"')
-    expect(slideXml).not.toContain('sz="699"')
+    expect(slideXml).not.toContain('sz="599"')
     expect(slideXml).toContain('sz="900"')
     expect(slideXml).toContain('sz="not-a-number"')
     expect(themeXml).toContain('sz="450"')
