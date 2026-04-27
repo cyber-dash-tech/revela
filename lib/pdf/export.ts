@@ -57,6 +57,18 @@ const MIME_TO_EXT: Record<string, string> = {
   "image/avif": ".avif",
 }
 
+const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".avif", ".bmp"])
+const EXT_TO_MIME: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".avif": "image/avif",
+  ".bmp": "image/bmp",
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function findChromePath(): string {
@@ -149,6 +161,72 @@ async function localizeExternalImages(
   return patched
 }
 
+function isLocalImageRef(ref: string): boolean {
+  const pathPart = ref.split(/[?#]/)[0]
+  return IMAGE_EXTS.has(extname(pathPart).toLowerCase())
+}
+
+export function extractImageAssetRefsForPdf(htmlContent: string): string[] {
+  const assetRefPattern = /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))|url\(\s*(?:"([^"]*)"|'([^']*)'|([^\s)]+))\s*\)/g
+  const refs = new Set<string>()
+  let match: RegExpExecArray | null
+
+  while ((match = assetRefPattern.exec(htmlContent)) !== null) {
+    const ref = match.slice(1).find((value): value is string => value !== undefined)
+    if (ref) refs.add(ref.trim())
+  }
+
+  return Array.from(refs)
+}
+
+async function toDataUrlFromRef(ref: string, baseDir: string): Promise<string | null> {
+  if (!ref || ref.startsWith("data:") || ref.startsWith("blob:") || ref.startsWith("#")) {
+    return null
+  }
+
+  try {
+    if (ref.startsWith("http://") || ref.startsWith("https://") || ref.startsWith("//") || ref.startsWith("file://")) {
+      return null
+    }
+
+    let filePath: string | null = null
+    if (isLocalImageRef(ref)) {
+      filePath = resolve(baseDir, decodeURI(ref.split(/[?#]/)[0]))
+    }
+
+    if (!filePath || !existsSync(filePath)) return null
+    const ext = extname(filePath).toLowerCase()
+    const mime = EXT_TO_MIME[ext]
+    if (!mime) return null
+    const buf = readFileSync(filePath)
+    return `data:${mime};base64,${buf.toString("base64")}`
+  } catch {
+    return null
+  }
+}
+
+export async function inlineImageAssetsForPdf(htmlContent: string, htmlFilePath: string): Promise<string> {
+  const baseDir = dirname(resolve(htmlFilePath))
+  const refs = extractImageAssetRefsForPdf(htmlContent)
+
+  if (refs.length === 0) return htmlContent
+
+  const replacements = new Map<string, string>()
+  await Promise.allSettled(
+    refs.map(async (ref) => {
+      const dataUrl = await toDataUrlFromRef(ref, baseDir)
+      if (dataUrl) replacements.set(ref, dataUrl)
+    })
+  )
+
+  let patched = htmlContent
+  for (const [original, replacement] of replacements) {
+    const escaped = original.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    patched = patched.replace(new RegExp(escaped, "g"), replacement)
+  }
+  return patched
+}
+
 // ── Main export ──────────────────────────────────────────────────────────────
 
 export interface ExportResult {
@@ -185,7 +263,8 @@ export async function exportToPdf(htmlFilePath: string): Promise<ExportResult> {
   let tmpHtmlPath: string
   try {
     const originalHtml = readFileSync(abs, "utf-8")
-    const patchedHtml = await localizeExternalImages(originalHtml, tmpDir)
+    const localizedHtml = await localizeExternalImages(originalHtml, tmpDir)
+    const patchedHtml = await inlineImageAssetsForPdf(localizedHtml, abs)
     tmpHtmlPath = join(tmpDir, "index.html")
     writeFileSync(tmpHtmlPath, patchedHtml, "utf-8")
   } catch (err) {
