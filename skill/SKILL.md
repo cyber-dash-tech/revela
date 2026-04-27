@@ -42,19 +42,20 @@ research or writing HTML. The brief should capture:
 - audience and language
 - working thesis or angle, if one has emerged
 - key questions the deck must answer
-- known workspace sources from `DECKS.md`, user attachments, or visible files
+- known workspace sources from `DECKS.json`, user attachments, or visible files
 - desired output shape, slide count, and visual direction
 
 If the brief is unclear, ask 1–3 targeted clarification questions. Do not force
 the user to provide a research topic command; the working topic emerges from the
 conversation.
 
-### Phase 1.5 — Project Memory, Working Slug & Resume Check
+### Phase 1.5 — Project State, Working Slug & Active Deck
 
-Before research, read `DECKS.md` if it exists. Treat it as workspace memory for
-project context, source material index, explicit user preferences, prior deck
-history, and open questions. If it does not exist, continue normally and mention
-that `/revela init` can create project memory later.
+Before research, use the `revela-decks` tool with action `read` or `init` to
+inspect `DECKS.json`. Treat it as the source of truth for project context,
+source material index, explicit user preferences, prior deck history, active
+deck specs, per-slide content/layout/components, write readiness, and open
+questions. Do not write or patch `DECKS.json` directly.
 
 Derive a **working slug** from the Research Brief: lowercase, hyphens, no spaces
 (e.g. "AI Investment Shift" → `ai-investment-shift`). The slug is only a file
@@ -73,6 +74,18 @@ Check whether this deck has been worked on before:
 All subsequent file paths in this session use the working slug:
 - Slides file: `decks/{slug}.html`
 - Research dir: `researches/{slug}/`
+
+Create or update the active deck in `DECKS.json` through `revela-decks` actions
+`upsertDeck` and `upsertSlides`. Keep the deck spec current as work progresses:
+- `goal` — purpose and decision/context
+- `audience`, `language`, `slideCount`, `outputPath`, and `theme`
+- `requiredInputs` — checklist state for prewrite readiness
+- `researchPlan` — axes, status, and findings files
+- `slides` — confirmed per-slide title, purpose, layout, components, content, evidence, visuals, and status
+- `writeReadiness` — computed by `revela-decks review`, never manually set by the LLM
+
+Do not store temporary Active Deck checklist state in `User Preferences` or
+`Workflow Preferences`.
 
 ### Phase 2 — Select Design
 
@@ -110,7 +123,7 @@ Do not proceed to Phase 3 until the user has replied to the design question.
 Research is gated by the Research Brief. Do not launch research just because a
 phase says so; launch it when the deck needs facts, numbers, case studies,
 competitive profiles, market data, external validation, or image/source leads
-that are not already available in the conversation and `DECKS.md`.
+that are not already available in the conversation and `DECKS.json`.
 
 If the deck is simple, internal, or fully specified by the user, you may proceed
 to Phase 4 without new research. If the brief is too vague to research, ask the
@@ -123,7 +136,7 @@ Before starting research agents, write a brief for yourself with:
 - user goal and audience
 - thesis or decision the deck should support
 - key questions and time period
-- relevant `DECKS.md` Source Materials or user-provided files
+- relevant `DECKS.json` sourceMaterials or user-provided files
 - axes to research and desired output for each axis
 
 You do not need to ask the user to approve the slug unless the filename matters.
@@ -142,7 +155,7 @@ Each subagent brief must specify:
 - shared working slug for `researches/{slug}/`
 - axis filename, such as `market-data`, `competitor-profile`, or `technology-trends`
 - the research question, time period, geography, and evidence standard
-- relevant `DECKS.md` Source Materials or user files to prioritize
+- relevant `DECKS.json` sourceMaterials or user files to prioritize
 - whether web research is needed and what types of sources are preferred
 
 The subagent writes exactly one file through `revela-research-save`:
@@ -150,14 +163,14 @@ The subagent writes exactly one file through `revela-research-save`:
 
 #### Workspace Memory and Freshness
 
-Use `DECKS.md` before scanning from scratch. Its `Source Materials` section is a
-workspace material index created by `/revela init`. Use it to choose candidate
-files and avoid repeated deep reading.
+Use `revela-decks` action `read` before scanning from scratch. Its
+`workspace.sourceMaterials` state is the workspace material index created by
+`/revela init`. Use it to choose candidate files and avoid repeated deep reading.
 
 Use `revela-workspace-scan` or file tools as a freshness check when needed:
 - discover files added after `/revela init`
 - verify that listed source files still exist
-- find user-provided attachments or topic-specific files not in `DECKS.md`
+- find user-provided attachments or topic-specific files not in `DECKS.json`
 
 Avoid repeated expensive work. Only call `revela-extract-document-materials` or
 deep-read files that are relevant to the current Research Brief.
@@ -169,18 +182,17 @@ structured `## Data`, `## Cases`, `## Images`, and `## Gaps` sections. Use these
 directly as slide material, cross-reference them with workspace documents, and
 flag contradictions.
 
-After research is complete, you may update `DECKS.md` only with stable,
-cross-session value: Research Notes, Deck Memory, or Open Questions. Do not write
-temporary hypotheses, unsupported conclusions, secrets, or inferred user
-preferences. User Preferences and Workflow Preferences require explicit user
-intent to remember.
+After research is complete, use `revela-decks` only for stable, cross-session
+state updates. Do not write temporary hypotheses, unsupported conclusions,
+secrets, or inferred user preferences. User and workflow preferences require
+explicit user intent to remember.
 
 #### AI Knowledge and User Questions
 
 Use AI knowledge only to fill remaining gaps around verified sources. Mark it
 with `[Source: AI 公开知识，建议核实]` and never present it as verified fact.
 
-Ask the user only for information that `DECKS.md`, workspace files, research
+Ask the user only for information that `DECKS.json`, workspace files, research
 agents, and AI knowledge cannot cover. When asking, briefly state what you have
 already checked and what specific missing information is needed.
 
@@ -189,7 +201,7 @@ already checked and what specific missing information is needed.
 - **NEVER** use `websearch` directly from the primary agent; delegate web research to `revela-research` subagents
 - **NEVER** call `revela-research` as a tool; use Task with `subagent_type: "revela-research"`
 - **NEVER** collapse distinct research axes into one broad agent brief when parallel focused briefs would be clearer
-- **ALWAYS** read `DECKS.md` when it exists before deciding what research is needed
+- **ALWAYS** use `revela-decks` action `read` before deciding what research is needed
 - **ALWAYS** read each `researches/{slug}/{axis}.md` after agents complete
 - Use the `read` tool for all file types — binary formats are handled transparently
 ---
@@ -273,6 +285,11 @@ Then ask:
 - On confirmation → proceed to Phase 5
 - On change request → update the table and ask again
 
+After the user confirms the slide plan, update `DECKS.json` through `revela-decks`:
+- Call `upsertDeck` to mark completed `requiredInputs` only when explicitly satisfied.
+- Call `upsertSlides` with the confirmed per-slide content, layout, components, and evidence.
+- Keep write readiness blocked until Phase 5 calls `revela-decks review` and the tool returns ready.
+
 ---
 
 ### Phase 5 — Generate
@@ -284,9 +301,13 @@ Then ask:
    you plan to use (comma-separated, e.g. `layout: "cover,two-col,stats,card-grid"`).
 3. Call `revela-designs` tool with `action: "read"` and `component` set to ALL component
    names you plan to use (comma-separated, e.g. `component: "card,stat-card,evidence-list"`).
-4. Generate HTML that **exactly matches** the fetched examples — copy the HTML structure verbatim.
+4. Use `revela-decks` action `upsertDeck` to mark `requiredInputs.designLayoutsFetched` complete.
+5. Run `/revela review {slug}` or call `revela-decks` action `review` yourself. The tool must compute readiness from `DECKS.json`.
+6. Use `revela-decks` action `read` and confirm `writeReadiness.status` is `ready` with no blockers.
+7. Generate HTML that **exactly matches** the fetched examples — copy the HTML structure verbatim.
 
-**NEVER skip steps 2–3. NEVER generate HTML from memory or prior knowledge of the design.**
+**NEVER skip steps 2–6. NEVER generate HTML from memory or prior knowledge of the design.**
+**NEVER write `decks/*.html` while `DECKS.json` says `writeReadiness.status` is `blocked`.**
 
 Once the fetch is complete, generate the complete HTML file in one shot.
 
@@ -301,6 +322,9 @@ After generating, briefly tell the user:
 - The filename you wrote (e.g. `decks/ai-future.html`)
 - How to navigate (arrow keys / swipe)
 - One line invitation to request changes
+
+Then use `revela-decks` to record written/QA status when available. Preserve
+stable decisions in deck memory when useful.
 
 For change requests: re-generate the **entire** file (don't patch). Apply the
 change and silently overwrite the same `decks/{slug}.html` filename.

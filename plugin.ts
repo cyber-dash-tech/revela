@@ -15,8 +15,8 @@
  */
 
 import type { Plugin } from "@opencode-ai/plugin"
-import { existsSync, readFileSync } from "fs"
-import { extname, basename } from "path"
+import { existsSync, mkdirSync, readFileSync } from "fs"
+import { extname, basename, join } from "path"
 import { tmpdir } from "os"
 import { seedBuiltinDesigns } from "./lib/design/designs"
 import { seedBuiltinDomains } from "./lib/domain/domains"
@@ -54,7 +54,24 @@ import {
 } from "./lib/commands/designs-new"
 import { buildInitPrompt } from "./lib/commands/init"
 import { parseRememberArgs, buildRememberPrompt } from "./lib/commands/remember"
-import { buildDecksMemoryLayer, hasDecksMemory } from "./lib/decks-memory"
+import { buildReviewPrompt } from "./lib/commands/review"
+import {
+  buildDecksMemoryLayer,
+  extractDeckHtmlTargetsFromPatch,
+  extractPatchTextArg,
+  hasDecksMemory,
+  isDeckHtmlPath,
+  setPatchTextArg,
+} from "./lib/decks-memory"
+import {
+  buildDecksStatePromptLayer,
+  checkDeckStateWriteReadiness,
+  DECKS_STATE_FILE,
+  extractDecksStateTargetsFromPatch,
+  hasDecksState,
+  isDecksStatePath,
+} from "./lib/decks-state"
+import decksTool from "./tools/decks"
 import designsAuthorTool from "./tools/designs-author"
 import designsTool from "./tools/designs"
 import domainsTool from "./tools/domains"
@@ -107,6 +124,8 @@ async function sendIgnoredMessage(
 const server: Plugin = (async (pluginCtx) => {
   const client = pluginCtx.client
   const workspaceRoot = pluginCtx.directory
+  const blockedDeckWrites = new Map<string, string>()
+  const blockedDeckPatches = new Map<string, string>()
 
   // ── Startup: seed + build initial prompt ────────────────────────────────
   try {
@@ -199,7 +218,7 @@ const server: Plugin = (async (pluginCtx) => {
         output.parts.length = 0
         output.parts.push({
           type: "text",
-          text: buildInitPrompt({ exists: hasDecksMemory(workspaceRoot) }),
+          text: buildInitPrompt({ exists: hasDecksState(workspaceRoot), legacyExists: hasDecksMemory(workspaceRoot), workspaceRoot }),
         } as any)
         return
       }
@@ -212,7 +231,15 @@ const server: Plugin = (async (pluginCtx) => {
         output.parts.length = 0
         output.parts.push({
           type: "text",
-          text: buildRememberPrompt({ memory: parsed.memory, exists: hasDecksMemory(workspaceRoot) }),
+          text: buildRememberPrompt({ memory: parsed.memory, exists: hasDecksState(workspaceRoot), legacyExists: hasDecksMemory(workspaceRoot) }),
+        } as any)
+        return
+      }
+      if (sub === "review") {
+        output.parts.length = 0
+        output.parts.push({
+          type: "text",
+          text: buildReviewPrompt({ slug: param || undefined, exists: hasDecksState(workspaceRoot), legacyExists: hasDecksMemory(workspaceRoot), workspaceRoot }),
         } as any)
         return
       }
@@ -293,6 +320,7 @@ const server: Plugin = (async (pluginCtx) => {
 
     // ── LLM tools: designs, domains, research, document materials, qa ─────
     tool: {
+      "revela-decks": decksTool,
       "revela-designs": designsTool,
       "revela-designs-author": designsAuthorTool,
       "revela-domains": domainsTool,
@@ -381,6 +409,14 @@ const server: Plugin = (async (pluginCtx) => {
 
         let prompt = readFileSync(ACTIVE_PROMPT_FILE, "utf-8")
         try {
+          const stateLayer = buildDecksStatePromptLayer(workspaceRoot)
+          if (stateLayer) prompt += "\n\n" + stateLayer
+        } catch (e) {
+          childLog("decks-state").warn("failed to load DECKS.json state", {
+            error: e instanceof Error ? e.message : String(e),
+          })
+        }
+        try {
           const memoryLayer = buildDecksMemoryLayer(workspaceRoot)
           if (memoryLayer) prompt += "\n\n" + memoryLayer
         } catch (e) {
@@ -404,21 +440,135 @@ const server: Plugin = (async (pluginCtx) => {
       }
     },
 
-    // ── Pre-read: intercept binary files before read executes ──────────────
-    // Handles DOCX/PPTX/XLSX — read tool would Effect.fail on these.
-    // Extracts text → writes temp .txt → redirects args.filePath.
+    // ── Pre-tool processing ────────────────────────────────────────────────
+    // - read: intercept DOCX/PPTX/XLSX before read executes.
+    // - write/apply_patch: gate decks/*.html on DECKS.json readiness.
     "tool.execute.before": async (input, output) => {
       log.info("[hook] tool.execute.before fired", { tool: input.tool, enabled: ctx.enabled, isResearch: ctx.isResearchAgent })
       if (!ctx.enabled) return
 
-      if (input.tool !== "read") return
-      try {
-        await preRead(output.args)
-      } catch (e) {
-        childLog("preRead").warn("extraction failed", {
-          filePath: (output.args as any)?.filePath,
-          error: e instanceof Error ? e.message : String(e),
+      if (input.tool === "write") {
+        const filePath: string = (output.args as any)?.filePath ?? ""
+        if (isDecksStatePath(filePath)) {
+          const blockedDir = join(workspaceRoot, ".opencode", "revela", "blocked-writes")
+          mkdirSync(blockedDir, { recursive: true })
+          const blockedPath = join(blockedDir, "DECKS-json-direct-write.blocked.md")
+          const blocker = `${DECKS_STATE_FILE} is a controlled Revela state file. Use the revela-decks tool instead of write/apply_patch.`
+          ;(output.args as any).filePath = blockedPath
+          ;(output.args as any).content = `# Revela Blocked State Write
+
+The attempted write to \`${filePath}\` was blocked.
+
+Reason: ${blocker}
+
+Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSlides\`, or \`review\`.
+`
+          blockedDeckWrites.set(filePath, blocker)
+          childLog("decks-state").warn("blocked direct DECKS.json write", { filePath, blockedPath })
+          return
+        }
+        if (!isDeckHtmlPath(filePath)) return
+
+        const readiness = checkDeckStateWriteReadiness(workspaceRoot, filePath) ?? {
+          ready: false,
+          slug: basename(filePath, ".html") || "deck",
+          blocker: `No ${DECKS_STATE_FILE} exists. Use revela-decks init/upsertDeck/upsertSlides/review before writing deck HTML.`,
+          blockers: [`No ${DECKS_STATE_FILE} exists.`],
+        }
+        if (readiness.ready) return
+
+        const blockedDir = join(workspaceRoot, ".opencode", "revela", "blocked-writes")
+        mkdirSync(blockedDir, { recursive: true })
+        const blockedPath = join(blockedDir, `${readiness.slug}.blocked.md`)
+        ;(output.args as any).filePath = blockedPath
+        ;(output.args as any).content = `# Revela Blocked Deck Write
+
+The attempted write to \`${filePath}\` was blocked.
+
+Reason: ${readiness.blocker}
+
+Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FILE}, then write only after the matching deck has \`writeReadiness.status\` set to \`ready\` and no blockers.
+`
+        blockedDeckWrites.set(filePath, readiness.blocker)
+        childLog("decks-memory").warn("blocked deck write", { filePath, blockedPath, blocker: readiness.blocker })
+        return
+      }
+
+      if (input.tool === "apply_patch") {
+        const args = output.args as Record<string, unknown>
+        const patchText = extractPatchTextArg(args)
+        if (!patchText) return
+
+        const stateTargets = extractDecksStateTargetsFromPatch(patchText)
+        if (stateTargets.length > 0) {
+          const blockedDir = join(workspaceRoot, ".opencode", "revela", "blocked-writes")
+          mkdirSync(blockedDir, { recursive: true })
+          const blockedRelativePath = `.opencode/revela/blocked-writes/DECKS-json-direct-patch-${Date.now()}.blocked.md`
+          const blocker = `${DECKS_STATE_FILE} is a controlled Revela state file. Use the revela-decks tool instead of write/apply_patch.`
+          const blockedPatch = `*** Begin Patch
+*** Add File: ${blockedRelativePath}
++# Revela Blocked State Patch
++
++The attempted patch touching \`${stateTargets.join(", ")}\` was blocked.
++
++Reason: ${blocker}
++
++Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSlides\`, or \`review\`.
+*** End Patch`
+          setPatchTextArg(args, blockedPatch)
+          blockedDeckPatches.set(blockedRelativePath, blocker)
+          childLog("decks-state").warn("blocked direct DECKS.json patch", { targets: stateTargets, blockedPath: blockedRelativePath })
+          return
+        }
+
+        const targets = extractDeckHtmlTargetsFromPatch(patchText)
+        if (targets.length === 0) return
+
+        const blocked = targets
+          .map((target) => ({
+            target,
+            readiness: checkDeckStateWriteReadiness(workspaceRoot, target) ?? {
+              ready: false,
+              slug: basename(target, ".html") || "deck",
+              blocker: `No ${DECKS_STATE_FILE} exists. Use revela-decks init/upsertDeck/upsertSlides/review before patching deck HTML.`,
+              blockers: [`No ${DECKS_STATE_FILE} exists.`],
+            },
+          }))
+          .find((item) => !item.readiness.ready)
+        if (!blocked) return
+
+        const blockedDir = join(workspaceRoot, ".opencode", "revela", "blocked-writes")
+        mkdirSync(blockedDir, { recursive: true })
+        const blockedRelativePath = `.opencode/revela/blocked-writes/${blocked.readiness.slug}-${Date.now()}.blocked.md`
+        const blockedPatch = `*** Begin Patch
+*** Add File: ${blockedRelativePath}
++# Revela Blocked Deck Patch
++
++The attempted patch touching \`${blocked.target}\` was blocked.
++
++Reason: ${blocked.readiness.blocker}
++
++Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FILE}, then patch only after the matching deck has \`writeReadiness.status\` set to \`ready\` and no blockers.
+*** End Patch`
+        setPatchTextArg(args, blockedPatch)
+        blockedDeckPatches.set(blockedRelativePath, blocked.readiness.blocker)
+        childLog("decks-memory").warn("blocked deck patch", {
+          target: blocked.target,
+          blockedPath: blockedRelativePath,
+          blocker: blocked.readiness.blocker,
         })
+        return
+      }
+
+      if (input.tool === "read") {
+        try {
+          await preRead(output.args)
+        } catch (e) {
+          childLog("preRead").warn("extraction failed", {
+            filePath: (output.args as any)?.filePath,
+            error: e instanceof Error ? e.message : String(e),
+          })
+        }
       }
     },
 
@@ -446,8 +596,19 @@ const server: Plugin = (async (pluginCtx) => {
       // ── Auto layout QA after writing decks/*.html ─────────────────────
       if (input.tool === "write") {
         const filePath: string = input.args?.filePath ?? ""
+        const blockedReason = blockedDeckWrites.get(filePath)
+        if (blockedReason) {
+          blockedDeckWrites.delete(filePath)
+          const existing = (output as any).result ?? ""
+          ;(output as any).result =
+            (existing ? existing + "\n\n" : "") +
+            "---\n\n**[revela state gate]** Write was blocked.\n\n" +
+            `${blockedReason}\n\n` +
+            "Use the `revela-decks` tool or complete the DECKS.json review workflow instead."
+          return
+        }
         // Only trigger for HTML files inside a decks/ directory
-        if (!filePath.match(/decks\/[^/]+\.html$/)) return
+        if (!isDeckHtmlPath(filePath)) return
 
         try {
           // Extract design's allowed class vocabulary for compliance checking
@@ -475,6 +636,18 @@ const server: Plugin = (async (pluginCtx) => {
           })
           // Don't surface errors to the LLM — fail silently
         }
+        return
+      }
+
+      if (input.tool === "apply_patch" && blockedDeckPatches.size > 0) {
+        const [blockedPath, blockedReason] = blockedDeckPatches.entries().next().value ?? []
+        if (blockedPath) blockedDeckPatches.delete(blockedPath)
+        const existing = (output as any).result ?? ""
+        ;(output as any).result =
+          (existing ? existing + "\n\n" : "") +
+          "---\n\n**[revela prewrite gate]** Deck HTML patch was blocked.\n\n" +
+          `${blockedReason}\n\n` +
+          "Run `/revela review` or complete the same DECKS.json review workflow before patching the deck."
         return
       }
     },

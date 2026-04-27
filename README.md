@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-138%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-203%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
@@ -20,6 +20,8 @@ Enable it for the current session, assign a presentation task, and the agent can
 - injects a presentation-specific system prompt into your current agent with `/revela enable`
 - builds that prompt from 3 layers: core skill, active domain, active design
 - supports workspace document discovery, transparent text extraction for `.pdf`, `.docx`, `.pptx`, and `.xlsx`, and cached embedded-material extraction for those formats
+- uses workspace `DECKS.json` as machine-readable deck memory, slide spec, and prewrite readiness state
+- blocks premature writes to `decks/*.html` until the active deck is marked structurally ready
 - runs automatic layout QA whenever the agent writes `decks/*.html`
 - exports finished decks to PDF and editable PPTX
 - switches designs and domains locally with zero LLM cost
@@ -86,6 +88,12 @@ Enable Revela in the current session:
 /revela enable
 ```
 
+Initialize workspace deck memory when starting in a new project:
+
+```text
+/revela init
+```
+
 Optionally switch design or domain:
 
 ```text
@@ -98,6 +106,12 @@ Then give the agent a deck task:
 
 ```text
 Create a 6-slide HTML deck on humanoid robotics supply chains. Cite the main market drivers, use the active design faithfully, and save the result to decks/humanoid-robotics.html.
+```
+
+Before the agent writes `decks/humanoid-robotics.html`, it must update `DECKS.json` through the `revela-decks` tool with the active deck, confirmed slide specs, layouts, components, and computed `writeReadiness.status: ready`. You can ask for an explicit readiness check at any time:
+
+```text
+/revela review humanoid-robotics
 ```
 
 Export when needed:
@@ -122,6 +136,10 @@ Disable presentation mode when done:
 /revela enable                   enable presentation mode for this session
 /revela disable                  disable presentation mode
 
+/revela init                     initialize or refresh workspace DECKS.json
+/revela review [slug]            review active deck readiness before writing HTML
+/revela remember <text>          save an explicit user/workflow preference
+
 /revela designs                  list installed designs
 /revela designs <name>           activate a design
 /revela designs-new <name>       create a custom design with AI
@@ -139,7 +157,7 @@ Disable presentation mode when done:
 /revela pptx <file>              export an HTML deck to editable PPTX in the same directory
 ```
 
-Most `/revela` commands run locally with zero LLM cost. `/revela designs-new` and `/revela designs-edit` start AI-assisted design authoring workflows.
+Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela review`, `/revela remember`, `/revela designs-new`, and `/revela designs-edit` start AI-assisted workflows because they need to read or update project files.
 
 ---
 
@@ -155,6 +173,68 @@ That prompt is built from 3 layers:
 
 Persistent preferences live in `~/.config/revela/config.json`.
 The enabled or disabled state is session-level only.
+
+---
+
+## DECKS.json Memory And Readiness Gate
+
+Revela uses a workspace-root `DECKS.json` file for cross-session continuity and deck production control. It is intended for tools and the LLM, not manual editing.
+
+It has two jobs:
+
+- workspace memory: stable project context, source materials, explicit user preferences, deck history, and open questions
+- active deck spec: current deck slug, output path, prerequisites, research plan, per-slide content, layouts, components, evidence, visuals, blockers, and write readiness
+
+`DECKS.md` is legacy fallback context only. `DECKS.json` is the source of truth.
+
+Create or refresh it with:
+
+```text
+/revela init
+```
+
+Review the current deck state with:
+
+```text
+/revela review [slug]
+```
+
+`/revela review` does not write the final HTML deck. It reads and updates `DECKS.json` through the `revela-decks` tool, checks what is missing, and sets `writeReadiness.status` to `ready` only when the deck is ready to generate.
+
+Minimum readiness conditions:
+
+- topic, audience, slide count, language, and visual style/design are decided
+- source materials are identified or explicitly deemed unnecessary
+- research need is assessed
+- needed research findings have been read and reflected in the slide specs
+- the user has confirmed the slide plan
+- required design layouts and components have been fetched
+- every slide has a title, layout, components, and structured content
+- no blockers remain
+
+The plugin enforces this before deck HTML is written. A write or patch touching `decks/*.html` is allowed only when the matching deck in `DECKS.json` passes the readiness gate. Direct writes or patches to `DECKS.json` are blocked; use `revela-decks` instead.
+
+The gate checks:
+
+- `writeReadiness.status` is `ready`
+- `writeReadiness.blockers` is empty
+- the deck `outputPath` exactly matches the target `decks/*.html` path
+- all `requiredInputs` booleans are true
+- `slides.length` matches `slideCount` when a slide count is set
+- every slide has title, layout, components, and structured content
+- every needed research axis is `done`, `read`, or `skipped`
+
+If the gate blocks a write, Revela writes a marker file under `.opencode/revela/blocked-writes/` instead of creating or overwriting the deck HTML. This makes the failure visible to the agent while keeping the real deck file untouched.
+
+For `apply_patch`, Revela only checks whether the patch touches `decks/*.html`. If not ready, the whole patch is replaced with a blocked marker patch. The `edit` tool is not gated.
+
+To remember long-term preferences, use:
+
+```text
+/revela remember Prefer concise Chinese consulting-style decks.
+```
+
+Do not use `remember` for temporary checklist state; temporary state belongs in the active deck spec in `DECKS.json`.
 
 ---
 

@@ -10,7 +10,7 @@ describe("primary research orchestration skill", () => {
     expect(skill).toContain("Research Brief")
     expect(skill).toContain("the working topic emerges from the")
     expect(skill).toContain("working slug")
-    expect(skill).toContain("DECKS.md")
+    expect(skill).toContain("DECKS.json")
   })
 
   it("requires Task-based revela-research subagent invocation", () => {
@@ -29,16 +29,16 @@ describe("primary research orchestration skill", () => {
 })
 
 describe("revela-research subagent prompt", () => {
-  it("uses DECKS.md before workspace freshness checks", () => {
-    expect(RESEARCH_PROMPT).toContain("Use `DECKS.md` as the workspace material index")
-    expect(RESEARCH_PROMPT).toContain("read `DECKS.md` first")
+  it("uses DECKS.json before workspace freshness checks", () => {
+    expect(RESEARCH_PROMPT).toContain("Use `DECKS.json` through `revela-decks` as the workspace material index")
+    expect(RESEARCH_PROMPT).toContain("Use `revela-decks` action `read` first")
     expect(RESEARCH_PROMPT).toContain("lightweight freshness check")
     expect(RESEARCH_PROMPT).toContain("revela-workspace-scan")
   })
 
   it("keeps research output scoped to revela-research-save", () => {
     expect(RESEARCH_PROMPT).toContain("revela-research-save")
-    expect(RESEARCH_PROMPT).toContain("NEVER** write to `DECKS.md`")
+    expect(RESEARCH_PROMPT).toContain("NEVER** write or patch `DECKS.json`")
     expect(RESEARCH_PROMPT).toContain("One file only")
   })
 

@@ -27,6 +27,7 @@ export async function handleHelp(
     `\`/revela enable\`              — enable slide generation mode\n` +
     `\`/revela disable\`             — disable slide generation mode\n` +
     `\`/revela init\`                — initialize workspace deck memory in DECKS.md\n` +
+    `\`/revela review [slug]\`       — review active deck readiness before writing HTML\n` +
     `\`/revela remember <text>\`     — save an explicit user preference to DECKS.md\n` +
     `\`/revela designs\`             — list installed designs\n` +
     `\`/revela designs <name>\`      — activate a design\n` +

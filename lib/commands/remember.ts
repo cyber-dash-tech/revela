@@ -1,4 +1,5 @@
-import { DECKS_MEMORY_FILE, createDecksMemoryTemplate } from "../decks-memory"
+import { DECKS_MEMORY_FILE } from "../decks-memory"
+import { DECKS_STATE_FILE } from "../decks-state"
 
 export type RememberParseResult =
   | { ok: true; memory: string }
@@ -14,10 +15,13 @@ export function parseRememberArgs(input: string): RememberParseResult {
   return { ok: true, memory }
 }
 
-export function buildRememberPrompt({ memory, exists }: { memory: string; exists: boolean }): string {
+export function buildRememberPrompt({ memory, exists, legacyExists }: { memory: string; exists: boolean; legacyExists?: boolean }): string {
   const state = exists
-    ? `Read the existing ${DECKS_MEMORY_FILE} first and update only the relevant preference section.`
-    : `Create ${DECKS_MEMORY_FILE} at the workspace root before recording this memory.`
+    ? `Read the existing ${DECKS_STATE_FILE} through revela-decks before updating preferences.`
+    : `Create ${DECKS_STATE_FILE} through revela-decks action init before recording this memory.`
+  const legacy = legacyExists
+    ? `Legacy ${DECKS_MEMORY_FILE} may exist as context, but do not write or patch it.`
+    : `No legacy ${DECKS_MEMORY_FILE} context is known.`
 
   return `Record explicit Revela workspace memory.
 
@@ -29,15 +33,14 @@ ${memory}
 
 Task:
 - ${state}
-- Add the memory to \`User Preferences\` if it describes output style, visual taste, language, audience, narrative, or content constraints.
-- Add the memory to \`Workflow Preferences\` if it describes how the user wants Revela to work.
+- ${legacy}
+- Use the \`revela-decks\` tool with action \`remember\` to update ${DECKS_STATE_FILE}; do not write or patch the file directly.
+- Use preferenceType \`user\` if it describes output style, visual taste, language, audience, narrative, or content constraints.
+- Use preferenceType \`workflow\` if it describes how the user wants Revela to work.
 - Keep the entry concise and faithful to the user's wording.
 - Do not add inferred preferences or unrelated context.
 - Do not duplicate an existing equivalent preference; merge or refine it instead.
-- Preserve all other ${DECKS_MEMORY_FILE} sections.
 - Do not store secrets, credentials, API keys, tokens, account details, or sensitive personal information.
 
-${exists ? "" : `Use this initial structure if you need to create the file:\n\n\`\`\`md\n${createDecksMemoryTemplate().trim()}\n\`\`\``}
-
-After updating ${DECKS_MEMORY_FILE}, briefly report the section you changed.`
+After updating ${DECKS_STATE_FILE}, briefly report which preference type you changed.`
 }
