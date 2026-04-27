@@ -17,13 +17,16 @@ import puppeteer, { type Browser, type Page } from "puppeteer-core"
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom"
 import { unzipSync, zipSync, strFromU8, strToU8 } from "fflate"
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs"
+import { createRequire } from "module"
 import { basename, dirname, extname, join, posix as pathPosix, resolve } from "path"
 import { randomBytes } from "crypto"
-import { fileURLToPath, pathToFileURL } from "url"
+import { pathToFileURL } from "url"
 
 const CANVAS_W = 1920
 const CANVAS_H = 1080
+const MIN_PPTX_FONT_SIZE_PT = 6
 const PPT_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+const requireFromExportModule = createRequire(import.meta.url)
 
 const CHROME_PATHS = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -151,9 +154,33 @@ export function derivePptxPath(htmlFilePath: string): string {
   return join(dir, `${name}.pptx`)
 }
 
+export function resolveDomToPptxBundlePath(): string {
+  const entryPath = requireFromExportModule.resolve("dom-to-pptx")
+  const bundlePath = join(dirname(entryPath), "dom-to-pptx.bundle.js")
+
+  if (!existsSync(bundlePath)) {
+    throw new Error(`dom-to-pptx browser bundle not found: ${bundlePath}`)
+  }
+
+  return bundlePath
+}
+
 function isLocalImageRef(ref: string): boolean {
   const pathPart = ref.split(/[?#]/)[0]
   return IMAGE_EXTS.has(extname(pathPart).toLowerCase())
+}
+
+export function extractImageAssetRefsForPptx(htmlContent: string): string[] {
+  const assetRefPattern = /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))|url\(\s*(?:"([^"]*)"|'([^']*)'|([^\s)]+))\s*\)/g
+  const refs = new Set<string>()
+  let match: RegExpExecArray | null
+
+  while ((match = assetRefPattern.exec(htmlContent)) !== null) {
+    const ref = match.slice(1).find((value): value is string => value !== undefined)
+    if (ref) refs.add(ref.trim())
+  }
+
+  return Array.from(refs)
 }
 
 async function toDataUrlFromRef(ref: string, baseDir: string): Promise<string | null> {
@@ -182,21 +209,15 @@ async function toDataUrlFromRef(ref: string, baseDir: string): Promise<string | 
   }
 }
 
-async function inlineImageAssets(htmlContent: string, htmlFilePath: string): Promise<string> {
+export async function inlineImageAssets(htmlContent: string, htmlFilePath: string): Promise<string> {
   const baseDir = dirname(resolve(htmlFilePath))
-  const urlPattern = /(?:src=["']|url\(["']?)([^"')>\s]+)/g
-  const refs = new Set<string>()
-  let match: RegExpExecArray | null
+  const refs = extractImageAssetRefsForPptx(htmlContent)
 
-  while ((match = urlPattern.exec(htmlContent)) !== null) {
-    refs.add(match[1])
-  }
-
-  if (refs.size === 0) return htmlContent
+  if (refs.length === 0) return htmlContent
 
   const replacements = new Map<string, string>()
   await Promise.allSettled(
-    Array.from(refs).map(async (ref) => {
+    refs.map(async (ref) => {
       const dataUrl = await toDataUrlFromRef(ref, baseDir)
       if (dataUrl) replacements.set(ref, dataUrl)
     })
@@ -210,14 +231,43 @@ async function inlineImageAssets(htmlContent: string, htmlFilePath: string): Pro
   return patched
 }
 
-async function localizeExternalImages(htmlContent: string, tmpDir: string): Promise<LocalizeExternalImagesResult> {
-  const urlPattern = /(?:src=["']|url\(["']?)(https?:\/\/[^"')>\s]+)/g
-  const uniqueUrls = new Set<string>()
-  let match: RegExpExecArray | null
+export function enforceMinimumPptxFontSize(
+  pptxBytes: Uint8Array,
+  minFontSizePt = MIN_PPTX_FONT_SIZE_PT,
+): Uint8Array {
+  const files = unzipSync(pptxBytes)
+  const minSz = Math.round(minFontSizePt * 100)
+  const textPropertyTags = ["a:rPr", "a:defRPr", "a:endParaRPr"]
 
-  while ((match = urlPattern.exec(htmlContent)) !== null) {
-    uniqueUrls.add(match[1])
+  for (const path of Object.keys(files)) {
+    if (!/^ppt\/slides\/slide\d+\.xml$/.test(path)) continue
+
+    const doc = parseXml(strFromU8(files[path]))
+    let changed = false
+
+    for (const tag of textPropertyTags) {
+      for (const node of Array.from(doc.getElementsByTagName(tag))) {
+        const raw = node.getAttribute("sz")
+        if (!raw) continue
+
+        const sz = Number(raw)
+        if (!Number.isFinite(sz) || sz >= minSz) continue
+
+        node.setAttribute("sz", String(minSz))
+        changed = true
+      }
+    }
+
+    if (changed) files[path] = xmlToBytes(doc)
   }
+
+  return zipSync(files)
+}
+
+async function localizeExternalImages(htmlContent: string, tmpDir: string): Promise<LocalizeExternalImagesResult> {
+  const uniqueUrls = new Set(
+    extractImageAssetRefsForPptx(htmlContent).filter((ref) => ref.startsWith("http://") || ref.startsWith("https://"))
+  )
 
   if (uniqueUrls.size === 0) {
     return {
@@ -496,7 +546,7 @@ async function exportSlidePptx(
 
     return {
       ...slide,
-      bytes: Uint8Array.from(pptxBytes),
+      bytes: enforceMinimumPptxFontSize(Uint8Array.from(pptxBytes)),
     }
   } catch (error) {
     throw formatSlideFailure(error, diagnostics.slice(diagStart ?? 0), slide)
@@ -831,10 +881,7 @@ export async function exportToPptx(
 ): Promise<ExportPptxResult> {
   const startMs = Date.now()
   const abs = resolve(htmlFilePath)
-  const domToPptxBundlePath = resolve(
-    dirname(fileURLToPath(import.meta.url)),
-    "../../node_modules/dom-to-pptx/dist/dom-to-pptx.bundle.js"
-  )
+  const domToPptxBundlePath = resolveDomToPptxBundlePath()
 
   if (!existsSync(abs)) {
     throw new Error(`File not found: ${abs}`)
