@@ -113,7 +113,7 @@ Create a 6-slide HTML deck on humanoid robotics supply chains. Cite the main mar
 /revela review humanoid-robotics
 ```
 
-需要导出时：
+需要导出时，可以手动调用，也可以让 agent 直接导出：
 
 ```text
 /revela pdf decks/humanoid-robotics.html
@@ -565,13 +565,17 @@ PDF 导出：
 /revela pdf decks/my-deck.html
 ```
 
+对应的 LLM tool：`revela-pdf`，参数为 `{ "file": "decks/my-deck.html" }`。
+
 可编辑 PPTX 导出：
 
 ```text
 /revela pptx decks/my-deck.html
 ```
 
-两种导出都会把结果写到源 HTML deck 同目录。
+对应的 LLM tool：`revela-pptx`，参数为 `{ "file": "decks/my-deck.html" }`。
+
+命令和 tool 都会把结果写到源 HTML deck 同目录。如果希望 agent 在 deck 工作流中自动完成导出，可以让它调用 tool，而不需要用户手动执行 `/revela pdf` 或 `/revela pptx`。
 
 ---
 

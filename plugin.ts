@@ -82,6 +82,8 @@ import researchSaveTool from "./tools/research-save"
 import workspaceScanTool from "./tools/workspace-scan"
 import extractDocumentMaterialsTool from "./tools/extract-document-materials"
 import qaTool from "./tools/qa"
+import pdfTool from "./tools/pdf"
+import pptxTool from "./tools/pptx"
 import { RESEARCH_PROMPT, RESEARCH_AGENT_SIGNATURE } from "./lib/agents/research-prompt"
 import { runQA, formatReport } from "./lib/qa"
 import { extractDesignClasses } from "./lib/design/designs"
@@ -331,6 +333,8 @@ const server: Plugin = (async (pluginCtx) => {
       "revela-workspace-scan": workspaceScanTool,
       "revela-extract-document-materials": extractDocumentMaterialsTool,
       "revela-qa": qaTool,
+      "revela-pdf": pdfTool,
+      "revela-pptx": pptxTool,
     },
 
     // ── chat.message: intercept @-referenced / pasted binary files ────────
