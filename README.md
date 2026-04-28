@@ -114,7 +114,7 @@ Before the agent writes `decks/humanoid-robotics.html`, it must update `DECKS.js
 /revela review humanoid-robotics
 ```
 
-Export when needed:
+Export when needed, either manually or by asking the agent to export:
 
 ```text
 /revela pdf decks/humanoid-robotics.html
@@ -600,13 +600,17 @@ PDF export:
 /revela pdf decks/my-deck.html
 ```
 
+LLM tool equivalent: `revela-pdf` with `{ "file": "decks/my-deck.html" }`.
+
 Editable PPTX export:
 
 ```text
 /revela pptx decks/my-deck.html
 ```
 
-Both commands write output beside the source HTML deck.
+LLM tool equivalent: `revela-pptx` with `{ "file": "decks/my-deck.html" }`.
+
+Both commands and tools write output beside the source HTML deck. Use the tools when you want the agent to run export as part of the deck workflow instead of asking the user to invoke `/revela pdf` or `/revela pptx` manually.
 
 ---
 
