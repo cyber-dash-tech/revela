@@ -109,8 +109,8 @@ All sizes are fixed `px` for the 1920x1080 canvas. JS `transform: scale()` handl
 - Every slide uses `.slide-canvas` sized to `1920px x 1080px`, scaled by JS.
 - Every `<section class="slide">` must include `slide-qa="true"` or `slide-qa="false"`.
 - Use `slide-qa="true"` for dense content layouts and `slide-qa="false"` for structural or intentionally sparse layouts.
-- Default canvas padding: `72px 80px`.
-- The paper page should usually sit inside the canvas with `padding: 56px 64px 64px`.
+- `.slide-canvas` is the export surface and must keep `padding: 0`.
+- Put safe-area spacing on `.page` or inner layout containers, not on `.slide-canvas`.
 - Target strong fill on content-heavy slides while preserving editorial whitespace.
 
 ### HTML Structure
@@ -178,7 +178,7 @@ body {
     transform-origin: center center;
     position: relative;
     overflow: hidden;
-    padding: 72px 80px;
+    padding: 0;
 }
 
 .page {
