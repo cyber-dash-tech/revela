@@ -1,4 +1,3 @@
-import { DECKS_MEMORY_FILE } from "../decks-memory"
 import { DECKS_STATE_FILE } from "../decks-state"
 
 export type RememberParseResult =
@@ -15,13 +14,10 @@ export function parseRememberArgs(input: string): RememberParseResult {
   return { ok: true, memory }
 }
 
-export function buildRememberPrompt({ memory, exists, legacyExists }: { memory: string; exists: boolean; legacyExists?: boolean }): string {
+export function buildRememberPrompt({ memory, exists }: { memory: string; exists: boolean }): string {
   const state = exists
     ? `Read the existing ${DECKS_STATE_FILE} through revela-decks before updating preferences.`
     : `Create ${DECKS_STATE_FILE} through revela-decks action init before recording this memory.`
-  const legacy = legacyExists
-    ? `Legacy ${DECKS_MEMORY_FILE} may exist as context, but do not write or patch it.`
-    : `No legacy ${DECKS_MEMORY_FILE} context is known.`
 
   return `Record explicit Revela workspace memory.
 
@@ -33,7 +29,6 @@ ${memory}
 
 Task:
 - ${state}
-- ${legacy}
 - Use the \`revela-decks\` tool with action \`remember\` to update ${DECKS_STATE_FILE}; do not write or patch the file directly.
 - Use preferenceType \`user\` if it describes output style, visual taste, language, audience, narrative, or content constraints.
 - Use preferenceType \`workflow\` if it describes how the user wants Revela to work.

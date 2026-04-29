@@ -1,21 +1,15 @@
-import { DECKS_MEMORY_FILE } from "../decks-memory"
 import { DECKS_STATE_FILE } from "../decks-state"
 
 export function buildInitPrompt({
   exists,
-  legacyExists,
   workspaceRoot,
 }: {
   exists: boolean
-  legacyExists?: boolean
   workspaceRoot?: string
 }): string {
   const mode = exists
     ? `A ${DECKS_STATE_FILE} file already exists. Read it first through the revela-decks tool and update it conservatively.`
     : `No ${DECKS_STATE_FILE} file exists yet. Create it through the revela-decks tool.`
-  const legacy = legacyExists
-    ? `A legacy ${DECKS_MEMORY_FILE} file may exist. You may read it as migration context, but do not write or patch it unless explicitly asked.`
-    : `No legacy ${DECKS_MEMORY_FILE} context is known.`
 
   return `Initialize Revela workspace state and deck workboard.
 
@@ -24,11 +18,10 @@ Goal:
 - Use the \`revela-decks\` tool for state updates. Do not write or patch ${DECKS_STATE_FILE} directly.
 - Capture stable project context, available source materials, deck history, active deck specs, slide plans, and open questions for future sessions.
 - Do not treat initialization as permission to write a slide deck; each deck must pass a later readiness review.
-- ${DECKS_MEMORY_FILE} is legacy fallback context only; ${DECKS_STATE_FILE} is the source of truth.
+- ${DECKS_STATE_FILE} is the source of truth for Revela workspace state.
 
 Current state:
 - ${mode}
-- ${legacy}
 ${workspaceRoot ? `- Current workspace root: \`${workspaceRoot}\`` : ""}
 
 Workspace boundary rules:
@@ -60,7 +53,6 @@ Memory rules:
 - Only write user preferences if the user explicitly stated that Revela should remember them.
 - Do not infer personal preferences from one-off requests.
 - Do not store secrets, credentials, API keys, tokens, account details, or sensitive personal information.
-- If legacy ${DECKS_MEMORY_FILE} exists, preserve any useful explicit preferences by migrating them through the revela-decks tool; do not copy temporary checklist state blindly.
 - Do not mark writeReadiness as ready during init unless the current deck has already passed an explicit \`revela-decks\` review.
 - If new evidence conflicts with existing memory, preserve both briefly and add an Open Question instead of silently overwriting.
 

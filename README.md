@@ -185,7 +185,7 @@ It has two jobs:
 - workspace memory: stable project context, source materials, explicit user preferences, deck history, and open questions
 - active deck spec: current deck slug, output path, prerequisites, research plan, per-slide content, layouts, components, evidence, visuals, blockers, and write readiness
 
-`DECKS.md` is legacy fallback context only. `DECKS.json` is the source of truth.
+`DECKS.json` is the source of truth for workspace memory and deck readiness.
 
 Create or refresh it with:
 

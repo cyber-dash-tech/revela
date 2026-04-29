@@ -1,15 +1,12 @@
-import { DECKS_MEMORY_FILE } from "../decks-memory"
 import { DECKS_STATE_FILE } from "../decks-state"
 
 export function buildReviewPrompt({
   slug,
   exists,
-  legacyExists,
   workspaceRoot,
 }: {
   slug?: string
   exists: boolean
-  legacyExists?: boolean
   workspaceRoot?: string
 }): string {
   const target = slug?.trim()
@@ -17,9 +14,6 @@ export function buildReviewPrompt({
   const state = exists
     ? `${DECKS_STATE_FILE} exists. Read it through the revela-decks tool.`
     : `${DECKS_STATE_FILE} does not exist yet. Create it through the revela-decks tool if there is enough deck context.`
-  const legacy = legacyExists
-    ? `Legacy ${DECKS_MEMORY_FILE} may exist as migration context, but ${DECKS_STATE_FILE} is the source of truth.`
-    : `No legacy ${DECKS_MEMORY_FILE} context is known.`
 
   return `Review Revela deck write readiness.
 
@@ -31,7 +25,6 @@ Goal:
 
 Current state:
 - ${state}
-- ${legacy}
 ${workspaceRoot ? `- Current workspace root: \`${workspaceRoot}\`` : ""}
 
 Workspace boundary rules:

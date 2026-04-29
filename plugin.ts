@@ -56,10 +56,8 @@ import { buildInitPrompt } from "./lib/commands/init"
 import { parseRememberArgs, buildRememberPrompt } from "./lib/commands/remember"
 import { buildReviewPrompt } from "./lib/commands/review"
 import {
-  buildDecksMemoryLayer,
   extractDeckHtmlTargetsFromPatch,
   extractPatchTextArg,
-  hasDecksMemory,
   isDeckHtmlPath,
   setPatchTextArg,
 } from "./lib/decks-memory"
@@ -220,7 +218,7 @@ const server: Plugin = (async (pluginCtx) => {
         output.parts.length = 0
         output.parts.push({
           type: "text",
-          text: buildInitPrompt({ exists: hasDecksState(workspaceRoot), legacyExists: hasDecksMemory(workspaceRoot), workspaceRoot }),
+          text: buildInitPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
         } as any)
         return
       }
@@ -233,7 +231,7 @@ const server: Plugin = (async (pluginCtx) => {
         output.parts.length = 0
         output.parts.push({
           type: "text",
-          text: buildRememberPrompt({ memory: parsed.memory, exists: hasDecksState(workspaceRoot), legacyExists: hasDecksMemory(workspaceRoot) }),
+          text: buildRememberPrompt({ memory: parsed.memory, exists: hasDecksState(workspaceRoot) }),
         } as any)
         return
       }
@@ -241,7 +239,7 @@ const server: Plugin = (async (pluginCtx) => {
         output.parts.length = 0
         output.parts.push({
           type: "text",
-          text: buildReviewPrompt({ slug: param || undefined, exists: hasDecksState(workspaceRoot), legacyExists: hasDecksMemory(workspaceRoot), workspaceRoot }),
+          text: buildReviewPrompt({ slug: param || undefined, exists: hasDecksState(workspaceRoot), workspaceRoot }),
         } as any)
         return
       }
@@ -417,14 +415,6 @@ const server: Plugin = (async (pluginCtx) => {
           if (stateLayer) prompt += "\n\n" + stateLayer
         } catch (e) {
           childLog("decks-state").warn("failed to load DECKS.json state", {
-            error: e instanceof Error ? e.message : String(e),
-          })
-        }
-        try {
-          const memoryLayer = buildDecksMemoryLayer(workspaceRoot)
-          if (memoryLayer) prompt += "\n\n" + memoryLayer
-        } catch (e) {
-          childLog("decks-memory").warn("failed to load DECKS.md memory", {
             error: e instanceof Error ? e.message : String(e),
           })
         }
