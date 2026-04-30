@@ -1,8 +1,8 @@
 /**
  * lib/qa/checks.ts
  *
- * Geometry-based layout quality checks — four orthogonal visual dimensions,
- * plus a design-compliance dimension that verifies CSS class usage.
+ * Geometry-based layout quality checks. The active default path only checks
+ * overflow; softer visual heuristics are kept here for future opt-in use.
  *
  * Dimension 1: Overflow    — elements exceed canvas bounds (correctness)
  * Dimension 2: Balance     — content centroid & distribution (fill, sparsity)
@@ -523,106 +523,13 @@ function checkRhythm(metrics: SlideMetrics): LayoutIssue[] {
   return issues
 }
 
-// ── Compliance checks ─────────────────────────────────────────────────────────
-
-/**
- * Check whether a class name is exempt from compliance checking.
- * Returns true if the class matches any of the given prefix exemptions.
- */
-function isExemptClass(cls: string, prefixExemptions: string[]): boolean {
-  return prefixExemptions.some((prefix) => cls.startsWith(prefix))
-}
-
-/**
- * Dimension 5a: unknown_class
- *
- * Walk the element tree and flag any CSS class not in `allowedClasses`
- * and not matching any `prefixExemptions`. Each unique unknown class name
- * is reported at most once per slide (de-duplicated).
- */
-function checkCompliance(
-  slide: SlideMetrics,
-  allowedClasses: Set<string>,
-  prefixExemptions: string[],
-): LayoutIssue[] {
-  const issues: LayoutIssue[] = []
-  const reported = new Set<string>()
-
-  function walk(el: ElementInfo): void {
-    for (const cls of el.classList) {
-      if (!cls) continue
-      if (reported.has(cls)) continue
-      if (allowedClasses.has(cls)) continue
-      if (isExemptClass(cls, prefixExemptions)) continue
-
-      reported.add(cls)
-      issues.push({
-        type: "compliance",
-        sub: "unknown_class",
-        severity: "warning",
-        detail: `Element \`${el.selector}\` uses CSS class \`${cls}\` which is not defined in the active design. Replace it with a class from the Component Index or Layout Index.`,
-        data: { class: cls, selector: el.selector },
-      })
-    }
-    for (const child of el.children) {
-      walk(child)
-    }
-  }
-
-  for (const el of slide.elements) {
-    walk(el)
-  }
-
-  return issues
-}
-
-/**
- * Dimension 5b: novel_css_rule
- *
- * Check whether the <style> block defines CSS classes not in `allowedClasses`.
- * Returns issues as a flat list (caller attaches them to slide 0).
- */
-function checkNovelCssRules(
-  cssDefinedClasses: string[],
-  allowedClasses: Set<string>,
-  prefixExemptions: string[],
-): LayoutIssue[] {
-  const issues: LayoutIssue[] = []
-  const reported = new Set<string>()
-
-  for (const cls of cssDefinedClasses) {
-    if (!cls) continue
-    if (reported.has(cls)) continue
-    if (allowedClasses.has(cls)) continue
-    if (isExemptClass(cls, prefixExemptions)) continue
-
-    reported.add(cls)
-    issues.push({
-      type: "compliance",
-      sub: "novel_css_rule",
-      severity: "warning",
-      detail: `<style> defines CSS class \`.${cls}\` which is not part of the active design. Remove this custom rule and use the design's existing component styles. For minor adjustments, use inline \`style=""\` instead.`,
-      data: { class: cls },
-    })
-  }
-
-  return issues
-}
-
 // ── Main export ───────────────────────────────────────────────────────────────
 
 /**
- * Options for runChecks(). All fields are optional — omitting them disables
- * the corresponding checks (backward compatible).
+ * Options for future geometry checks. The current default path only checks
+ * overflow, regardless of options.
  */
-export interface RunChecksOptions {
-  /** Allowed CSS class vocabulary from the active design (enables compliance checks). */
-  allowedClasses?: Set<string>
-  /** Class name prefixes exempt from compliance checks (e.g. "lucide-", "echarts-"). */
-  prefixExemptions?: string[]
-  /** CSS class names defined in <style> blocks (enables novel_css_rule check). */
-  cssDefinedClasses?: string[]
-}
+export interface RunChecksOptions {}
 
 /**
  * Run all dimension checks on a set of slide metrics and produce a QA report.
@@ -630,31 +537,12 @@ export interface RunChecksOptions {
 export function runChecks(
   filePath: string,
   allMetrics: SlideMetrics[],
-  options?: RunChecksOptions,
+  _options?: RunChecksOptions,
 ): QAReport {
   const slides: SlideReport[] = []
-  const { allowedClasses, prefixExemptions = [], cssDefinedClasses } = options ?? {}
-
-  // novel_css_rule issues are global (not per-slide); attach to slide 0.
-  const novelCssIssues: LayoutIssue[] =
-    allowedClasses && cssDefinedClasses
-      ? checkNovelCssRules(cssDefinedClasses, allowedClasses, prefixExemptions)
-      : []
 
   for (const metrics of allMetrics) {
-    const complianceIssues: LayoutIssue[] =
-      allowedClasses
-        ? checkCompliance(metrics, allowedClasses, prefixExemptions)
-        : []
-
-    const issues: LayoutIssue[] = [
-      ...checkOverflow(metrics),
-      ...checkBalance(metrics),
-      ...checkRhythm(metrics),
-      ...complianceIssues,
-      // Attach novel_css_rule issues to slide 0 only
-      ...(metrics.index === 0 ? novelCssIssues : []),
-    ]
+    const issues: LayoutIssue[] = [...checkOverflow(metrics)]
 
     slides.push({ index: metrics.index, title: metrics.title, issues })
   }
@@ -709,12 +597,8 @@ export function formatReport(report: QAReport): string {
   lines.push(
     `### Action Required`,
     ``,
-    `Please fix the above layout issues in the HTML file. For each issue type:`,
+    `Please fix the above hard-error issues in the HTML file. For each issue type:`,
     `- **overflow**: reduce font size, padding, or content amount for the affected element.`,
-    `- **balance/centroid_offset**: redistribute content so the visual weight is centred — avoid concentrating everything in one corner or side.`,
-    `- **balance/bottom_gap**: expand content to fill the slide, use \`flex: 1\` on containers, add more content blocks, or reduce top padding.`,
-    `- **balance/sparse**: add more content components, increase font sizes, or use a layout with fewer columns.`,
-    `- **rhythm/gap_variance**: use consistent \`gap\` or \`margin\` values between stacked elements instead of mixing sizes.`,
     `- **compliance/unknown_class**: an HTML element uses a CSS class not defined in the active design. Replace it with a class from the Component Index or Layout Index. Fetch the component/layout details with the \`revela-designs\` tool if needed.`,
     `- **compliance/novel_css_rule**: \`<style>\` defines a CSS class that is not part of the active design. Remove the custom rule and use the design's existing component styles. For minor spacing/sizing adjustments, use inline \`style=""\` instead.`,
   )

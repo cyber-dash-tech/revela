@@ -1,27 +1,23 @@
 /**
  * tools/qa.ts
  *
- * revela-qa — Layout quality assurance tool for generated slide HTML files.
+ * revela-qa — Hard-error quality assurance for generated slide HTML files.
  *
- * Exposed to the LLM so it can run layout checks after writing a slides file.
- * Also called automatically by the tool.execute.after hook in plugin.ts
- * when the LLM writes a file matching decks/*.html.
+ * Exposed to the LLM so it can check overflow and design compliance.
  */
 
 import { tool } from "@opencode-ai/plugin"
 import { resolve } from "path"
 import { existsSync } from "fs"
 import { runQA, formatReport } from "../lib/qa"
-import { extractDesignClasses } from "../lib/design/designs"
 
 export default tool({
   description:
-    "Run layout quality checks on a generated slide HTML file. " +
+    "Run hard-error checks on a generated slide HTML file. " +
     "Opens the file in a headless browser and measures actual rendered geometry. " +
-    "Checks for: canvas underfill (too much empty space), bottom whitespace, " +
-    "left-right column asymmetry, element overflow, and card height variance. " +
+    "Checks for element overflow. " +
     "Returns a structured report with specific issues and fix instructions. " +
-    "Call this after writing or editing any decks/*.html file to verify layout quality.",
+    "Call this when an edit may affect layout, or before delivery if export commands are not used.",
   args: {
     file: tool.schema
       .string()
@@ -43,14 +39,7 @@ export default tool({
     }
 
     try {
-      // Extract design's allowed class vocabulary for compliance checking
-      let vocabulary
-      try {
-        vocabulary = extractDesignClasses()
-      } catch {
-        // Design may not be installed or may have no markers — skip compliance
-      }
-      const report = await runQA(filePath, vocabulary)
+      const report = await runQA(filePath)
       const formatted = formatReport(report)
 
       // Prepend a compact JSON summary for programmatic use if needed
@@ -63,7 +52,7 @@ export default tool({
 
       return `<!-- QA Summary: ${jsonSummary} -->\n\n${formatted}`
     } catch (err: any) {
-      return `Error running layout QA: ${err?.message ?? String(err)}\n\nMake sure Chrome is installed at /Applications/Google Chrome.app`
+      return `Error running hard-error QA: ${err?.message ?? String(err)}\n\nMake sure Chrome is installed at /Applications/Google Chrome.app`
     }
   },
 })

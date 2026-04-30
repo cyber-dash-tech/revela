@@ -8,11 +8,12 @@ import { tool } from "@opencode-ai/plugin"
 import { existsSync } from "fs"
 import { resolve } from "path"
 import { exportToPptx } from "../lib/pptx/export"
+import { assertExportQAPassed } from "../lib/qa/export-gate"
 
 export default tool({
   description:
     "Export a Revela-generated HTML slide deck to editable PPTX. " +
-    "Use this after the deck HTML has been written and layout QA has passed. " +
+    "Runs pre-export QA before writing the PPTX. " +
     "Output is written beside the input file with the same basename and a .pptx extension.",
   args: {
     file: tool.schema
@@ -36,6 +37,7 @@ export default tool({
     const progress: string[] = []
 
     try {
+      await assertExportQAPassed(filePath)
       const result = await exportToPptx(filePath, {
         onProgress: (event) => {
           progress.push(event.message)

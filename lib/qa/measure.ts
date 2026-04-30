@@ -57,7 +57,7 @@ export interface SlideMetrics {
   /** slide title extracted from the first h1/h2 inside the slide */
   title: string
   /**
-   * Whether this slide should be included in layout QA checks.
+   * Whether this slide is marked as QA-relevant deck metadata.
    * Read from the `slide-qa` attribute on `<section class="slide">`.
    * Defaults to `false` when the attribute is absent.
    * Content-heavy layouts set `slide-qa="true"`; structural/sparse slides omit or use `"false"`.
@@ -266,7 +266,7 @@ export async function measureSlides(htmlFilePath: string): Promise<MeasurementRe
           const slide = document.querySelectorAll(".slide")[slideIdx]
           if (!slide) return null
 
-          // Read the QA flag — true means this slide gets balance/rhythm checks
+          // Read the QA flag for deck metadata; default checks do not branch on it.
           const slideQa = (slide as HTMLElement).getAttribute("slide-qa") === "true"
 
           const canvas = slide.querySelector(".slide-canvas") as HTMLElement | null

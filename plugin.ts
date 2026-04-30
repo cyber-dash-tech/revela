@@ -11,7 +11,7 @@
  * 5. experimental.chat.system.transform: inject three-layer prompt when enabled
  * 6. chat.message: intercept @-referenced / pasted binary files → extract text → replace FilePart with TextPart
  * 7. tool.execute.before: intercept read on DOCX/PPTX/XLSX → preRead()
- * 8. tool.execute.after: intercept read on PDF/images → postRead()
+ * 8. tool.execute.after: intercept read on PDF/images → postRead(); run fast design compliance after deck writes/patches/edits
  */
 
 import type { Plugin } from "@opencode-ai/plugin"
@@ -85,7 +85,7 @@ import pdfTool from "./tools/pdf"
 import pptxTool from "./tools/pptx"
 import createEditTool from "./tools/edit"
 import { RESEARCH_PROMPT, RESEARCH_AGENT_SIGNATURE } from "./lib/agents/research-prompt"
-import { runQA, formatReport } from "./lib/qa"
+import { formatReport, runComplianceQA } from "./lib/qa"
 import { extractDesignClasses } from "./lib/design/designs"
 import { log, childLog } from "./lib/log"
 
@@ -96,6 +96,15 @@ const INTERNAL_AGENT_SIGNATURES = [
   "You are a helpful AI assistant tasked with summarizing conversations",
   "Summarize what was done in this conversation",
 ]
+
+function appendToolResult(output: any, text: string): void {
+  const existing = output.result ?? ""
+  output.result = (existing ? existing + "\n\n" : "") + text
+}
+
+function extractEditFilePath(args: any): string {
+  return args?.filePath ?? args?.file_path ?? args?.path ?? args?.file ?? ""
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -128,6 +137,33 @@ const server: Plugin = (async (pluginCtx) => {
   const workspaceRoot = pluginCtx.directory
   const blockedDeckWrites = new Map<string, string>()
   const blockedDeckPatches = new Map<string, string>()
+
+  async function appendComplianceReport(filePath: string, output: any): Promise<void> {
+    if (!isDeckHtmlPath(filePath)) return
+
+    try {
+      let vocabulary
+      try {
+        vocabulary = extractDesignClasses()
+      } catch {
+        // Design may not be installed or may have no markers — skip compliance.
+      }
+
+      const report = runComplianceQA(filePath, vocabulary)
+      if (report.totalIssues === 0) return
+
+      appendToolResult(
+        output,
+        "---\n\n**[revela design compliance]** Auto-check completed:\n\n" +
+        formatReport(report)
+      )
+    } catch (e) {
+      childLog("qa").warn("auto compliance failed", {
+        filePath,
+        error: e instanceof Error ? e.message : String(e),
+      })
+    }
+  }
 
   // ── Startup: seed + build initial prompt ────────────────────────────────
   try {
@@ -577,7 +613,7 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
     // Handles PDF and images — read tool succeeds with base64 attachment.
     // PDF: extract text, remove base64. Images: jimp compress.
     //
-    // Also handles: auto layout QA after writing decks/*.html
+    // Also handles: fast design compliance after writing/patching/editing decks/*.html
     "tool.execute.after": async (input, output) => {
       if (!ctx.enabled) return
 
@@ -594,61 +630,47 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
         return
       }
 
-      // ── Auto layout QA after writing decks/*.html ─────────────────────
+      // ── Fast design compliance after deck HTML writes/patches/edits ───
       if (input.tool === "write") {
         const filePath: string = input.args?.filePath ?? ""
         const blockedReason = blockedDeckWrites.get(filePath)
         if (blockedReason) {
           blockedDeckWrites.delete(filePath)
-          const existing = (output as any).result ?? ""
-          ;(output as any).result =
-            (existing ? existing + "\n\n" : "") +
+          appendToolResult(
+            output,
             "---\n\n**[revela state gate]** Write was blocked.\n\n" +
             `${blockedReason}\n\n` +
             "Use the `revela-decks` tool or complete the DECKS.json review workflow instead."
+          )
           return
         }
-        // Only trigger for HTML files inside a decks/ directory
-        if (!isDeckHtmlPath(filePath)) return
-
-        try {
-          // Extract design's allowed class vocabulary for compliance checking
-          let vocabulary
-          try {
-            vocabulary = extractDesignClasses()
-          } catch {
-            // Design may not be installed or may have no markers — skip compliance
-          }
-          const report = await runQA(filePath, vocabulary)
-          // Only append QA report to tool output if there are issues
-          if (report.totalIssues > 0) {
-            const formatted = formatReport(report)
-            // Append to the write tool's output so the LLM sees it immediately
-            const existing = (output as any).result ?? ""
-            ;(output as any).result =
-              (existing ? existing + "\n\n" : "") +
-              "---\n\n**[revela layout QA]** Auto-check completed:\n\n" +
-              formatted
-          }
-        } catch (e) {
-          childLog("qa").warn("auto QA failed", {
-            filePath,
-            error: e instanceof Error ? e.message : String(e),
-          })
-          // Don't surface errors to the LLM — fail silently
-        }
+        await appendComplianceReport(filePath, output)
         return
       }
 
       if (input.tool === "apply_patch" && blockedDeckPatches.size > 0) {
         const [blockedPath, blockedReason] = blockedDeckPatches.entries().next().value ?? []
         if (blockedPath) blockedDeckPatches.delete(blockedPath)
-        const existing = (output as any).result ?? ""
-        ;(output as any).result =
-          (existing ? existing + "\n\n" : "") +
+        appendToolResult(
+          output,
           "---\n\n**[revela prewrite gate]** Deck HTML patch was blocked.\n\n" +
           `${blockedReason}\n\n` +
           "Run `/revela review` or complete the same DECKS.json review workflow before patching the deck."
+        )
+        return
+      }
+
+      if (input.tool === "apply_patch") {
+        const patchText = extractPatchTextArg(input.args as Record<string, unknown>)
+        const targets = patchText ? extractDeckHtmlTargetsFromPatch(patchText) : []
+        for (const target of targets) {
+          await appendComplianceReport(target, output)
+        }
+        return
+      }
+
+      if (input.tool === "edit") {
+        await appendComplianceReport(extractEditFilePath(input.args), output)
         return
       }
     },

@@ -57,7 +57,7 @@ export default tool({
       title: tool.schema.string().describe("Slide title."),
       purpose: tool.schema.string().optional().describe("Narrative purpose of this slide."),
       layout: tool.schema.string().describe("Design layout name."),
-      qa: tool.schema.boolean().optional().describe("Whether the layout requires full QA."),
+      qa: tool.schema.boolean().optional().describe("Whether the slide is marked QA-relevant deck metadata."),
       components: tool.schema.array(tool.schema.string()).describe("Design components used by this slide."),
       content: tool.schema.object({
         headline: tool.schema.string().optional(),

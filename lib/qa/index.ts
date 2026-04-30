@@ -1,24 +1,25 @@
 /**
  * lib/qa/index.ts
  *
- * Public entry point for the slide layout QA system.
- * Combines measurement (Puppeteer) + checks (geometry rules) into one call.
+ * Public entry point for hard-error slide QA.
+ * Runs overflow measurement only; design compliance is an automatic post-write
+ * hook concern, not part of manual/export QA.
  */
 
 import { measureSlides } from "./measure"
 import { runChecks, formatReport } from "./checks"
-import type { QAReport, RunChecksOptions } from "./checks"
+import type { QAReport } from "./checks"
 import type { DesignClassVocabulary } from "../design/designs"
 
 export type { QAReport, SlideReport, LayoutIssue, IssueSeverity } from "./checks"
 export type { RunChecksOptions } from "./checks"
 
 /**
- * Run a full layout QA pass on `htmlFilePath`.
+ * Run hard-error QA on `htmlFilePath`.
  *
  * 1. Opens the file in headless Chrome (puppeteer-core)
  * 2. Measures each .slide element's geometry + CSS class definitions
- * 3. Runs all checks (overflow, balance, symmetry, rhythm, compliance)
+ * 3. Runs hard-error overflow checks only
  * 4. Returns a structured QAReport
  *
  * Pass `vocabulary` (from `extractDesignClasses()`) to enable compliance checks.
@@ -28,17 +29,10 @@ export type { RunChecksOptions } from "./checks"
  */
 export async function runQA(
   htmlFilePath: string,
-  vocabulary?: DesignClassVocabulary,
+  _vocabulary?: DesignClassVocabulary,
 ): Promise<QAReport> {
   const result = await measureSlides(htmlFilePath)
-  const options: RunChecksOptions | undefined = vocabulary
-    ? {
-        allowedClasses: vocabulary.classes,
-        prefixExemptions: vocabulary.prefixExemptions,
-        cssDefinedClasses: result.cssDefinedClasses,
-      }
-    : undefined
-  return runChecks(htmlFilePath, result.slides, options)
+  return runChecks(htmlFilePath, result.slides)
 }
 
 /**
@@ -54,3 +48,4 @@ export async function runQAFormatted(
 }
 
 export { formatReport } from "./checks"
+export { runComplianceQA } from "./compliance"

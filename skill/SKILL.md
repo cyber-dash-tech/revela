@@ -232,8 +232,8 @@ layouts (cover, TOC, closing, quote, summary, etc.). When unsure, use `"false"`.
 
 Example: `<section class="slide" slide-qa="true" data-index="0">`
 
-The layout QA system uses this to skip fill-ratio and spacing checks on slides
-that are intentionally sparse.
+The current QA path treats this as deck metadata. Automated checks focus on
+design compliance and hard overflow errors, not subjective fill or spacing.
 
 ### Domain Context
 
@@ -382,11 +382,11 @@ exclusively for fine-tuning spacing and sizing (`margin`, `padding`, `gap`,
 component — **NEVER adapt the component structure to fit content. NEVER create
 a new component because the existing ones "don't quite fit".**
 
-The QA system will flag any unrecognised CSS class as a **compliance error**.
-If the QA report contains compliance issues after you write the file, you MUST
+The automatic compliance check will flag any unrecognised CSS class. If the
+QA report contains compliance issues after you write the file, you MUST
 fix them immediately — remove the offending classes and replace them with the
 closest component from the Component Index. Do not move on until all compliance
-errors are resolved.
+issues are resolved.
 
 ### Inline Editing
 

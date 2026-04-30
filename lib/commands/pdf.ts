@@ -9,6 +9,7 @@
 
 import { resolve } from "path"
 import { exportToPdf } from "../pdf/export"
+import { assertExportQAPassed } from "../qa/export-gate"
 
 export async function handlePdf(
   filePath: string,
@@ -23,9 +24,11 @@ export async function handlePdf(
   }
 
   const abs = resolve(filePath)
-  await send(`Exporting \`${abs}\` to PDF...`)
+  await send(`Running pre-export QA for \`${abs}\`...`)
 
   try {
+    await assertExportQAPassed(abs)
+    await send(`Exporting \`${abs}\` to PDF...`)
     const result = await exportToPdf(filePath)
     const secs = (result.durationMs / 1000).toFixed(1)
     await send(

@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-207%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-171%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
@@ -22,7 +22,7 @@ Enable it for the current session, assign a presentation task, and the agent can
 - supports workspace document discovery, transparent text extraction for `.pdf`, `.docx`, `.pptx`, and `.xlsx`, and cached embedded-material extraction for those formats
 - uses workspace `DECKS.json` as machine-readable deck memory, slide spec, and prewrite readiness state
 - blocks premature writes to `decks/*.html` until the active deck is marked structurally ready
-- runs automatic layout QA whenever the agent writes `decks/*.html`
+- runs fast design compliance checks whenever the agent writes, patches, or edits `decks/*.html`
 - opens a visual comment editor for existing decks so users can Ctrl/Cmd-click elements and send precise edit requests back to OpenCode
 - exports finished decks to PDF and editable PPTX
 - switches designs and domains locally with zero LLM cost
@@ -302,23 +302,18 @@ This keeps final decks stable, offline-friendly, and independent from expiring r
 
 ## Layout QA And Compliance
 
-Every time the agent writes `decks/*.html`, Revela runs an automatic Puppeteer-based QA pass at `1920x1080`.
-The report is returned immediately so the agent can fix problems before moving on.
+Every time the agent writes, patches, or edits `decks/*.html`, Revela runs a fast static design compliance check.
+The manual `revela-qa` tool and PDF/PPTX export preflight also run a Puppeteer-based overflow check at `1920x1080`.
 
-Current QA dimensions:
+Current QA checks:
 
 | Dimension | What it checks |
 |---|---|
 | `overflow` | Elements extending outside the slide canvas |
-| `balance` | Sparse slides, centroid drift, and bottom-gap issues |
-| `symmetry` | Side-by-side column imbalance in height or density |
-| `rhythm` | Irregular vertical spacing between stacked siblings |
 | `compliance` | Unknown design classes and novel CSS rules outside the active design vocabulary |
 
 Each slide must declare `slide-qa="true"` or `slide-qa="false"`.
-
-- use `slide-qa="true"` for content-heavy slides that should undergo full QA
-- use `slide-qa="false"` for structural slides such as cover, TOC, quote, summary, or closing pages
+The current QA path keeps this as deck metadata; it does not enable additional subjective balance or spacing checks.
 
 You can also run QA manually with the `revela-qa` tool.
 

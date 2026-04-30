@@ -9,6 +9,7 @@
 
 import { resolve } from "path"
 import { exportToPptx } from "../pptx/export"
+import { assertExportQAPassed } from "../qa/export-gate"
 
 function formatSecs(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`
@@ -27,9 +28,11 @@ export async function handlePptx(
   }
 
   const abs = resolve(filePath)
-  await send(`Exporting \`${abs}\` to PPTX...`)
+  await send(`Running pre-export QA for \`${abs}\`...`)
 
   try {
+    await assertExportQAPassed(abs)
+    await send(`Exporting \`${abs}\` to PPTX...`)
     let lastSlideUpdate = 0
     let longDeckThreshold: number | null = null
 
