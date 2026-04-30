@@ -6,6 +6,8 @@ import { createEmptyDecksState, readDecksState, upsertDeck, writeDecksState } fr
 import { ensureEditableDeckState } from "../lib/edit/deck-state"
 import { resolveEditableDeck } from "../lib/edit/resolve-deck"
 import { buildEditPrompt } from "../lib/edit/prompt"
+import { openEditableDeck } from "../lib/edit/open"
+import createEditTool from "../tools/edit"
 
 const roots: string[] = []
 
@@ -177,5 +179,58 @@ describe("ensureEditableDeckState", () => {
     expect(state.decks["market-map"].slides).toHaveLength(1)
     expect(state.decks["market-map"].slides[0].title).toBe("Market Map")
     expect(state.decks["market-map"].writeReadiness.status).toBe("ready")
+  })
+})
+
+describe("openEditableDeck", () => {
+  it("opens an edit session without launching a browser when disabled", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\"><h2>Market Map</h2></section></body></html>", "utf-8")
+
+    const result = openEditableDeck("market-map", {
+      client: { session: { prompt: async () => undefined } },
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openBrowser: false,
+    })
+
+    expect(result.deck.slug).toBe("market-map")
+    expect(result.deck.file).toBe("decks/market-map.html")
+    expect(result.url).toStartWith("http://127.0.0.1:")
+    expect(readDecksState(root).decks["market-map"].writeReadiness.status).toBe("ready")
+  })
+})
+
+describe("revela-edit tool", () => {
+  it("returns editor details for an existing deck", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\"><h2>Market Map</h2></section></body></html>", "utf-8")
+    const editTool = createEditTool({
+      client: { session: { prompt: async () => undefined } },
+      workspaceRoot: root,
+      openBrowser: false,
+    }) as any
+
+    const result = JSON.parse(await editTool.execute({ target: "decks/market-map.html" }, { sessionID: "session-1" }))
+
+    expect(result.ok).toBe(true)
+    expect(result.deck).toBe("market-map")
+    expect(result.file).toBe("decks/market-map.html")
+    expect(result.url).toStartWith("http://127.0.0.1:")
+    expect(result.message).toContain("Ctrl/Cmd")
+  })
+
+  it("returns an error when session id is unavailable", async () => {
+    const root = workspace()
+    const editTool = createEditTool({
+      client: { session: { prompt: async () => undefined } },
+      workspaceRoot: root,
+      openBrowser: false,
+    }) as any
+
+    const result = JSON.parse(await editTool.execute({ target: "missing" }, {}))
+
+    expect(result.ok).toBe(false)
+    expect(result.error).toContain("session id")
   })
 })

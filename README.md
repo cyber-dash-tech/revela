@@ -23,6 +23,7 @@ Enable it for the current session, assign a presentation task, and the agent can
 - uses workspace `DECKS.json` as machine-readable deck memory, slide spec, and prewrite readiness state
 - blocks premature writes to `decks/*.html` until the active deck is marked structurally ready
 - runs automatic layout QA whenever the agent writes `decks/*.html`
+- opens a visual comment editor for existing decks so users can Ctrl/Cmd-click elements and send precise edit requests back to OpenCode
 - exports finished decks to PDF and editable PPTX
 - switches designs and domains locally with zero LLM cost
 
@@ -139,6 +140,7 @@ Disable presentation mode when done:
 /revela init                     initialize or refresh workspace DECKS.json
 /revela review [slug]            review active deck readiness before writing HTML
 /revela remember <text>          save an explicit user/workflow preference
+/revela edit <target>            open visual comment editor for a deck slug or decks/*.html
 
 /revela designs                  list installed designs
 /revela designs <name>           activate a design
@@ -157,7 +159,7 @@ Disable presentation mode when done:
 /revela pptx <file>              export an HTML deck to editable PPTX in the same directory
 ```
 
-Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela review`, `/revela remember`, `/revela designs-new`, and `/revela designs-edit` start AI-assisted workflows because they need to read or update project files.
+Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela review`, `/revela remember`, `/revela designs-new`, and `/revela designs-edit` start AI-assisted workflows because they need to read or update project files. `/revela edit` opens a local visual editor and then sends user comments back into the current OpenCode session when the user submits them.
 
 ---
 
@@ -589,6 +591,23 @@ A custom domain is a folder containing `INDUSTRY.md`.
 ```
 
 `INDUSTRY.md` is a legacy filename kept for compatibility.
+
+---
+
+## Visual Editing
+
+Open the visual editor for an existing deck by slug or workspace-relative HTML path:
+
+```text
+/revela edit my-deck
+/revela edit decks/my-deck.html
+```
+
+The editor opens in your browser. Use `Ctrl`/`Cmd` + click to reference deck elements, write a natural-language comment, then send it back to OpenCode. Revela sends a structured edit prompt that includes the deck file, slide context, selected element metadata, and your comment.
+
+LLM tool equivalent: `revela-edit` with `{ "target": "decks/my-deck.html" }`. This lets the agent open the same editor when you say things like “I want to edit @decks/my-deck.html”.
+
+`/revela edit` prepares minimal `DECKS.json` state for the existing HTML deck if needed, so the normal deck write gate can still protect `decks/*.html` while allowing targeted edits.
 
 ---
 
