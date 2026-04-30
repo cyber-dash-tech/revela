@@ -45,6 +45,7 @@ import {
 } from "./lib/commands/domains"
 import { handlePdf } from "./lib/commands/pdf"
 import { handlePptx } from "./lib/commands/pptx"
+import { handleEdit } from "./lib/commands/edit"
 import { handleDesignsPreview } from "./lib/commands/designs-preview"
 import {
   parseDesignsNewArgs,
@@ -242,6 +243,10 @@ const server: Plugin = (async (pluginCtx) => {
           text: buildReviewPrompt({ slug: param || undefined, exists: hasDecksState(workspaceRoot), workspaceRoot }),
         } as any)
         return
+      }
+      if (sub === "edit") {
+        await handleEdit(param, { client, sessionID, workspaceRoot }, send)
+        throw new Error("__REVELA_EDIT_HANDLED__")
       }
       if (sub === "designs" && !param) {
         await handleDesignsList(send)

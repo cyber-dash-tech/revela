@@ -10,6 +10,8 @@ designs/*/preview.html
 !designs/monet/preview.html
 researches
 slides
+decks
+DECKS.json
 # Python
 __pycache__/
 *.py[cod]
