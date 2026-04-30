@@ -1,6 +1,8 @@
 import { existsSync } from "fs"
 import { ctx } from "../ctx"
 import { ACTIVE_PROMPT_FILE } from "../config"
+import { seedBuiltinDesigns } from "../design/designs"
+import { seedBuiltinDomains } from "../domain/domains"
 import { buildPrompt } from "../prompt-builder"
 import { ensureEditableDeckState } from "./deck-state"
 import { resolveEditableDeck, type EditableDeck } from "./resolve-deck"
@@ -46,7 +48,11 @@ export function openEditableDeck(target: string, options: OpenEditableDeckOption
   }
 
   ctx.enabled = true
-  if (!existsSync(ACTIVE_PROMPT_FILE)) buildPrompt()
+  if (!existsSync(ACTIVE_PROMPT_FILE)) {
+    seedBuiltinDesigns()
+    seedBuiltinDomains()
+    buildPrompt()
+  }
 
   const editServer = startEditServer()
   const token = editServer.createSession({
