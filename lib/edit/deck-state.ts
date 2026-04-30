@@ -112,7 +112,7 @@ function safeActiveDesign(): string {
   try {
     return activeDesign()
   } catch {
-    return "aurora"
+    return "summit"
   }
 }
 
