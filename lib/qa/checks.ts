@@ -571,8 +571,15 @@ export function runChecks(
  * Format a QAReport into a markdown string suitable for the LLM to read.
  */
 export function formatReport(report: QAReport): string {
+  const issues = report.slides.flatMap((slide) => slide.issues)
+  const complianceOnly = issues.length > 0 && issues.every((issue) => issue.type === "compliance")
+
   if (report.totalIssues === 0) {
     return `## Layout QA: PASSED\n\nAll ${report.slides.length} slide(s) passed layout checks. No issues found.`
+  }
+
+  if (complianceOnly) {
+    return formatComplianceReport(report)
   }
 
   const lines: string[] = [
@@ -602,6 +609,59 @@ export function formatReport(report: QAReport): string {
     `- **compliance/unknown_class**: an HTML element uses a CSS class not defined in the active design. Replace it with a class from the Component Index or Layout Index. Fetch the component/layout details with the \`revela-designs\` tool if needed.`,
     `- **compliance/novel_css_rule**: \`<style>\` defines a CSS class that is not part of the active design. Remove the custom rule and use the design's existing component styles. For minor spacing/sizing adjustments, use inline \`style=""\` instead.`,
   )
+
+  return lines.join("\n")
+}
+
+function formatComplianceReport(report: QAReport): string {
+  const lines: string[] = [
+    `## Static Design Compliance Report`,
+    ``,
+    `**File:** \`${report.file}\``,
+    `**Result:** WARNINGS — ${report.summary}`,
+    ``,
+  ]
+
+  for (const slide of report.slides) {
+    if (slide.issues.length === 0) continue
+    lines.push(`### Slide ${slide.index + 1}: ${slide.title}`)
+    for (const issue of slide.issues) {
+      lines.push(formatComplianceIssue(issue))
+    }
+    lines.push("")
+  }
+
+  lines.push(
+    `### Action Required`,
+    ``,
+    `Please fix the design vocabulary warnings above before continuing. These are static class-name checks, not layout QA failures.`,
+    `- For **unknown HTML classes**, remove ad-hoc/test classes or replace them with classes from the active design's Layout Index or Component Index.`,
+    `- For **novel CSS rules**, remove custom class selectors from \`<style>\`; use existing design components, or inline \`style=""\` for minor one-off positioning/sizing tweaks.`,
+    `- If you need the correct class names, call \`revela-designs\` to read the relevant layout/component details.`,
+  )
+
+  return lines.join("\n")
+}
+
+function formatComplianceIssue(issue: LayoutIssue): string {
+  const data = issue.data ?? {}
+  const cls = typeof data.class === "string" ? data.class : "unknown"
+  const location = typeof data.location === "string" ? data.location : "unknown"
+  const line = typeof data.line === "number" ? data.line : undefined
+  const excerpt = typeof data.excerpt === "string" ? data.excerpt : ""
+  const classAttr = typeof data.classAttr === "string" ? data.classAttr : ""
+  const tag = typeof data.tag === "string" ? data.tag : ""
+  const label = issue.sub ? `compliance/${issue.sub}` : "compliance"
+  const lines = [`- 🟡 **${label}**: \`${cls}\``]
+
+  lines.push(`  - Location: ${location}${line ? `, line ${line}` : ""}`)
+  if (tag || classAttr) {
+    lines.push(`  - Element: ${tag ? `<${tag}>` : "HTML element"}${classAttr ? ` with class=\"${classAttr}\"` : ""}`)
+  }
+  if (excerpt) {
+    lines.push(`  - Source: \`${excerpt}\``)
+  }
+  lines.push(`  - Fix: ${issue.detail}`)
 
   return lines.join("\n")
 }

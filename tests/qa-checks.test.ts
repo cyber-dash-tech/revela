@@ -118,6 +118,10 @@ describe("static compliance", () => {
 
     expect(report.slides[0].issues.some((i) => i.sub === "unknown_class" && i.data?.class === "bad-one")).toBe(true)
     expect(report.slides[1].issues.some((i) => i.sub === "unknown_class" && i.data?.class === "bad-two")).toBe(true)
+    const firstIssue = report.slides[0].issues.find((i) => i.data?.class === "bad-one")
+    expect(firstIssue?.data?.location).toBe("html_class")
+    expect(firstIssue?.data?.excerpt).toContain('<div class="bad-one">')
+    expect(typeof firstIssue?.data?.line).toBe("number")
   })
 
   it("flags unknown classes defined in style blocks", () => {
@@ -131,6 +135,8 @@ describe("static compliance", () => {
     const issues = report.slides[0].issues.filter((i) => i.sub === "novel_css_rule")
 
     expect(issues.some((i) => i.data?.class === "custom-widget")).toBe(true)
+    expect(issues.find((i) => i.data?.class === "custom-widget")?.data?.location).toBe("style_rule")
+    expect(issues.find((i) => i.data?.class === "custom-widget")?.data?.excerpt).toContain(".custom-widget:hover")
   })
 
   it("respects exempt class prefixes", () => {
@@ -155,5 +161,23 @@ describe("formatReport", () => {
     expect(formatted).toContain("my-deck.html")
     expect(formatted).toContain("Action Required")
     expect(formatted).toContain("overflow")
+  })
+
+  it("uses a compliance-specific report with source context", () => {
+    const file = htmlFile(`
+      <html><style>.known-rule { color: red; } .custom-widget:hover { color: blue; }</style><body>
+        <section class="slide"><div class="slide-canvas"><h1 class="title">One</h1><div class="bad-one">A</div></div></section>
+      </body></html>
+    `)
+    const report = runComplianceQA(file, vocabulary)
+    const formatted = formatReport(report)
+
+    expect(formatted).toContain("Static Design Compliance Report")
+    expect(formatted).toContain("bad-one")
+    expect(formatted).toContain('<div class="bad-one">')
+    expect(formatted).toContain("custom-widget")
+    expect(formatted).toContain("line")
+    expect(formatted).toContain("These are static class-name checks, not layout QA failures")
+    expect(formatted).not.toContain("hard-error")
   })
 })

@@ -5,6 +5,11 @@ import type { LayoutIssue, QAReport, SlideReport } from "./checks"
 interface ClassUse {
   className: string
   selector: string
+  location: "html_class" | "style_rule"
+  line: number
+  tagName?: string
+  classAttr?: string
+  excerpt: string
 }
 
 interface SlideClassUses {
@@ -26,15 +31,44 @@ function extractTitle(html: string, index: number): string {
   return title || `Slide ${index + 1}`
 }
 
-function extractClassUses(html: string): ClassUse[] {
+function lineNumberAt(value: string, offset: number): number {
+  let line = 1
+  for (let i = 0; i < offset; i++) {
+    if (value.charCodeAt(i) === 10) line++
+  }
+  return line
+}
+
+function normalizeExcerpt(value: string, maxLength = 240): string {
+  const normalized = value.replace(/\s+/g, " ").trim()
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1)}…` : normalized
+}
+
+function extractClassUses(html: string, fullHtml = html, baseOffset = 0): ClassUse[] {
   const uses: ClassUse[] = []
   const classAttrRe = /class\s*=\s*(["'])([\s\S]*?)\1/gi
   let match: RegExpExecArray | null
 
   while ((match = classAttrRe.exec(html)) !== null) {
     const raw = match[2] || ""
+    const absoluteOffset = baseOffset + match.index
+    const tagStart = html.lastIndexOf("<", match.index)
+    const tagEnd = html.indexOf(">", match.index)
+    const tag = tagStart >= 0 && tagEnd >= 0 ? html.slice(tagStart, tagEnd + 1) : match[0]
+    const tagNameMatch = /^<\s*([\w:-]+)/.exec(tag)
+    const tagName = tagNameMatch?.[1]
+    const excerpt = normalizeExcerpt(tag)
+
     for (const cls of raw.split(/\s+/).map((v) => v.trim()).filter(Boolean)) {
-      uses.push({ className: cls, selector: `.${cls}` })
+      uses.push({
+        className: cls,
+        selector: `.${cls}`,
+        location: "html_class",
+        line: lineNumberAt(fullHtml, absoluteOffset),
+        tagName,
+        classAttr: raw,
+        excerpt,
+      })
     }
   }
 
@@ -49,7 +83,7 @@ function extractSlideClassUses(html: string): SlideClassUses[] {
 
   while ((match = sectionRe.exec(html)) !== null) {
     const chunk = match[0]
-    slides.push({ title: extractTitle(chunk, index), uses: extractClassUses(chunk) })
+    slides.push({ title: extractTitle(chunk, index), uses: extractClassUses(chunk, html, match.index) })
     index++
   }
 
@@ -60,21 +94,36 @@ function extractSlideClassUses(html: string): SlideClassUses[] {
   return slides
 }
 
-function extractCssDefinedClasses(html: string): string[] {
-  const classes = new Set<string>()
+function extractCssDefinedClasses(html: string): ClassUse[] {
+  const classes = new Map<string, ClassUse>()
   const styleRe = /<style\b[^>]*>([\s\S]*?)<\/style>/gi
   const classRe = /\.([a-zA-Z_][\w-]*)/g
   let styleMatch: RegExpExecArray | null
 
   while ((styleMatch = styleRe.exec(html)) !== null) {
+    const styleBody = styleMatch[1]
+    const bodyOffset = styleMatch.index + styleMatch[0].indexOf(styleBody)
     classRe.lastIndex = 0
     let classMatch: RegExpExecArray | null
-    while ((classMatch = classRe.exec(styleMatch[1])) !== null) {
-      classes.add(classMatch[1])
+    while ((classMatch = classRe.exec(styleBody)) !== null) {
+      const cls = classMatch[1]
+      if (classes.has(cls)) continue
+
+      const absoluteOffset = bodyOffset + classMatch.index
+      const lineStart = html.lastIndexOf("\n", absoluteOffset) + 1
+      const lineEnd = html.indexOf("\n", absoluteOffset)
+      const line = lineEnd === -1 ? html.slice(lineStart) : html.slice(lineStart, lineEnd)
+      classes.set(cls, {
+        className: cls,
+        selector: `.${cls}`,
+        location: "style_rule",
+        line: lineNumberAt(html, absoluteOffset),
+        excerpt: normalizeExcerpt(line),
+      })
     }
   }
 
-  return [...classes]
+  return [...classes.values()]
 }
 
 function summarize(filePath: string, slides: SlideReport[]): QAReport {
@@ -110,7 +159,15 @@ export function runComplianceQA(htmlFilePath: string, vocabulary?: DesignClassVo
           sub: "unknown_class",
           severity: "warning",
           detail: `HTML uses CSS class \`${use.className}\` which is not defined in the active design. Replace it with a class from the Component Index or Layout Index.`,
-          data: { class: use.className, selector: use.selector },
+          data: {
+            class: use.className,
+            selector: use.selector,
+            location: use.location,
+            line: use.line,
+            tag: use.tagName ?? "",
+            classAttr: use.classAttr ?? "",
+            excerpt: use.excerpt,
+          },
         })
       }
     }
@@ -121,18 +178,24 @@ export function runComplianceQA(htmlFilePath: string, vocabulary?: DesignClassVo
   if (allowedClasses && slides.length > 0) {
     const first = slides[0]
     const reported = new Set<string>()
-    for (const cls of extractCssDefinedClasses(html)) {
-      if (reported.has(cls)) continue
-      if (allowedClasses.has(cls)) continue
-      if (isExemptClass(cls, prefixExemptions)) continue
+    for (const use of extractCssDefinedClasses(html)) {
+      if (reported.has(use.className)) continue
+      if (allowedClasses.has(use.className)) continue
+      if (isExemptClass(use.className, prefixExemptions)) continue
 
-      reported.add(cls)
+      reported.add(use.className)
       first.issues.push({
         type: "compliance",
         sub: "novel_css_rule",
         severity: "warning",
-        detail: `<style> defines CSS class \`.${cls}\` which is not part of the active design. Remove this custom rule and use the design's existing component styles. For minor adjustments, use inline \`style=""\` instead.`,
-        data: { class: cls },
+        detail: `<style> defines CSS class \`.${use.className}\` which is not part of the active design. Remove this custom rule and use the design's existing component styles. For minor adjustments, use inline \`style=""\` instead.`,
+        data: {
+          class: use.className,
+          selector: use.selector,
+          location: use.location,
+          line: use.line,
+          excerpt: use.excerpt,
+        },
       })
     }
   }
