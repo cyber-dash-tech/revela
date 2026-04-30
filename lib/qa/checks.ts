@@ -618,7 +618,7 @@ function formatComplianceReport(report: QAReport): string {
     `## Static Design Compliance Report`,
     ``,
     `**File:** \`${report.file}\``,
-    `**Result:** WARNINGS — ${report.summary}`,
+    `**Result:** FAILED — ${report.summary}`,
     ``,
   ]
 
@@ -634,7 +634,8 @@ function formatComplianceReport(report: QAReport): string {
   lines.push(
     `### Action Required`,
     ``,
-    `Please fix the design vocabulary warnings above before continuing. These are static class-name checks, not layout QA failures.`,
+    `You must fix the design vocabulary errors above before continuing. These are static class-name checks, not layout QA failures.`,
+    `Do not leave unknown classes or custom class selectors in deck HTML.`,
     `- For **unknown HTML classes**, remove ad-hoc/test classes or replace them with classes from the active design's Layout Index or Component Index.`,
     `- For **novel CSS rules**, remove custom class selectors from \`<style>\`; use existing design components, or inline \`style=""\` for minor one-off positioning/sizing tweaks.`,
     `- If you need the correct class names, call \`revela-designs\` to read the relevant layout/component details.`,
@@ -652,7 +653,8 @@ function formatComplianceIssue(issue: LayoutIssue): string {
   const classAttr = typeof data.classAttr === "string" ? data.classAttr : ""
   const tag = typeof data.tag === "string" ? data.tag : ""
   const label = issue.sub ? `compliance/${issue.sub}` : "compliance"
-  const lines = [`- 🟡 **${label}**: \`${cls}\``]
+  const icon = issue.severity === "error" ? "🔴" : "🟡"
+  const lines = [`- ${icon} **${label}**: \`${cls}\``]
 
   lines.push(`  - Location: ${location}${line ? `, line ${line}` : ""}`)
   if (tag || classAttr) {

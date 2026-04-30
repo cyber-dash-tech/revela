@@ -157,7 +157,7 @@ export function runComplianceQA(htmlFilePath: string, vocabulary?: DesignClassVo
         issues.push({
           type: "compliance",
           sub: "unknown_class",
-          severity: "warning",
+          severity: "error",
           detail: `HTML uses CSS class \`${use.className}\` which is not defined in the active design. Replace it with a class from the Component Index or Layout Index.`,
           data: {
             class: use.className,
@@ -187,7 +187,7 @@ export function runComplianceQA(htmlFilePath: string, vocabulary?: DesignClassVo
       first.issues.push({
         type: "compliance",
         sub: "novel_css_rule",
-        severity: "warning",
+        severity: "error",
         detail: `<style> defines CSS class \`.${use.className}\` which is not part of the active design. Remove this custom rule and use the design's existing component styles. For minor adjustments, use inline \`style=""\` instead.`,
         data: {
           class: use.className,
