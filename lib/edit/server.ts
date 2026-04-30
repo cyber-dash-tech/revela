@@ -94,14 +94,20 @@ async function handleRequest(req: Request): Promise<Response> {
 
 function handleDeckVersion(session: EditSession): Response {
   try {
-    const stat = statSync(session.absoluteFile)
+    const version = readDeckVersion(session)
     session.lastActiveAt = Date.now()
     scheduleIdleStop()
-    return jsonResponse({ ok: true, mtimeMs: stat.mtimeMs, size: stat.size })
+    return jsonResponse({ ok: true, ...version })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return jsonResponse({ ok: false, error: message }, 404)
   }
+}
+
+function readDeckVersion(session: EditSession): { mtimeMs: number; size: number; version: string } {
+  const stat = statSync(session.absoluteFile)
+  const version = `${stat.mtimeMs}:${stat.size}`
+  return { mtimeMs: stat.mtimeMs, size: stat.size, version }
 }
 
 async function handleComment(req: Request, session: EditSession): Promise<Response> {
@@ -132,6 +138,7 @@ async function handleComment(req: Request, session: EditSession): Promise<Respon
     elements,
     comments,
   })
+  const deckVersion = readDeckVersion(session).version
 
   await session.client.session.prompt({
     path: { id: session.sessionID },
@@ -142,7 +149,7 @@ async function handleComment(req: Request, session: EditSession): Promise<Respon
 
   session.lastActiveAt = Date.now()
   scheduleIdleStop()
-  return jsonResponse({ ok: true })
+  return jsonResponse({ ok: true, deckVersion })
 }
 
 function validateSession(token: string | null): { ok: true; value: EditSession } | { ok: false; response: Response } {
@@ -233,11 +240,13 @@ function renderEditorShell(token: string): string {
     .comment-thread { display: flex; flex-direction: column; gap: 10px; max-height: 30vh; overflow: auto; }
     .comment-bubble { border: 1px solid #374151; border-radius: 14px; padding: 10px 12px; background: #0f172a; color: #e5e7eb; font-size: 13px; line-height: 1.45; }
     .comment-bubble.sending { border-color: rgba(56,189,248,.5); background: rgba(14,116,144,.14); }
-    .comment-bubble.done { border-color: rgba(34,197,94,.55); background: rgba(22,101,52,.18); }
+    .comment-bubble.applied { border-color: rgba(34,197,94,.55); background: rgba(22,101,52,.18); }
+    .comment-bubble.stale { border-color: rgba(251,191,36,.6); background: rgba(120,53,15,.2); }
     .comment-bubble.failed { border-color: rgba(248,113,113,.65); background: rgba(127,29,29,.2); }
     .comment-bubble-text { white-space: pre-wrap; overflow-wrap: anywhere; }
     .comment-bubble-state { margin-top: 8px; color: #93c5fd; font-size: 12px; font-weight: 700; }
-    .comment-bubble.done .comment-bubble-state { color: #86efac; }
+    .comment-bubble.applied .comment-bubble-state { color: #86efac; }
+    .comment-bubble.stale .comment-bubble-state { color: #fcd34d; }
     .comment-bubble.failed .comment-bubble-state { color: #fca5a5; }
     button { width: 100%; padding: 12px 14px; border: 0; border-radius: 12px; background: #38bdf8; color: #04111d; font-weight: 700; cursor: pointer; }
     button:disabled { cursor: not-allowed; opacity: .5; }
@@ -265,6 +274,7 @@ function renderEditorShell(token: string): string {
   <script>
     (() => {
       const token = ${encodedToken};
+      const COMMENT_STALE_MS = 60000;
       const state = {
         references: [],
         pendingComments: [],
@@ -374,7 +384,6 @@ function renderEditorShell(token: string): string {
           updateSendState();
           if (state.pendingRefreshMessage) {
             state.pendingRefreshMessage = false;
-            markPendingCommentsDone();
             setStatus('Deck updated. Preview refreshed. Element references were cleared.');
           } else {
             setStatus(slides.length > 0 ? 'Editor ready. Found ' + slides.length + ' slides. Ctrl/Cmd + click to reference elements.' : 'Editor ready, but no .slide elements were found. Ctrl/Cmd + click to reference elements.');
@@ -394,13 +403,18 @@ function renderEditorShell(token: string): string {
           const res = await fetch('/api/deck-version?token=' + encodeURIComponent(token), { cache: 'no-store' });
           const body = await res.json().catch(() => ({}));
           if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to check deck version');
-          const nextVersion = String(body.mtimeMs) + ':' + String(body.size);
+          const nextVersion = body.version || (String(body.mtimeMs) + ':' + String(body.size));
           if (!state.deckVersion) {
             state.deckVersion = nextVersion;
+            markStaleComments();
             return;
           }
-          if (state.deckVersion === nextVersion) return;
+          if (state.deckVersion === nextVersion) {
+            markStaleComments();
+            return;
+          }
           state.deckVersion = nextVersion;
+          markCommentsAppliedForVersion(nextVersion);
           refreshDeckPreview(body.mtimeMs);
         } catch (error) {
           reportError(error);
@@ -482,7 +496,7 @@ function renderEditorShell(token: string): string {
           });
           const body = await res.json().catch(() => ({}));
           if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to send comment');
-          updatePendingCommentStatus(commentId, 'sent');
+          updatePendingCommentStatus(commentId, 'sent', { baseDeckVersion: body.deckVersion || state.deckVersion });
           setStatus('Comment sent. Waiting for deck update...');
           updateSendState();
         } catch (error) {
@@ -555,27 +569,51 @@ function renderEditorShell(token: string): string {
           text,
           elements,
           status,
+          createdAt: Date.now(),
+          baseDeckVersion: state.deckVersion,
+          appliedVersion: null,
         });
         renderCommentThread();
         return id;
       }
 
-      function updatePendingCommentStatus(id, status) {
+      function updatePendingCommentStatus(id, status, updates) {
         const comment = state.pendingComments.find((item) => item.id === id);
         if (!comment) return;
+        if (comment.status === 'applied' && status !== 'failed') return;
         comment.status = status;
+        if (updates) Object.assign(comment, updates);
         renderCommentThread();
       }
 
-      function markPendingCommentsDone() {
+      function markCommentsAppliedForVersion(version) {
         let changed = false;
         state.pendingComments.forEach((comment) => {
-          if (comment.status === 'sent' || comment.status === 'sending') {
-            comment.status = 'done';
+          if ((comment.status === 'sent' || comment.status === 'sending' || comment.status === 'stale') && comment.baseDeckVersion !== version) {
+            comment.status = 'applied';
+            comment.appliedVersion = version;
             changed = true;
           }
         });
         if (changed) renderCommentThread();
+      }
+
+      function markStaleComments() {
+        const now = Date.now();
+        let changed = false;
+        const hasWaiting = state.pendingComments.some((comment) => {
+          if (comment.status !== 'sent' && comment.status !== 'sending') return false;
+          if (now - comment.createdAt < COMMENT_STALE_MS) return true;
+          comment.status = 'stale';
+          changed = true;
+          return true;
+        });
+        if (changed) {
+          renderCommentThread();
+          setStatus('Still waiting for deck file update. If OpenCode already finished, refresh the editor.');
+        } else if (hasWaiting) {
+          setStatus('Comment sent. Waiting for deck update...');
+        }
       }
 
       function renderCommentThread() {
@@ -599,7 +637,8 @@ function renderEditorShell(token: string): string {
       }
 
       function commentStatusLabel(status) {
-        if (status === 'done') return '✅ Applied';
+        if (status === 'applied') return '✅ Applied';
+        if (status === 'stale') return 'Still waiting for deck file update';
         if (status === 'failed') return 'Failed to send';
         if (status === 'sending') return 'Sending to OpenCode...';
         return '⏳ Sent to OpenCode';

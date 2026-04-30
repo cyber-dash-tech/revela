@@ -232,8 +232,8 @@ layouts (cover, TOC, closing, quote, summary, etc.). When unsure, use `"false"`.
 
 Example: `<section class="slide" slide-qa="true" data-index="0">`
 
-The current QA path treats this as deck metadata. Automated checks focus on
-design compliance and hard overflow errors, not subjective fill or spacing.
+The export QA path treats this as deck metadata. It is consumed when PDF/PPTX
+export runs preflight checks.
 
 ### Domain Context
 
@@ -323,7 +323,7 @@ After generating, briefly tell the user:
 - How to navigate (arrow keys / swipe)
 - One line invitation to request changes
 
-Then use `revela-decks` to record written/QA status when available. Preserve
+Then use `revela-decks` to record written status when available. Preserve
 stable decisions in deck memory when useful.
 
 For change requests: re-generate the **entire** file (don't patch). Apply the
@@ -382,11 +382,14 @@ exclusively for fine-tuning spacing and sizing (`margin`, `padding`, `gap`,
 component — **NEVER adapt the component structure to fit content. NEVER create
 a new component because the existing ones "don't quite fit".**
 
-The automatic compliance check will flag any unrecognised CSS class. If the
-QA report contains compliance issues after you write the file, you MUST
-fix them immediately — remove the offending classes and replace them with the
-closest component from the Component Index. Do not move on until all compliance
-issues are resolved.
+The automatic static compliance check will flag any unrecognised CSS class after
+deck HTML writes or patches. If the tool result reports compliance issues, fix
+them immediately by removing the offending classes and replacing them with the
+closest component from the Component Index.
+
+Do not run `revela-qa` after writing or editing HTML unless the user explicitly
+asks for diagnostics. PDF/PPTX export commands run hard-error pre-export QA
+automatically and will report overflow issues that must be fixed before exporting.
 
 ### Inline Editing
 

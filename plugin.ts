@@ -11,7 +11,7 @@
  * 5. experimental.chat.system.transform: inject three-layer prompt when enabled
  * 6. chat.message: intercept @-referenced / pasted binary files → extract text → replace FilePart with TextPart
  * 7. tool.execute.before: intercept read on DOCX/PPTX/XLSX → preRead()
- * 8. tool.execute.after: intercept read on PDF/images → postRead(); run fast design compliance after deck writes/patches/edits
+ * 8. tool.execute.after: intercept read on PDF/images → postRead(); run static compliance after deck writes/patches/edits
  */
 
 import type { Plugin } from "@opencode-ai/plugin"
@@ -98,6 +98,11 @@ const INTERNAL_AGENT_SIGNATURES = [
 ]
 
 function appendToolResult(output: any, text: string): void {
+  if (typeof output.output === "string") {
+    output.output = (output.output ? output.output + "\n\n" : "") + text
+    return
+  }
+
   const existing = output.result ?? ""
   output.result = (existing ? existing + "\n\n" : "") + text
 }
@@ -154,11 +159,11 @@ const server: Plugin = (async (pluginCtx) => {
 
       appendToolResult(
         output,
-        "---\n\n**[revela design compliance]** Auto-check completed:\n\n" +
+        "---\n\n**[revela design compliance]** Static check completed:\n\n" +
         formatReport(report)
       )
     } catch (e) {
-      childLog("qa").warn("auto compliance failed", {
+      childLog("compliance").warn("static compliance failed", {
         filePath,
         error: e instanceof Error ? e.message : String(e),
       })
@@ -613,7 +618,8 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
     // Handles PDF and images — read tool succeeds with base64 attachment.
     // PDF: extract text, remove base64. Images: jimp compress.
     //
-    // Also handles: fast design compliance after writing/patching/editing decks/*.html
+    // Also reports writes/patches blocked by the DECKS.json prewrite gate and
+    // runs lightweight static design compliance after successful deck changes.
     "tool.execute.after": async (input, output) => {
       if (!ctx.enabled) return
 
@@ -630,7 +636,7 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
         return
       }
 
-      // ── Fast design compliance after deck HTML writes/patches/edits ───
+      // ── Report blocked deck writes and run static compliance ──────────
       if (input.tool === "write") {
         const filePath: string = input.args?.filePath ?? ""
         const blockedReason = blockedDeckWrites.get(filePath)

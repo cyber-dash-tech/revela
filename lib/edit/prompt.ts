@@ -76,6 +76,7 @@ Instructions:
 - Locate each target primarily with slideIndex, slideTitle, selected text, nearbyText, and outerHTMLExcerpt. Use selector/domPath as hints; they may be approximate.
 - Before patching or writing ${"`decks/*.html`"}, ensure ${"`DECKS.json`"} contains this deck and call ${"`revela-decks`"} with action ${"`review`"}. If ${"`DECKS.json`"} or the deck entry is missing, initialize/upsert the deck state with ${"`revela-decks`"} first. If readiness remains blocked, explain the blockers instead of forcing the edit.
 - Apply the edit to ${payload.file} only after readiness allows deck HTML changes.
-- Design compliance is checked automatically after deck writes. Run ${"`revela-qa`"} on ${payload.file} only when the edit may affect layout geometry, such as size, spacing, font scale, content amount, or container structure; fix any overflow it reports.
+- Static design compliance is checked automatically after deck writes. If the tool result reports unknown classes, replace them with classes from the active design.
+- Do not run QA after the edit unless the user explicitly asks for diagnostics. PDF/PPTX export commands run hard-error pre-export QA automatically.
 - If the comment is ambiguous, ask one concise clarification question instead of guessing.`
 }

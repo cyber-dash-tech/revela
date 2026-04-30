@@ -3,7 +3,7 @@
  *
  * revela-qa — Hard-error quality assurance for generated slide HTML files.
  *
- * Exposed to the LLM so it can check overflow and design compliance.
+ * Exposed as a manual diagnostic tool. Export commands run pre-export QA automatically.
  */
 
 import { tool } from "@opencode-ai/plugin"
@@ -17,7 +17,7 @@ export default tool({
     "Opens the file in a headless browser and measures actual rendered geometry. " +
     "Checks for element overflow. " +
     "Returns a structured report with specific issues and fix instructions. " +
-    "Call this when an edit may affect layout, or before delivery if export commands are not used.",
+    "Normally PDF/PPTX export commands run this automatically; call it directly only for explicit diagnostics.",
   args: {
     file: tool.schema
       .string()

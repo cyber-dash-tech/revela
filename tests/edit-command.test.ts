@@ -111,7 +111,9 @@ describe("buildEditPrompt", () => {
     expect(prompt).toContain("revela-decks")
     expect(prompt).toContain("review")
     expect(prompt).toContain("initialize/upsert")
-    expect(prompt).toContain("revela-qa")
+    expect(prompt).toContain("Static design compliance is checked automatically")
+    expect(prompt).toContain("Do not run QA after the edit")
+    expect(prompt).toContain("PDF/PPTX export commands run hard-error pre-export QA automatically")
   })
 
   it("supports multiple comments with multiple selected elements", () => {

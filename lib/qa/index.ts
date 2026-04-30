@@ -2,8 +2,8 @@
  * lib/qa/index.ts
  *
  * Public entry point for hard-error slide QA.
- * Runs overflow measurement only; design compliance is an automatic post-write
- * hook concern, not part of manual/export QA.
+ * Runs overflow measurement only. Static design compliance is handled by a
+ * separate post-write/post-patch/post-edit hook.
  */
 
 import { measureSlides } from "./measure"
@@ -22,8 +22,8 @@ export type { RunChecksOptions } from "./checks"
  * 3. Runs hard-error overflow checks only
  * 4. Returns a structured QAReport
  *
- * Pass `vocabulary` (from `extractDesignClasses()`) to enable compliance checks.
- * Omit it to run geometry-only checks (backward compatible).
+ * The optional `vocabulary` argument is retained for backward compatibility;
+ * compliance is intentionally not part of hard-error QA.
  *
  * Throws if the file cannot be opened or Chrome is not found.
  */
