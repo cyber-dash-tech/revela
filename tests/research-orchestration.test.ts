@@ -9,7 +9,7 @@ describe("primary research orchestration skill", () => {
   it("describes conversation-driven research briefs", () => {
     expect(skill).toContain("Research Brief")
     expect(skill).toContain("the working topic emerges from the")
-    expect(skill).toContain("working slug")
+    expect(skill).toContain("workspace-derived research key")
     expect(skill).toContain("DECKS.json")
   })
 

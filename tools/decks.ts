@@ -2,11 +2,13 @@ import { tool } from "@opencode-ai/plugin"
 import {
   createDeckSpec,
   DECKS_STATE_FILE,
+  normalizeWorkspaceDeckState,
   readOrCreateDecksState,
   reviewDeckState,
   upsertDeck,
   upsertSlides,
   writeDecksState,
+  workspaceDeckSlug,
   type DeckSpec,
   type RequiredInputs,
   type ResearchAxis,
@@ -22,13 +24,12 @@ export default tool({
     action: tool.schema
       .enum(["read", "init", "upsertDeck", "upsertSlides", "review", "remember"])
       .describe("Action to perform on DECKS.json."),
-    slug: tool.schema.string().optional().describe("Deck slug for read/upsert/review actions."),
     summary: tool.schema.boolean().optional().describe("For read: return a compact summary instead of full state."),
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
     audience: tool.schema.string().optional().describe("For upsertDeck: deck audience."),
     language: tool.schema.string().optional().describe("For upsertDeck: deck language."),
     slideCount: tool.schema.number().optional().describe("For upsertDeck: expected slide count."),
-    outputPath: tool.schema.string().optional().describe("For upsertDeck: target output path, normally decks/{slug}.html."),
+    outputPath: tool.schema.string().optional().describe("For upsertDeck: target output path, normally decks/{workspace-name}.html."),
     design: tool.schema.string().optional().describe("For upsertDeck: active design name."),
     domain: tool.schema.string().optional().describe("For upsertDeck: active domain name."),
     memory: tool.schema.string().optional().describe("For remember: explicit user or workflow preference to store."),
@@ -84,7 +85,8 @@ export default tool({
   async execute(args, context) {
     try {
       const workspaceRoot = context.directory ?? process.cwd()
-      const state = readOrCreateDecksState(workspaceRoot)
+      let state = normalizeWorkspaceDeckState(readOrCreateDecksState(workspaceRoot), workspaceRoot)
+      const defaultSlug = workspaceDeckSlug(workspaceRoot)
 
       if (args.action === "init") {
         writeDecksState(workspaceRoot, state)
@@ -92,20 +94,20 @@ export default tool({
       }
 
       if (args.action === "read") {
-        const slug = args.slug || state.activeDeck
+        const deckKey = state.activeDeck
         if (args.summary) {
-          const deck = slug ? state.decks[slug] : undefined
+          const deck = deckKey ? state.decks[deckKey] : undefined
           return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, activeDeck: state.activeDeck, deck }, null, 2)
         }
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, state }, null, 2)
       }
 
       if (args.action === "upsertDeck") {
-        if (!args.slug) return JSON.stringify({ ok: false, error: "slug is required for upsertDeck" })
-        const existing = state.decks[args.slug]
+        const deckKey = defaultSlug
+        const existing = state.decks[deckKey]
         const deckInput: Partial<DeckSpec> & { slug: string } = {
           ...existing,
-          slug: args.slug,
+          slug: deckKey,
           goal: args.goal ?? existing?.goal ?? "",
           audience: args.audience ?? existing?.audience,
           language: args.language ?? existing?.language,
@@ -127,15 +129,15 @@ export default tool({
       }
 
       if (args.action === "upsertSlides") {
-        if (!args.slug) return JSON.stringify({ ok: false, error: "slug is required for upsertSlides" })
+        const deckKey = state.activeDeck || defaultSlug
         if (!args.slides) return JSON.stringify({ ok: false, error: "slides are required for upsertSlides" })
-        const next = upsertSlides(state, args.slug, args.slides as SlideSpec[])
+        const next = upsertSlides(state, deckKey, args.slides as SlideSpec[])
         writeDecksState(workspaceRoot, next)
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, deck: next.activeDeck ? next.decks[next.activeDeck] : undefined }, null, 2)
       }
 
       if (args.action === "review") {
-        const reviewed = reviewDeckState(state, args.slug)
+        const reviewed = reviewDeckState(state)
         writeDecksState(workspaceRoot, reviewed.state)
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: reviewed.result }, null, 2)
       }

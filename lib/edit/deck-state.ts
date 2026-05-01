@@ -3,6 +3,8 @@ import { activeDesign } from "../design/designs"
 import { activeDomain } from "../domain/domains"
 import {
   defaultRequiredInputs,
+  DECKS_STATE_FILE,
+  normalizeWorkspaceDeckState,
   readOrCreateDecksState,
   reviewDeckState,
   upsertDeck,
@@ -19,7 +21,11 @@ export interface EditDeckStatePreflightResult {
 }
 
 export function ensureEditableDeckState(workspaceRoot: string, deck: EditableDeck): EditDeckStatePreflightResult {
-  let state = readOrCreateDecksState(workspaceRoot)
+  let state = normalizeWorkspaceDeckState(readOrCreateDecksState(workspaceRoot), workspaceRoot)
+  const active = state.activeDeck ? state.decks[state.activeDeck] : undefined
+  if (active && active.slug !== deck.slug && active.outputPath !== deck.file) {
+    throw new Error(`${DECKS_STATE_FILE} already points to ${active.outputPath}. Revela 0.8 expects one deck per workspace; move extra decks to a separate workspace.`)
+  }
   const existing = state.decks[deck.slug]
   const existingReady = existing?.writeReadiness?.status === "ready" && existing.writeReadiness.blockers.length === 0
   let changed = !existing || existing.outputPath !== deck.file
@@ -112,7 +118,7 @@ function safeActiveDesign(): string {
   try {
     return activeDesign()
   } catch {
-    return "summit"
+    return "aurora"
   }
 }
 

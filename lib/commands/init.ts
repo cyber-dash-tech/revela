@@ -16,9 +16,9 @@ export function buildInitPrompt({
 Goal:
 - Build or update ${DECKS_STATE_FILE}, the workspace-level machine-readable state file for slide deck work.
 - Use the \`revela-decks\` tool for state updates. Do not write or patch ${DECKS_STATE_FILE} directly.
-- Capture stable project context, available source materials, deck history, active deck specs, slide plans, and open questions for future sessions.
-- Do not treat initialization as permission to write a slide deck; each deck must pass a later readiness review.
-- ${DECKS_STATE_FILE} is the source of truth for Revela workspace state.
+- Capture stable project context, available source materials, the current deck spec, slide plan, and open questions for future sessions.
+- Do not treat initialization as permission to write a slide deck; the current deck must pass a later readiness review.
+- ${DECKS_STATE_FILE} is the source of truth for the single current workspace deck.
 
 Current state:
 - ${mode}
@@ -40,12 +40,12 @@ Workflow:
    - \`presentations/**/*.html\`
    - \`decks/**/*.pdf\`
    - \`slides/**/*.pdf\`
-   Run these searches only inside the current workspace root. These are generated/output decks, not necessarily source materials. Record stable history, themes, filenames, and obvious reuse opportunities without treating them as authoritative source data.
+   Run these searches only inside the current workspace root. These are generated/output decks, not necessarily source materials. If \`decks/\` contains exactly one HTML file, treat it as the current deck artifact. If \`decks/\` contains multiple HTML files, stop and ask the user to move extra decks to separate workspaces before adopting one.
 3. Select the files that look most relevant for future slide decks. Prioritize source decks, PDFs, Word docs, spreadsheets, CSVs, Markdown, text notes, and relevant existing generated decks.
 4. For selected PDF/PPTX/DOCX/XLSX files, call \`revela-extract-document-materials\` before deciding what to summarize.
 5. Read only the materials needed to form a conservative workspace memory. Do not exhaustively read every file if the workspace is large.
 6. Call \`revela-decks\` with action \`init\` to create ${DECKS_STATE_FILE} if needed.
-7. If this conversation already contains a concrete deck task, call \`revela-decks\` with action \`upsertDeck\` and later \`upsertSlides\` only for explicit deck spec information. Do not mark readiness ready during init.
+7. If this conversation already contains a concrete deck task, call \`revela-decks\` with action \`upsertDeck\` and later \`upsertSlides\` only for explicit deck spec information. Do not pass or ask for a deck key; the tool uses the workspace folder name internally. Do not mark readiness ready during init.
 8. Report what was initialized or updated and list any open questions.
 
 Memory rules:
@@ -54,6 +54,7 @@ Memory rules:
 - Do not infer personal preferences from one-off requests.
 - Do not store secrets, credentials, API keys, tokens, account details, or sensitive personal information.
 - Do not mark writeReadiness as ready during init unless the current deck has already passed an explicit \`revela-decks\` review.
+- Treat this workspace as a single deck project. If the user wants another deck, guide them to create another workspace/folder rather than adding a second deck record.
 - If new evidence conflicts with existing memory, preserve both briefly and add an Open Question instead of silently overwriting.
 
 Start now by scanning the workspace.`

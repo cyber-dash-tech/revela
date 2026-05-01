@@ -49,31 +49,35 @@ If the brief is unclear, ask 1–3 targeted clarification questions. Do not forc
 the user to provide a research topic command; the working topic emerges from the
 conversation.
 
-### Phase 1.5 — Project State, Working Slug & Active Deck
+### Phase 1.5 — Project State, Output File & Current Deck
 
 Before research, use the `revela-decks` tool with action `read` or `init` to
 inspect `DECKS.json`. Treat it as the source of truth for project context,
-source material index, explicit user preferences, prior deck history, active
+source material index, explicit user preferences, current deck state, active
 deck specs, per-slide content/layout/components, write readiness, and open
 questions. Do not write or patch `DECKS.json` directly.
 
-Derive a **working slug** from the Research Brief: lowercase, hyphens, no spaces
-(e.g. "AI Investment Shift" → `ai-investment-shift`). The slug is only a file
-path handle for this deck/research cache; the user does not need to supply it as
-a command. Tell the user: "I'll save this deck as `decks/{slug}.html`." They can
-correct the name at this point.
+Treat the workspace folder as the deck project boundary. The `revela-decks` tool
+derives its internal deck key from the workspace folder name; this key is not
+user-facing.
+
+Derive an **output file** for the current deck. Default to
+`decks/{workspace-name}.html` using the normalized workspace folder name unless
+the user explicitly asks for a different filename. Tell the user: "I'll save this
+deck as `decks/<filename>.html`." They can correct the filename at this point.
 
 Check whether this deck has been worked on before:
-1. Run `glob researches/{slug}/*.md`.
-2. If research files already exist, list them and ask whether to reuse, supplement,
+1. Use the workspace-derived internal key from `DECKS.json.activeDeck` when available; otherwise use the normalized workspace folder name for `researches/{workspace-key}/`.
+2. Run `glob researches/{workspace-key}/*.md`.
+3. If research files already exist, list them and ask whether to reuse, supplement,
    or replace the existing research.
-3. If the user chooses reuse, read the existing files before Phase 4.
-4. If the user chooses supplement or replace, use the existing files to avoid
+4. If the user chooses reuse, read the existing files before Phase 4.
+5. If the user chooses supplement or replace, use the existing files to avoid
    duplicate work and proceed through Phase 3 only for missing or stale axes.
 
-All subsequent file paths in this session use the working slug:
-- Slides file: `decks/{slug}.html`
-- Research dir: `researches/{slug}/`
+All subsequent file paths in this session use the current workspace deck:
+- Slides file: the confirmed `decks/*.html` output path
+- Research dir: `researches/{workspace-key}/`
 
 Create or update the active deck in `DECKS.json` through `revela-decks` actions
 `upsertDeck` and `upsertSlides`. Keep the deck spec current as work progresses:
@@ -132,14 +136,14 @@ user 1–3 focused questions before launching agents.
 #### Research Brief Before Agents
 
 Before starting research agents, write a brief for yourself with:
-- working slug for `researches/{slug}/`
+- workspace-derived research key for `researches/{workspace-key}/`
 - user goal and audience
 - thesis or decision the deck should support
 - key questions and time period
 - relevant `DECKS.json` sourceMaterials or user-provided files
 - axes to research and desired output for each axis
 
-You do not need to ask the user to approve the slug unless the filename matters.
+You do not need to ask the user to approve an internal key. Ask only if the visible output filename matters.
 
 #### Deep Research via `revela-research` Subagents
 
@@ -152,14 +156,14 @@ axis gets one focused subagent brief. When multiple axes are needed, launch all
 agents in a single message with parallel Task tool calls.
 
 Each subagent brief must specify:
-- shared working slug for `researches/{slug}/`
+- shared workspace-derived research key for `researches/{workspace-key}/`
 - axis filename, such as `market-data`, `competitor-profile`, or `technology-trends`
 - the research question, time period, geography, and evidence standard
 - relevant `DECKS.json` sourceMaterials or user files to prioritize
 - whether web research is needed and what types of sources are preferred
 
 The subagent writes exactly one file through `revela-research-save`:
-`researches/{slug}/{axis-name}.md`.
+`researches/{workspace-key}/{axis-name}.md`.
 
 #### Workspace Memory and Freshness
 
@@ -177,7 +181,7 @@ deep-read files that are relevant to the current Research Brief.
 
 #### After Agents Complete
 
-List and read the findings files in `researches/{slug}/`. Each file contains
+List and read the findings files in `researches/{workspace-key}/`. Each file contains
 structured `## Data`, `## Cases`, `## Images`, and `## Gaps` sections. Use these
 directly as slide material, cross-reference them with workspace documents, and
 flag contradictions.
@@ -202,7 +206,7 @@ already checked and what specific missing information is needed.
 - **NEVER** call `revela-research` as a tool; use Task with `subagent_type: "revela-research"`
 - **NEVER** collapse distinct research axes into one broad agent brief when parallel focused briefs would be clearer
 - **ALWAYS** use `revela-decks` action `read` before deciding what research is needed
-- **ALWAYS** read each `researches/{slug}/{axis}.md` after agents complete
+- **ALWAYS** read each `researches/{workspace-key}/{axis}.md` after agents complete
 - Use the `read` tool for all file types — binary formats are handled transparently
 ---
 
@@ -302,7 +306,7 @@ After the user confirms the slide plan, update `DECKS.json` through `revela-deck
 3. Call `revela-designs` tool with `action: "read"` and `component` set to ALL component
    names you plan to use (comma-separated, e.g. `component: "card,stat-card,evidence-list"`).
 4. Use `revela-decks` action `upsertDeck` to mark `requiredInputs.designLayoutsFetched` complete.
-5. Run `/revela review {slug}` or call `revela-decks` action `review` yourself. The tool must compute readiness from `DECKS.json`.
+5. Run `/revela review` or call `revela-decks` action `review` yourself. The tool must compute readiness from `DECKS.json`.
 6. Use `revela-decks` action `read` and confirm `writeReadiness.status` is `ready` with no blockers.
 7. Generate HTML that **exactly matches** the fetched examples — copy the HTML structure verbatim.
 
@@ -313,7 +317,7 @@ Once the fetch is complete, generate the complete HTML file in one shot.
 
 - Output **only** the raw HTML — no markdown fences, no explanation before or after
 - Create a `decks/` directory in the current working directory if it doesn't already exist
-- Write the file to `decks/{slug}.html` using the deck slug confirmed in Phase 1.5
+- Write the file to the `decks/*.html` output path confirmed in Phase 1.5
 - The file must be completely self-contained (all CSS and JS inline)
 
 ### Phase 6 — Iterate
@@ -323,11 +327,12 @@ After generating, briefly tell the user:
 - How to navigate (arrow keys / swipe)
 - One line invitation to request changes
 
-Then use `revela-decks` to record written status when available. Preserve
-stable decisions in deck memory when useful.
+Keep `DECKS.json` focused on the current slide specs, research/read state,
+output path, and explicit preferences. The HTML file is the source of truth for
+the produced artifact.
 
 For change requests: re-generate the **entire** file (don't patch). Apply the
-change and silently overwrite the same `decks/{slug}.html` filename.
+change and silently overwrite the confirmed `decks/*.html` output file.
 
 ---
 
@@ -402,7 +407,7 @@ element selector list, and `window.getEditedHTML()` definition.
 
 - When research findings contain image leads that should appear in the final deck,
   first call `revela-research-images-list` to inspect structured candidates from
-  `researches/{slug}/*.md`. When multiple images are needed, prefer
+  `researches/{workspace-key}/*.md`. When multiple images are needed, prefer
   `revela-media-batch-save` to save the selected candidates in one call. Use
   `revela-media-save` for one-off cases. Then reference the returned local file
   path in HTML. Do not use remote image URLs directly in final slides.

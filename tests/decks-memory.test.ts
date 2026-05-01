@@ -82,9 +82,9 @@ describe("remember command", () => {
 
 describe("review command", () => {
   it("builds a prompt that reviews write readiness", () => {
-    const prompt = buildReviewPrompt({ slug: "investor-update", exists: true })
+    const prompt = buildReviewPrompt({ exists: true })
     expect(prompt).toContain("Review Revela deck write readiness")
-    expect(prompt).toContain("investor-update")
+    expect(prompt).toContain("current workspace deck")
     expect(prompt).toContain("writeReadiness")
     expect(prompt).toContain("requiredInputs")
     expect(prompt).toContain("DECKS.json")

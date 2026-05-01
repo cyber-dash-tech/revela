@@ -2,16 +2,18 @@ import { afterEach, describe, expect, it } from "bun:test"
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { tmpdir } from "os"
-import { createEmptyDecksState, readDecksState, upsertDeck, writeDecksState } from "../lib/decks-state"
+import { readDecksState, workspaceDeckSlug } from "../lib/decks-state"
 import { ensureEditableDeckState } from "../lib/edit/deck-state"
 import { resolveEditableDeck } from "../lib/edit/resolve-deck"
 import { buildEditPrompt } from "../lib/edit/prompt"
-import { openEditableDeck } from "../lib/edit/open"
+import { ensureEditableDeckOpenForChange, openEditableDeck } from "../lib/edit/open"
+import { LIVE_EDITOR_IDLE_MS, renderEditorShell, stopEditServer } from "../lib/edit/server"
 import createEditTool from "../tools/edit"
 
 const roots: string[] = []
 
 afterEach(() => {
+  stopEditServer()
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
 })
 
@@ -23,132 +25,38 @@ function workspace(): string {
 }
 
 describe("resolveEditableDeck", () => {
-  it("resolves the active deck when target is empty", () => {
-    const root = workspace()
-    writeFileSync(join(root, "decks", "active-output.html"), "<html></html>", "utf-8")
-    const state = upsertDeck(createEmptyDecksState(), {
-      slug: "sales-kickoff",
-      goal: "Edit the active deck",
-      outputPath: "decks/active-output.html",
-    })
-    writeDecksState(root, state)
-
-    const deck = resolveEditableDeck(root, "")
-
-    expect(deck).toMatchObject({
-      slug: "sales-kickoff",
-      file: "decks/active-output.html",
-      source: "decks-state",
-    })
-  })
-
-  it("resolves the only deck when target is empty and activeDeck is unset", () => {
+  it("resolves the only HTML deck in decks/", () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "only-deck.html"), "<html></html>", "utf-8")
-    const state = upsertDeck(createEmptyDecksState(), {
-      slug: "only-deck",
-      goal: "Edit the only deck",
-      outputPath: "decks/only-deck.html",
-    })
-    state.activeDeck = undefined
-    writeDecksState(root, state)
 
     const deck = resolveEditableDeck(root, "   ")
 
     expect(deck).toMatchObject({
-      slug: "only-deck",
+      slug: workspaceDeckSlug(root),
       file: "decks/only-deck.html",
-      source: "decks-state",
+      source: "file-path",
     })
   })
 
-  it("rejects empty target when multiple decks exist and activeDeck is unset", () => {
+  it("rejects targets", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "only-deck.html"), "<html></html>", "utf-8")
+
+    expect(() => resolveEditableDeck(root, "only-deck")).toThrow("no longer accepts a target")
+  })
+
+  it("rejects when decks/ has no HTML files", () => {
+    const root = workspace()
+
+    expect(() => resolveEditableDeck(root, "")).toThrow("No deck HTML found in decks/")
+  })
+
+  it("rejects when decks/ has multiple HTML files", () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "first.html"), "<html></html>", "utf-8")
     writeFileSync(join(root, "decks", "second.html"), "<html></html>", "utf-8")
-    const state = upsertDeck(upsertDeck(createEmptyDecksState(), {
-      slug: "first",
-      outputPath: "decks/first.html",
-    }), {
-      slug: "second",
-      outputPath: "decks/second.html",
-    })
-    state.activeDeck = undefined
-    writeDecksState(root, state)
 
-    expect(() => resolveEditableDeck(root, "")).toThrow("multiple decks and no activeDeck")
-  })
-
-  it("rejects empty target when DECKS.json is missing", () => {
-    const root = workspace()
-
-    expect(() => resolveEditableDeck(root, "")).toThrow("No DECKS.json found")
-  })
-
-  it("resolves a deck from DECKS.json outputPath", () => {
-    const root = workspace()
-    writeFileSync(join(root, "decks", "custom-output.html"), "<html></html>", "utf-8")
-    const state = upsertDeck(createEmptyDecksState(), {
-      slug: "sales-kickoff",
-      goal: "Edit an existing deck",
-      outputPath: "decks/custom-output.html",
-    })
-    writeDecksState(root, state)
-
-    const deck = resolveEditableDeck(root, "sales-kickoff")
-
-    expect(deck).toMatchObject({
-      slug: "sales-kickoff",
-      file: "decks/custom-output.html",
-      source: "decks-state",
-    })
-    expect(deck.absoluteFile).toBe(join(root, "decks", "custom-output.html"))
-  })
-
-  it("falls back to decks/<slug>.html when no state entry exists", () => {
-    const root = workspace()
-    writeFileSync(join(root, "decks", "market-map.html"), "<html></html>", "utf-8")
-
-    const deck = resolveEditableDeck(root, "market-map")
-
-    expect(deck).toMatchObject({
-      slug: "market-map",
-      file: "decks/market-map.html",
-      source: "fallback",
-    })
-  })
-
-  it("resolves a decks/*.html path", () => {
-    const root = workspace()
-    writeFileSync(join(root, "decks", "market-map.html"), "<html></html>", "utf-8")
-
-    const deck = resolveEditableDeck(root, "decks/market-map.html")
-
-    expect(deck).toMatchObject({
-      slug: "market-map",
-      file: "decks/market-map.html",
-      source: "file-path",
-    })
-  })
-
-  it("resolves a ./decks/*.html path", () => {
-    const root = workspace()
-    writeFileSync(join(root, "decks", "market-map.html"), "<html></html>", "utf-8")
-
-    const deck = resolveEditableDeck(root, "./decks/market-map.html")
-
-    expect(deck).toMatchObject({
-      slug: "market-map",
-      file: "decks/market-map.html",
-      source: "file-path",
-    })
-  })
-
-  it("rejects paths outside decks/*.html", () => {
-    const root = workspace()
-
-    expect(() => resolveEditableDeck(root, "../decks/secret.html")).toThrow("outside the workspace")
-    expect(() => resolveEditableDeck(root, "market-map.html")).toThrow("decks/*.html")
+    expect(() => resolveEditableDeck(root, "")).toThrow("multiple deck HTML files")
   })
 })
 
@@ -226,23 +134,25 @@ describe("buildEditPrompt", () => {
 })
 
 describe("ensureEditableDeckState", () => {
-  it("creates ready deck state for a fallback HTML deck", () => {
+  it("creates ready deck state for the only HTML deck", () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "market-map.html"), `
       <html><body>
         <section class="slide" slide-qa="true"><h2>Market Map</h2><p>Existing content.</p></section>
       </body></html>
     `, "utf-8")
-    const deck = resolveEditableDeck(root, "market-map")
+    const deck = resolveEditableDeck(root, "")
 
     const result = ensureEditableDeckState(root, deck)
     const state = readDecksState(root)
 
     expect(result.readiness.ready).toBe(true)
-    expect(state.decks["market-map"].outputPath).toBe("decks/market-map.html")
-    expect(state.decks["market-map"].slides).toHaveLength(1)
-    expect(state.decks["market-map"].slides[0].title).toBe("Market Map")
-    expect(state.decks["market-map"].writeReadiness.status).toBe("ready")
+    const slug = workspaceDeckSlug(root)
+    expect(state.activeDeck).toBe(slug)
+    expect(state.decks[slug].outputPath).toBe("decks/market-map.html")
+    expect(state.decks[slug].slides).toHaveLength(1)
+    expect(state.decks[slug].slides[0].title).toBe("Market Map")
+    expect(state.decks[slug].writeReadiness.status).toBe("ready")
   })
 })
 
@@ -251,17 +161,122 @@ describe("openEditableDeck", () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\"><h2>Market Map</h2></section></body></html>", "utf-8")
 
-    const result = openEditableDeck("market-map", {
+    const result = openEditableDeck("", {
       client: { session: { prompt: async () => undefined } },
       sessionID: "session-1",
       workspaceRoot: root,
       openBrowser: false,
     })
 
-    expect(result.deck.slug).toBe("market-map")
+    expect(result.deck.slug).toBe(workspaceDeckSlug(root))
     expect(result.deck.file).toBe("decks/market-map.html")
     expect(result.url).toStartWith("http://127.0.0.1:")
-    expect(readDecksState(root).decks["market-map"].writeReadiness.status).toBe("ready")
+    expect(readDecksState(root).decks[workspaceDeckSlug(root)].writeReadiness.status).toBe("ready")
+  })
+
+  it("reuses one editor session for repeated active opens of the same deck", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\"><h2>Market Map</h2></section></body></html>", "utf-8")
+    const opened: string[] = []
+    const options = {
+      client: { session: { prompt: async () => undefined } },
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openUrl: (url: string) => opened.push(url),
+    }
+
+    const first = openEditableDeck("", options)
+    const second = openEditableDeck("", options)
+
+    expect(first.url).toBe(second.url)
+    expect(first.reusedSession).toBe(false)
+    expect(second.reusedSession).toBe(true)
+    expect(opened).toEqual([first.url, first.url])
+  })
+
+  it("does not open another browser tab when an automatic ensure sees a live deck session", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\"><h2>Market Map</h2></section></body></html>", "utf-8")
+    const opened: string[] = []
+    const options = {
+      client: { session: { prompt: async () => undefined } },
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openUrl: (url: string) => opened.push(url),
+    }
+
+    const first = ensureEditableDeckOpenForChange("", options)
+    const second = ensureEditableDeckOpenForChange("", options)
+
+    expect(first.openedBrowser).toBe(true)
+    expect(second.openedBrowser).toBe(false)
+    expect(second.skippedReason).toBe("live-session")
+    expect(second.url).toBe(first.url)
+    expect(opened).toEqual([first.url])
+  })
+
+  it("reopens the same editor URL when the deck session heartbeat is stale", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\"><h2>Market Map</h2></section></body></html>", "utf-8")
+    const opened: string[] = []
+    const originalNow = Date.now
+    let now = 1_000_000
+    Date.now = () => now
+
+    try {
+      const options = {
+        client: { session: { prompt: async () => undefined } },
+        sessionID: "session-1",
+        workspaceRoot: root,
+        openUrl: (url: string) => opened.push(url),
+      }
+
+      const first = ensureEditableDeckOpenForChange("", options)
+      now += LIVE_EDITOR_IDLE_MS + 1
+      const second = ensureEditableDeckOpenForChange("", options)
+
+      expect(second.url).toBe(first.url)
+      expect(second.reusedSession).toBe(true)
+      expect(second.liveSession).toBe(false)
+      expect(second.openedBrowser).toBe(true)
+      expect(opened).toEqual([first.url, first.url])
+    } finally {
+      Date.now = originalNow
+    }
+  })
+})
+
+describe("renderEditorShell", () => {
+  it("uses non-final edit status wording and automatic refresh guidance", () => {
+    const html = renderEditorShell("test-token")
+
+    expect(html).toContain("color-scheme: light")
+    expect(html).toContain("REVELA")
+    expect(html).toContain("Garamond")
+    expect(html).toContain("Refine your deck with precise visual comments")
+    expect(html).toContain("Cmd/Ctrl-click to ref")
+    expect(html).toContain("REFERENCE_COLORS")
+    expect(html).toContain("--ref-bg")
+    expect(html).toContain("setOutlineColor")
+    expect(html).toContain("resize-handle")
+    expect(html).toContain("--editor-width")
+    expect(html).toContain("right: calc(var(--editor-width) - 7px)")
+    expect(html).not.toContain("minmax(0, 1fr) 14px var(--editor-width)")
+    expect(html).toContain("revela-edit-editor-width")
+    expect(html).toContain("MIN_EDITOR_WIDTH = 320")
+    expect(html).toContain("MAX_EDITOR_WIDTH = 620")
+    expect(html).toContain("cursor: col-resize")
+    expect(html).toContain("Double-click to reset")
+    expect(html).toContain("Deck file updated")
+    expect(html).toContain("preview will refresh automatically")
+    expect(html).toContain("state.deckVersion = nextVersion;\n            markCommentsUpdatedForVersion(nextVersion);\n            markStaleComments();")
+    expect(html).toContain("pendingCommentStatus(commentId) !== 'updated'")
+    expect(html).toContain("setStatus('Deck file updated. Preview will refresh automatically.');")
+    expect(html).not.toContain("else if (hasWaiting)")
+    expect(html).not.toContain("Applied")
+    expect(html).not.toContain("Revela Visual Edit")
+    expect(html).not.toContain("Write one comment")
+    expect(html).not.toContain("refresh the editor")
   })
 })
 
@@ -275,10 +290,10 @@ describe("revela-edit tool", () => {
       openBrowser: false,
     }) as any
 
-    const result = JSON.parse(await editTool.execute({ target: "decks/market-map.html" }, { sessionID: "session-1" }))
+    const result = JSON.parse(await editTool.execute({}, { sessionID: "session-1" }))
 
     expect(result.ok).toBe(true)
-    expect(result.deck).toBe("market-map")
+    expect(result.deckKey).toBe(workspaceDeckSlug(root))
     expect(result.file).toBe("decks/market-map.html")
     expect(result.url).toStartWith("http://127.0.0.1:")
     expect(result.message).toContain("Ctrl/Cmd")
@@ -297,4 +312,5 @@ describe("revela-edit tool", () => {
     expect(result.ok).toBe(false)
     expect(result.error).toContain("session id")
   })
+
 })

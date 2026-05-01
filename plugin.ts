@@ -46,6 +46,7 @@ import {
 import { handlePdf } from "./lib/commands/pdf"
 import { handlePptx } from "./lib/commands/pptx"
 import { handleEdit } from "./lib/commands/edit"
+import { ensureEditableDeckOpenForChange } from "./lib/edit/open"
 import { handleDesignsPreview } from "./lib/commands/designs-preview"
 import {
   parseDesignsNewArgs,
@@ -170,6 +171,27 @@ const server: Plugin = (async (pluginCtx) => {
     }
   }
 
+  function extractSessionID(input: any): string {
+    return input?.sessionID ?? input?.session?.id ?? input?.context?.sessionID ?? ""
+  }
+
+  function ensureEditorOpenAfterDeckChange(filePath: string, sessionID: string): void {
+    if (!isDeckHtmlPath(filePath) || !sessionID) return
+
+    try {
+      ensureEditableDeckOpenForChange("", {
+        client,
+        sessionID,
+        workspaceRoot,
+      })
+    } catch (e) {
+      childLog("edit").warn("failed to ensure visual editor after deck change", {
+        filePath,
+        error: e instanceof Error ? e.message : String(e),
+      })
+    }
+  }
+
   // ── Startup: seed + build initial prompt ────────────────────────────────
   try {
     seedBuiltinDesigns()
@@ -279,15 +301,23 @@ const server: Plugin = (async (pluginCtx) => {
         return
       }
       if (sub === "review") {
+        if (param) {
+          await send("`/revela review` no longer accepts a deck name. It reviews the current workspace deck.")
+          throw new Error("__REVELA_REVIEW_USAGE_HANDLED__")
+        }
         output.parts.length = 0
         output.parts.push({
           type: "text",
-          text: buildReviewPrompt({ slug: param || undefined, exists: hasDecksState(workspaceRoot), workspaceRoot }),
+          text: buildReviewPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
         } as any)
         return
       }
       if (sub === "edit") {
-        await handleEdit(param, { client, sessionID, workspaceRoot }, send)
+        if (param) {
+          await send("`/revela edit` no longer accepts a target. It opens the only HTML deck in `decks/`.")
+          throw new Error("__REVELA_EDIT_USAGE_HANDLED__")
+        }
+        await handleEdit({ client, sessionID, workspaceRoot }, send)
         throw new Error("__REVELA_EDIT_HANDLED__")
       }
       if (sub === "designs" && !param) {
@@ -651,6 +681,7 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
           return
         }
         await appendComplianceReport(filePath, output)
+        ensureEditorOpenAfterDeckChange(filePath, extractSessionID(input))
         return
       }
 
@@ -671,12 +702,15 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
         const targets = patchText ? extractDeckHtmlTargetsFromPatch(patchText) : []
         for (const target of targets) {
           await appendComplianceReport(target, output)
+          ensureEditorOpenAfterDeckChange(target, extractSessionID(input))
         }
         return
       }
 
       if (input.tool === "edit") {
-        await appendComplianceReport(extractEditFilePath(input.args), output)
+        const filePath = extractEditFilePath(input.args)
+        await appendComplianceReport(filePath, output)
+        ensureEditorOpenAfterDeckChange(filePath, extractSessionID(input))
         return
       }
     },

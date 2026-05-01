@@ -7,7 +7,7 @@ export default tool({
     "Supports either a sourceUrl or a sourcePath. Records both success and failure states. " +
     "Use this when a research-found image or an existing local image should become a formal project asset.",
   args: {
-    topic: tool.schema.string().describe("Topic slug shared by one presentation, e.g. 'ev-market'."),
+    topic: tool.schema.string().describe("Topic key shared by one presentation, e.g. 'ev-market'."),
     id: tool.schema.string().describe("Stable asset id within the topic, e.g. 'tesla-logo-01'."),
     type: tool.schema.enum(["image"]).describe("Asset type. Stage 1 only supports 'image'."),
     purpose: tool.schema

@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
-import { basename, dirname, join } from "path"
+import { basename, dirname, join, resolve } from "path"
 
 export const DECKS_STATE_FILE = "DECKS.json"
 
@@ -154,6 +154,29 @@ export function createEmptyDecksState(): DecksState {
   }
 }
 
+export function workspaceDeckSlug(workspaceRoot: string): string {
+  return normalizeSlug(basename(resolve(workspaceRoot)) || "deck") || "deck"
+}
+
+export function normalizeWorkspaceDeckState(state: DecksState, workspaceRoot: string): DecksState {
+  const normalized = normalizeDecksState(state)
+  const keys = Object.keys(normalized.decks)
+  if (keys.length !== 1) return normalized
+
+  const slug = workspaceDeckSlug(workspaceRoot)
+  const existingKey = keys[0]
+  if (existingKey === slug) {
+    normalized.activeDeck = slug
+    return normalized
+  }
+
+  const deck = createDeckSpec({ ...normalized.decks[existingKey], slug })
+  delete normalized.decks[existingKey]
+  normalized.decks[slug] = deck
+  normalized.activeDeck = slug
+  return normalized
+}
+
 export function defaultRequiredInputs(overrides?: Partial<RequiredInputs>): RequiredInputs {
   return {
     topicClarified: false,
@@ -210,6 +233,10 @@ export function readOrCreateDecksState(workspaceRoot: string): DecksState {
 export function upsertDeck(state: DecksState, input: Partial<DeckSpec> & { slug: string }): DecksState {
   const normalized = normalizeDecksState(state)
   const slug = normalizeSlug(input.slug)
+  const existingKey = currentDeckKey(normalized)
+  if (existingKey && slug !== existingKey && !normalized.decks[slug]) {
+    throw new Error(`${DECKS_STATE_FILE} already has a current deck (${existingKey}). Use a separate workspace for another deck.`)
+  }
   const existing = normalized.decks[slug]
   const next = createDeckSpec({ ...existing, ...input, slug })
   normalized.decks[slug] = next
@@ -220,6 +247,10 @@ export function upsertDeck(state: DecksState, input: Partial<DeckSpec> & { slug:
 export function upsertSlides(state: DecksState, slug: string, slides: SlideSpec[]): DecksState {
   const normalized = normalizeDecksState(state)
   const key = normalizeSlug(slug)
+  const existingKey = currentDeckKey(normalized)
+  if (existingKey && key !== existingKey && !normalized.decks[key]) {
+    throw new Error(`${DECKS_STATE_FILE} already has a current deck (${existingKey}). Use a separate workspace for another deck.`)
+  }
   const deck = normalized.decks[key] ?? createDeckSpec({ slug: key })
   const byIndex = new Map(deck.slides.map((slide) => [slide.index, slide]))
   for (const slide of normalizeSlides(slides)) byIndex.set(slide.index, slide)
@@ -231,7 +262,7 @@ export function upsertSlides(state: DecksState, slug: string, slides: SlideSpec[
 
 export function reviewDeckState(state: DecksState, slug?: string): { state: DecksState; result: DeckStateReadinessResult } {
   const normalized = normalizeDecksState(state)
-  const key = normalizeSlug(slug || normalized.activeDeck || "")
+  const key = normalizeSlug(slug || currentDeckKey(normalized) || "")
   const deck = key ? normalized.decks[key] : undefined
   if (!deck) {
     const missing = key || "active deck"
@@ -276,13 +307,14 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
   const targetPath = normalizeDeckPath(filePath)
   const targetSlug = deckSlugFromPath(targetPath)
   const normalized = normalizeDecksState(state)
-  const deck = findDeckForTarget(normalized, targetPath, targetSlug)
+  const key = currentDeckKey(normalized)
+  const deck = key ? normalized.decks[key] : undefined
   if (!deck) {
     return {
       ready: false,
       slug: targetSlug,
-      blocker: `No deck in ${DECKS_STATE_FILE} matches ${targetPath}. Use revela-decks upsertDeck/upsertSlides, then review before writing.`,
-      blockers: [`No deck in ${DECKS_STATE_FILE} matches ${targetPath}.`],
+      blocker: currentDeckBlocker(normalized),
+      blockers: [currentDeckBlocker(normalized)],
     }
   }
 
@@ -324,16 +356,17 @@ export function extractDecksStateTargetsFromPatch(patchText: string): string[] {
 export function buildDecksStatePromptLayer(workspaceRoot: string, maxChars = 14000): string {
   if (!hasDecksState(workspaceRoot)) return ""
   const state = readDecksState(workspaceRoot)
-  const active = state.activeDeck ? state.decks[state.activeDeck] : undefined
+  const activeKey = currentDeckKey(state)
+  const active = activeKey ? state.decks[activeKey] : undefined
   const compact = {
     sourceOfTruth: DECKS_STATE_FILE,
-    activeDeck: state.activeDeck,
+    activeDeck: activeKey,
     workspace: state.workspace,
     deck: active,
   }
   let text = JSON.stringify(compact, null, 2)
   if (text.length > maxChars) text = text.slice(0, maxChars).trimEnd() + "\n[DECKS.json state truncated for prompt size.]"
-  return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as the source of truth for deck specs, slide plans, and write readiness.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- Before writing decks/*.html, the matching deck must have writeReadiness.status=ready and a complete slide spec.`
+  return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as the source of truth for the single current deck's specs, slide plan, and write readiness.\n- The decks map is compatibility storage; operate only on the current workspace deck.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- Before writing decks/*.html, the current deck must have writeReadiness.status=ready and a complete slide spec, and its outputPath must match the target file.`
 }
 
 function normalizeDecksState(input: DecksState): DecksState {
@@ -357,7 +390,24 @@ function normalizeDecksState(input: DecksState): DecksState {
     state.decks[normalizedSlug] = createDeckSpec({ ...deck, slug: normalizedSlug })
   }
   if (state.activeDeck && !state.decks[state.activeDeck]) state.activeDeck = undefined
+  if (!state.activeDeck) {
+    const keys = Object.keys(state.decks)
+    if (keys.length === 1) state.activeDeck = keys[0]
+  }
   return state
+}
+
+function currentDeckKey(state: DecksState): string | undefined {
+  if (state.activeDeck && state.decks[state.activeDeck]) return state.activeDeck
+  const keys = Object.keys(state.decks)
+  if (keys.length === 1) return keys[0]
+  return undefined
+}
+
+function currentDeckBlocker(state: DecksState): string {
+  const count = Object.keys(state.decks).length
+  if (count === 0) return `No current deck exists in ${DECKS_STATE_FILE}. Use revela-decks upsertDeck/upsertSlides/review before writing deck HTML.`
+  return `${DECKS_STATE_FILE} contains multiple deck records and no activeDeck. Select one current deck explicitly or move extra decks to separate workspaces.`
 }
 
 function computeDeckBlockers(deck: DeckSpec): string[] {
@@ -400,10 +450,6 @@ function normalizeSlides(slides: SlideSpec[]): SlideSpec[] {
       status: slide.status ?? "planned",
     }))
     .sort((a, b) => a.index - b.index)
-}
-
-function findDeckForTarget(state: DecksState, targetPath: string, targetSlug: string): DeckSpec | undefined {
-  return Object.values(state.decks).find((deck) => normalizeDeckPath(deck.outputPath) === targetPath) ?? state.decks[normalizeSlug(targetSlug)]
 }
 
 function hasSlideContent(slide: SlideSpec): boolean {
