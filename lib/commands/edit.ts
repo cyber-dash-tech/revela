@@ -1,22 +1,19 @@
 import { openEditableDeck } from "../edit/open"
 
 export async function handleEdit(
-  input: string,
   options: { client: any; sessionID: string; workspaceRoot: string },
   send: (text: string) => Promise<void>,
 ): Promise<void> {
-  const target = input.trim()
-
   try {
-    const result = openEditableDeck(target, {
+    const result = openEditableDeck("", {
       client: options.client,
       sessionID: options.sessionID,
       workspaceRoot: options.workspaceRoot,
     })
 
     await send(
-      `Opened visual editor for deck \`${result.deck.slug}\`.\n` +
-      `File: \`${result.deck.file}\` (${result.source})\n` +
+      `Opened visual editor for the only deck in \`decks/\`.\n` +
+      `File: \`${result.deck.file}\`\n` +
       `${result.stateNote}\n` +
       `URL: ${result.url}\n\n` +
       `Use Ctrl/Cmd + click in the browser to reference elements, write a comment, then send comments. Revela mode has been enabled for the edit prompt.`

@@ -82,7 +82,19 @@ describe("DECKS.json state readiness", () => {
   it("blocks target path mismatch", () => {
     const result = evaluateDeckStateWriteReadiness(readyState(), "decks/other.html")
     expect(result.ready).toBe(false)
-    expect(result.blocker).toContain("No deck in DECKS.json matches")
+    expect(result.blocker).toContain("Deck outputPath is decks/test-two-page-deck.html")
+  })
+
+  it("rejects adding a second current deck", () => {
+    const state = upsertDeck(createEmptyDecksState(), {
+      slug: "first",
+      outputPath: "decks/first.html",
+    })
+
+    expect(() => upsertDeck(state, {
+      slug: "second",
+      outputPath: "decks/second.html",
+    })).toThrow("Use a separate workspace")
   })
 })
 

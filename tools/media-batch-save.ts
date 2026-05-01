@@ -6,7 +6,7 @@ export default tool({
     "Save a selected batch of research-found image leads into workspace assets and update the media manifest. " +
     "Use this after the primary agent has chosen multiple images from researches/{topic}/*.md.",
   args: {
-    topic: tool.schema.string().describe("Topic slug shared by one presentation, e.g. 'ev-market'."),
+    topic: tool.schema.string().describe("Topic key shared by one presentation, e.g. 'ev-market'."),
     items: tool.schema.array(tool.schema.object({
       candidateId: tool.schema.string().describe("Stable candidate id returned by revela-research-images-list."),
       description: tool.schema.string().describe("Candidate description from research findings."),

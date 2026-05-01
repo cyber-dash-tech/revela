@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-171%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-175%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
@@ -112,7 +112,7 @@ Create a 6-slide HTML deck on humanoid robotics supply chains. Cite the main mar
 Before the agent writes `decks/humanoid-robotics.html`, it must update `DECKS.json` through the `revela-decks` tool with the active deck, confirmed slide specs, layouts, components, and computed `writeReadiness.status: ready`. You can ask for an explicit readiness check at any time:
 
 ```text
-/revela review humanoid-robotics
+/revela review
 ```
 
 Export when needed, either manually or by asking the agent to export:
@@ -138,9 +138,9 @@ Disable presentation mode when done:
 /revela disable                  disable presentation mode
 
 /revela init                     initialize or refresh workspace DECKS.json
-/revela review [slug]            review active deck readiness before writing HTML
+/revela review                   review current deck readiness before writing HTML
 /revela remember <text>          save an explicit user/workflow preference
-/revela edit [target]            open visual editor for active deck or a specific target
+/revela edit                     open visual editor for the only deck in decks/
 
 /revela designs                  list installed designs
 /revela designs <name>           activate a design
@@ -185,7 +185,7 @@ Revela uses a workspace-root `DECKS.json` file for cross-session continuity and 
 It has two jobs:
 
 - workspace memory: stable project context, source materials, explicit user preferences, deck history, and open questions
-- active deck spec: current deck slug, output path, prerequisites, research plan, per-slide content, layouts, components, evidence, visuals, blockers, and write readiness
+- active deck spec: current deck output path, prerequisites, research plan, per-slide content, layouts, components, evidence, visuals, blockers, and write readiness
 
 `DECKS.json` is the source of truth for workspace memory and deck readiness.
 
@@ -198,7 +198,7 @@ Create or refresh it with:
 Review the current deck state with:
 
 ```text
-/revela review [slug]
+/revela review
 ```
 
 `/revela review` does not write the final HTML deck. It reads and updates `DECKS.json` through the `revela-decks` tool, checks what is missing, and sets `writeReadiness.status` to `ready` only when the deck is ready to generate.
@@ -593,19 +593,17 @@ A custom domain is a folder containing `INDUSTRY.md`.
 
 ## Visual Editing
 
-Open the visual editor for the active deck, or pass a slug / workspace-relative HTML path:
+Open the visual editor for the only HTML deck in `decks/`:
 
 ```text
 /revela edit
-/revela edit my-deck
-/revela edit decks/my-deck.html
 ```
 
-Without a target, `/revela edit` opens `DECKS.json.activeDeck`. If no active deck is set and there is exactly one deck in `DECKS.json`, it opens that deck.
+`/revela edit` does not accept a target in Revela 0.8. If `decks/` contains exactly one `.html` file, Revela opens it. If `decks/` contains zero or multiple `.html` files, Revela asks you to generate a deck first or move extra decks to separate workspaces.
 
 The editor opens in your browser. Use `Ctrl`/`Cmd` + click to reference deck elements, write a natural-language comment, then send it back to OpenCode. Revela sends a structured edit prompt that includes the deck file, slide context, selected element metadata, and your comment.
 
-LLM tool equivalent: `revela-edit` with `{ "target": "decks/my-deck.html" }`. This lets the agent open the same editor when you say things like “I want to edit @decks/my-deck.html”.
+LLM tool equivalent: `revela-edit` with no target. This lets the agent open the same editor when you say things like “I want to edit the deck”.
 
 `/revela edit` prepares minimal `DECKS.json` state for the existing HTML deck if needed, so the normal deck write gate can still protect `decks/*.html` while allowing targeted edits.
 

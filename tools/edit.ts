@@ -12,16 +12,12 @@ export function createEditTool(options: { client: any; workspaceRoot: string; op
     description:
       "Open Revela's visual comment editor for an existing slide deck. " +
       "Use this when the user asks to edit, revise, annotate, or visually comment on a deck, " +
-      "including when they reference a decks/*.html file with @. " +
-      "Accepts either a deck slug from DECKS.json or a workspace-relative decks/*.html path. " +
+      "including when they reference the current deck. " +
+      "Revela 0.8 opens the only HTML deck in decks/. " +
       "This opens a local browser editor where the user can Ctrl/Cmd-click deck elements, write comments, " +
       "and send precise edit requests back to the current OpenCode session.",
-    args: {
-      target: tool.schema
-        .string()
-        .describe("Deck slug or workspace-relative deck HTML path, e.g. investor-update or decks/investor-update.html."),
-    },
-    async execute({ target }, context: any) {
+    args: {},
+    async execute(_args, context: any) {
       const sessionID = context?.sessionID ?? context?.session?.id ?? ""
       if (!sessionID) {
         return JSON.stringify({
@@ -31,7 +27,7 @@ export function createEditTool(options: { client: any; workspaceRoot: string; op
       }
 
       try {
-        const result = openEditableDeck(target, {
+        const result = openEditableDeck("", {
           client: options.client,
           sessionID,
           workspaceRoot: options.workspaceRoot,
@@ -40,7 +36,7 @@ export function createEditTool(options: { client: any; workspaceRoot: string; op
 
         return JSON.stringify({
           ok: true,
-          deck: result.deck.slug,
+          deckKey: result.deck.slug,
           file: result.deck.file,
           source: result.source,
           url: result.url,

@@ -1,6 +1,6 @@
-import { existsSync } from "fs"
-import { basename, relative, resolve, sep } from "path"
-import { DECKS_STATE_FILE, hasDecksState, isDeckHtmlPath, readDecksState } from "../decks-state"
+import { existsSync, readdirSync } from "fs"
+import { relative, resolve, sep } from "path"
+import { DECKS_STATE_FILE, isDeckHtmlPath, workspaceDeckSlug } from "../decks-state"
 
 export interface EditableDeck {
   slug: string
@@ -9,68 +9,29 @@ export interface EditableDeck {
   source: "decks-state" | "fallback" | "file-path"
 }
 
-export function resolveEditableDeck(workspaceRoot: string, input: string): EditableDeck {
-  const requested = input.trim()
-  if (!requested) return resolveDefaultDeck(workspaceRoot)
-
-  const slug = normalizeSlug(requested)
-
-  if (hasDecksState(workspaceRoot)) {
-    const state = readDecksState(workspaceRoot)
-    const deck = state.decks[requested] ?? (slug ? state.decks[slug] : undefined)
-    if (deck) {
-      return resolveDeckFile(workspaceRoot, deck.slug, deck.outputPath, "decks-state")
-    }
+export function resolveEditableDeck(workspaceRoot: string, input = ""): EditableDeck {
+  if (input.trim()) {
+    throw new Error("/revela edit no longer accepts a target. It opens the only HTML deck in decks/.")
   }
 
-  if (looksLikePath(requested)) {
-    return resolvePathTarget(workspaceRoot, requested)
+  const htmlFiles = listDeckHtmlFiles(workspaceRoot)
+  if (htmlFiles.length === 0) {
+    throw new Error("No deck HTML found in decks/. Generate a deck first.")
+  }
+  if (htmlFiles.length > 1) {
+    throw new Error("This workspace contains multiple deck HTML files. Revela 0.8 expects one deck per workspace. Move extra decks to separate workspaces.")
   }
 
-  if (!slug) throw new Error("Deck target must be a deck slug or decks/*.html path.")
-
-  return resolveDeckFile(workspaceRoot, slug, `decks/${slug}.html`, "fallback")
+  return resolveDeckFile(workspaceRoot, workspaceDeckSlug(workspaceRoot), htmlFiles[0], "file-path")
 }
 
-function resolveDefaultDeck(workspaceRoot: string): EditableDeck {
-  if (!hasDecksState(workspaceRoot)) {
-    throw new Error(`No ${DECKS_STATE_FILE} found. Use /revela edit <deck-slug|decks/file.html>.`)
-  }
-
-  const state = readDecksState(workspaceRoot)
-  const activeSlug = normalizeSlug(state.activeDeck || "")
-  if (activeSlug) {
-    const deck = state.decks[activeSlug]
-    if (!deck) throw new Error(`Active deck ${activeSlug} does not exist in ${DECKS_STATE_FILE}. Use /revela edit <target>.`)
-    return resolveDeckFile(workspaceRoot, deck.slug, deck.outputPath, "decks-state")
-  }
-
-  const decks = Object.values(state.decks)
-  if (decks.length === 1) {
-    const deck = decks[0]
-    return resolveDeckFile(workspaceRoot, deck.slug, deck.outputPath, "decks-state")
-  }
-
-  if (decks.length === 0) {
-    throw new Error(`${DECKS_STATE_FILE} has no decks. Use /revela edit <deck-slug|decks/file.html>.`)
-  }
-
-  throw new Error(`${DECKS_STATE_FILE} has multiple decks and no activeDeck. Use /revela edit <target>.`)
-}
-
-function resolvePathTarget(workspaceRoot: string, requested: string): EditableDeck {
-  if (isAbsoluteLike(requested)) {
-    throw new Error("/revela edit only accepts workspace-relative decks/*.html paths.")
-  }
-
-  const normalized = normalizePath(requested).replace(/^\.\//, "")
-  if (!isDeckHtmlPath(normalized)) {
-    throw new Error("/revela edit file paths must point to decks/*.html.")
-  }
-
-  const slug = normalizeSlug(basename(normalized, ".html"))
-  if (!slug) throw new Error("Deck target must be a deck slug or decks/*.html path.")
-  return resolveDeckFile(workspaceRoot, slug, normalized, "file-path")
+function listDeckHtmlFiles(workspaceRoot: string): string[] {
+  const dir = resolve(workspaceRoot, "decks")
+  if (!existsSync(dir)) return []
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".html"))
+    .map((entry) => `decks/${entry.name}`)
+    .sort((a, b) => a.localeCompare(b))
 }
 
 function resolveDeckFile(
@@ -93,7 +54,7 @@ function resolveDeckFile(
   }
 
   return {
-    slug: normalizeSlug(slug),
+    slug,
     file: workspaceRelative(root, absoluteFile),
     absoluteFile,
     source,
@@ -106,20 +67,4 @@ function isInside(root: string, target: string): boolean {
 
 function workspaceRelative(root: string, target: string): string {
   return relative(root, target).split(sep).join("/")
-}
-
-function looksLikePath(value: string): boolean {
-  return value.includes("/") || value.includes("\\") || value.endsWith(".html")
-}
-
-function isAbsoluteLike(value: string): boolean {
-  return value.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(value)
-}
-
-function normalizePath(value: string): string {
-  return value.replace(/\\/g, "/")
-}
-
-function normalizeSlug(value: string): string {
-  return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
 }

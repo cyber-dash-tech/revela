@@ -10,9 +10,9 @@ function today(): string {
 }
 
 /**
- * Sanitize a slug: lowercase, alphanumeric + hyphens only.
+ * Sanitize a key: lowercase, alphanumeric + hyphens only.
  */
-function slugify(s: string): string {
+function keyify(s: string): string {
   return s
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -49,8 +49,8 @@ export default tool({
     topic: tool.schema
       .string()
       .describe(
-        "Topic slug in kebab-case, e.g. 'ev-battery-market' or 'saas-competitive-analysis'. " +
-        "All files for the same presentation share the same topic slug.",
+        "Topic key in kebab-case, e.g. 'ev-battery-market' or 'saas-competitive-analysis'. " +
+        "All files for the same presentation share the same topic key.",
       ),
     filename: tool.schema
       .string()
@@ -74,17 +74,17 @@ export default tool({
   },
   async execute(args, context) {
     try {
-      const topicSlug = slugify(args.topic || "research")
-      const fileSlug = slugify(args.filename || "findings")
+      const topicKey = keyify(args.topic || "research")
+      const fileKey = keyify(args.filename || "findings")
       const workspaceDir = context.directory ?? process.cwd()
-      const topicDir = join(workspaceDir, "researches", topicSlug)
+      const topicDir = join(workspaceDir, "researches", topicKey)
 
       mkdirSync(topicDir, { recursive: true })
 
-      const frontmatter = buildFrontmatter(args.topic, fileSlug, args.sources ?? [])
+      const frontmatter = buildFrontmatter(args.topic, fileKey, args.sources ?? [])
       const fileContent = `${frontmatter}\n\n${args.content ?? ""}\n`
-      const filePath = join(topicDir, `${fileSlug}.md`)
-      const relPath = `researches/${topicSlug}/${fileSlug}.md`
+      const filePath = join(topicDir, `${fileKey}.md`)
+      const relPath = `researches/${topicKey}/${fileKey}.md`
 
       writeFileSync(filePath, fileContent, "utf-8")
 

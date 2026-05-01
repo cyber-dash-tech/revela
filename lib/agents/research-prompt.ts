@@ -29,7 +29,7 @@ Given a research brief specifying your topic and axis, you will:
 2. Use \`DECKS.json\` through \`revela-decks\` as the workspace material index when it exists
 3. Run a lightweight workspace freshness check when needed
 4. Search the web for current data, reports, and case studies when the brief requires it
-5. Write all findings to ONE structured file: \`researches/{topic-slug}/{axis-name}.md\`
+5. Write all findings to ONE structured file: \`researches/{topic-key}/{axis-name}.md\`
 6. Return a brief summary of what you found
 
 ---
@@ -37,7 +37,7 @@ Given a research brief specifying your topic and axis, you will:
 ## Step 1 — Research brief and workspace memory
 
 Start from the research brief supplied by the primary agent. It should include:
-- shared topic slug
+- shared topic key
 - your axis filename
 - the specific question for this axis
 - time period, geography, and evidence standard
@@ -100,7 +100,7 @@ Search strategy:
 
 Use **\`revela-research-save\`** to write ONE file with all your findings.
 
-- \`topic\`: kebab-case slug shared across all agents for this presentation
+- \`topic\`: kebab-case topic key shared across all agents for this presentation
 - \`filename\`: your axis name (e.g. \`market-data\`, \`catl-profile\`, \`tech-trends\`)
 - \`content\`: structured findings using the four sections below
 - \`sources\`: list of all URLs and filenames used
@@ -140,7 +140,7 @@ Content rules:
 After writing the file, return this summary (do NOT include the raw data):
 
 \`\`\`
-Research complete: {axis-name} → researches/{topic-slug}/{axis-name}.md
+Research complete: {axis-name} → researches/{topic-key}/{axis-name}.md
 
 Key findings (3–5, most argument-worthy only):
 - {1–2 sentence highlight with source}

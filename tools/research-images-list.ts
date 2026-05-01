@@ -6,7 +6,7 @@ export default tool({
     "List structured image leads from researches/{topic}/*.md. " +
     "Parses ## Images sections and returns candidate image records for the primary agent to review.",
   args: {
-    topic: tool.schema.string().describe("Topic slug shared by one presentation, e.g. 'ev-market'."),
+    topic: tool.schema.string().describe("Topic key shared by one presentation, e.g. 'ev-market'."),
     uses: tool.schema
       .array(tool.schema.enum(["logo", "portrait", "screenshot", "unknown"]))
       .optional()

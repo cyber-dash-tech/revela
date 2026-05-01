@@ -279,15 +279,23 @@ const server: Plugin = (async (pluginCtx) => {
         return
       }
       if (sub === "review") {
+        if (param) {
+          await send("`/revela review` no longer accepts a deck name. It reviews the current workspace deck.")
+          throw new Error("__REVELA_REVIEW_USAGE_HANDLED__")
+        }
         output.parts.length = 0
         output.parts.push({
           type: "text",
-          text: buildReviewPrompt({ slug: param || undefined, exists: hasDecksState(workspaceRoot), workspaceRoot }),
+          text: buildReviewPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
         } as any)
         return
       }
       if (sub === "edit") {
-        await handleEdit(param, { client, sessionID, workspaceRoot }, send)
+        if (param) {
+          await send("`/revela edit` no longer accepts a target. It opens the only HTML deck in `decks/`.")
+          throw new Error("__REVELA_EDIT_USAGE_HANDLED__")
+        }
+        await handleEdit({ client, sessionID, workspaceRoot }, send)
         throw new Error("__REVELA_EDIT_HANDLED__")
       }
       if (sub === "designs" && !param) {
