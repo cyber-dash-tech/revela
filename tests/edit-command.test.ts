@@ -6,12 +6,14 @@ import { readDecksState, workspaceDeckSlug } from "../lib/decks-state"
 import { ensureEditableDeckState } from "../lib/edit/deck-state"
 import { resolveEditableDeck } from "../lib/edit/resolve-deck"
 import { buildEditPrompt } from "../lib/edit/prompt"
-import { openEditableDeck } from "../lib/edit/open"
+import { ensureEditableDeckOpenForChange, openEditableDeck } from "../lib/edit/open"
+import { LIVE_EDITOR_IDLE_MS, renderEditorShell, stopEditServer } from "../lib/edit/server"
 import createEditTool from "../tools/edit"
 
 const roots: string[] = []
 
 afterEach(() => {
+  stopEditServer()
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
 })
 
@@ -170,6 +172,111 @@ describe("openEditableDeck", () => {
     expect(result.deck.file).toBe("decks/market-map.html")
     expect(result.url).toStartWith("http://127.0.0.1:")
     expect(readDecksState(root).decks[workspaceDeckSlug(root)].writeReadiness.status).toBe("ready")
+  })
+
+  it("reuses one editor session for repeated active opens of the same deck", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\"><h2>Market Map</h2></section></body></html>", "utf-8")
+    const opened: string[] = []
+    const options = {
+      client: { session: { prompt: async () => undefined } },
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openUrl: (url: string) => opened.push(url),
+    }
+
+    const first = openEditableDeck("", options)
+    const second = openEditableDeck("", options)
+
+    expect(first.url).toBe(second.url)
+    expect(first.reusedSession).toBe(false)
+    expect(second.reusedSession).toBe(true)
+    expect(opened).toEqual([first.url, first.url])
+  })
+
+  it("does not open another browser tab when an automatic ensure sees a live deck session", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\"><h2>Market Map</h2></section></body></html>", "utf-8")
+    const opened: string[] = []
+    const options = {
+      client: { session: { prompt: async () => undefined } },
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openUrl: (url: string) => opened.push(url),
+    }
+
+    const first = ensureEditableDeckOpenForChange("", options)
+    const second = ensureEditableDeckOpenForChange("", options)
+
+    expect(first.openedBrowser).toBe(true)
+    expect(second.openedBrowser).toBe(false)
+    expect(second.skippedReason).toBe("live-session")
+    expect(second.url).toBe(first.url)
+    expect(opened).toEqual([first.url])
+  })
+
+  it("reopens the same editor URL when the deck session heartbeat is stale", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\"><h2>Market Map</h2></section></body></html>", "utf-8")
+    const opened: string[] = []
+    const originalNow = Date.now
+    let now = 1_000_000
+    Date.now = () => now
+
+    try {
+      const options = {
+        client: { session: { prompt: async () => undefined } },
+        sessionID: "session-1",
+        workspaceRoot: root,
+        openUrl: (url: string) => opened.push(url),
+      }
+
+      const first = ensureEditableDeckOpenForChange("", options)
+      now += LIVE_EDITOR_IDLE_MS + 1
+      const second = ensureEditableDeckOpenForChange("", options)
+
+      expect(second.url).toBe(first.url)
+      expect(second.reusedSession).toBe(true)
+      expect(second.liveSession).toBe(false)
+      expect(second.openedBrowser).toBe(true)
+      expect(opened).toEqual([first.url, first.url])
+    } finally {
+      Date.now = originalNow
+    }
+  })
+})
+
+describe("renderEditorShell", () => {
+  it("uses non-final edit status wording and automatic refresh guidance", () => {
+    const html = renderEditorShell("test-token")
+
+    expect(html).toContain("color-scheme: light")
+    expect(html).toContain("REVELA")
+    expect(html).toContain("Garamond")
+    expect(html).toContain("Refine your deck with precise visual comments")
+    expect(html).toContain("Cmd/Ctrl-click to ref")
+    expect(html).toContain("REFERENCE_COLORS")
+    expect(html).toContain("--ref-bg")
+    expect(html).toContain("setOutlineColor")
+    expect(html).toContain("resize-handle")
+    expect(html).toContain("--editor-width")
+    expect(html).toContain("right: calc(var(--editor-width) - 7px)")
+    expect(html).not.toContain("minmax(0, 1fr) 14px var(--editor-width)")
+    expect(html).toContain("revela-edit-editor-width")
+    expect(html).toContain("MIN_EDITOR_WIDTH = 320")
+    expect(html).toContain("MAX_EDITOR_WIDTH = 620")
+    expect(html).toContain("cursor: col-resize")
+    expect(html).toContain("Double-click to reset")
+    expect(html).toContain("Deck file updated")
+    expect(html).toContain("preview will refresh automatically")
+    expect(html).toContain("state.deckVersion = nextVersion;\n            markCommentsUpdatedForVersion(nextVersion);\n            markStaleComments();")
+    expect(html).toContain("pendingCommentStatus(commentId) !== 'updated'")
+    expect(html).toContain("setStatus('Deck file updated. Preview will refresh automatically.');")
+    expect(html).not.toContain("else if (hasWaiting)")
+    expect(html).not.toContain("Applied")
+    expect(html).not.toContain("Revela Visual Edit")
+    expect(html).not.toContain("Write one comment")
+    expect(html).not.toContain("refresh the editor")
   })
 })
 

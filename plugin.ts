@@ -46,6 +46,7 @@ import {
 import { handlePdf } from "./lib/commands/pdf"
 import { handlePptx } from "./lib/commands/pptx"
 import { handleEdit } from "./lib/commands/edit"
+import { ensureEditableDeckOpenForChange } from "./lib/edit/open"
 import { handleDesignsPreview } from "./lib/commands/designs-preview"
 import {
   parseDesignsNewArgs,
@@ -164,6 +165,27 @@ const server: Plugin = (async (pluginCtx) => {
       )
     } catch (e) {
       childLog("compliance").warn("static compliance failed", {
+        filePath,
+        error: e instanceof Error ? e.message : String(e),
+      })
+    }
+  }
+
+  function extractSessionID(input: any): string {
+    return input?.sessionID ?? input?.session?.id ?? input?.context?.sessionID ?? ""
+  }
+
+  function ensureEditorOpenAfterDeckChange(filePath: string, sessionID: string): void {
+    if (!isDeckHtmlPath(filePath) || !sessionID) return
+
+    try {
+      ensureEditableDeckOpenForChange("", {
+        client,
+        sessionID,
+        workspaceRoot,
+      })
+    } catch (e) {
+      childLog("edit").warn("failed to ensure visual editor after deck change", {
         filePath,
         error: e instanceof Error ? e.message : String(e),
       })
@@ -659,6 +681,7 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
           return
         }
         await appendComplianceReport(filePath, output)
+        ensureEditorOpenAfterDeckChange(filePath, extractSessionID(input))
         return
       }
 
@@ -679,12 +702,15 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
         const targets = patchText ? extractDeckHtmlTargetsFromPatch(patchText) : []
         for (const target of targets) {
           await appendComplianceReport(target, output)
+          ensureEditorOpenAfterDeckChange(target, extractSessionID(input))
         }
         return
       }
 
       if (input.tool === "edit") {
-        await appendComplianceReport(extractEditFilePath(input.args), output)
+        const filePath = extractEditFilePath(input.args)
+        await appendComplianceReport(filePath, output)
+        ensureEditorOpenAfterDeckChange(filePath, extractSessionID(input))
         return
       }
     },
