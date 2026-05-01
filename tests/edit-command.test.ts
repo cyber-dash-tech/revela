@@ -23,6 +23,68 @@ function workspace(): string {
 }
 
 describe("resolveEditableDeck", () => {
+  it("resolves the active deck when target is empty", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "active-output.html"), "<html></html>", "utf-8")
+    const state = upsertDeck(createEmptyDecksState(), {
+      slug: "sales-kickoff",
+      goal: "Edit the active deck",
+      outputPath: "decks/active-output.html",
+    })
+    writeDecksState(root, state)
+
+    const deck = resolveEditableDeck(root, "")
+
+    expect(deck).toMatchObject({
+      slug: "sales-kickoff",
+      file: "decks/active-output.html",
+      source: "decks-state",
+    })
+  })
+
+  it("resolves the only deck when target is empty and activeDeck is unset", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "only-deck.html"), "<html></html>", "utf-8")
+    const state = upsertDeck(createEmptyDecksState(), {
+      slug: "only-deck",
+      goal: "Edit the only deck",
+      outputPath: "decks/only-deck.html",
+    })
+    state.activeDeck = undefined
+    writeDecksState(root, state)
+
+    const deck = resolveEditableDeck(root, "   ")
+
+    expect(deck).toMatchObject({
+      slug: "only-deck",
+      file: "decks/only-deck.html",
+      source: "decks-state",
+    })
+  })
+
+  it("rejects empty target when multiple decks exist and activeDeck is unset", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "first.html"), "<html></html>", "utf-8")
+    writeFileSync(join(root, "decks", "second.html"), "<html></html>", "utf-8")
+    const state = upsertDeck(upsertDeck(createEmptyDecksState(), {
+      slug: "first",
+      outputPath: "decks/first.html",
+    }), {
+      slug: "second",
+      outputPath: "decks/second.html",
+    })
+    state.activeDeck = undefined
+    writeDecksState(root, state)
+
+    expect(() => resolveEditableDeck(root, "")).toThrow("multiple decks and no activeDeck")
+  })
+
+  it("rejects empty target when DECKS.json is missing", () => {
+    const root = workspace()
+
+    expect(() => resolveEditableDeck(root, "")).toThrow("No DECKS.json found")
+  })
+
   it("resolves a deck from DECKS.json outputPath", () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "custom-output.html"), "<html></html>", "utf-8")

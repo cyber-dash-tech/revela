@@ -6,10 +6,6 @@ export async function handleEdit(
   send: (text: string) => Promise<void>,
 ): Promise<void> {
   const target = input.trim()
-  if (!target) {
-    await send("**Usage:** `/revela edit <deck-slug|decks/file.html>`\n\nExamples: `/revela edit investor-update`, `/revela edit decks/investor-update.html`")
-    return
-  }
 
   try {
     const result = openEditableDeck(target, {

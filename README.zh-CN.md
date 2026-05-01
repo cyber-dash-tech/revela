@@ -139,7 +139,7 @@ Create a 6-slide HTML deck on humanoid robotics supply chains. Cite the main mar
 /revela init                     初始化或刷新工作区 DECKS.json
 /revela review [slug]            写 HTML 前检查 active deck readiness
 /revela remember <text>          保存明确的用户/工作流偏好
-/revela edit <target>            为 deck slug 或 decks/*.html 打开可视化评论编辑器
+/revela edit [target]            打开 active deck 或指定 target 的可视化编辑器
 
 /revela designs                  列出已安装 design
 /revela designs <name>           激活某个 design
@@ -556,12 +556,15 @@ Prompt 注入规则：
 
 ## 可视化编辑
 
-可以通过 deck slug 或工作区相对 HTML 路径打开可视化编辑器：
+可以直接打开 active deck，也可以传入 deck slug 或工作区相对 HTML 路径：
 
 ```text
+/revela edit
 /revela edit my-deck
 /revela edit decks/my-deck.html
 ```
+
+不传 target 时，`/revela edit` 会打开 `DECKS.json.activeDeck`。如果没有 active deck，但 `DECKS.json` 里只有一个 deck，则打开这个唯一 deck。
 
 编辑器会在浏览器中打开。使用 `Ctrl`/`Cmd` + 点击 deck 元素来引用它们，写一段自然语言评论，然后发送回 OpenCode。Revela 会把 deck 文件、slide 上下文、选中元素 metadata 和你的评论整理成结构化 edit prompt。
 

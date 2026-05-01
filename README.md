@@ -140,7 +140,7 @@ Disable presentation mode when done:
 /revela init                     initialize or refresh workspace DECKS.json
 /revela review [slug]            review active deck readiness before writing HTML
 /revela remember <text>          save an explicit user/workflow preference
-/revela edit <target>            open visual comment editor for a deck slug or decks/*.html
+/revela edit [target]            open visual editor for active deck or a specific target
 
 /revela designs                  list installed designs
 /revela designs <name>           activate a design
@@ -591,12 +591,15 @@ A custom domain is a folder containing `INDUSTRY.md`.
 
 ## Visual Editing
 
-Open the visual editor for an existing deck by slug or workspace-relative HTML path:
+Open the visual editor for the active deck, or pass a slug / workspace-relative HTML path:
 
 ```text
+/revela edit
 /revela edit my-deck
 /revela edit decks/my-deck.html
 ```
+
+Without a target, `/revela edit` opens `DECKS.json.activeDeck`. If no active deck is set and there is exactly one deck in `DECKS.json`, it opens that deck.
 
 The editor opens in your browser. Use `Ctrl`/`Cmd` + click to reference deck elements, write a natural-language comment, then send it back to OpenCode. Revela sends a structured edit prompt that includes the deck file, slide context, selected element metadata, and your comment.
 

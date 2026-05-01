@@ -11,7 +11,7 @@ export interface EditableDeck {
 
 export function resolveEditableDeck(workspaceRoot: string, input: string): EditableDeck {
   const requested = input.trim()
-  if (!requested) throw new Error("Usage: /revela edit <deck-slug|decks/file.html>")
+  if (!requested) return resolveDefaultDeck(workspaceRoot)
 
   const slug = normalizeSlug(requested)
 
@@ -30,6 +30,32 @@ export function resolveEditableDeck(workspaceRoot: string, input: string): Edita
   if (!slug) throw new Error("Deck target must be a deck slug or decks/*.html path.")
 
   return resolveDeckFile(workspaceRoot, slug, `decks/${slug}.html`, "fallback")
+}
+
+function resolveDefaultDeck(workspaceRoot: string): EditableDeck {
+  if (!hasDecksState(workspaceRoot)) {
+    throw new Error(`No ${DECKS_STATE_FILE} found. Use /revela edit <deck-slug|decks/file.html>.`)
+  }
+
+  const state = readDecksState(workspaceRoot)
+  const activeSlug = normalizeSlug(state.activeDeck || "")
+  if (activeSlug) {
+    const deck = state.decks[activeSlug]
+    if (!deck) throw new Error(`Active deck ${activeSlug} does not exist in ${DECKS_STATE_FILE}. Use /revela edit <target>.`)
+    return resolveDeckFile(workspaceRoot, deck.slug, deck.outputPath, "decks-state")
+  }
+
+  const decks = Object.values(state.decks)
+  if (decks.length === 1) {
+    const deck = decks[0]
+    return resolveDeckFile(workspaceRoot, deck.slug, deck.outputPath, "decks-state")
+  }
+
+  if (decks.length === 0) {
+    throw new Error(`${DECKS_STATE_FILE} has no decks. Use /revela edit <deck-slug|decks/file.html>.`)
+  }
+
+  throw new Error(`${DECKS_STATE_FILE} has multiple decks and no activeDeck. Use /revela edit <target>.`)
 }
 
 function resolvePathTarget(workspaceRoot: string, requested: string): EditableDeck {
