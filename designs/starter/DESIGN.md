@@ -692,35 +692,139 @@ Small page number utility.
 <!-- @component:timeline-journey-horizontal:start -->
 #### Timeline Journey Horizontal (.timeline-journey-horizontal)
 
-Horizontal timeline for milestones.
+Horizontal milestone journey with a central axis line. Nodes sit on the axis; a dashed vertical stem leads to a tip dot, with date, title, and description text alongside. Alternate nodes above and below the axis for rhythm. Suitable for 4-8 milestones across a chronological arc, transformation story, roadmap, or multi-year programme recap.
 
 ```html
-<div class="timeline-journey-horizontal"><div class="timeline-node"><span>01</span><h4>Milestone</h4><p>Short note.</p></div></div>
+<div class="timeline-journey-horizontal" data-preview-component="timeline-journey-horizontal">
+  <div class="tjh-axis"></div>
+
+  <!-- Up node: label, tip-dot, stem, axis-dot. Content grows upward. -->
+  <div class="tjh-item tjh-item--up" style="left:12%; --tjh-item-color:var(--accent-primary);">
+    <div class="tjh-label">
+      <span class="tjh-date">Q1</span>
+      <span class="tjh-title">Baseline</span>
+      <span class="tjh-text">Map current signals and establish the reference state.</span>
+    </div>
+    <div class="tjh-tip-dot"></div>
+    <div class="tjh-stem"></div>
+    <div class="tjh-axis-dot"></div>
+  </div>
+
+  <!-- Down node: axis-dot, stem, tip-dot, label. Content grows downward. -->
+  <div class="tjh-item tjh-item--down" style="left:34%; --tjh-item-color:var(--accent-secondary);">
+    <div class="tjh-axis-dot"></div>
+    <div class="tjh-stem"></div>
+    <div class="tjh-tip-dot"></div>
+    <div class="tjh-label">
+      <span class="tjh-date">Q2</span>
+      <span class="tjh-title">Prototype</span>
+      <span class="tjh-text">Convert the plan into visible experiments.</span>
+    </div>
+  </div>
+</div>
 ```
 
 ```css
-.timeline-journey-horizontal { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; }
-.timeline-journey-horizontal::before { content: ''; position: absolute; left: 0; right: 0; top: 18px; height: 1px; background: var(--line-strong); }
-.timeline-node { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 12px; padding-right: 18px; }
-.timeline-node span { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--line-strong); color: var(--accent-primary); font-size: 12px; font-weight: 800; }
+.timeline-journey-horizontal {
+  --tjh-node: 12px;
+  --tjh-stem-h: 76px;
+  --tjh-col: calc(100% / 6);
+  position: relative;
+  width: 100%;
+  height: 340px;
+}
+.tjh-axis { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--line-strong); transform: translateY(-50%); }
+.tjh-item { position: absolute; display: flex; flex-direction: column; align-items: center; width: var(--tjh-col); transform: translateX(-50%); }
+.tjh-item--up { bottom: 50%; }
+.tjh-item--down { top: 50%; }
+.tjh-axis-dot, .tjh-tip-dot { width: var(--tjh-node); height: var(--tjh-node); border-radius: 999px; background: var(--tjh-item-color, var(--accent-primary)); flex-shrink: 0; }
+.tjh-item--up .tjh-axis-dot { margin-bottom: calc(-1 * var(--tjh-node) / 2); }
+.tjh-item--down .tjh-axis-dot { margin-top: calc(-1 * var(--tjh-node) / 2); }
+.tjh-stem { width: 1px; height: var(--tjh-stem-h); background-image: repeating-linear-gradient(to bottom, var(--line-strong) 0 4px, transparent 4px 8px); flex-shrink: 0; }
+.tjh-label { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 0 6px; }
+.tjh-item--up .tjh-label { margin-bottom: 8px; }
+.tjh-item--down .tjh-label { margin-top: 8px; }
+.tjh-date { font-size: var(--font-size-meta); font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--tjh-item-color, var(--accent-primary)); line-height: 1.3; white-space: nowrap; }
+.tjh-title { font-size: 18px; font-weight: 700; line-height: 1.15; color: var(--text-primary); }
+.tjh-text { font-size: 15px; line-height: 1.45; color: var(--text-secondary); }
 ```
+
+Rules:
+- Position nodes with `left: X%` inline style. For N nodes, space them at `(100 / (N + 1)) * k %` or manually distribute to show real time gaps.
+- Each node may set `--tjh-item-color` inline. Prefer existing neutral theme tokens such as `--accent-primary`, `--accent-secondary`, `--accent-danger`, or a derived local accent.
+- Up node DOM order is `label -> tip-dot -> stem -> axis-dot`; down node DOM order is `axis-dot -> stem -> tip-dot -> label`.
+- Keep `.tjh-text` short, usually 1-2 lines. The column width limits wrapping naturally.
+- Alternate up/down nodes for visual rhythm unless clustering intentionally communicates a phase.
+- Adjust `--tjh-col`, `--tjh-stem-h`, and component `height` for fewer or longer milestones.
 <!-- @component:timeline-journey-horizontal:end -->
 
 <!-- @component:timeline-journey-vertical:start -->
 #### Timeline Journey Vertical (.timeline-journey-vertical)
 
-Vertical timeline for narrow slots.
+Vertical milestone journey with a central axis line. Nodes sit on the axis; a horizontal dashed stem leads to a tip dot, with date, title, and description text alongside. Alternate nodes left and right of the axis for rhythm. Suitable for 3-8 milestones in a full-height slot.
 
 ```html
-<div class="timeline-journey-vertical"><div class="timeline-v-node"><span>01</span><div><h4>Milestone</h4><p>Short note.</p></div></div></div>
+<div class="timeline-journey-vertical" data-preview-component="timeline-journey-vertical">
+  <div class="tjv-axis"></div>
+
+  <!-- Left node: DOM order stays axis-dot, stem, tip-dot, label. CSS reverses the row. -->
+  <div class="tjv-item tjv-item--left" style="top:18%; --tjv-item-color:var(--accent-primary);">
+    <div class="tjv-axis-dot"></div>
+    <div class="tjv-stem"></div>
+    <div class="tjv-tip-dot"></div>
+    <div class="tjv-label">
+      <span class="tjv-date">Discover</span>
+      <span class="tjv-title">Signal scan</span>
+      <span class="tjv-text">Collect inputs and identify the high-confidence path.</span>
+    </div>
+  </div>
+
+  <!-- Right node: same DOM order, standard row direction. -->
+  <div class="tjv-item tjv-item--right" style="top:42%; --tjv-item-color:var(--accent-secondary);">
+    <div class="tjv-axis-dot"></div>
+    <div class="tjv-stem"></div>
+    <div class="tjv-tip-dot"></div>
+    <div class="tjv-label">
+      <span class="tjv-date">Build</span>
+      <span class="tjv-title">Visible proof</span>
+      <span class="tjv-text">Create the first proof points and refine the operating model.</span>
+    </div>
+  </div>
+</div>
 ```
 
 ```css
-.timeline-journey-vertical { display: flex; flex-direction: column; gap: 0; }
-.timeline-v-node { display: grid; grid-template-columns: 42px 1fr; gap: 18px; padding-bottom: 26px; position: relative; }
-.timeline-v-node::before { content: ''; position: absolute; left: 17px; top: 42px; bottom: 4px; width: 1px; background: var(--line-strong); }
-.timeline-v-node span { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--line-strong); color: var(--accent-primary); font-size: 12px; font-weight: 800; }
+.timeline-journey-vertical {
+  --tjv-node: 12px;
+  --tjv-stem-w: 76px;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.tjv-axis { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--line-strong); transform: translateX(-50%); }
+.tjv-item { position: absolute; display: flex; align-items: center; height: 78px; transform: translateY(-50%); }
+.tjv-item--left { right: 50%; flex-direction: row-reverse; }
+.tjv-item--right { left: 50%; flex-direction: row; }
+.tjv-axis-dot { width: var(--tjv-node); height: var(--tjv-node); border-radius: 999px; background: var(--tjv-item-color, var(--accent-primary)); flex-shrink: 0; position: relative; z-index: 1; }
+.tjv-item--left .tjv-axis-dot { margin-right: calc(-1 * var(--tjv-node) / 2); }
+.tjv-item--right .tjv-axis-dot { margin-left: calc(-1 * var(--tjv-node) / 2); }
+.tjv-tip-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--tjv-item-color, var(--accent-primary)); flex-shrink: 0; }
+.tjv-stem { width: var(--tjv-stem-w); height: 1px; background-image: repeating-linear-gradient(to right, var(--line-strong) 0 4px, transparent 4px 8px); flex-shrink: 0; }
+.tjv-label { display: flex; flex-direction: column; gap: 4px; }
+.tjv-item--left .tjv-label { text-align: right; align-items: flex-end; padding-right: 18px; max-width: 440px; }
+.tjv-item--right .tjv-label { text-align: left; align-items: flex-start; padding-left: 18px; max-width: 440px; }
+.tjv-date { font-size: var(--font-size-meta); font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--tjv-item-color, var(--accent-primary)); line-height: 1.3; white-space: nowrap; }
+.tjv-title { font-size: 18px; font-weight: 700; line-height: 1.15; color: var(--text-primary); }
+.tjv-text { font-size: 15px; line-height: 1.45; color: var(--text-secondary); max-width: 360px; }
 ```
+
+Rules:
+- DOM order is identical for left and right nodes: `axis-dot -> stem -> tip-dot -> label`. Direction is controlled by CSS (`row-reverse` for left, `row` for right).
+- Position each node with `top: Y%` inline style. For N nodes, distribute evenly with `(100 / (N + 1)) * k %` or manually to reflect time proportions.
+- Each node may set `--tjv-item-color` inline. Prefer current theme tokens rather than hard-coded project colors.
+- Alternate left and right nodes for rhythm. Avoid consecutive same-side nodes unless the story needs clustering.
+- The parent container must have a defined height. Use `height: 100%` inside a layout slot, or set an explicit height when standalone.
+- Keep `.tjv-text` to 2-3 lines. Longer labels shift the perceived center away from the axis dot.
 <!-- @component:timeline-journey-vertical:end -->
 
 <!-- @component:svg-motif:start -->

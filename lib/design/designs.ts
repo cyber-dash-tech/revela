@@ -250,6 +250,20 @@ export function createDesignPackage(args: CreateDesignPackageArgs): CreateDesign
   }
 }
 
+function hasDataAttribute(html: string, attr: string, value: string): boolean {
+  const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  return new RegExp(`${attr}\\s*=\\s*(["'])${escaped}\\1`).test(html)
+}
+
+function hasSlideRole(html: string, role: string): boolean {
+  const sectionRe = /<section\b[^>]*class\s*=\s*(["'])[^"']*\bslide\b[^"']*\1[^>]*>/gi
+  let match: RegExpExecArray | null
+  while ((match = sectionRe.exec(html)) !== null) {
+    if (hasDataAttribute(match[0], "data-slide-role", role)) return true
+  }
+  return false
+}
+
 /** Validate a local design package for the minimum Revela design contract. */
 export function validateDesignPackage(nameInput: string): ValidateDesignPackageResult {
   let name = nameInput
@@ -298,6 +312,12 @@ export function validateDesignPackage(nameInput: string): ValidateDesignPackageR
     if (!preview.includes('<section class="slide"')) errors.push("preview.html must include slide sections")
     if (!preview.includes("slide-qa=")) errors.push("preview.html slides must include slide-qa attributes")
     if (!preview.includes("slide-canvas")) errors.push("preview.html must include .slide-canvas")
+    if (!hasSlideRole(preview, "cover")) errors.push('preview.html must include a slide section with data-slide-role="cover"')
+    if (!hasSlideRole(preview, "closing")) errors.push('preview.html must include a slide section with data-slide-role="closing"')
+    const missingComponents = components.filter((component) => !hasDataAttribute(preview, "data-preview-component", component))
+    if (missingComponents.length > 0) {
+      errors.push(`preview.html must showcase every @component; missing: ${missingComponents.join(", ")}`)
+    }
   }
 
   return {

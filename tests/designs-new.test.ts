@@ -58,6 +58,38 @@ version: 1.0.0
 \`\`\`html
 <div class="test-card">Card</div>
 \`\`\`
+<!-- @component:test-card:end -->
+
+<!-- @component:test-badge:start -->
+#### Test Badge
+\`\`\`html
+<span class="test-badge">Badge</span>
+\`\`\`
+<!-- @component:test-badge:end -->`
+}
+
+function designMdWithOneComponent(name: string): string {
+  return `---
+name: ${name}
+description: Test design
+author: test
+version: 1.0.0
+---
+
+<!-- @design:foundation:start -->
+Foundation
+<!-- @design:foundation:end -->
+
+<!-- @design:rules:start -->
+Rules
+<!-- @design:rules:end -->
+
+<!-- @layout:test-layout:start qa=true -->
+Layout
+<!-- @layout:test-layout:end -->
+
+<!-- @component:test-card:start -->
+Component
 <!-- @component:test-card:end -->`
 }
 
@@ -82,7 +114,18 @@ Component
 function validPreviewHtml(): string {
   return `<!doctype html>
 <html><body>
-<section class="slide" slide-qa="true"><div class="slide-canvas"></div></section>
+<section class="slide" slide-qa="false" data-slide-role="cover"><div class="slide-canvas"></div></section>
+<section class="slide" slide-qa="true"><div class="slide-canvas"><div data-preview-component="test-card" class="test-card">Card</div><span data-preview-component="test-badge" class="test-badge">Badge</span></div></section>
+<section class="slide" slide-qa="false" data-slide-role="closing"><div class="slide-canvas"></div></section>
+</body></html>`
+}
+
+function validPreviewHtmlForOneComponent(): string {
+  return `<!doctype html>
+<html><body>
+<section class="slide" slide-qa="false" data-slide-role="cover"><div class="slide-canvas"></div></section>
+<section class="slide" slide-qa="true"><div class="slide-canvas"><div data-preview-component="test-card">Card</div></div></section>
+<section class="slide" slide-qa="false" data-slide-role="closing"><div class="slide-canvas"></div></section>
 </body></html>`
 }
 
@@ -148,6 +191,9 @@ describe("buildDesignsNewPrompt", () => {
     expect(prompt).toContain("Preserve composition, not just colors and shapes")
     expect(prompt).toContain("self-contained SVG component with a fixed viewBox")
     expect(prompt).toContain("Do not rewrite the entire base layout system from scratch")
+    expect(prompt).toContain("data-preview-component")
+    expect(prompt).toContain("data-slide-role=\"cover\"")
+    expect(prompt).toContain("3x3 ECharts gallery")
   })
 })
 
@@ -158,6 +204,8 @@ describe("buildDesignsEditPrompt", () => {
     expect(prompt).toContain("overwrite=true")
     expect(prompt).toContain("Ask the user to confirm the edit brief")
     expect(prompt).toContain("/revela designs neon-finance")
+    expect(prompt).toContain("data-preview-component")
+    expect(prompt).toContain("data-slide-role=\"closing\"")
   })
 })
 
@@ -186,14 +234,24 @@ describe("starter built-in design", () => {
     ]))
     expect(Object.keys(parsed.layouts)).toHaveLength(6)
     expect(Object.keys(parsed.components)).toContain("svg-motif")
+    expect(Object.keys(parsed.components)).toContain("timeline-journey-horizontal")
+    expect(Object.keys(parsed.components)).toContain("timeline-journey-vertical")
     expect(Object.keys(parsed.components).length).toBeGreaterThanOrEqual(16)
     expect(body).toContain("Visual Schema Rules")
     expect(body).toContain("SVG Motif Rules")
+    expect(body).toContain(".tjh-axis")
+    expect(body).toContain(".tjv-axis")
+    expect(body).toContain("tjh-item--up")
+    expect(body).toContain("tjv-item--left")
 
     const preview = readFileSync(previewPath, "utf-8")
     expect(preview).toContain("Starter Design System")
     expect(preview).toContain("slide-qa=")
     expect(preview).toContain("svg-motif")
+    expect(preview).toContain('data-slide-role="cover"')
+    expect(preview).toContain('data-slide-role="closing"')
+    expect(preview).toContain('data-preview-component="timeline-journey-horizontal"')
+    expect(preview).toContain('data-preview-component="timeline-journey-vertical"')
   })
 
   it("is marked internal and hidden from normal design listings", () => {
@@ -242,6 +300,7 @@ describe("design package authoring", () => {
     expect(validation.sections).toContain("foundation")
     expect(validation.layouts).toContain("test-layout")
     expect(validation.components).toContain("test-card")
+    expect(validation.components).toContain("test-badge")
   })
 
   it("does not overwrite existing designs by default", () => {
@@ -265,6 +324,34 @@ describe("design package authoring", () => {
     const validation = validateDesignPackage(name)
     expect(validation.ok).toBe(false)
     expect(validation.errors).toContain("DESIGN.md must include marker sections")
+  })
+
+  it("requires preview coverage for every component", () => {
+    const name = track("test-preview-components")
+    const dir = join(DESIGNS_DIR, name)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, "DESIGN.md"), validDesignMd(name), "utf-8")
+    writeFileSync(join(dir, "preview.html"), validPreviewHtmlForOneComponent(), "utf-8")
+
+    const validation = validateDesignPackage(name)
+    expect(validation.ok).toBe(false)
+    expect(validation.errors).toContain("preview.html must showcase every @component; missing: test-badge")
+  })
+
+  it("requires cover and closing slide roles in preview", () => {
+    const name = track("test-preview-slide-roles")
+    const dir = join(DESIGNS_DIR, name)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, "DESIGN.md"), designMdWithOneComponent(name), "utf-8")
+    writeFileSync(join(dir, "preview.html"), `<!doctype html>
+<html><body>
+<section class="slide" slide-qa="true"><div class="slide-canvas"><div data-preview-component="test-card">Card</div></div></section>
+</body></html>`, "utf-8")
+
+    const validation = validateDesignPackage(name)
+    expect(validation.ok).toBe(false)
+    expect(validation.errors).toContain('preview.html must include a slide section with data-slide-role="cover"')
+    expect(validation.errors).toContain('preview.html must include a slide section with data-slide-role="closing"')
   })
 
   it("resolves preview path and missing-preview state", () => {

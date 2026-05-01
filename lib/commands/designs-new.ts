@@ -79,6 +79,12 @@ const VISUAL_QUALITY_RULES = `Visual extraction and CSS quality rules:
 - For SVG motifs: set a viewBox, keep all eyes/mouths/decorations inside that coordinate system, and document intended placement/scale in the component notes.
 - Before saving, review the preview for text overlap, scale drift, lost anchoring, overflow, and whether the preview preserves the reference composition.`
 
+const PREVIEW_REQUIREMENTS = `Preview requirements:
+- \`preview.html\` must include a cover slide and a closing slide. Mark their \`<section class="slide">\` elements with \`data-slide-role="cover"\` and \`data-slide-role="closing"\`.
+- \`preview.html\` must showcase every \`@component:*\` defined in \`DESIGN.md\`. Mark each showcased component with \`data-preview-component="<component-name>"\`.
+- Do not save with \`revela-designs-author\` until every component has a corresponding preview marker. If a component is decorative or abstract, include a visible labeled sample state.
+- When the design supports chart styling, \`preview.html\` should include a 3x3 ECharts gallery with at least 9 chart examples. This is a preview quality requirement, not a validation blocker.`
+
 export function buildDesignsNewPrompt({ name, base }: DesignsNewArgs): string {
   return `You are creating a new Revela visual design package.
 
@@ -107,6 +113,8 @@ You must replace unless the user explicitly requests otherwise:
 
 ${VISUAL_QUALITY_RULES}
 
+${PREVIEW_REQUIREMENTS}
+
 Workflow:
 1. Do not generate or save files immediately.
 2. Interview the user first. Ask for visual references such as screenshots/images, webpage URLs, text descriptions, brands, or decks they like.
@@ -126,6 +134,8 @@ Hard requirements:
 - \`DESIGN.md\` must include at least \`@design:foundation\`, \`@design:rules\`, one layout, and one component.
 - \`preview.html\` must be self-contained and directly openable in a browser.
 - Every preview slide must include \`slide-qa="true"\` or \`slide-qa="false"\`.
+- \`preview.html\` must include \`data-slide-role="cover"\` and \`data-slide-role="closing"\` on slide sections.
+- \`preview.html\` must showcase every \`@component:*\` with \`data-preview-component="<component-name>"\` before saving.
 - Do not save anything until the user confirms the brief.
 
 Start now by interviewing the user. Keep the first question concise.`
@@ -144,6 +154,8 @@ Goal:
 
 ${VISUAL_QUALITY_RULES}
 
+${PREVIEW_REQUIREMENTS}
+
 Workflow:
 1. Do not save files immediately.
 2. Ask the user what they want to change. Accept text descriptions, screenshots/images, webpage URLs, or specific complaints about the current preview.
@@ -161,6 +173,8 @@ Hard requirements:
 - Preserve at least \`@design:foundation\`, \`@design:rules\`, one layout, and one component.
 - \`preview.html\` must be self-contained and directly openable in a browser.
 - Every preview slide must include \`slide-qa="true"\` or \`slide-qa="false"\`.
+- \`preview.html\` must include \`data-slide-role="cover"\` and \`data-slide-role="closing"\` on slide sections.
+- \`preview.html\` must showcase every \`@component:*\` with \`data-preview-component="<component-name>"\` before saving.
 - Do not save anything until the user confirms the edit brief.
 
 Start now by asking what the user wants to change in \`${name}\`.`

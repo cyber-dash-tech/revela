@@ -351,7 +351,7 @@ You can ask Revela to create a new local design interactively:
 /revela designs-new my-design
 ```
 
-The agent will interview you for visual references, summarize a design brief for confirmation, then save `DESIGN.md` and `preview.html` into your local Revela designs directory. The default structural base is an internal neutral `starter` design, which is hidden from the normal design list. Use `--base summit` or `--base monet` only when you want to derive from those specific styles.
+The agent will interview you for visual references, summarize a design brief for confirmation, then save `DESIGN.md` and `preview.html` into your local Revela designs directory. For AI-authored designs, `preview.html` is required: it must include cover and closing slides, and it must showcase every `@component:*` before `revela-designs-author` will accept the package. The default structural base is an internal neutral `starter` design, which is hidden from the normal design list. Use `--base summit` or `--base monet` only when you want to derive from those specific styles.
 
 Refine an existing local design:
 
@@ -374,7 +374,7 @@ Recommended structure:
 ```text
 my-design/
 ├── DESIGN.md
-└── preview.html        optional, but recommended for humans
+└── preview.html        required for AI-authored designs
 ```
 
 `DESIGN.md` starts with frontmatter metadata:
@@ -565,7 +565,9 @@ If a design has no markers, Revela falls back to injecting the full `DESIGN.md` 
 - Put the non-negotiable rules in `foundation` and `rules`; do not hide essential constraints only inside one layout
 - Keep layout names semantically meaningful; they become the vocabulary the model sees in the layout index
 - If your design defines a custom CSS class, document that class inside `DESIGN.md`; QA checks can flag classes not present in the design vocabulary
-- Add `preview.html` when possible so humans can inspect the design before activating it
+- For AI-authored designs, `preview.html` must include `<section class="slide" data-slide-role="cover">` and `<section class="slide" data-slide-role="closing">`
+- For AI-authored designs, `preview.html` must visibly showcase every `@component:*` and mark each sample with `data-preview-component="<component-name>"`; otherwise `revela-designs-author create/validate` will fail
+- When the design supports chart styling, include a 3x3 ECharts gallery with at least 9 chart examples in `preview.html`; this is a quality requirement for the agent workflow, not a hard validation blocker
 
 Install a custom design:
 
