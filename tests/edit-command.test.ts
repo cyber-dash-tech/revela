@@ -169,7 +169,7 @@ describe("ensureEditableDeckState", () => {
       goal: "Existing stale state.",
       slideCount: 21,
       outputPath: "decks/market-map.html",
-    })
+    } as any)
     state = upsertSlides(state, slug, [{
       index: 1,
       title: "Only recorded slide",
@@ -190,8 +190,8 @@ describe("ensureEditableDeckState", () => {
 
     expect(result.deck.file).toBe("decks/market-map.html")
     const next = readDecksState(root).decks[slug]
-    expect(next.slideCount).toBe(21)
     expect(next.slides).toHaveLength(1)
+    expect("slideCount" in next).toBe(false)
   })
 })
 

@@ -15,13 +15,11 @@ describe("DECKS.json state readiness", () => {
     state = upsertDeck(state, {
       slug: "test-two-page-deck",
       goal: "Create a two-slide test deck.",
-      slideCount: 2,
       outputPath: "decks/test-two-page-deck.html",
       theme: { design: "aurora", domain: "general" },
       requiredInputs: {
         topicClarified: true,
         audienceClarified: true,
-        slideCountDecided: true,
         languageDecided: true,
         visualStyleSelected: true,
         sourceMaterialsIdentified: true,
@@ -77,6 +75,24 @@ describe("DECKS.json state readiness", () => {
     const reviewed = reviewDeckState(state, "incomplete")
     expect(reviewed.result.ready).toBe(false)
     expect(reviewed.result.blocker).toContain("slides are missing")
+  })
+
+  it("drops legacy slideCount fields when normalizing state", () => {
+    const state = upsertDeck(createEmptyDecksState(), {
+      slug: "legacy",
+      goal: "Legacy deck",
+      slideCount: 21,
+      outputPath: "decks/legacy.html",
+      requiredInputs: {
+        topicClarified: true,
+        audienceClarified: true,
+        slideCountDecided: true,
+      },
+    } as any)
+
+    const deck = state.decks.legacy
+    expect("slideCount" in deck).toBe(false)
+    expect("slideCountDecided" in deck.requiredInputs).toBe(false)
   })
 
   it("blocks target path mismatch", () => {

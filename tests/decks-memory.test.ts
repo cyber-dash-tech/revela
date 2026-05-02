@@ -122,13 +122,11 @@ describe("DECKS.json state readiness", () => {
       goal: "Board update",
       audience: "Board",
       language: "English",
-      slideCount: 1,
       outputPath: "`decks/investor-update.html`",
       theme: { design: "aurora", domain: "general" },
       requiredInputs: {
         topicClarified: true,
         audienceClarified: true,
-        slideCountDecided: true,
         languageDecided: true,
         visualStyleSelected: true,
         sourceMaterialsIdentified: true,
@@ -161,7 +159,6 @@ describe("DECKS.json state readiness", () => {
     state = upsertDeck(state, {
       slug: "investor-update",
       goal: "Board update",
-      slideCount: 1,
       outputPath: "decks/investor-update.html",
       requiredInputs: defaultRequiredInputs({ topicClarified: true }),
     })

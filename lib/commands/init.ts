@@ -16,9 +16,10 @@ export function buildInitPrompt({
 Goal:
 - Build or update ${DECKS_STATE_FILE}, the workspace-level machine-readable state file for slide deck work.
 - Use the \`revela-decks\` tool for state updates. Do not write or patch ${DECKS_STATE_FILE} directly.
-- Capture stable project context, available source materials, the current deck spec, slide plan, and open questions for future sessions.
+- Capture stable project context, professional/domain context, topic, audience, available source materials, the current deck artifact, slide specs, and open questions for future sessions.
 - Do not treat initialization as permission to write a slide deck; the current deck must pass a later readiness review.
 - ${DECKS_STATE_FILE} is the source of truth for the single current workspace deck.
+- \`slides\` is the only slide-plan source of truth. Do not track or infer a separate slide count field.
 
 Current state:
 - ${mode}
@@ -45,8 +46,9 @@ Workflow:
 4. For selected PDF/PPTX/DOCX/XLSX files, call \`revela-extract-document-materials\` before deciding what to summarize.
 5. Read only the materials needed to form a conservative workspace memory. Do not exhaustively read every file if the workspace is large.
 6. Call \`revela-decks\` with action \`init\` to create ${DECKS_STATE_FILE} if needed.
-7. If this conversation already contains a concrete deck task, call \`revela-decks\` with action \`upsertDeck\` and later \`upsertSlides\` only for explicit deck spec information. Do not pass or ask for a deck key; the tool uses the workspace folder name internally. Do not mark readiness ready during init.
-8. Report what was initialized or updated and list any open questions.
+7. If this conversation or the workspace contains a concrete deck task or an existing deck artifact, call \`revela-decks\` with action \`upsertDeck\` and later \`upsertSlides\` for explicit deck information. Do not pass or ask for a deck key; the tool uses the workspace folder name internally. Do not mark readiness ready during init.
+8. When adopting an existing HTML deck, analyze the artifact and create one conservative \`SlideSpec\` per identifiable slide/page. The \`SlideSpec[]\` itself is the worklist; do not create a separate target slide count.
+9. Report what was initialized or updated and list any open questions.
 
 Memory rules:
 - Only write facts supported by workspace files into ${DECKS_STATE_FILE} workspace state, source materials, deck memory, and open questions.
