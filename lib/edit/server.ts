@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto"
-import { readFileSync, statSync } from "fs"
-import { resolve, sep } from "path"
+import { existsSync, readFileSync, statSync } from "fs"
+import { fileURLToPath } from "url"
+import { dirname, extname, isAbsolute, resolve, sep } from "path"
 import type { EditableDeck } from "./resolve-deck"
 import { buildEditPrompt, type EditCommentPayload } from "./prompt"
 
@@ -9,6 +10,11 @@ const SESSION_TTL_MS = 2 * 60 * 60 * 1000
 const IDLE_STOP_MS = 30 * 60 * 1000
 export const LIVE_EDITOR_IDLE_MS = 10 * 1000
 
+interface EditAsset {
+  id: string
+  absoluteFile: string
+}
+
 interface EditSession {
   token: string
   client: any
@@ -16,13 +22,17 @@ interface EditSession {
   deck: string
   file: string
   absoluteFile: string
+  workspaceRoot: string
+  assets: Map<string, EditAsset>
+  assetKeys: Map<string, string>
+  nextAssetId: number
   createdAt: number
   lastActiveAt: number
 }
 
 export interface EditServerHandle {
   baseUrl: string
-  getOrCreateSession(input: { client: any; sessionID: string; deck: EditableDeck }): EditServerSessionResult
+  getOrCreateSession(input: { client: any; sessionID: string; workspaceRoot: string; deck: EditableDeck }): EditServerSessionResult
 }
 
 export interface EditServerSessionResult {
@@ -57,6 +67,7 @@ export function startEditServer(): EditServerHandle {
         existing.session.sessionID = input.sessionID
         existing.session.deck = input.deck.slug
         existing.session.file = input.deck.file
+        existing.session.workspaceRoot = resolve(input.workspaceRoot)
         return {
           token: existing.token,
           reused: true,
@@ -72,6 +83,10 @@ export function startEditServer(): EditServerHandle {
         deck: input.deck.slug,
         file: input.deck.file,
         absoluteFile: input.deck.absoluteFile,
+        workspaceRoot: resolve(input.workspaceRoot),
+        assets: new Map(),
+        assetKeys: new Map(),
+        nextAssetId: 1,
         createdAt: Date.now(),
         lastActiveAt: Date.now(),
       })
@@ -131,7 +146,13 @@ async function handleRequest(req: Request): Promise<Response> {
   if (url.pathname === "/deck" && req.method === "GET") {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
-    return htmlResponse(readFileSync(session.value.absoluteFile, "utf-8"))
+    return handleDeck(session.value)
+  }
+
+  if (url.pathname === "/__revela_asset" && (req.method === "GET" || req.method === "HEAD")) {
+    const session = validateSession(url.searchParams.get("token"))
+    if (!session.ok) return session.response
+    return handleAsset(session.value, url.searchParams.get("id"), req.method)
   }
 
   if (url.pathname === "/api/comment" && req.method === "POST") {
@@ -147,6 +168,203 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   return textResponse("Not found", 404)
+}
+
+function handleDeck(session: EditSession): Response {
+  session.assets.clear()
+  session.assetKeys.clear()
+  session.nextAssetId = 1
+  const html = readFileSync(session.absoluteFile, "utf-8")
+  return htmlResponse(rewriteLocalAssetRefs(html, {
+    session,
+    sourceFile: session.absoluteFile,
+    contentType: "html",
+  }))
+}
+
+function handleAsset(session: EditSession, id: string | null, method: string): Response {
+  if (!id) return textResponse("Missing asset id", 400)
+  const asset = session.assets.get(id)
+  if (!asset) return textResponse("Asset not found", 404)
+  if (!existsSync(asset.absoluteFile)) return textResponse("Asset file not found", 404)
+  if (!statSync(asset.absoluteFile).isFile()) return textResponse("Asset is not a file", 404)
+
+  const mime = mimeTypeForPath(asset.absoluteFile)
+  const headers = {
+    "content-type": mime,
+    "cache-control": "no-store, max-age=0",
+  }
+  if (method === "HEAD") return new Response(null, { status: 200, headers })
+
+  if (mime === "text/css") {
+    const css = readFileSync(asset.absoluteFile, "utf-8")
+    return new Response(rewriteLocalAssetRefs(css, {
+      session,
+      sourceFile: asset.absoluteFile,
+      contentType: "css",
+    }), { status: 200, headers })
+  }
+
+  return new Response(new Uint8Array(readFileSync(asset.absoluteFile)), { status: 200, headers })
+}
+
+function rewriteLocalAssetRefs(content: string, input: { session: EditSession; sourceFile: string; contentType: "html" | "css" }): string {
+  const baseDir = dirname(input.sourceFile)
+  let rewritten = rewriteCssUrls(content, input.session, baseDir)
+  if (input.contentType === "css") return rewritten
+
+  rewritten = rewriteHtmlAssetAttributes(rewritten, input.session, baseDir)
+  rewritten = rewriteSrcsetAttributes(rewritten, input.session, baseDir)
+  return rewritten
+}
+
+function rewriteHtmlAssetAttributes(html: string, session: EditSession, baseDir: string): string {
+  const attrPattern = /\b(src|href|poster)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/gi
+  return html.replace(attrPattern, (match, name: string, raw: string, doubleQuoted?: string, singleQuoted?: string, unquoted?: string) => {
+    const value = doubleQuoted ?? singleQuoted ?? unquoted ?? ""
+    const assetUrl = assetUrlForRef(value, session, baseDir)
+    if (!assetUrl) return match
+    const quote = doubleQuoted !== undefined ? '"' : singleQuoted !== undefined ? "'" : ""
+    const escaped = quote ? assetUrl.replace(/&/g, "&amp;") : assetUrl
+    return `${name}=${quote}${escaped}${quote}`
+  })
+}
+
+function rewriteSrcsetAttributes(html: string, session: EditSession, baseDir: string): string {
+  const srcsetPattern = /\bsrcset\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/gi
+  return html.replace(srcsetPattern, (match, raw: string, doubleQuoted?: string, singleQuoted?: string, unquoted?: string) => {
+    const value = doubleQuoted ?? singleQuoted ?? unquoted ?? ""
+    const rewritten = rewriteSrcset(value, session, baseDir)
+    if (rewritten === value) return match
+    const quote = doubleQuoted !== undefined ? '"' : singleQuoted !== undefined ? "'" : ""
+    const escaped = quote ? rewritten.replace(/&/g, "&amp;") : rewritten
+    return `srcset=${quote}${escaped}${quote}`
+  })
+}
+
+function rewriteSrcset(value: string, session: EditSession, baseDir: string): string {
+  return value.split(",").map((part) => {
+    const trimmed = part.trim()
+    if (!trimmed) return part
+    const pieces = trimmed.split(/\s+/)
+    const assetUrl = assetUrlForRef(pieces[0], session, baseDir)
+    if (!assetUrl) return part
+    return [assetUrl, ...pieces.slice(1)].join(" ")
+  }).join(", ")
+}
+
+function rewriteCssUrls(content: string, session: EditSession, baseDir: string): string {
+  const cssUrlPattern = /url\(\s*("([^"]*)"|'([^']*)'|([^\s)]+))\s*\)/gi
+  return content.replace(cssUrlPattern, (match, raw: string, doubleQuoted?: string, singleQuoted?: string, unquoted?: string) => {
+    const value = doubleQuoted ?? singleQuoted ?? unquoted ?? ""
+    const assetUrl = assetUrlForRef(value, session, baseDir)
+    if (!assetUrl) return match
+    return `url("${assetUrl.replace(/"/g, "%22")}")`
+  })
+}
+
+function assetUrlForRef(ref: string, session: EditSession, baseDir: string): string | null {
+  const absoluteFile = resolveLocalAssetRef(ref, session.workspaceRoot, baseDir)
+  if (!absoluteFile || !existsSync(absoluteFile) || !statSync(absoluteFile).isFile()) return null
+  const key = resolve(absoluteFile)
+  let id = session.assetKeys.get(key)
+  if (!id) {
+    id = String(session.nextAssetId++)
+    session.assetKeys.set(key, id)
+    session.assets.set(id, { id, absoluteFile: key })
+  }
+  return `/__revela_asset?token=${encodeURIComponent(session.token)}&id=${encodeURIComponent(id)}`
+}
+
+function resolveLocalAssetRef(ref: string, workspaceRoot: string, baseDir: string): string | null {
+  const trimmed = ref.trim()
+  if (!trimmed || isSkippedAssetRef(trimmed)) return null
+
+  const pathPart = stripQueryAndHash(trimmed)
+  if (!pathPart) return null
+
+  if (pathPart.startsWith("file://")) {
+    try {
+      return resolve(fileURLToPath(pathPart))
+    } catch {
+      return null
+    }
+  }
+
+  const decodedPath = safeDecodeUri(pathPart)
+  if (isWindowsAbsolutePath(decodedPath)) return resolve(decodedPath)
+
+  if (isAbsolute(decodedPath)) {
+    const absolute = resolve(decodedPath)
+    if (existsSync(absolute)) return absolute
+    return resolve(workspaceRoot, `.${decodedPath}`)
+  }
+
+  return resolve(baseDir, decodedPath)
+}
+
+function stripQueryAndHash(ref: string): string {
+  const hashIndex = ref.indexOf("#")
+  const withoutHash = hashIndex >= 0 ? ref.slice(0, hashIndex) : ref
+  const queryIndex = withoutHash.indexOf("?")
+  return queryIndex >= 0 ? withoutHash.slice(0, queryIndex) : withoutHash
+}
+
+function safeDecodeUri(value: string): string {
+  try {
+    return decodeURI(value)
+  } catch {
+    return value
+  }
+}
+
+function isSkippedAssetRef(ref: string): boolean {
+  return /^(?:https?:|data:|blob:|mailto:|tel:|javascript:|#)/i.test(ref) || ref.startsWith("//")
+}
+
+function isWindowsAbsolutePath(value: string): boolean {
+  return /^[a-zA-Z]:[\\/]/.test(value)
+}
+
+function mimeTypeForPath(filePath: string): string {
+  switch (extname(filePath).toLowerCase()) {
+    case ".html":
+    case ".htm":
+      return "text/html; charset=utf-8"
+    case ".css":
+      return "text/css"
+    case ".js":
+      return "application/javascript"
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg"
+    case ".png":
+      return "image/png"
+    case ".gif":
+      return "image/gif"
+    case ".webp":
+      return "image/webp"
+    case ".svg":
+      return "image/svg+xml"
+    case ".woff":
+      return "font/woff"
+    case ".woff2":
+      return "font/woff2"
+    case ".ttf":
+      return "font/ttf"
+    case ".otf":
+      return "font/otf"
+    case ".mp4":
+      return "video/mp4"
+    case ".webm":
+      return "video/webm"
+    case ".mp3":
+      return "audio/mpeg"
+    case ".wav":
+      return "audio/wav"
+    default:
+      return "application/octet-stream"
+  }
 }
 
 function handleDeckVersion(session: EditSession): Response {
