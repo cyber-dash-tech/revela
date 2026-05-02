@@ -28,7 +28,6 @@ export default tool({
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
     audience: tool.schema.string().optional().describe("For upsertDeck: deck audience."),
     language: tool.schema.string().optional().describe("For upsertDeck: deck language."),
-    slideCount: tool.schema.number().optional().describe("For upsertDeck: expected slide count."),
     outputPath: tool.schema.string().optional().describe("For upsertDeck: target output path, normally decks/{workspace-name}.html."),
     design: tool.schema.string().optional().describe("For upsertDeck: active design name."),
     domain: tool.schema.string().optional().describe("For upsertDeck: active domain name."),
@@ -37,7 +36,6 @@ export default tool({
     requiredInputs: tool.schema.object({
       topicClarified: tool.schema.boolean().optional(),
       audienceClarified: tool.schema.boolean().optional(),
-      slideCountDecided: tool.schema.boolean().optional(),
       languageDecided: tool.schema.boolean().optional(),
       visualStyleSelected: tool.schema.boolean().optional(),
       sourceMaterialsIdentified: tool.schema.boolean().optional(),
@@ -111,7 +109,6 @@ export default tool({
           goal: args.goal ?? existing?.goal ?? "",
           audience: args.audience ?? existing?.audience,
           language: args.language ?? existing?.language,
-          slideCount: args.slideCount ?? existing?.slideCount,
           outputPath: args.outputPath ?? existing?.outputPath,
           theme: {
             design: args.design ?? existing?.theme?.design,

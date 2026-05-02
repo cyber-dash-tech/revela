@@ -23,7 +23,7 @@ Before writing any HTML, ask the user these questions **in a single message**
 
 1. **Topic** — What is the presentation about?
 2. **Audience** — Who will see it? (e.g. investors, team, conference, class)
-3. **Slide count** — How many slides? (suggest 6–10 if unsure)
+3. **Scope** — How broad should the deck be? If the user has a preferred length, treat it as guidance only.
 4. **Language** — What language should the slides be in?
 5. **Reference materials** — Do you have any reference files to draw content from?
    (PDF research reports, Excel data, Word documents, PowerPoint decks, images)
@@ -43,7 +43,7 @@ research or writing HTML. The brief should capture:
 - working thesis or angle, if one has emerged
 - key questions the deck must answer
 - known workspace sources from `DECKS.json`, user attachments, or visible files
-- desired output shape, slide count, and visual direction
+- desired output shape, approximate scope, and visual direction
 
 If the brief is unclear, ask 1–3 targeted clarification questions. Do not force
 the user to provide a research topic command; the working topic emerges from the
@@ -82,7 +82,7 @@ All subsequent file paths in this session use the current workspace deck:
 Create or update the active deck in `DECKS.json` through `revela-decks` actions
 `upsertDeck` and `upsertSlides`. Keep the deck spec current as work progresses:
 - `goal` — purpose and decision/context
-- `audience`, `language`, `slideCount`, `outputPath`, and `theme`
+- `audience`, `language`, `outputPath`, and `theme`
 - `requiredInputs` — checklist state for prewrite readiness
 - `researchPlan` — axes, status, and findings files
 - `slides` — confirmed per-slide title, purpose, layout, components, content, evidence, visuals, and status
@@ -227,7 +227,7 @@ The exact visual style for each section comes from the active design.
 When the user asks for N slides, distribute them across these sections.
 A 6-slide deck might be: Cover → Background → Content × 3 → Closing.
 An 8-slide deck might be: Cover → TOC → Background → Content × 3 → Summary → Closing.
-Never skip Cover, Background, or Closing regardless of slide count.
+Never skip Cover, Background, or Closing regardless of deck length.
 
 **Every `<section class="slide">` must include a `slide-qa` attribute.** Set
 `slide-qa="true"` for content-heavy layouts (those marked ✓ in the Layout Index
@@ -247,7 +247,7 @@ core rules and the visual design below.
 
 **When a domain definition is present:**
 - Follow its report structure instead of the default "Required Slide Structure" above.
-  The domain defines its own sections, ordering, and slide count distribution.
+  The domain defines its own sections, ordering, and deck length guidance.
 - Follow its AI logic rules (e.g. terminology, evidence standards, risk frameworks).
 - The domain's visual preferences are **suggestions only** — the active Design's
   visual rules always take precedence for colors, fonts, animations, and layout.

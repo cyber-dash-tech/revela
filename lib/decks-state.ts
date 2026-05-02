@@ -45,7 +45,6 @@ export interface DeckSpec {
   goal: string
   audience?: string
   language?: string
-  slideCount?: number
   outputPath: string
   theme: {
     design?: string
@@ -65,7 +64,6 @@ export interface DeckSpec {
 export interface RequiredInputs {
   topicClarified: boolean
   audienceClarified: boolean
-  slideCountDecided: boolean
   languageDecided: boolean
   visualStyleSelected: boolean
   sourceMaterialsIdentified: boolean
@@ -179,17 +177,15 @@ export function normalizeWorkspaceDeckState(state: DecksState, workspaceRoot: st
 
 export function defaultRequiredInputs(overrides?: Partial<RequiredInputs>): RequiredInputs {
   return {
-    topicClarified: false,
-    audienceClarified: false,
-    slideCountDecided: false,
-    languageDecided: false,
-    visualStyleSelected: false,
-    sourceMaterialsIdentified: false,
-    researchNeedAssessed: false,
-    researchFindingsRead: false,
-    slidePlanConfirmed: false,
-    designLayoutsFetched: false,
-    ...overrides,
+    topicClarified: overrides?.topicClarified ?? false,
+    audienceClarified: overrides?.audienceClarified ?? false,
+    languageDecided: overrides?.languageDecided ?? false,
+    visualStyleSelected: overrides?.visualStyleSelected ?? false,
+    sourceMaterialsIdentified: overrides?.sourceMaterialsIdentified ?? false,
+    researchNeedAssessed: overrides?.researchNeedAssessed ?? false,
+    researchFindingsRead: overrides?.researchFindingsRead ?? false,
+    slidePlanConfirmed: overrides?.slidePlanConfirmed ?? false,
+    designLayoutsFetched: overrides?.designLayoutsFetched ?? false,
   }
 }
 
@@ -201,7 +197,6 @@ export function createDeckSpec(input: Partial<DeckSpec> & { slug: string }): Dec
     goal: input.goal ?? "",
     audience: input.audience,
     language: input.language,
-    slideCount: input.slideCount,
     outputPath: normalizeDeckPath(input.outputPath || `decks/${slug}.html`),
     theme: input.theme ?? {},
     requiredInputs: defaultRequiredInputs(input.requiredInputs),
@@ -419,9 +414,6 @@ function computeDeckBlockers(deck: DeckSpec): string[] {
     if (value !== true) blockers.push(`requiredInputs.${key} is not true`)
   }
 
-  if (typeof deck.slideCount === "number" && deck.slideCount > 0 && deck.slides.length !== deck.slideCount) {
-    blockers.push(`slides length ${deck.slides.length} does not match slideCount ${deck.slideCount}`)
-  }
   if (deck.slides.length === 0) blockers.push("slides are missing")
   for (const slide of deck.slides) {
     if (!slide.title.trim()) blockers.push(`Slide ${slide.index} title is missing`)

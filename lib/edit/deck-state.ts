@@ -32,7 +32,6 @@ export function ensureEditableDeckState(workspaceRoot: string, deck: EditableDec
     goal: existing?.goal || `Edit existing Revela deck ${deck.slug}.`,
     audience: existing?.audience || "Existing deck viewers",
     language: existing?.language || "en",
-    slideCount: existing?.slideCount || inferSlideCount(deck.absoluteFile),
     outputPath: deck.file,
     theme: {
       design: existing?.theme?.design || safeActiveDesign(),
@@ -42,7 +41,6 @@ export function ensureEditableDeckState(workspaceRoot: string, deck: EditableDec
       ...existing?.requiredInputs,
       topicClarified: true,
       audienceClarified: true,
-      slideCountDecided: true,
       languageDecided: true,
       visualStyleSelected: true,
       sourceMaterialsIdentified: true,
@@ -65,10 +63,6 @@ export function ensureEditableDeckState(workspaceRoot: string, deck: EditableDec
   return {
     changed,
   }
-}
-
-function inferSlideCount(filePath: string): number {
-  return inferSlides(filePath).length
 }
 
 function inferSlides(filePath: string): SlideSpec[] {

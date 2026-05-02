@@ -205,7 +205,7 @@ Review the current deck state with:
 
 Minimum readiness conditions:
 
-- topic, audience, slide count, language, and visual style/design are decided
+- topic, audience, language, visual style/design, and slide plan are decided
 - source materials are identified or explicitly deemed unnecessary
 - research need is assessed
 - needed research findings have been read and reflected in the slide specs
@@ -222,7 +222,6 @@ The gate checks:
 - `writeReadiness.blockers` is empty
 - the deck `outputPath` exactly matches the target `decks/*.html` path
 - all `requiredInputs` booleans are true
-- `slides.length` matches `slideCount` when a slide count is set
 - every slide has title, layout, components, and structured content
 - every needed research axis is `done`, `read`, or `skipped`
 
