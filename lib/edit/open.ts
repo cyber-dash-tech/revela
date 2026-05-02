@@ -78,6 +78,7 @@ function openEditableDeckInternal(
   const session = editServer.getOrCreateSession({
     client: options.client,
     sessionID: options.sessionID,
+    workspaceRoot: options.workspaceRoot,
     deck,
   })
   const url = `${editServer.baseUrl}/edit?token=${encodeURIComponent(session.token)}`

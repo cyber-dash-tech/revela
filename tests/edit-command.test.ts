@@ -24,6 +24,29 @@ function workspace(): string {
   return root
 }
 
+function openForAssetTest(root: string) {
+  return openEditableDeck("", {
+    client: { session: { prompt: async () => undefined } },
+    sessionID: "session-1",
+    workspaceRoot: root,
+    openBrowser: false,
+  })
+}
+
+async function fetchDeckHtml(opened: { url: string }): Promise<string> {
+  const url = new URL(opened.url)
+  const token = url.searchParams.get("token") || ""
+  const res = await fetch(`${url.origin}/deck?token=${encodeURIComponent(token)}`)
+  expect(res.status).toBe(200)
+  return res.text()
+}
+
+function firstAssetUrl(html: string, origin: string): string {
+  const match = html.match(/\/__revela_asset\?token=[^"'\s>)]+/)
+  expect(match).toBeTruthy()
+  return origin + match![0].replace(/&amp;/g, "&")
+}
+
 describe("resolveEditableDeck", () => {
   it("resolves the only HTML deck in decks/", () => {
     const root = workspace()
@@ -297,6 +320,99 @@ describe("openEditableDeck", () => {
     } finally {
       Date.now = originalNow
     }
+  })
+})
+
+describe("editor local asset proxy", () => {
+  it("rewrites relative image paths with spaces and serves the asset", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "cover page pic.jpg"), new Uint8Array([1, 2, 3, 4]))
+    writeFileSync(join(root, "decks", "market-map.html"), `
+      <html><body><section class="slide"><img src="../cover page pic.jpg"></section></body></html>
+    `, "utf-8")
+
+    const opened = openForAssetTest(root)
+    const origin = new URL(opened.url).origin
+    const html = await fetchDeckHtml(opened)
+
+    expect(html).toContain("/__revela_asset?token=")
+    expect(html).not.toContain("../cover page pic.jpg")
+    const assetRes = await fetch(firstAssetUrl(html, origin))
+    expect(assetRes.status).toBe(200)
+    expect(assetRes.headers.get("content-type")).toBe("image/jpeg")
+    expect(new Uint8Array(await assetRes.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3, 4]))
+  })
+
+  it("proxies absolute local image paths outside the workspace", async () => {
+    const root = workspace()
+    const external = mkdtempSync(join(tmpdir(), "revela-edit-external-"))
+    roots.push(external)
+    const imagePath = join(external, "cover page pic.jpg")
+    writeFileSync(imagePath, new Uint8Array([5, 6, 7]))
+    writeFileSync(join(root, "decks", "market-map.html"), `
+      <html><body><section class="slide"><img src="${imagePath}"></section></body></html>
+    `, "utf-8")
+
+    const opened = openForAssetTest(root)
+    const origin = new URL(opened.url).origin
+    const html = await fetchDeckHtml(opened)
+
+    const assetRes = await fetch(firstAssetUrl(html, origin))
+    expect(assetRes.status).toBe(200)
+    expect(new Uint8Array(await assetRes.arrayBuffer())).toEqual(new Uint8Array([5, 6, 7]))
+  })
+
+  it("rewrites inline CSS image urls", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "cover page pic.png"), new Uint8Array([8, 9]))
+    writeFileSync(join(root, "decks", "market-map.html"), `
+      <html><body><section class="slide" style="background-image: url('../cover page pic.png')"></section></body></html>
+    `, "utf-8")
+
+    const opened = openForAssetTest(root)
+    const origin = new URL(opened.url).origin
+    const html = await fetchDeckHtml(opened)
+
+    expect(html).toContain("background-image: url(\"/__revela_asset?token=")
+    const assetRes = await fetch(firstAssetUrl(html, origin))
+    expect(assetRes.status).toBe(200)
+    expect(assetRes.headers.get("content-type")).toBe("image/png")
+  })
+
+  it("rewrites local CSS files and nested CSS asset urls", async () => {
+    const root = workspace()
+    mkdirSync(join(root, "styles"), { recursive: true })
+    writeFileSync(join(root, "hero pic.webp"), new Uint8Array([10, 11]))
+    writeFileSync(join(root, "styles", "deck.css"), `.hero { background: url('../hero pic.webp'); }`, "utf-8")
+    writeFileSync(join(root, "decks", "market-map.html"), `
+      <html><head><link rel="stylesheet" href="../styles/deck.css"></head><body><section class="slide hero"></section></body></html>
+    `, "utf-8")
+
+    const opened = openForAssetTest(root)
+    const origin = new URL(opened.url).origin
+    const html = await fetchDeckHtml(opened)
+
+    const cssRes = await fetch(firstAssetUrl(html, origin))
+    expect(cssRes.status).toBe(200)
+    expect(cssRes.headers.get("content-type")).toBe("text/css")
+    const css = await cssRes.text()
+    expect(css).toContain("/__revela_asset?token=")
+
+    const imageRes = await fetch(firstAssetUrl(css, origin))
+    expect(imageRes.status).toBe(200)
+    expect(imageRes.headers.get("content-type")).toBe("image/webp")
+  })
+
+  it("rejects asset ids that were not registered by the deck", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\"></section></body></html>", "utf-8")
+
+    const opened = openForAssetTest(root)
+    const url = new URL(opened.url)
+    const token = url.searchParams.get("token") || ""
+    const res = await fetch(`${url.origin}/__revela_asset?token=${encodeURIComponent(token)}&id=missing`)
+
+    expect(res.status).toBe(404)
   })
 })
 
