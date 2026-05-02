@@ -47,6 +47,7 @@ import { handlePdf } from "./lib/commands/pdf"
 import { handlePptx } from "./lib/commands/pptx"
 import { handleEdit } from "./lib/commands/edit"
 import { ensureEditableDeckOpenForChange } from "./lib/edit/open"
+import { hasLiveEditorSessionForFile } from "./lib/edit/server"
 import { handleDesignsPreview } from "./lib/commands/designs-preview"
 import {
   parseDesignsNewArgs,
@@ -540,6 +541,7 @@ Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSl
           return
         }
         if (!isDeckHtmlPath(filePath)) return
+        if (hasLiveEditorSessionForFile(workspaceRoot, filePath)) return
 
         const readiness = checkDeckStateWriteReadiness(workspaceRoot, filePath) ?? {
           ready: false,
@@ -595,6 +597,7 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
 
         const targets = extractDeckHtmlTargetsFromPatch(patchText)
         if (targets.length === 0) return
+        if (targets.every((target) => hasLiveEditorSessionForFile(workspaceRoot, target))) return
 
         const blocked = targets
           .map((target) => ({

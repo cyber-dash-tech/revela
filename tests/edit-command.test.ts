@@ -2,12 +2,12 @@ import { afterEach, describe, expect, it } from "bun:test"
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { tmpdir } from "os"
-import { readDecksState, workspaceDeckSlug } from "../lib/decks-state"
+import { createEmptyDecksState, readDecksState, upsertDeck, upsertSlides, workspaceDeckSlug, writeDecksState } from "../lib/decks-state"
 import { ensureEditableDeckState } from "../lib/edit/deck-state"
 import { resolveEditableDeck } from "../lib/edit/resolve-deck"
 import { buildEditPrompt } from "../lib/edit/prompt"
 import { ensureEditableDeckOpenForChange, openEditableDeck } from "../lib/edit/open"
-import { LIVE_EDITOR_IDLE_MS, renderEditorShell, stopEditServer } from "../lib/edit/server"
+import { hasLiveEditorSessionForFile, LIVE_EDITOR_IDLE_MS, renderEditorShell, stopEditServer } from "../lib/edit/server"
 import createEditTool from "../tools/edit"
 
 const roots: string[] = []
@@ -134,7 +134,7 @@ describe("buildEditPrompt", () => {
 })
 
 describe("ensureEditableDeckState", () => {
-  it("creates ready deck state for the only HTML deck", () => {
+  it("adopts the only HTML deck without requiring production readiness", () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "market-map.html"), `
       <html><body>
@@ -146,13 +146,52 @@ describe("ensureEditableDeckState", () => {
     const result = ensureEditableDeckState(root, deck)
     const state = readDecksState(root)
 
-    expect(result.readiness.ready).toBe(true)
+    expect(result.changed).toBe(true)
     const slug = workspaceDeckSlug(root)
     expect(state.activeDeck).toBe(slug)
     expect(state.decks[slug].outputPath).toBe("decks/market-map.html")
     expect(state.decks[slug].slides).toHaveLength(1)
     expect(state.decks[slug].slides[0].title).toBe("Market Map")
-    expect(state.decks[slug].writeReadiness.status).toBe("ready")
+    expect(state.decks[slug].writeReadiness.status).toBe("blocked")
+  })
+
+  it("does not block visual editing when existing deck state has stale slide specs", () => {
+    const root = workspace()
+    const slug = workspaceDeckSlug(root)
+    writeFileSync(join(root, "decks", "market-map.html"), `
+      <html><body>
+        <section class="slide" slide-qa="true"><h2>Market Map 1</h2><p>Existing content.</p></section>
+        <section class="slide" slide-qa="true"><h2>Market Map 2</h2><p>Existing content.</p></section>
+      </body></html>
+    `, "utf-8")
+    let state = upsertDeck(createEmptyDecksState(), {
+      slug,
+      goal: "Existing stale state.",
+      slideCount: 21,
+      outputPath: "decks/market-map.html",
+    })
+    state = upsertSlides(state, slug, [{
+      index: 1,
+      title: "Only recorded slide",
+      layout: "existing-html",
+      components: ["existing-html"],
+      content: { headline: "Only recorded slide" },
+      evidence: [],
+      status: "ready",
+    }])
+    writeDecksState(root, state)
+
+    const result = openEditableDeck("", {
+      client: { session: { prompt: async () => undefined } },
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openBrowser: false,
+    })
+
+    expect(result.deck.file).toBe("decks/market-map.html")
+    const next = readDecksState(root).decks[slug]
+    expect(next.slideCount).toBe(21)
+    expect(next.slides).toHaveLength(1)
   })
 })
 
@@ -171,7 +210,22 @@ describe("openEditableDeck", () => {
     expect(result.deck.slug).toBe(workspaceDeckSlug(root))
     expect(result.deck.file).toBe("decks/market-map.html")
     expect(result.url).toStartWith("http://127.0.0.1:")
-    expect(readDecksState(root).decks[workspaceDeckSlug(root)].writeReadiness.status).toBe("ready")
+    expect(readDecksState(root).decks[workspaceDeckSlug(root)].writeReadiness.status).toBe("blocked")
+  })
+
+  it("tracks live editor sessions by workspace deck file", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\"><h2>Market Map</h2></section></body></html>", "utf-8")
+
+    openEditableDeck("", {
+      client: { session: { prompt: async () => undefined } },
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openBrowser: false,
+    })
+
+    expect(hasLiveEditorSessionForFile(root, "decks/market-map.html")).toBe(true)
+    expect(hasLiveEditorSessionForFile(root, "decks/other.html")).toBe(false)
   })
 
   it("reuses one editor session for repeated active opens of the same deck", () => {

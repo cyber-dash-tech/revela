@@ -1,5 +1,6 @@
 import { randomBytes } from "crypto"
 import { readFileSync, statSync } from "fs"
+import { resolve, sep } from "path"
 import type { EditableDeck } from "./resolve-deck"
 import { buildEditPrompt, type EditCommentPayload } from "./prompt"
 
@@ -82,6 +83,16 @@ export function startEditServer(): EditServerHandle {
 export function hasLiveEditorSession(deck: EditableDeck, maxIdleMs = LIVE_EDITOR_IDLE_MS): boolean {
   cleanupExpiredSessions()
   const existing = findSessionForDeck(deck.absoluteFile)
+  return existing ? isSessionLive(existing.session, maxIdleMs) : false
+}
+
+export function hasLiveEditorSessionForFile(workspaceRoot: string, filePath: string, maxIdleMs = LIVE_EDITOR_IDLE_MS): boolean {
+  if (!filePath) return false
+  const root = resolve(workspaceRoot)
+  const absoluteFile = resolve(root, filePath)
+  if (absoluteFile !== root && !absoluteFile.startsWith(root.endsWith(sep) ? root : root + sep)) return false
+  cleanupExpiredSessions()
+  const existing = findSessionForDeck(absoluteFile)
   return existing ? isSessionLive(existing.session, maxIdleMs) : false
 }
 

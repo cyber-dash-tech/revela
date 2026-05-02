@@ -6,18 +6,15 @@ import {
   DECKS_STATE_FILE,
   normalizeWorkspaceDeckState,
   readOrCreateDecksState,
-  reviewDeckState,
   upsertDeck,
   upsertSlides,
   writeDecksState,
-  type DeckStateReadinessResult,
   type SlideSpec,
 } from "../decks-state"
 import type { EditableDeck } from "./resolve-deck"
 
 export interface EditDeckStatePreflightResult {
   changed: boolean
-  readiness: DeckStateReadinessResult
 }
 
 export function ensureEditableDeckState(workspaceRoot: string, deck: EditableDeck): EditDeckStatePreflightResult {
@@ -27,7 +24,6 @@ export function ensureEditableDeckState(workspaceRoot: string, deck: EditableDec
     throw new Error(`${DECKS_STATE_FILE} already points to ${active.outputPath}. Revela 0.8 expects one deck per workspace; move extra decks to a separate workspace.`)
   }
   const existing = state.decks[deck.slug]
-  const existingReady = existing?.writeReadiness?.status === "ready" && existing.writeReadiness.blockers.length === 0
   let changed = !existing || existing.outputPath !== deck.file
 
   state = upsertDeck(state, {
@@ -64,12 +60,10 @@ export function ensureEditableDeckState(workspaceRoot: string, deck: EditableDec
     changed = true
   }
 
-  const reviewed = reviewDeckState(state, deck.slug)
-  writeDecksState(workspaceRoot, reviewed.state)
+  writeDecksState(workspaceRoot, state)
 
   return {
-    changed: changed || !existingReady,
-    readiness: reviewed.result,
+    changed,
   }
 }
 

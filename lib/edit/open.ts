@@ -66,9 +66,6 @@ function openEditableDeckInternal(
 ): EnsureEditableDeckOpenResult {
   const deck = resolveEditableDeck(options.workspaceRoot, target)
   const preflight = ensureEditableDeckState(options.workspaceRoot, deck)
-  if (!preflight.readiness.ready) {
-    throw new Error(preflight.readiness.blocker || "Deck is not ready for HTML edits.")
-  }
 
   ctx.enabled = true
   if (!existsSync(ACTIVE_PROMPT_FILE)) {
@@ -88,7 +85,7 @@ function openEditableDeckInternal(
   if (shouldOpen) (options.openUrl ?? openUrl)(url)
 
   const source = deck.source === "decks-state" ? "DECKS.json" : deck.source === "file-path" ? "file path" : "fallback path"
-  const stateNote = preflight.changed ? "Deck state was prepared in DECKS.json before opening the editor." : "Deck state is ready in DECKS.json."
+  const stateNote = preflight.changed ? "Deck state was prepared in DECKS.json for visual editing." : "Deck state already points to this visual edit target."
 
   return {
     deck,
