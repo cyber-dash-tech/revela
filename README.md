@@ -209,6 +209,7 @@ Minimum readiness conditions:
 - source materials are identified or explicitly deemed unnecessary
 - research need is assessed
 - needed research findings have been read and reflected in the slide specs
+- evidence-sensitive claims have slide-level evidence with useful source trace when available, such as `findingsFile`, `sourcePath`, `location`, `quote`, `url`, or `caveat`
 - the user has confirmed the slide plan
 - required design layouts and components have been fetched
 - every slide has a title, layout, components, and structured content
@@ -224,6 +225,8 @@ The gate checks:
 - all `requiredInputs` booleans are true
 - every slide has title, layout, components, and structured content
 - every needed research axis is `done`, `read`, or `skipped`
+
+`/revela review` distinguishes missing evidence from weak source-only evidence. A claim with no evidence remains a blocker; evidence that only names a source is reported as a warning so the agent can add source trace before writing the deck.
 
 If the gate blocks a write, Revela writes a marker file under `.opencode/revela/blocked-writes/` instead of creating or overwriting the deck HTML. This makes the failure visible to the agent while keeping the real deck file untouched.
 

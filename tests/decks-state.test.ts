@@ -92,7 +92,9 @@ describe("DECKS.json state readiness", () => {
       severity: "blocker",
       slideIndex: 2,
       claimText: "Market grows 25% annually through 2028",
+      suggestedAction: expect.stringContaining("findingsFile or sourcePath"),
     }))
+    expect(reviewed.result.issues.find((issue) => issue.type === "missing_evidence")?.suggestedAction).toContain("quote, location, url, or caveat")
   })
 
   it("allows simple non-claim slides without evidence", () => {
@@ -118,7 +120,9 @@ describe("DECKS.json state readiness", () => {
       type: "weak_evidence",
       severity: "warning",
       slideIndex: 2,
+      suggestedAction: expect.stringContaining("findingsFile or sourcePath"),
     }))
+    expect(reviewed.result.issues.find((issue) => issue.type === "weak_evidence")?.suggestedAction).toContain("quote, location, url, or caveat")
   })
 
   it("treats compact source trace fields as sufficient evidence detail", () => {

@@ -170,6 +170,8 @@ export interface ReadinessIssue {
   claimText?: string
 }
 
+const SOURCE_TRACE_ACTION = "Add slide evidence with source plus source trace such as findingsFile or sourcePath, and quote, location, url, or caveat where available; otherwise reframe the claim as an explicit assumption/opinion."
+
 export function decksStatePath(workspaceRoot: string): string {
   return join(workspaceRoot, DECKS_STATE_FILE)
 }
@@ -565,14 +567,14 @@ function computeDeckReadinessIssues(deck: DeckSpec, workspace: DecksState["works
       issues.push(blockerIssue(
         "missing_evidence",
         `Slide ${slide.index} has an evidence-sensitive claim without evidence: ${claim}`,
-        "Add a compact evidence reference to slides[].evidence or reframe the claim as an explicit assumption/opinion.",
+        SOURCE_TRACE_ACTION,
         { ...slideRef, claimText: claim },
       ))
     } else if (claim && slide.evidence.some((item) => !hasEvidenceDetail(item))) {
       issues.push(warningIssue(
         "weak_evidence",
         `Slide ${slide.index} evidence for a high-risk claim has no source trace detail: ${claim}`,
-        "Add sourcePath or findingsFile plus quote, location, URL, or caveat where available so the writing agent can ground the slide more reliably.",
+        "Add source trace detail to this evidence record: findingsFile or sourcePath plus quote, location, url, or caveat where available so the writing agent can ground the slide reliably.",
         { ...slideRef, claimText: claim },
       ))
     }
