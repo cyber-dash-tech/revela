@@ -292,15 +292,17 @@ slide plan to the user **before writing any HTML**.
 
 Format the plan as a markdown table:
 
-| # | Title | Content Summary | Layout | Components |
-|---|-------|-----------------|--------|------------|
-| 1 | Cover | Topic title, subtitle, presenter, date | `cover` | `gradient-text`, `deco-blob`, `accent-line` |
-| 2 | Table of Contents | 5 chapter headings | `toc` | `toc-list` |
-| 3 | Market Background | Key problem, 3 pain points, $4.2B TAM | `two-col` | `evidence-list`, `card` |
-| 4 | Key Metrics | Growth 85%, TAM $12B, NPS 72 | `stats` | `stat-card ×3`, `gradient-text` |
+| # | Title | Narrative Role | Content Summary | Layout | Components |
+|---|-------|----------------|-----------------|--------|------------|
+| 1 | Cover | `context` | Topic title, subtitle, presenter, date | `cover` | `gradient-text`, `deco-blob`, `accent-line` |
+| 2 | Table of Contents | `context` | 5 chapter headings | `toc` | `toc-list` |
+| 3 | Market Background | `tension` | Key problem, 3 pain points, $4.2B TAM | `two-col` | `evidence-list`, `card` |
+| 4 | Key Metrics | `evidence` | Growth 85%, TAM $12B, NPS 72 | `stats` | `stat-card ×3`, `gradient-text` |
 
 Rules for filling the table:
 - **Layout**: use the exact layout name from the Layout Index (e.g. `cover`, `two-col`, `card-grid`, `stats`)
+- **Narrative Role**: use one lightweight role when clear: `context`, `tension`, `evidence`,
+  `recommendation`, `risk`, `ask`, `appendix`, or `close`
 - **Components**: list component names from the Component Index — no CSS details
   (e.g. `card ×3`, `stat-card`, `evidence-list`, `step-flow`, `quote-block`)
 - **Content Summary**: 1 sentence of actual content — specific numbers, key points, or
@@ -319,7 +321,7 @@ Then ask:
 
 After the user confirms the slide plan, update `DECKS.json` through `revela-decks`:
 - Call `upsertDeck` to mark completed `requiredInputs` only when explicitly satisfied.
-- Call `upsertSlides` with the confirmed per-slide content, layout, components, and evidence.
+- Call `upsertSlides` with the confirmed per-slide content, narrativeRole, layout, components, and evidence.
 - Keep write readiness blocked until Phase 5 calls `revela-decks review` and the tool returns ready.
 
 ---

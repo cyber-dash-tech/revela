@@ -190,7 +190,7 @@ Create a 6-slide HTML deck on humanoid robotics supply chains. Cite the main mar
 7. 用 `/revela edit` 做可视化评论和精准修改。
 8. 用 `/revela pdf <file>` 或 `/revela pptx <file>` 导出。
 
-`/revela review` 检查的是实际生产问题：受众是否清楚、是否缺来源材料、调研是否完成、关键 claim 是否有证据、source trace 是否太弱、页面结构是否完整、design/layout 信息是否齐全。它不会写最终 deck。
+`/revela review` 检查的是实际生产问题：受众是否清楚、是否缺来源材料、调研是否完成、关键 claim 是否有证据、source trace 是否太弱、页面结构是否完整、design/layout 信息是否齐全，以及轻量叙事问题，例如 so-what 不清晰、缺少风险/假设处理或转场突兀。它不会写最终 deck。
 
 如果 Revela 阻止写入 deck，直接让 agent 运行 `/revela review`，根据报告补齐缺口后再写。这样可以避免在计划、证据或结构还不完整时覆盖真实 deck 文件。
 

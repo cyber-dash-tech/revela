@@ -102,8 +102,10 @@ describe("review command", () => {
     expect(prompt).toContain("Review Revela deck write readiness")
     expect(prompt).toContain("current workspace deck")
     expect(prompt).toContain("writeReadiness")
-    expect(prompt).toContain("evidence-readiness review")
+    expect(prompt).toContain("evidence and lightweight narrative readiness review")
     expect(prompt).toContain("unsupported numbers")
+    expect(prompt).toContain("narrativeRole")
+    expect(prompt).toContain("narrative_gap")
     expect(prompt).toContain("warnings")
     expect(prompt).toContain("requiredInputs")
     expect(prompt).toContain("DECKS.json")
@@ -262,6 +264,7 @@ describe("DECKS.json state readiness", () => {
       })
       state = upsertSlides(state, "investor-update", [{
         ...readySlide(),
+        narrativeRole: "evidence",
         content: { headline: "Revenue grows 25% annually through 2028" },
         evidence: [{
           source: "Market research",
@@ -279,6 +282,8 @@ describe("DECKS.json state readiness", () => {
       const layer = buildDecksStatePromptLayer(workspaceRoot)
 
       expect(layer).toContain("findingsFile")
+      expect(layer).toContain("narrativeRole")
+      expect(layer).toContain("evidence")
       expect(layer).toContain("researches/investor-update/market.md")
       expect(layer).toContain("sourcePath")
       expect(layer).toContain("sources/market.pdf")

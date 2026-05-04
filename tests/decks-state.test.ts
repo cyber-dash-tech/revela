@@ -170,6 +170,134 @@ describe("DECKS.json state readiness", () => {
     expect(state.decks.trace.slides[0].evidence[0]).toEqual(evidence)
   })
 
+  it("preserves narrativeRole during slide upsert", () => {
+    const state = upsertSlides(createEmptyDecksState(), "narrative", [{
+      index: 1,
+      title: "Decision Context",
+      purpose: "Frame the decision",
+      narrativeRole: "context",
+      layout: "two-col",
+      components: ["card"],
+      content: { headline: "Decision context" },
+      evidence: [],
+      status: "ready",
+    }])
+
+    expect(state.decks.narrative.slides[0].narrativeRole).toBe("context")
+  })
+
+  it("warns but stays ready when a recommendation has no risk handling", () => {
+    let state = readyState()
+    state.decks["test-two-page-deck"].slides = [
+      narrativeSlide(1, "Context", "context"),
+      narrativeSlide(2, "Evidence", "evidence"),
+      narrativeSlide(3, "Path Forward", "recommendation"),
+      narrativeSlide(4, "Decision Ask", "ask"),
+    ]
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(true)
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "narrative_gap",
+      severity: "warning",
+      message: "Recommendation has no visible risk, assumption, caveat, or tradeoff handling",
+    }))
+  })
+
+  it("warns when a multi-slide deck has no narrative roles", () => {
+    let state = readyState()
+    state.decks["test-two-page-deck"].slides = [1, 2, 3, 4].map((index) => narrativeSlide(index, `Slide ${index}`))
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(true)
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "narrative_gap",
+      severity: "warning",
+      message: "No slide narrativeRole values are recorded for a multi-slide deck",
+    }))
+  })
+
+  it("warns when a recommendation appears before support", () => {
+    let state = readyState()
+    state.decks["test-two-page-deck"].slides = [
+      narrativeSlide(1, "Path Forward", "recommendation"),
+      narrativeSlide(2, "Context", "context"),
+      narrativeSlide(3, "Risk Handling", "risk"),
+      narrativeSlide(4, "Close", "close"),
+    ]
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(true)
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "narrative_gap",
+      severity: "warning",
+      slideIndex: 1,
+      message: "Slide 1 presents a recommendation before context, tension, or evidence has been established",
+    }))
+  })
+
+  it("warns when a deck ends without a so-what or ask", () => {
+    let state = readyState()
+    state.decks["test-two-page-deck"].slides = [
+      narrativeSlide(1, "Context", "context"),
+      narrativeSlide(2, "Tension", "tension"),
+      narrativeSlide(3, "Evidence", "evidence"),
+      narrativeSlide(4, "Operating Details", "appendix"),
+    ]
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(true)
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "narrative_gap",
+      severity: "warning",
+      message: "Deck may end without a clear so-what, ask, or closing takeaway",
+    }))
+  })
+
+  it("warns when slide purposes do not frame the audience", () => {
+    let state = readyState()
+    state.decks["test-two-page-deck"].audience = "Board"
+    state.decks["test-two-page-deck"].slides = [
+      narrativeSlide(1, "Context", "context"),
+      narrativeSlide(2, "Tension", "tension"),
+      narrativeSlide(3, "Evidence", "evidence"),
+      narrativeSlide(4, "Decision Ask", "ask"),
+    ]
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(true)
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "narrative_gap",
+      severity: "warning",
+      message: "Slide purposes do not clearly frame the story for the audience: Board",
+    }))
+  })
+
+  it("warns on a jump from context directly to ask", () => {
+    let state = readyState()
+    state.decks["test-two-page-deck"].slides = [
+      narrativeSlide(1, "Context", "context"),
+      narrativeSlide(2, "Decision Ask", "ask"),
+      narrativeSlide(3, "Evidence", "evidence"),
+      narrativeSlide(4, "Close", "close"),
+    ]
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(true)
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "narrative_gap",
+      severity: "warning",
+      slideIndex: 2,
+      message: "Slide 2 jumps from context to ask without evidence, tension, or recommendation in between",
+    }))
+  })
+
   it("blocks discovered source materials when evidence-backed research is needed", () => {
     let state = readyState()
     state.decks["test-two-page-deck"].researchPlan = [{ axis: "Market", needed: true, status: "read", findingsFile: "researches/test/market.md" }]
@@ -251,6 +379,20 @@ describe("DECKS.json direct patch targets", () => {
     expect(targets).toEqual(["DECKS.json", "subdir/DECKS.json"])
   })
 })
+
+function narrativeSlide(index: number, title: string, narrativeRole?: "context" | "tension" | "evidence" | "recommendation" | "risk" | "ask" | "appendix" | "close") {
+  return {
+    index,
+    title,
+    purpose: `Clarify ${title.toLowerCase()}`,
+    narrativeRole,
+    layout: "two-col",
+    components: ["card"],
+    content: { headline: title, bullets: [`Point ${index}`] },
+    evidence: [{ source: "source.md", location: `section ${index}` }],
+    status: "ready" as const,
+  }
+}
 
 describe("source material state", () => {
   it("preserves extracted records during unchanged discovery refresh", () => {

@@ -75,6 +75,7 @@ export default tool({
       index: tool.schema.number().describe("1-based slide index."),
       title: tool.schema.string().describe("Slide title."),
       purpose: tool.schema.string().optional().describe("Narrative purpose of this slide."),
+      narrativeRole: tool.schema.enum(["context", "tension", "evidence", "recommendation", "risk", "ask", "appendix", "close"]).optional().describe("Lightweight narrative role for review guidance."),
       layout: tool.schema.string().describe("Design layout name."),
       qa: tool.schema.boolean().optional().describe("Whether the slide is marked QA-relevant deck metadata."),
       components: tool.schema.array(tool.schema.string()).describe("Design components used by this slide."),

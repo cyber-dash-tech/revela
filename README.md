@@ -191,7 +191,7 @@ Use Revela as a guided deck-production mode:
 7. Use `/revela edit` for visual comments and targeted revisions.
 8. Export with `/revela pdf <file>` or `/revela pptx <file>`.
 
-`/revela review` checks for practical readiness problems: unclear audience, missing source material, unfinished research, unsupported claims, weak source trace, incomplete slide structure, or missing design/layout information. It does not write the final deck.
+`/revela review` checks for practical readiness problems: unclear audience, missing source material, unfinished research, unsupported claims, weak source trace, incomplete slide structure, missing design/layout information, or lightweight narrative issues such as weak so-what, missing risk/assumption handling, and abrupt transitions. It does not write the final deck.
 
 If Revela blocks a deck write, ask the agent to run `/revela review`, resolve the reported gaps, and try again. This protects the deck file from being overwritten before the plan, evidence, and structure are ready.
 

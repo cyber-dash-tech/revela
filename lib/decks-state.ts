@@ -6,6 +6,7 @@ export const DECKS_STATE_FILE = "DECKS.json"
 export type DeckProductionStatus = "planning" | "blocked" | "ready" | "written"
 export type SlideProductionStatus = "planned" | "ready" | "written" | "qa_passed" | "qa_failed"
 export type WriteReadinessStatus = "blocked" | "ready" | "written"
+export type NarrativeRole = "context" | "tension" | "evidence" | "recommendation" | "risk" | "ask" | "appendix" | "close"
 
 export interface DecksState {
   version: 1
@@ -96,6 +97,7 @@ export interface SlideSpec {
   index: number
   title: string
   purpose?: string
+  narrativeRole?: NarrativeRole
   layout: string
   qa?: boolean
   components: string[]
@@ -159,6 +161,7 @@ export type ReadinessIssueType =
   | "missing_evidence"
   | "weak_evidence"
   | "source_not_processed"
+  | "narrative_gap"
 
 export interface ReadinessIssue {
   type: ReadinessIssueType
@@ -580,6 +583,8 @@ function computeDeckReadinessIssues(deck: DeckSpec, workspace: DecksState["works
     }
   }
 
+  issues.push(...computeNarrativeReadinessIssues(deck))
+
   for (const axis of deck.researchPlan) {
     if (axis.needed && axis.status !== "done" && axis.status !== "read" && axis.status !== "skipped") {
       issues.push(blockerIssue(
@@ -612,6 +617,89 @@ function computeDeckReadinessIssues(deck: DeckSpec, workspace: DecksState["works
   return issues
 }
 
+function computeNarrativeReadinessIssues(deck: DeckSpec): ReadinessIssue[] {
+  const issues: ReadinessIssue[] = []
+  const slides = deck.slides.filter((slide) => slide.index > 0).sort((a, b) => a.index - b.index)
+  if (slides.length === 0) return issues
+
+  if (slides.length >= 4 && slides.every((slide) => !slide.narrativeRole)) {
+    issues.push(warningIssue(
+      "narrative_gap",
+      "No slide narrativeRole values are recorded for a multi-slide deck",
+      "Add lightweight narrativeRole values such as context, tension, evidence, recommendation, risk, ask, appendix, or close to improve story-structure review.",
+    ))
+  }
+
+  if (slides.length >= 4 && deck.audience?.trim() && slides.every(hasWeakNarrativePurpose)) {
+    issues.push(warningIssue(
+      "narrative_gap",
+      `Slide purposes do not clearly frame the story for the audience: ${deck.audience}`,
+      "Rewrite slide purpose fields to explain what this audience should understand, believe, decide, or do after each slide.",
+    ))
+  }
+
+  const firstRecommendationIndex = slides.findIndex(isRecommendationSlide)
+  if (firstRecommendationIndex >= 0) {
+    const recommendation = slides[firstRecommendationIndex]
+    const priorSlides = slides.slice(0, firstRecommendationIndex)
+    const earlyBoundary = Math.max(1, Math.ceil(slides.length * 0.3))
+    if (firstRecommendationIndex < earlyBoundary && !priorSlides.some(hasEvidenceOrTensionRole)) {
+      issues.push(warningIssue(
+        "narrative_gap",
+        `Slide ${recommendation.index} presents a recommendation before context, tension, or evidence has been established`,
+        "Consider moving the recommendation later or adding preceding context, tension, or evidence slides so the conclusion does not arrive before support.",
+        { slideIndex: recommendation.index, slideTitle: recommendation.title },
+      ))
+    }
+
+    if (!slides.some(hasRiskOrAssumptionHandling)) {
+      issues.push(warningIssue(
+        "narrative_gap",
+        "Recommendation has no visible risk, assumption, caveat, or tradeoff handling",
+        "Add a risk/assumption/tradeoff slide or make the relevant caveats explicit before writing a decision-oriented recommendation deck.",
+        { slideIndex: recommendation.index, slideTitle: recommendation.title },
+      ))
+    }
+  }
+
+  if (slides.length >= 4 && !hasClearEnding(slides)) {
+    const last = slides[slides.length - 1]
+    issues.push(warningIssue(
+      "narrative_gap",
+      "Deck may end without a clear so-what, ask, or closing takeaway",
+      "Use the final slide or final section to state the decision, action request, recommendation, or closing takeaway explicitly.",
+      { slideIndex: last.index, slideTitle: last.title },
+    ))
+  }
+
+  const firstAskIndex = slides.findIndex(isAskSlide)
+  if (firstAskIndex === 0 && slides.length > 2) {
+    const ask = slides[firstAskIndex]
+    issues.push(warningIssue(
+      "narrative_gap",
+      `Slide ${ask.index} asks for action before the deck has established the case`,
+      "Consider moving the ask later or opening with context before requesting a decision or action.",
+      { slideIndex: ask.index, slideTitle: ask.title },
+    ))
+  } else if (firstAskIndex > 0) {
+    const contextIndex = slides.findIndex((slide) => slide.narrativeRole === "context")
+    if (contextIndex >= 0 && contextIndex < firstAskIndex) {
+      const bridgeSlides = slides.slice(contextIndex + 1, firstAskIndex)
+      if (!bridgeSlides.some((slide) => hasEvidenceOrTensionRole(slide) || isRecommendationSlide(slide))) {
+        const ask = slides[firstAskIndex]
+        issues.push(warningIssue(
+          "narrative_gap",
+          `Slide ${ask.index} jumps from context to ask without evidence, tension, or recommendation in between`,
+          "Add an evidence, tension, or recommendation bridge before the ask so the narrative transition is easier to follow.",
+          { slideIndex: ask.index, slideTitle: ask.title },
+        ))
+      }
+    }
+  }
+
+  return issues
+}
+
 function blockerIssue(type: ReadinessIssueType, message: string, suggestedAction: string, extra: Partial<ReadinessIssue> = {}): ReadinessIssue {
   return { type, severity: "blocker", message, suggestedAction, ...extra }
 }
@@ -632,6 +720,46 @@ function findEvidenceSensitiveClaim(slide: SlideSpec): string | undefined {
     .filter((item): item is string => Boolean(item))
 
   return candidates.find(isEvidenceSensitiveClaim)
+}
+
+function isRecommendationSlide(slide: SlideSpec): boolean {
+  return slide.narrativeRole === "recommendation" || /\b(recommend(?:ation|ed)?|should|must|go\/?no-go)\b|建议|必须/.test(slideSearchText(slide))
+}
+
+function isAskSlide(slide: SlideSpec): boolean {
+  return slide.narrativeRole === "ask" || /\b(ask|decision|approve|approval|next step|action required|call to action)\b|请求|决策|批准|下一步|行动/.test(slideSearchText(slide))
+}
+
+function hasEvidenceOrTensionRole(slide: SlideSpec): boolean {
+  return slide.narrativeRole === "evidence" || slide.narrativeRole === "tension"
+}
+
+function hasRiskOrAssumptionHandling(slide: SlideSpec): boolean {
+  return slide.narrativeRole === "risk" || /\b(risk|assumption|caveat|trade-?off|constraint|limitation|uncertainty)\b|风险|假设|取舍|限制|不确定|前提/.test(slideSearchText(slide))
+}
+
+function hasWeakNarrativePurpose(slide: SlideSpec): boolean {
+  const purpose = slide.purpose?.trim().toLowerCase()
+  if (!purpose) return true
+  return /^(explain|show|introduce|present|describe|overview|clarify)\b/.test(purpose) || /^(说明|展示|介绍|呈现|概述)/.test(purpose)
+}
+
+function hasClearEnding(slides: SlideSpec[]): boolean {
+  const finalSlides = slides.slice(-2)
+  return finalSlides.some((slide) => slide.narrativeRole === "recommendation" || slide.narrativeRole === "ask" || slide.narrativeRole === "close" || /\b(so what|takeaway|recommend(?:ation)?|decision|ask|next step|conclusion|close)\b|结论|建议|决策|请求|下一步|收尾|总结/.test(slideSearchText(slide)))
+}
+
+function slideSearchText(slide: SlideSpec): string {
+  return [
+    slide.title,
+    slide.purpose,
+    slide.content?.headline,
+    ...(slide.content?.body ?? []),
+    ...(slide.content?.bullets ?? []),
+  ]
+    .filter((item): item is string => Boolean(item))
+    .join("\n")
+    .toLowerCase()
 }
 
 function isEvidenceSensitiveClaim(text: string): boolean {
