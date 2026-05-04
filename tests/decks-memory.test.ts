@@ -1,4 +1,7 @@
 import { describe, expect, it } from "bun:test"
+import { mkdtempSync, rmSync } from "fs"
+import { tmpdir } from "os"
+import { join } from "path"
 import {
   extractDeckHtmlTargetsFromPatch,
   extractPatchTextArg,
@@ -11,12 +14,14 @@ import { buildReviewPrompt } from "../lib/commands/review"
 import {
   createDeckSpec,
   createEmptyDecksState,
+  buildDecksStatePromptLayer,
   defaultRequiredInputs,
   evaluateDeckStateWriteReadiness,
   extractDecksStateTargetsFromPatch,
   reviewDeckState,
   upsertDeck,
   upsertSlides,
+  writeDecksState,
   type DecksState,
   type SlideSpec,
 } from "../lib/decks-state"
@@ -57,6 +62,17 @@ describe("buildInitPrompt", () => {
     expect(prompt).toContain("already exists")
     expect(prompt).toContain("already exists")
     expect(prompt).toContain("revela-decks")
+  })
+
+  it("keeps init source trace adoption conservative", () => {
+    const prompt = buildInitPrompt({ exists: true })
+    expect(prompt).toContain("Record only visible source notes or explicit source information")
+    expect(prompt).toContain("do not infer original evidence")
+    expect(prompt).toContain("sourcePath")
+    expect(prompt).toContain("location")
+    expect(prompt).toContain("extractedTextPath")
+    expect(prompt).toContain("extractedManifestPath")
+    expect(prompt).toContain("A source material record alone is not slide evidence")
   })
 })
 
@@ -220,6 +236,62 @@ describe("DECKS.json state readiness", () => {
     expect(deck.slug).toBe("board-update")
     expect(deck.outputPath).toBe("decks/board-update.html")
     expect(deck.writeReadiness.status).toBe("blocked")
+  })
+
+  it("preserves evidence source trace in compact prompt state while truncating long snippets", () => {
+    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-decks-state-"))
+    try {
+      const longQuote = `${"Important source sentence. ".repeat(40)}end`
+      const longCaveat = `${"Scope limitation. ".repeat(30)}end`
+      let state = createEmptyDecksState()
+      state.workspace.sourceMaterials = [{
+        path: "sources/market.pdf",
+        type: "pdf",
+        status: "extracted",
+        summary: "Long summary. ".repeat(80),
+        extraction: {
+          manifestPath: ".opencode/revela/doc-materials/hash/manifest.json",
+          textPath: ".opencode/revela/doc-materials/hash/text.txt",
+          cacheDir: ".opencode/revela/doc-materials/hash",
+        },
+      }]
+      state = upsertDeck(state, {
+        slug: "investor-update",
+        goal: "Board update",
+        outputPath: "decks/investor-update.html",
+      })
+      state = upsertSlides(state, "investor-update", [{
+        ...readySlide(),
+        content: { headline: "Revenue grows 25% annually through 2028" },
+        evidence: [{
+          source: "Market research",
+          findingsFile: "researches/investor-update/market.md",
+          sourcePath: "sources/market.pdf",
+          location: "page 4, table 2",
+          quote: longQuote,
+          caveat: longCaveat,
+          extractedTextPath: ".opencode/revela/doc-materials/hash/text.txt",
+          extractedManifestPath: ".opencode/revela/doc-materials/hash/manifest.json",
+        }],
+      }])
+      writeDecksState(workspaceRoot, state)
+
+      const layer = buildDecksStatePromptLayer(workspaceRoot)
+
+      expect(layer).toContain("findingsFile")
+      expect(layer).toContain("researches/investor-update/market.md")
+      expect(layer).toContain("sourcePath")
+      expect(layer).toContain("sources/market.pdf")
+      expect(layer).toContain("location")
+      expect(layer).toContain("page 4, table 2")
+      expect(layer).toContain("extractedTextPath")
+      expect(layer).toContain("extractedManifestPath")
+      expect(layer).toContain("[truncated]")
+      expect(layer).not.toContain(longQuote)
+      expect(layer).not.toContain(longCaveat)
+    } finally {
+      rmSync(workspaceRoot, { recursive: true, force: true })
+    }
   })
 })
 

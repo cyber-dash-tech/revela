@@ -48,8 +48,10 @@ Workflow:
 6. Before extracting or deeply reading a selected document, check \`DECKS.json.workspace.sourceMaterials\`. If the same path has the same fingerprint and valid extraction paths, reuse those paths instead of repeating extraction.
 7. Read only the materials needed to form a conservative workspace memory. Do not exhaustively read every file if the workspace is large.
 8. If this conversation or the workspace contains a concrete deck task or an existing deck artifact, call \`revela-decks\` with action \`upsertDeck\` and later \`upsertSlides\` for explicit deck information. Do not pass or ask for a deck key; the tool uses the workspace folder name internally. Do not mark readiness ready during init.
-9. When adopting an existing HTML deck, analyze the artifact and create one conservative \`SlideSpec\` per identifiable slide/page. The \`SlideSpec[]\` itself is the worklist; do not create a separate target slide count.
-10. Report what was initialized or updated and list any open questions.
+9. When adopting an existing HTML deck, analyze the artifact and create one conservative \`SlideSpec\` per identifiable slide/page. Record only visible source notes or explicit source information as evidence; do not infer original evidence that is not present in the artifact.
+10. When a read or extracted source material clearly supports a specific slide claim, you may attach compact evidence fields such as \`sourcePath\`, \`location\`, \`extractedTextPath\`, or \`extractedManifestPath\`. Attach extraction cache paths only when they support that specific claim, not to every slide by default.
+11. Treat \`workspace.sourceMaterials\` as a reusable candidate index, not proof by itself. A source material record alone is not slide evidence.
+12. Report what was initialized or updated and list any open questions.
 
 Memory rules:
 - Only write facts supported by workspace files into ${DECKS_STATE_FILE} workspace state, source materials, deck memory, and open questions.

@@ -438,12 +438,56 @@ export function buildDecksStatePromptLayer(workspaceRoot: string, maxChars = 140
   const compact = {
     sourceOfTruth: DECKS_STATE_FILE,
     activeDeck: activeKey,
-    workspace: state.workspace,
-    deck: active,
+    workspace: compactWorkspaceForPrompt(state.workspace),
+    deck: active ? compactDeckForPrompt(active) : undefined,
   }
   let text = JSON.stringify(compact, null, 2)
   if (text.length > maxChars) text = text.slice(0, maxChars).trimEnd() + "\n[DECKS.json state truncated for prompt size.]"
   return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as the source of truth for the single current deck's specs, slide plan, and write readiness.\n- The decks map is compatibility storage; operate only on the current workspace deck.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- Before writing decks/*.html, the current deck must have writeReadiness.status=ready and a complete slide spec, and its outputPath must match the target file.`
+}
+
+function compactWorkspaceForPrompt(workspace: DecksState["workspace"]): DecksState["workspace"] {
+  return {
+    brief: truncatePromptText(workspace.brief),
+    sourceMaterials: workspace.sourceMaterials.map((source) => ({
+      ...source,
+      summary: truncatePromptText(source.summary),
+      bestUsedFor: truncatePromptText(source.bestUsedFor),
+    })),
+    preferences: workspace.preferences,
+    deckMemory: workspace.deckMemory,
+    openQuestions: workspace.openQuestions.map((question) => truncatePromptText(question)).filter(Boolean) as string[],
+  }
+}
+
+function compactDeckForPrompt(deck: DeckSpec): DeckSpec {
+  return {
+    ...deck,
+    slides: deck.slides.map((slide) => ({
+      ...slide,
+      content: {
+        ...slide.content,
+        speakerNotes: truncatePromptText(slide.content.speakerNotes),
+      },
+      evidence: slide.evidence.map(compactEvidenceForPrompt),
+      notes: truncatePromptText(slide.notes),
+    })),
+  }
+}
+
+function compactEvidenceForPrompt(evidence: EvidenceRef): EvidenceRef {
+  return {
+    ...evidence,
+    source: truncatePromptText(evidence.source, 180) ?? evidence.source,
+    quote: truncatePromptText(evidence.quote, 320),
+    caveat: truncatePromptText(evidence.caveat, 220),
+  }
+}
+
+function truncatePromptText(text: string | undefined, maxLength = 400): string | undefined {
+  if (!text) return undefined
+  if (text.length <= maxLength) return text
+  return `${text.slice(0, maxLength).trimEnd()}... [truncated]`
 }
 
 function normalizeDecksState(input: DecksState): DecksState {
