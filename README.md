@@ -20,8 +20,8 @@ Enable it for the current session, assign a presentation task, and the agent can
 - injects a presentation-specific system prompt into your current agent with `/revela enable`
 - builds that prompt from 3 layers: core skill, active domain, active design
 - supports workspace document discovery, transparent text extraction for `.pdf`, `.docx`, `.pptx`, and `.xlsx`, and cached embedded-material extraction for those formats
-- uses workspace `DECKS.json` as machine-readable deck memory, slide spec, and prewrite readiness state
-- blocks premature writes to `decks/*.html` until the active deck is marked structurally ready
+- keeps track of deck context, slide structure, sources, and readiness across the current workspace
+- checks for missing context, weak evidence, and incomplete structure before writing `decks/*.html`
 - runs fast design compliance checks whenever the agent writes, patches, or edits `decks/*.html`
 - opens a visual comment editor for existing decks so users can Ctrl/Cmd-click elements and send precise edit requests back to OpenCode
 - exports finished decks to PDF and editable PPTX
@@ -89,7 +89,7 @@ Enable Revela in the current session:
 /revela enable
 ```
 
-Initialize workspace deck memory when starting in a new project:
+Prepare the workspace when starting a new deck project:
 
 ```text
 /revela init
@@ -109,7 +109,7 @@ Then give the agent a deck task:
 Create a 6-slide HTML deck on humanoid robotics supply chains. Cite the main market drivers, use the active design faithfully, and save the result to decks/humanoid-robotics.html.
 ```
 
-Before the agent writes `decks/humanoid-robotics.html`, it must update `DECKS.json` through the `revela-decks` tool with the active deck, confirmed slide specs, layouts, components, and computed `writeReadiness.status: ready`. You can ask for an explicit readiness check at any time:
+If the task depends on sources, research, or a confirmed slide plan, you can ask Revela to review whether the deck has enough context, structure, and evidence before writing:
 
 ```text
 /revela review
@@ -137,8 +137,8 @@ Disable presentation mode when done:
 /revela enable                   enable presentation mode for this session
 /revela disable                  disable presentation mode
 
-/revela init                     initialize or refresh workspace DECKS.json
-/revela review                   review current deck readiness before writing HTML
+/revela init                     prepare the workspace for a deck project
+/revela review                   check whether context, structure, and evidence are ready
 /revela remember <text>          save an explicit user/workflow preference
 /revela edit                     open visual editor for the only deck in decks/
 
@@ -178,59 +178,22 @@ The enabled or disabled state is session-level only.
 
 ---
 
-## DECKS.json Memory And Readiness Gate
+## Recommended Workflow
 
-Revela uses a workspace-root `DECKS.json` file for cross-session continuity and deck production control. It is intended for tools and the LLM, not manual editing.
+Use Revela as a guided deck-production mode:
 
-It has two jobs:
+1. Enable Revela with `/revela enable`.
+2. Run `/revela init` when starting in a new project or when the workspace has changed significantly.
+3. Choose a design or domain if the default style is not right.
+4. Give the agent a clear deck task: audience, goal, language, number of slides, source requirements, and output path.
+5. Use `/revela review` before writing if the deck needs research, citations, or a confirmed slide plan.
+6. Let the agent write the HTML deck under `decks/`.
+7. Use `/revela edit` for visual comments and targeted revisions.
+8. Export with `/revela pdf <file>` or `/revela pptx <file>`.
 
-- workspace memory: stable project context, source materials, explicit user preferences, deck history, and open questions
-- active deck spec: current deck output path, prerequisites, research plan, per-slide content, layouts, components, evidence, visuals, blockers, and write readiness
+`/revela review` checks for practical readiness problems: unclear audience, missing source material, unfinished research, unsupported claims, weak source trace, incomplete slide structure, or missing design/layout information. It does not write the final deck.
 
-`DECKS.json` is the source of truth for workspace memory and deck readiness.
-
-Create or refresh it with:
-
-```text
-/revela init
-```
-
-Review the current deck state with:
-
-```text
-/revela review
-```
-
-`/revela review` does not write the final HTML deck. It reads and updates `DECKS.json` through the `revela-decks` tool, checks what is missing, and sets `writeReadiness.status` to `ready` only when the deck is ready to generate.
-
-Minimum readiness conditions:
-
-- topic, audience, language, visual style/design, and slide plan are decided
-- source materials are identified or explicitly deemed unnecessary
-- research need is assessed
-- needed research findings have been read and reflected in the slide specs
-- evidence-sensitive claims have slide-level evidence with useful source trace when available, such as `findingsFile`, `sourcePath`, `location`, `quote`, `url`, or `caveat`
-- the user has confirmed the slide plan
-- required design layouts and components have been fetched
-- every slide has a title, layout, components, and structured content
-- no blockers remain
-
-The plugin enforces this before deck HTML is written. A write or patch touching `decks/*.html` is allowed only when the matching deck in `DECKS.json` passes the readiness gate. Direct writes or patches to `DECKS.json` are blocked; use `revela-decks` instead.
-
-The gate checks:
-
-- `writeReadiness.status` is `ready`
-- `writeReadiness.blockers` is empty
-- the deck `outputPath` exactly matches the target `decks/*.html` path
-- all `requiredInputs` booleans are true
-- every slide has title, layout, components, and structured content
-- every needed research axis is `done`, `read`, or `skipped`
-
-`/revela review` distinguishes missing evidence from weak source-only evidence. A claim with no evidence remains a blocker; evidence that only names a source is reported as a warning so the agent can add source trace before writing the deck.
-
-If the gate blocks a write, Revela writes a marker file under `.opencode/revela/blocked-writes/` instead of creating or overwriting the deck HTML. This makes the failure visible to the agent while keeping the real deck file untouched.
-
-For `apply_patch`, Revela only checks whether the patch touches `decks/*.html`. If not ready, the whole patch is replaced with a blocked marker patch. The `edit` tool is not gated.
+If Revela blocks a deck write, ask the agent to run `/revela review`, resolve the reported gaps, and try again. This protects the deck file from being overwritten before the plan, evidence, and structure are ready.
 
 To remember long-term preferences, use:
 
@@ -238,7 +201,7 @@ To remember long-term preferences, use:
 /revela remember Prefer concise Chinese consulting-style decks.
 ```
 
-Do not use `remember` for temporary checklist state; temporary state belongs in the active deck spec in `DECKS.json`.
+Do not use `remember` for temporary checklist state; use it only for durable user or workflow preferences.
 
 ---
 
@@ -607,7 +570,7 @@ The editor opens in your browser. Use `Ctrl`/`Cmd` + click to reference deck ele
 
 LLM tool equivalent: `revela-edit` with no target. This lets the agent open the same editor when you say things like “I want to edit the deck”.
 
-`/revela edit` prepares minimal `DECKS.json` state for the existing HTML deck if needed, so the normal deck write gate can still protect `decks/*.html` while allowing targeted edits.
+For existing decks, `/revela edit` prepares whatever minimal project context is needed so targeted edits can still use the normal safety checks.
 
 ---
 
