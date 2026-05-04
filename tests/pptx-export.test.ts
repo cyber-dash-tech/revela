@@ -4,11 +4,13 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs"
 import { tmpdir } from "os"
 import { basename, join } from "path"
 import {
+  applySpeakerNotesToPptx,
   enforceMinimumPptxFontSize,
   extractImageAssetRefsForPptx,
   inlineImageAssets,
   resolveDomToPptxBundlePath,
 } from "../lib/pptx/export"
+import { buildPptxNotesPrompt, parsePptxArgs, resolvePptxDeck } from "../lib/commands/pptx"
 
 describe("resolveDomToPptxBundlePath", () => {
   it("resolves the browser bundle through package resolution", () => {
@@ -87,5 +89,136 @@ describe("enforceMinimumPptxFontSize", () => {
     expect(slideXml).toContain('sz="900"')
     expect(slideXml).toContain('sz="not-a-number"')
     expect(themeXml).toContain('sz="450"')
+  })
+})
+
+describe("applySpeakerNotesToPptx", () => {
+  it("writes escaped multiline speaker notes into notes slides", () => {
+    const pptxBytes = zipSync({
+      "ppt/notesSlides/notesSlide1.xml": strToU8(`<?xml version="1.0" encoding="UTF-8"?>
+        <p:notes xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+          <p:cSld>
+            <p:spTree>
+              <p:sp>
+                <p:nvSpPr><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr>
+                <p:txBody><a:p><a:r><a:t></a:t></a:r></a:p></p:txBody>
+              </p:sp>
+              <p:sp>
+                <p:nvSpPr><p:nvPr><p:ph type="sldNum"/></p:nvPr></p:nvSpPr>
+                <p:txBody><a:p><a:fld type="slidenum"><a:t>1</a:t></a:fld></a:p></p:txBody>
+              </p:sp>
+            </p:spTree>
+          </p:cSld>
+        </p:notes>`),
+      "ppt/notesSlides/notesSlide2.xml": strToU8(`<?xml version="1.0" encoding="UTF-8"?>
+        <p:notes xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+          <p:cSld><p:spTree><p:sp>
+            <p:nvSpPr><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr>
+            <p:txBody><a:p><a:r><a:t>old</a:t></a:r></a:p></p:txBody>
+          </p:sp></p:spTree></p:cSld>
+        </p:notes>`),
+    })
+
+    const patched = unzipSync(applySpeakerNotesToPptx(pptxBytes, ["Lead & learn <fast>\nSecond line", null]))
+    const slide1Notes = strFromU8(patched["ppt/notesSlides/notesSlide1.xml"])
+    const slide2Notes = strFromU8(patched["ppt/notesSlides/notesSlide2.xml"])
+
+    expect(slide1Notes).toContain("Lead &amp; learn &lt;fast&gt;\nSecond line")
+    expect(slide1Notes).not.toContain("Lead & learn <fast>")
+    expect(slide1Notes).toContain("<a:t>1</a:t>")
+    expect(slide2Notes).not.toContain("old")
+  })
+})
+
+describe("parsePptxArgs", () => {
+  it("keeps the file optional and detects --notes", () => {
+    expect(parsePptxArgs("")).toEqual({ filePath: "", notes: false })
+    expect(parsePptxArgs("--notes")).toEqual({ filePath: "", notes: true })
+    expect(parsePptxArgs("decks/demo.html --notes")).toEqual({ filePath: "decks/demo.html", notes: true })
+    expect(parsePptxArgs("--notes decks/demo.html")).toEqual({ filePath: "decks/demo.html", notes: true })
+  })
+})
+
+describe("resolvePptxDeck", () => {
+  it("uses DECKS.json active deck outputPath first", () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), "revela-pptx-command-test-"))
+
+    try {
+      mkdirSync(join(tempRoot, "decks"))
+      writeFileSync(join(tempRoot, "decks", "state.html"), "<html></html>")
+      writeFileSync(join(tempRoot, "decks", "other.html"), "<html></html>")
+      writeFileSync(join(tempRoot, "DECKS.json"), JSON.stringify({
+        version: 1,
+        activeDeck: "state",
+        workspace: { sourceMaterials: [], preferences: { user: [], workflow: [] }, deckMemory: [], openQuestions: [] },
+        decks: {
+          state: {
+            slug: "state",
+            status: "ready",
+            goal: "Demo",
+            outputPath: "decks/state.html",
+            theme: {},
+            requiredInputs: {},
+            researchPlan: [],
+            slides: [],
+            assets: [],
+            writeReadiness: { status: "ready", blockers: [] },
+          },
+        },
+      }))
+
+      expect(resolvePptxDeck(tempRoot).file).toBe("decks/state.html")
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true })
+    }
+  })
+
+  it("falls back to the only HTML file in decks/", () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), "revela-pptx-command-test-"))
+
+    try {
+      mkdirSync(join(tempRoot, "decks"))
+      writeFileSync(join(tempRoot, "decks", "only.html"), "<html></html>")
+
+      expect(resolvePptxDeck(tempRoot).file).toBe("decks/only.html")
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true })
+    }
+  })
+
+  it("requires an explicit file when multiple fallback decks exist", () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), "revela-pptx-command-test-"))
+
+    try {
+      mkdirSync(join(tempRoot, "decks"))
+      writeFileSync(join(tempRoot, "decks", "a.html"), "<html></html>")
+      writeFileSync(join(tempRoot, "decks", "b.html"), "<html></html>")
+
+      expect(() => resolvePptxDeck(tempRoot)).toThrow("multiple deck HTML files")
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true })
+    }
+  })
+})
+
+describe("buildPptxNotesPrompt", () => {
+  it("instructs the agent to pass structured speaker notes to revela-pptx", () => {
+    const prompt = buildPptxNotesPrompt({
+      file: "decks/demo.html",
+      absoluteFile: "/workspace/decks/demo.html",
+      source: "fallback",
+    })
+
+    expect(prompt).toContain("revela-pptx")
+    expect(prompt).toContain("speakerNotes")
+    expect(prompt).toContain("1-based slide indexes")
+    expect(prompt).toContain("decks/demo.html")
+    expect(prompt).toContain("presenter-facing talk tracks")
+    expect(prompt).toContain("pyramid-style communication")
+    expect(prompt).toContain("first bullet is the top-line conclusion")
+    expect(prompt).toContain("Do not label bullets as What, Why, or How")
+    expect(prompt).toContain("Do not mention design-system or implementation terms")
+    expect(prompt).toContain("stat-card")
+    expect(prompt).toContain("Avoid meta commentary")
   })
 })

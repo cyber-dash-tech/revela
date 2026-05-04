@@ -42,6 +42,6 @@ export async function handleHelp(
     `\`/revela designs-rm <name>\`   — remove an installed design\n` +
     `\`/revela domains-rm <name>\`   — remove an installed domain\n` +
     `\`/revela pdf <file>\`          — export HTML slide deck to PDF\n` +
-    `\`/revela pptx <file>\`         — export HTML slide deck to PPTX`
+    `\`/revela pptx [file] [--notes]\` — export HTML slide deck to PPTX`
   )
 }
