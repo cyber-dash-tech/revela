@@ -49,6 +49,12 @@ by the brief. Use \`workspace.sourceMaterials\`, \`workspace.deckMemory\`, and
 \`workspace.openQuestions\` as workspace context. Treat sourceMaterials as a
 candidate index, not as proof by itself.
 
+Before extracting or deeply reading a workspace document, check whether its
+\`workspace.sourceMaterials\` record has the same fingerprint and valid
+\`extraction.manifestPath\`, \`extraction.textPath\`, and \`extraction.cacheDir\`.
+When those paths are present, reuse them instead of re-extracting or rereading
+the original document.
+
 Do not write or patch \`DECKS.json\`. You only write research findings through
 \`revela-research-save\`; the primary agent decides which stable deck state to preserve.
 
@@ -63,7 +69,8 @@ Use **\`revela-workspace-scan\`** as a lightweight freshness check when needed:
 
 Do not deep-read the whole workspace. Select only files relevant to your axis.
 
-For every selected file, call **\`revela-extract-document-materials\`** first.
+For every selected PDF/PPTX/DOCX/XLSX without valid reusable extraction paths,
+call **\`revela-extract-document-materials\`** first.
 - \`pdf\`, \`pptx\`, \`docx\`, and \`xlsx\` will produce a manifest plus extracted text and any available embedded materials
 - unsupported file types will be skipped automatically
 

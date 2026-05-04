@@ -12,8 +12,10 @@ import {
   type DeckSpec,
   type RequiredInputs,
   type ResearchAxis,
+  type SourceMaterial,
   type SlideSpec,
 } from "../lib/decks-state"
+import { upsertSourceMaterial } from "../lib/source-materials"
 
 export default tool({
   description:
@@ -44,6 +46,24 @@ export default tool({
       slidePlanConfirmed: tool.schema.boolean().optional(),
       designLayoutsFetched: tool.schema.boolean().optional(),
     }).optional().describe("For upsertDeck: checklist state. Only set true for explicit completed prerequisites."),
+    sourceMaterials: tool.schema.array(tool.schema.object({
+      path: tool.schema.string().describe("Workspace-relative source material path."),
+      type: tool.schema.string().optional().describe("File type such as pdf, pptx, docx, xlsx, csv, md, or txt."),
+      size: tool.schema.number().optional().describe("File size in bytes."),
+      fingerprint: tool.schema.string().optional().describe("File fingerprint for the current version."),
+      status: tool.schema.enum(["discovered", "extracted", "summarized", "researched"]).optional().describe("How far this source has been processed."),
+      summary: tool.schema.string().optional().describe("Conservative source summary if already known."),
+      bestUsedFor: tool.schema.string().optional().describe("Short note on deck sections this material is best used for."),
+      firstSeen: tool.schema.string().optional().describe("ISO timestamp when first seen."),
+      lastChecked: tool.schema.string().optional().describe("ISO timestamp when last checked."),
+      lastExtracted: tool.schema.string().optional().describe("ISO timestamp when last extracted."),
+      lastSummarized: tool.schema.string().optional().describe("ISO timestamp when last summarized."),
+      extraction: tool.schema.object({
+        manifestPath: tool.schema.string().optional(),
+        textPath: tool.schema.string().optional(),
+        cacheDir: tool.schema.string().optional(),
+      }).optional().describe("Reusable extraction output paths, if any."),
+    })).optional().describe("For init/readiness refresh: source material records discovered in the workspace."),
     researchPlan: tool.schema.array(tool.schema.object({
       axis: tool.schema.string().describe("Research axis name."),
       needed: tool.schema.boolean().describe("Whether this research axis is needed for the deck."),
@@ -87,6 +107,9 @@ export default tool({
       const defaultSlug = workspaceDeckSlug(workspaceRoot)
 
       if (args.action === "init") {
+        for (const material of (args.sourceMaterials ?? []) as SourceMaterial[]) {
+          upsertSourceMaterial(state, material, material.status ?? "discovered")
+        }
         writeDecksState(workspaceRoot, state)
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, state }, null, 2)
       }

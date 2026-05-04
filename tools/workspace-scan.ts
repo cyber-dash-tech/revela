@@ -1,6 +1,8 @@
 import { tool } from "@opencode-ai/plugin"
 import { readdirSync, statSync, existsSync } from "fs"
 import { join, relative, extname, resolve, sep, isAbsolute } from "path"
+import { sourceMaterialMetadata } from "../lib/source-materials"
+import type { SourceMaterial } from "../lib/decks-state"
 
 const DOC_EXTENSIONS = new Set([
   ".pdf", ".docx", ".doc", ".xlsx", ".xls",
@@ -18,6 +20,8 @@ type FileEntry = {
   path: string
   type: string
   size: string
+  sizeBytes: number
+  sourceMaterial: SourceMaterial
 }
 
 /**
@@ -80,10 +84,13 @@ function scanDir(dir: string, rootDir: string, results: FileEntry[], maxDepth: n
     } else if (stat.isFile()) {
       const ext = extname(entry).toLowerCase()
       if (DOC_EXTENSIONS.has(ext)) {
+        const sourceMaterial = sourceMaterialMetadata(fullPath, rootDir)
         results.push({
           path: relative(rootDir, fullPath),
           type: typeLabel(ext),
           size: formatSize(stat.size),
+          sizeBytes: stat.size,
+          sourceMaterial: { ...sourceMaterial, status: "discovered" },
         })
       }
     }

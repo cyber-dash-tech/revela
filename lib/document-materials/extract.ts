@@ -1,5 +1,4 @@
-import { createHash } from "crypto"
-import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "fs"
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "fs"
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "path"
 import { DOMParser } from "@xmldom/xmldom"
 import { unzipSync } from "fflate"
@@ -9,6 +8,8 @@ import { extractDocx } from "../read-hooks/extractors/docx"
 import { extractPdfText } from "../read-hooks/extractors/pdf"
 import { extractPptx } from "../read-hooks/extractors/pptx"
 import { extractXlsx } from "../read-hooks/extractors/xlsx"
+import { hasDecksState, readDecksState, writeDecksState } from "../decks-state"
+import { computeSourceFingerprint, sourceMaterialMetadata, upsertSourceMaterial } from "../source-materials"
 
 export type DocumentMaterial = {
   path: string
@@ -50,6 +51,7 @@ export type PptxSlide = {
 
 export type DocumentMaterialsResult = {
   status: "processed" | "skipped" | "failed"
+  cache_status?: "hit" | "miss"
   source: string
   type: "pptx" | "docx" | "xlsx" | "pdf" | "other"
   cache_dir?: string
@@ -142,10 +144,7 @@ function workspaceRelative(filePath: string, workspaceDir: string): string {
 }
 
 function buildFingerprint(filePath: string): string {
-  const stat = statSync(filePath)
-  return createHash("sha1")
-    .update(`${resolve(filePath)}:${stat.mtimeMs}:${stat.size}`)
-    .digest("hex")
+  return computeSourceFingerprint(filePath)
 }
 
 function writeCachedBuffer(targetPath: string, buf: Uint8Array): void {
@@ -155,6 +154,33 @@ function writeCachedBuffer(targetPath: string, buf: Uint8Array): void {
 
 function materialPath(cacheDir: string, workspaceDir: string, ...segments: string[]): string {
   return workspaceRelative(join(cacheDir, ...segments), workspaceDir)
+}
+
+function updateDecksSourceMaterialIndex(
+  workspaceDir: string,
+  filePath: string,
+  result: DocumentMaterialsResult,
+): void {
+  if (!hasDecksState(workspaceDir)) return
+
+  const base = sourceMaterialMetadata(filePath, workspaceDir)
+  const extracted = result.status === "processed" && result.manifest_path && result.text_path && result.cache_dir
+  const state = readDecksState(workspaceDir)
+  const existing = state.workspace.sourceMaterials.find((entry) => entry.path === base.path)
+  const now = new Date().toISOString()
+  upsertSourceMaterial(state, {
+    ...base,
+    status: extracted ? "extracted" : "discovered",
+    extraction: extracted
+      ? {
+          manifestPath: result.manifest_path,
+          textPath: result.text_path,
+          cacheDir: result.cache_dir,
+        }
+      : undefined,
+    lastExtracted: extracted ? (result.cache_status === "hit" ? existing?.lastExtracted ?? now : now) : undefined,
+  }, extracted ? "extracted" : "discovered")
+  writeDecksState(workspaceDir, state)
 }
 
 function toRgbaBuffer(image: PdfImageData): Buffer {
@@ -672,6 +698,7 @@ async function processPdfFile(filePath: string, workspaceDir: string): Promise<D
     const manifest = JSON.parse(readFileSync(manifestPath, "utf-8")) as CachedManifest
     return {
       status: "processed",
+      cache_status: "hit",
       source: manifest.source,
       type: manifest.type,
       cache_dir: manifest.cache_dir,
@@ -696,6 +723,7 @@ async function processPdfFile(filePath: string, workspaceDir: string): Promise<D
 
   const result: DocumentMaterialsResult = {
     status: "processed",
+    cache_status: "miss",
     source: relativeSource,
     type: "pdf",
     cache_dir: workspaceRelative(cacheDir, workspaceDir),
@@ -734,6 +762,7 @@ async function processOfficeFile(filePath: string, workspaceDir: string, type: S
     const manifest = JSON.parse(readFileSync(manifestPath, "utf-8")) as CachedManifest
     return {
       status: "processed",
+      cache_status: "hit",
       source: manifest.source,
       type: manifest.type,
       cache_dir: manifest.cache_dir,
@@ -775,6 +804,7 @@ async function processOfficeFile(filePath: string, workspaceDir: string, type: S
 
   const result: DocumentMaterialsResult = {
     status: "processed",
+    cache_status: "miss",
     source: relativeSource,
     type,
     cache_dir: workspaceRelative(cacheDir, workspaceDir),
@@ -810,17 +840,21 @@ export async function extractDocumentMaterials(filePath: string, workspaceDir: s
     const type = SUPPORTED_EXTENSIONS[extname(resolvedFile).toLowerCase()]
 
     if (!type) {
-      return {
+      const result: DocumentMaterialsResult = {
         status: "skipped",
         source: relativeSource,
         type: "other",
         reason: "unsupported_file_type",
       }
+      updateDecksSourceMaterialIndex(workspaceDir, resolvedFile, result)
+      return result
     }
 
-    return type === "pdf"
+    const result = type === "pdf"
       ? await processPdfFile(resolvedFile, workspaceDir)
       : await processOfficeFile(resolvedFile, workspaceDir, type)
+    updateDecksSourceMaterialIndex(workspaceDir, resolvedFile, result)
+    return result
   } catch (e) {
     return {
       status: "failed",

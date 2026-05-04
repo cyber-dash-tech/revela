@@ -169,7 +169,14 @@ The subagent writes exactly one file through `revela-research-save`:
 
 Use `revela-decks` action `read` before scanning from scratch. Its
 `workspace.sourceMaterials` state is the workspace material index created by
-`/revela init`. Use it to choose candidate files and avoid repeated deep reading.
+`/revela init` and refreshed by document extraction. Use it to choose candidate
+files and avoid repeated deep reading.
+
+Before extracting or deeply reading a workspace document, check
+`DECKS.json.workspace.sourceMaterials`. If the same path has an unchanged
+fingerprint and valid `extraction.manifestPath`, `extraction.textPath`, and
+`extraction.cacheDir`, reuse those materials instead of extracting or reading
+the original document again.
 
 Use `revela-workspace-scan` or file tools as a freshness check when needed:
 - discover files added after `/revela init`
@@ -177,7 +184,9 @@ Use `revela-workspace-scan` or file tools as a freshness check when needed:
 - find user-provided attachments or topic-specific files not in `DECKS.json`
 
 Avoid repeated expensive work. Only call `revela-extract-document-materials` or
-deep-read files that are relevant to the current Research Brief.
+deep-read files that are relevant to the current Research Brief. If the user
+adds material mid-project, run `revela-workspace-scan` as a freshness check and
+register new `sourceMaterial` records before deciding which ones need analysis.
 
 #### After Agents Complete
 

@@ -5,6 +5,7 @@ import { join } from "path"
 import { zipSync, strToU8 } from "fflate"
 import { PDFDocument, StandardFonts } from "pdf-lib"
 import { extractDocumentMaterials } from "../lib/document-materials/extract"
+import { createEmptyDecksState, readDecksState, writeDecksState } from "../lib/decks-state"
 
 let workspaceDir = ""
 
@@ -498,6 +499,8 @@ describe("extractDocumentMaterials", () => {
     const first = await extractDocumentMaterials("deck.pptx", workspaceDir)
     const second = await extractDocumentMaterials("deck.pptx", workspaceDir)
 
+    expect(first.cache_status).toBe("miss")
+    expect(second.cache_status).toBe("hit")
     expect(first.slides?.[0].elements).toEqual([
       {
         id: "slide-01-element-01",
@@ -516,7 +519,7 @@ describe("extractDocumentMaterials", () => {
         asset_status: "kept",
       },
     ])
-    expect(second).toEqual(first)
+    expect(second).toEqual({ ...first, cache_status: "hit" })
   })
 
   it("reuses cached manifest on repeated pdf extraction", async () => {
@@ -528,8 +531,69 @@ describe("extractDocumentMaterials", () => {
     const first = await extractDocumentMaterials("cached.pdf", workspaceDir)
     const second = await extractDocumentMaterials("cached.pdf", workspaceDir)
 
+    expect(first.cache_status).toBe("miss")
+    expect(second.cache_status).toBe("hit")
     expect(first.type).toBe("pdf")
     expect(first.images).toHaveLength(1)
-    expect(second).toEqual(first)
+    expect(second).toEqual({ ...first, cache_status: "hit" })
+  })
+
+  it("records extracted materials in DECKS sourceMaterials", async () => {
+    writeDecksState(workspaceDir, createEmptyDecksState())
+    writeZip("source.pptx", {
+      "ppt/slides/slide1.xml": strToU8(
+        `<?xml version="1.0" encoding="UTF-8"?>
+        <p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+          <p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>Indexed source</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld>
+        </p:sld>`
+      ),
+    })
+
+    const first = await extractDocumentMaterials("source.pptx", workspaceDir)
+    const stateAfterFirst = readDecksState(workspaceDir)
+    const materialAfterFirst = stateAfterFirst.workspace.sourceMaterials.find((entry) => entry.path === "source.pptx")
+    const firstLastExtracted = materialAfterFirst?.lastExtracted
+
+    expect(first.cache_status).toBe("miss")
+    expect(materialAfterFirst).toMatchObject({
+      path: "source.pptx",
+      type: "pptx",
+      status: "extracted",
+      fingerprint: expect.any(String),
+      size: expect.any(Number),
+      extraction: {
+        manifestPath: first.manifest_path,
+        textPath: first.text_path,
+        cacheDir: first.cache_dir,
+      },
+      firstSeen: expect.any(String),
+      lastChecked: expect.any(String),
+      lastExtracted: expect.any(String),
+    })
+
+    const second = await extractDocumentMaterials("source.pptx", workspaceDir)
+    const materialAfterSecond = readDecksState(workspaceDir).workspace.sourceMaterials.find((entry) => entry.path === "source.pptx")
+
+    expect(second.cache_status).toBe("hit")
+    expect(materialAfterSecond?.lastExtracted).toBe(firstLastExtracted)
+  })
+
+  it("registers unsupported materials as discovered when DECKS exists", async () => {
+    writeDecksState(workspaceDir, createEmptyDecksState())
+    writeFileSync(join(workspaceDir, "notes.md"), "plain text", "utf-8")
+
+    const result = await extractDocumentMaterials("notes.md", workspaceDir)
+    const state = readDecksState(workspaceDir)
+
+    expect(result.status).toBe("skipped")
+    expect(state.workspace.sourceMaterials).toEqual([
+      expect.objectContaining({
+        path: "notes.md",
+        type: "md",
+        status: "discovered",
+        fingerprint: expect.any(String),
+        size: expect.any(Number),
+      }),
+    ])
   })
 })

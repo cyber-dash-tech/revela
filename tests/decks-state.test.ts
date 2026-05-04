@@ -8,6 +8,7 @@ import {
   upsertDeck,
   upsertSlides,
 } from "../lib/decks-state"
+import { upsertSourceMaterial } from "../lib/source-materials"
 
 describe("DECKS.json state readiness", () => {
   function readyState() {
@@ -126,5 +127,66 @@ describe("DECKS.json direct patch targets", () => {
 *** End Patch`)
 
     expect(targets).toEqual(["DECKS.json", "subdir/DECKS.json"])
+  })
+})
+
+describe("source material state", () => {
+  it("preserves extracted records during unchanged discovery refresh", () => {
+    const state = createEmptyDecksState()
+    upsertSourceMaterial(state, {
+      path: "deck.pptx",
+      type: "pptx",
+      fingerprint: "same",
+      status: "extracted",
+      extraction: {
+        manifestPath: ".opencode/revela/doc-materials/same/manifest.json",
+        textPath: ".opencode/revela/doc-materials/same/text.txt",
+        cacheDir: ".opencode/revela/doc-materials/same",
+      },
+      lastExtracted: "2026-05-03T00:00:00.000Z",
+    }, "extracted")
+
+    upsertSourceMaterial(state, {
+      path: "deck.pptx",
+      type: "pptx",
+      fingerprint: "same",
+      status: "discovered",
+    }, "discovered")
+
+    expect(state.workspace.sourceMaterials[0]).toMatchObject({
+      path: "deck.pptx",
+      status: "extracted",
+      extraction: {
+        manifestPath: ".opencode/revela/doc-materials/same/manifest.json",
+      },
+      lastExtracted: "2026-05-03T00:00:00.000Z",
+    })
+  })
+
+  it("downgrades changed fingerprints to discovered during refresh", () => {
+    const state = createEmptyDecksState()
+    upsertSourceMaterial(state, {
+      path: "deck.pptx",
+      type: "pptx",
+      fingerprint: "old",
+      status: "extracted",
+      extraction: { manifestPath: "old.json", textPath: "old.txt", cacheDir: "old" },
+      lastExtracted: "2026-05-03T00:00:00.000Z",
+    }, "extracted")
+
+    upsertSourceMaterial(state, {
+      path: "deck.pptx",
+      type: "pptx",
+      fingerprint: "new",
+      status: "discovered",
+    }, "discovered")
+
+    expect(state.workspace.sourceMaterials[0]).toMatchObject({
+      path: "deck.pptx",
+      fingerprint: "new",
+      status: "discovered",
+    })
+    expect(state.workspace.sourceMaterials[0].extraction).toBeUndefined()
+    expect(state.workspace.sourceMaterials[0].lastExtracted).toBeUndefined()
   })
 })

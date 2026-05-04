@@ -26,9 +26,20 @@ export interface DecksState {
 export interface SourceMaterial {
   path: string
   type?: string
+  size?: number
+  fingerprint?: string
+  status?: "discovered" | "extracted" | "summarized" | "researched"
+  extraction?: {
+    manifestPath?: string
+    textPath?: string
+    cacheDir?: string
+  }
   summary?: string
   bestUsedFor?: string
+  firstSeen?: string
   lastChecked?: string
+  lastExtracted?: string
+  lastSummarized?: string
 }
 
 export interface DeckMemoryEntry {

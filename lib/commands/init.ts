@@ -42,13 +42,14 @@ Workflow:
    - \`decks/**/*.pdf\`
    - \`slides/**/*.pdf\`
    Run these searches only inside the current workspace root. These are generated/output decks, not necessarily source materials. If \`decks/\` contains exactly one HTML file, treat it as the current deck artifact. If \`decks/\` contains multiple HTML files, stop and ask the user to move extra decks to separate workspaces before adopting one.
-3. Select the files that look most relevant for future slide decks. Prioritize source decks, PDFs, Word docs, spreadsheets, CSVs, Markdown, text notes, and relevant existing generated decks.
-4. For selected PDF/PPTX/DOCX/XLSX files, call \`revela-extract-document-materials\` before deciding what to summarize.
-5. Read only the materials needed to form a conservative workspace memory. Do not exhaustively read every file if the workspace is large.
-6. Call \`revela-decks\` with action \`init\` to create ${DECKS_STATE_FILE} if needed.
-7. If this conversation or the workspace contains a concrete deck task or an existing deck artifact, call \`revela-decks\` with action \`upsertDeck\` and later \`upsertSlides\` for explicit deck information. Do not pass or ask for a deck key; the tool uses the workspace folder name internally. Do not mark readiness ready during init.
-8. When adopting an existing HTML deck, analyze the artifact and create one conservative \`SlideSpec\` per identifiable slide/page. The \`SlideSpec[]\` itself is the worklist; do not create a separate target slide count.
-9. Report what was initialized or updated and list any open questions.
+3. Register or refresh source material records by passing the scan result's \`sourceMaterial\` objects to \`revela-decks\` action \`init\`. Preserve unchanged existing records; the tool will upsert by path and fingerprint.
+4. Select the files that look most relevant for future slide decks. Prioritize source decks, PDFs, Word docs, spreadsheets, CSVs, Markdown, text notes, and relevant existing generated decks.
+5. Do not automatically extract every PDF/PPTX/DOCX/XLSX during init. Call \`revela-extract-document-materials\` only for selected files that are clearly needed to form conservative workspace memory, or when the user explicitly asked to analyze the material now.
+6. Before extracting or deeply reading a selected document, check \`DECKS.json.workspace.sourceMaterials\`. If the same path has the same fingerprint and valid extraction paths, reuse those paths instead of repeating extraction.
+7. Read only the materials needed to form a conservative workspace memory. Do not exhaustively read every file if the workspace is large.
+8. If this conversation or the workspace contains a concrete deck task or an existing deck artifact, call \`revela-decks\` with action \`upsertDeck\` and later \`upsertSlides\` for explicit deck information. Do not pass or ask for a deck key; the tool uses the workspace folder name internally. Do not mark readiness ready during init.
+9. When adopting an existing HTML deck, analyze the artifact and create one conservative \`SlideSpec\` per identifiable slide/page. The \`SlideSpec[]\` itself is the worklist; do not create a separate target slide count.
+10. Report what was initialized or updated and list any open questions.
 
 Memory rules:
 - Only write facts supported by workspace files into ${DECKS_STATE_FILE} workspace state, source materials, deck memory, and open questions.
