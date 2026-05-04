@@ -205,13 +205,16 @@ explicit user intent to remember.
 
 `revela-narrative-reviewer` is a read-only OpenCode subagent, **not a tool**.
 Launch it through the Task tool with `subagent_type: "revela-narrative-reviewer"`
-when a substantial decision deck needs independent semantic critique of the
+when a substantial decision deck needs independent rubric-based critique of the
 Narrative Compiler brief and slide-plan alignment.
 
 Use it after the narrative brief and slide specs are recorded in `DECKS.json`,
 and before treating narrative quality as reviewed. The primary agent should not
 self-certify semantic narrative quality. `revela-decks review` remains the
 authoritative write-readiness gate; reviewer findings are advisory notes only.
+The reviewer uses stable finding IDs such as `NB-001`, `KC-001`, `ASK-001`, and
+`EV-001`. If the fixed rubric passes, it should return `Findings: none` rather
+than inventing optional improvements.
 
 The reviewer may read `DECKS.json`, slide specs, evidence refs, and existing
 `researches/{workspace-key}/*.md` files referenced by the deck. It must not write
@@ -351,7 +354,7 @@ Then ask:
 After the user confirms the slide plan, update `DECKS.json` through `revela-decks`:
 - Call `upsertDeck` to preserve `narrativeBrief` when available and mark completed `requiredInputs` only when explicitly satisfied.
 - Call `upsertSlides` with the confirmed per-slide content, narrativeRole, layout, components, and evidence.
-- For substantial decision decks, use Task with `subagent_type: "revela-narrative-reviewer"` for read-only advisory critique of narrativeBrief and slide-plan alignment. Do not ask the reviewer to write state or determine readiness.
+- For substantial decision decks, use Task with `subagent_type: "revela-narrative-reviewer"` for read-only rubric-based critique of narrativeBrief and slide-plan alignment. Ask for stable finding IDs and `Findings: none` when the rubric passes; do not ask the reviewer to write state, determine readiness, or brainstorm optional improvements.
 - Keep write readiness blocked until Phase 5 calls `revela-decks review` and the tool returns ready.
 
 ---

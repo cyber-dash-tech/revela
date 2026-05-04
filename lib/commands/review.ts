@@ -19,7 +19,7 @@ Goal:
 - Do not write, patch, or directly edit ${DECKS_STATE_FILE}. Use the \`revela-decks\` tool for all state changes.
 - Let \`revela-decks\` action \`review\` compute writeReadiness; do not manually set readiness to ready.
 - Treat this as an evidence and Narrative Compiler readiness review, not only a checklist review: unsupported numbers, market sizing, recommendations, competitor comparisons, technical assertions, investment conclusions, missing audience belief change, unclear decision/action, unproven key claims, unhandled objections, weak so-what, missing risk/assumption handling, or abrupt narrative transitions should be made visible before writing.
-- For substantial decision decks, use the read-only Task subagent \`revela-narrative-reviewer\` for independent semantic critique of narrative brief and slide-plan alignment. Do not self-certify semantic narrative quality in the primary agent.
+- For substantial decision decks, use the read-only Task subagent \`revela-narrative-reviewer\` for independent rubric-based critique of narrative brief and slide-plan alignment. Do not self-certify semantic narrative quality in the primary agent.
 - Treat \`revela-narrative-reviewer\` findings as advisory critique only. Do not represent them as \`revela-decks\` readiness issues, blockers, or authoritative \`writeReadiness\`.
 - Treat source trace mapping as part of evidence readiness: when research findings have been read, relevant findings should appear in slide-level \`slides[].evidence[]\` records rather than only in raw research files.
 
@@ -42,7 +42,7 @@ Workflow:
 6. Do not invent quotes, page references, locations, URLs, caveats, or extraction paths. If source trace is missing, preserve the blocker or warning and report exactly what trace is needed.
 7. Only set requiredInputs fields true when explicit conversation state, files read, research findings read, selected design, fetched layouts/components, or user confirmation supports them. Do not infer completion.
 8. For substantial decision decks, preserve a compact \`narrativeBrief\` through \`upsertDeck\` when the conversation or confirmed plan supports it. Do not invent stakeholder beliefs, objections, or risks; leave gaps visible if unknown.
-9. For substantial decision decks, launch the Task subagent with \`subagent_type: "revela-narrative-reviewer"\` after deck/slides are up to date. Ask it to read the current \`DECKS.json\`, inspect \`narrativeBrief\`, slide roles, claims, evidence refs, and referenced research findings, then return read-only advisory findings. Do not ask it to write state, call \`revela-decks review\`, or produce HTML.
+9. For substantial decision decks, launch the Task subagent with \`subagent_type: "revela-narrative-reviewer"\` after deck/slides are up to date. Ask it to read the current \`DECKS.json\`, run only its fixed rubric, use stable finding IDs, return \`Findings: none\` when all checks pass, and avoid optional pre-write improvements. Do not ask it to write state, call \`revela-decks review\`, or produce HTML.
 10. Call \`revela-decks\` action \`review\`. The tool computes and writes \`writeReadiness\` plus structured readiness issues for the current workspace deck.
 11. Briefly report whether the deck is ready. If blocked, list the exact blockers returned by the tool. If warnings exist, list them after blockers as residual risks; separate evidence/source warnings from narrative warnings when possible. If the reviewer returned findings, include them in a separate \`Narrative reviewer notes\` section and label them advisory.
 
@@ -66,7 +66,7 @@ Report format:
 - If warnings exist but the deck is otherwise ready, say the deck can be written but note the residual risks.
 - Report \`narrative_gap\` warnings as story-structure risks such as weak so-what, missing risk/assumption handling, conclusion before support, missing audience framing, or abrupt transition.
 - Do not invent evidence or silently downgrade blockers. Use the tool result as authoritative.
-- Do not convert \`revela-narrative-reviewer\` advisory findings into tool readiness issues. Keep them separate from \`revela-decks review\` blockers and warnings.
+- Do not convert \`revela-narrative-reviewer\` advisory findings into tool readiness issues. Keep them separate from \`revela-decks review\` blockers and warnings, and preserve the reviewer's stable finding IDs when reporting them.
 - When reporting weak evidence, say whether the missing trace is \`findingsFile\`, \`sourcePath\`, \`location\`, \`quote\`, \`url\`, or \`caveat\` if that is clear from the reviewed materials.
 
 Rules:
