@@ -117,6 +117,12 @@ export interface EvidenceRef {
   quote?: string
   page?: string
   url?: string
+  sourcePath?: string
+  location?: string
+  findingsFile?: string
+  caveat?: string
+  extractedTextPath?: string
+  extractedManifestPath?: string
 }
 
 export interface VisualBrief {
@@ -521,8 +527,8 @@ function computeDeckReadinessIssues(deck: DeckSpec, workspace: DecksState["works
     } else if (claim && slide.evidence.some((item) => !hasEvidenceDetail(item))) {
       issues.push(warningIssue(
         "weak_evidence",
-        `Slide ${slide.index} evidence for a high-risk claim has no quote, page, or URL detail: ${claim}`,
-        "Add quote/page/url details where available so the writing agent can ground the slide more reliably.",
+        `Slide ${slide.index} evidence for a high-risk claim has no source trace detail: ${claim}`,
+        "Add sourcePath or findingsFile plus quote, location, URL, or caveat where available so the writing agent can ground the slide more reliably.",
         { ...slideRef, claimText: claim },
       ))
     }
@@ -592,7 +598,15 @@ function hasNumericClaim(text: string): boolean {
 }
 
 function hasEvidenceDetail(evidence: EvidenceRef): boolean {
-  return Boolean(evidence.quote?.trim() || evidence.page?.trim() || evidence.url?.trim())
+  return Boolean(
+    evidence.quote?.trim() ||
+      evidence.page?.trim() ||
+      evidence.location?.trim() ||
+      evidence.url?.trim() ||
+      evidence.findingsFile?.trim() ||
+      evidence.sourcePath?.trim() ||
+      evidence.extractedTextPath?.trim()
+  )
 }
 
 const EVIDENCE_SENSITIVE_TERMS = [

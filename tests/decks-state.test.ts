@@ -113,12 +113,57 @@ describe("DECKS.json state readiness", () => {
     const reviewed = reviewDeckState(state, "test-two-page-deck")
 
     expect(reviewed.result.ready).toBe(true)
-    expect(reviewed.result.warnings).toContain("Slide 2 evidence for a high-risk claim has no quote, page, or URL detail: Revenue grows 25% annually through 2028")
+    expect(reviewed.result.warnings).toContain("Slide 2 evidence for a high-risk claim has no source trace detail: Revenue grows 25% annually through 2028")
     expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
       type: "weak_evidence",
       severity: "warning",
       slideIndex: 2,
     }))
+  })
+
+  it("treats compact source trace fields as sufficient evidence detail", () => {
+    const cases = [
+      { findingsFile: "researches/test/market.md", location: "Data section" },
+      { sourcePath: "sources/market.pdf", extractedTextPath: ".opencode/revela/doc-materials/hash/text.txt" },
+    ]
+
+    for (const evidence of cases) {
+      let state = readyState()
+      state.decks["test-two-page-deck"].slides[1].content.bullets = ["Revenue grows 25% annually through 2028"]
+      state.decks["test-two-page-deck"].slides[1].evidence = [{ source: "market source", ...evidence }]
+
+      const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+      expect(reviewed.result.ready).toBe(true)
+      expect(reviewed.result.issues.some((issue) => issue.type === "weak_evidence")).toBe(false)
+    }
+  })
+
+  it("preserves expanded evidence source-trace fields during slide upsert", () => {
+    const evidence = {
+      source: "Market research findings",
+      quote: "Revenue expanded 25% in the base case.",
+      page: "p. 4",
+      url: "https://example.com/report",
+      sourcePath: "sources/market.pdf",
+      location: "page 4, table 2",
+      findingsFile: "researches/test/market.md",
+      caveat: "Base case excludes one-time revenue.",
+      extractedTextPath: ".opencode/revela/doc-materials/hash/text.txt",
+      extractedManifestPath: ".opencode/revela/doc-materials/hash/manifest.json",
+    }
+    const state = upsertSlides(createEmptyDecksState(), "trace", [{
+      index: 1,
+      title: "Revenue",
+      purpose: "Show revenue growth",
+      layout: "two-col",
+      components: ["card"],
+      content: { headline: "Revenue grows 25% annually through 2028" },
+      evidence: [evidence],
+      status: "ready",
+    }])
+
+    expect(state.decks.trace.slides[0].evidence[0]).toEqual(evidence)
   })
 
   it("blocks discovered source materials when evidence-backed research is needed", () => {
