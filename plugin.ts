@@ -44,7 +44,7 @@ import {
   handleDomainsRemove,
 } from "./lib/commands/domains"
 import { handlePdf } from "./lib/commands/pdf"
-import { handlePptx } from "./lib/commands/pptx"
+import { buildPptxNotesPrompt, handlePptx, parsePptxArgs, resolvePptxDeck } from "./lib/commands/pptx"
 import { handleEdit } from "./lib/commands/edit"
 import { ensureEditableDeckOpenForChange } from "./lib/edit/open"
 import { hasLiveEditorSessionForFile } from "./lib/edit/server"
@@ -388,7 +388,20 @@ const server: Plugin = (async (pluginCtx) => {
         throw new Error("__REVELA_PDF_HANDLED__")
       }
       if (sub === "pptx") {
-        await handlePptx(param, send)
+        const args = parsePptxArgs(param)
+        if (args.notes) {
+          try {
+            const deck = resolvePptxDeck(workspaceRoot, args.filePath)
+            output.parts.length = 0
+            output.parts.push({ type: "text", text: buildPptxNotesPrompt(deck) } as any)
+            return
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e)
+            await send(`**PPTX export failed**\n\n\`\`\`\n${msg}\n\`\`\``)
+            throw new Error("__REVELA_PPTX_HANDLED__")
+          }
+        }
+        await handlePptx(param, send, workspaceRoot)
         throw new Error("__REVELA_PPTX_HANDLED__")
       }
 

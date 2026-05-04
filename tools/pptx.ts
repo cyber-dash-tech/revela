@@ -8,12 +8,10 @@ import { tool } from "@opencode-ai/plugin"
 import { existsSync } from "fs"
 import { resolve } from "path"
 import { exportToPptx } from "../lib/pptx/export"
-import { assertExportQAPassed } from "../lib/qa/export-gate"
 
 export default tool({
   description:
     "Export a Revela-generated HTML slide deck to editable PPTX. " +
-    "Runs pre-export QA before writing the PPTX. " +
     "Output is written beside the input file with the same basename and a .pptx extension.",
   args: {
     file: tool.schema
@@ -22,8 +20,15 @@ export default tool({
         "Path to the HTML slide file to export. " +
         "Can be absolute or relative to the current working directory."
       ),
+    speakerNotes: tool.schema.array(tool.schema.object({
+      index: tool.schema.number().describe("1-based slide index."),
+      notes: tool.schema.string().describe("Speaker notes for this slide. Use an empty string for no notes."),
+    })).optional().describe(
+      "Optional PowerPoint speaker notes to write during export. " +
+      "When provided, these override any fallback notes embedded in the HTML."
+    ),
   },
-  async execute({ file }, { directory }) {
+  async execute({ file, speakerNotes }, { directory }) {
     const filePath = resolve(directory || process.cwd(), file)
 
     if (!existsSync(filePath)) {
@@ -37,8 +42,8 @@ export default tool({
     const progress: string[] = []
 
     try {
-      await assertExportQAPassed(filePath)
       const result = await exportToPptx(filePath, {
+        speakerNotes: normalizeSpeakerNotes(speakerNotes),
         onProgress: (event) => {
           progress.push(event.message)
         },
@@ -49,3 +54,17 @@ export default tool({
     }
   },
 })
+
+function normalizeSpeakerNotes(
+  input?: Array<{ index?: number; notes?: string }>,
+): Array<string | null | undefined> | undefined {
+  if (!input) return undefined
+
+  const notesBySlide: Array<string | null | undefined> = []
+  for (const item of input) {
+    const index = Math.floor(Number(item.index ?? 0))
+    if (index < 1) continue
+    notesBySlide[index - 1] = item.notes ?? ""
+  }
+  return notesBySlide
+}

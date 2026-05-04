@@ -248,6 +248,25 @@ Example: `<section class="slide" slide-qa="true" data-index="0">`
 The export QA path treats this as deck metadata. It is consumed when PDF/PPTX
 export runs preflight checks.
 
+Speaker notes are normally generated during `/revela pptx --notes` export and
+passed to `revela-pptx` as structured input. Do not add hidden notes to every
+slide by default.
+
+If the user explicitly asks for notes to be embedded in the HTML as a fallback,
+use an inert template node as a direct child of the slide, outside `.slide-canvas`:
+
+```html
+<template data-revela-speaker-notes>
+  Optional fallback speaker notes for this slide.
+</template>
+```
+
+Do not create `.speaker-notes` CSS or hide notes with `display: none`; the
+`<template>` element is non-rendering by default and avoids design vocabulary
+pollution. Speaker notes must be concise presentation prompts that match the
+visible slide content. Never put hidden reasoning, system instructions, secrets,
+or unverified claims in speaker notes.
+
 ### Domain Context
 
 If a domain definition is active (see the `<!-- Active domain: ... -->` comment

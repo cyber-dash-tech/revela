@@ -65,6 +65,7 @@ interface SlideMeta {
   index: number
   pageNo: string | null
   title: string | null
+  speakerNotes: string | null
 }
 
 interface ExportedSlide extends SlideMeta {
@@ -100,6 +101,7 @@ export interface ExportPptxProgress {
 
 export interface ExportPptxOptions {
   onProgress?: (progress: ExportPptxProgress) => void | Promise<void>
+  speakerNotes?: Array<string | null | undefined>
 }
 
 export interface ExportPptxTimings {
@@ -474,12 +476,21 @@ async function readSlideMeta(
           .map((el) => el.textContent?.trim() ?? "")
           .find((text) => /^\d{2}$/.test(text)) ?? null
       const title = slide.querySelector("h1,h2,h3")?.textContent?.trim()?.slice(0, 120) ?? null
-      return { index, pageNo, title }
+      const directChildren = Array.from(slide.children)
+      const notesEl =
+        directChildren.find((el) => el.matches("template[data-revela-speaker-notes]")) ??
+        directChildren.find((el) => el.hasAttribute("data-revela-speaker-notes")) ??
+        directChildren.find((el) => el.classList.contains("speaker-notes"))
+      const notesText = notesEl instanceof HTMLTemplateElement
+        ? notesEl.content.textContent
+        : notesEl?.textContent
+      const speakerNotes = notesText?.replace(/\r\n?/g, "\n").trim() || null
+      return { index, pageNo, title, speakerNotes }
     })
   })
 
   return Array.from({ length: slideCount }, (_, index) => {
-    return meta[index] ?? { index, pageNo: null, title: null }
+    return meta[index] ?? { index, pageNo: null, title: null, speakerNotes: null }
   })
 }
 
@@ -551,6 +562,22 @@ async function exportSlidePptx(
   } catch (error) {
     throw formatSlideFailure(error, diagnostics.slice(diagStart ?? 0), slide)
   }
+}
+
+function applySpeakerNotesOverride(
+  slides: SlideMeta[],
+  speakerNotes?: Array<string | null | undefined>,
+): SlideMeta[] {
+  if (!speakerNotes) return slides
+
+  return slides.map((slide) => {
+    if (speakerNotes[slide.index] === undefined) return slide
+    const notes = speakerNotes[slide.index]
+    return {
+      ...slide,
+      speakerNotes: notes?.replace(/\r\n?/g, "\n").trim() || null,
+    }
+  })
 }
 
 function parseXml(xml: string) {
@@ -703,6 +730,31 @@ function setNotesSlideNumber(files: ZipFiles, notesPath: string, number: number)
   files[notesPath] = xmlToBytes(doc)
 }
 
+function setSpeakerNotes(files: ZipFiles, notesPath: string, notes: string | null): void {
+  if (!files[notesPath]) return
+
+  const doc = parseXml(getFileText(files, notesPath))
+  const shapes = Array.from(doc.getElementsByTagName("p:sp"))
+  const notesShape = shapes.find((shape) => {
+    return Array.from(shape.getElementsByTagName("p:ph")).some((ph) => ph.getAttribute("type") === "body")
+  })
+  const textNode = notesShape?.getElementsByTagName("a:t")[0]
+  if (!textNode) return
+
+  textNode.textContent = notes ?? ""
+  files[notesPath] = xmlToBytes(doc)
+}
+
+export function applySpeakerNotesToPptx(pptxBytes: Uint8Array, notesBySlide: Array<string | null | undefined>): Uint8Array {
+  const files = unzipSync(pptxBytes)
+
+  notesBySlide.forEach((notes, index) => {
+    setSpeakerNotes(files, `ppt/notesSlides/notesSlide${index + 1}.xml`, notes ?? null)
+  })
+
+  return zipSync(files)
+}
+
 function updateAppProperties(files: ZipFiles, slideCount: number): void {
   const doc = parseXml(getFileText(files, "docProps/app.xml"))
   const setText = (tag: string, value: string) => {
@@ -786,6 +838,7 @@ function mergeSingleSlidePptx(slides: ExportedSlide[]): Uint8Array {
 
   setSlideName(mergedFiles, "ppt/slides/slide1.xml", "Slide 1")
   setNotesSlideNumber(mergedFiles, "ppt/notesSlides/notesSlide1.xml", 1)
+  setSpeakerNotes(mergedFiles, "ppt/notesSlides/notesSlide1.xml", slides[0].speakerNotes)
 
   for (let slideIdx = 1; slideIdx < slides.length; slideIdx += 1) {
     const sourceFiles: ZipFiles = { ...unzipSync(slides[slideIdx].bytes) }
@@ -847,6 +900,7 @@ function mergeSingleSlidePptx(slides: ExportedSlide[]): Uint8Array {
     setSlideName(mergedFiles, slidePath, `Slide ${slideIdx + 1}`)
     if (notesPath && mergedFiles[notesPath]) {
       setNotesSlideNumber(mergedFiles, notesPath, slideIdx + 1)
+      setSpeakerNotes(mergedFiles, notesPath, slides[slideIdx].speakerNotes)
     }
 
     const relId = `rId${nextPresentationRelId}`
@@ -940,7 +994,7 @@ export async function exportToPptx(
     const failures: SlideFailure[] = []
 
     try {
-      const slides = await readSlideMeta(page, slideCount)
+      const slides = applySpeakerNotesOverride(await readSlideMeta(page, slideCount), options?.speakerNotes)
       await emitProgress(options, {
         kind: "stage",
         message: `Deck ready. Exporting ${slides.length} slide(s) to editable PPTX parts...`,
