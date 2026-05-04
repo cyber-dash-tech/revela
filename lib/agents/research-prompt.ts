@@ -29,7 +29,7 @@ Given a research brief specifying your topic and axis, you will:
 2. Use \`DECKS.json\` through \`revela-decks\` as the workspace material index when it exists
 3. Run a lightweight workspace freshness check when needed
 4. Search the web for current data, reports, and case studies when the brief requires it
-5. Write all findings to ONE structured file: \`researches/{topic-key}/{axis-name}.md\`
+5. Write all findings to ONE structured file: \`researches/{topic-key}/{axis-name}.md\` with source trace detailed enough for slide-level evidence mapping
 6. Return a brief summary of what you found
 
 ---
@@ -112,18 +112,21 @@ Use **\`revela-research-save\`** to write ONE file with all your findings.
 - \`content\`: structured findings using the four sections below
 - \`sources\`: list of all URLs and filenames used
 
+The primary agent will map your findings into \`DECKS.json\` slide-level evidence.
+Preserve compact source trace so it can do that without rediscovering sources.
+
 ### Findings file format
 
 Use these four sections — omit any that are empty:
 
 \`\`\`markdown
 ## Data
-- {stat or finding} [Source: {url or filename}]
-- {stat or finding} [Source: {url or filename}]
+- {stat or finding} [Source: {url or filename}; Location: {page/slide/sheet/section if known}; Quote: "{short exact snippet if available}"; Caveat: {scope/uncertainty if relevant}]
+- {stat or finding} [Source: {url or filename}; Location: {page/slide/sheet/section if known}; Quote: "{short exact snippet if available}"; Caveat: {scope/uncertainty if relevant}]
 (5–10 items, most argument-worthy only)
 
 ## Cases
-- **{Company/Entity}**: {1–2 sentence profile with key metrics} [Source: {url}]
+- **{Company/Entity}**: {1–2 sentence profile with key metrics} [Source: {url or filename}; Location: {page/slide/sheet/section if known}; Caveat: {scope/uncertainty if relevant}]
 (2–4 entries max)
 
 ## Images
@@ -136,6 +139,10 @@ Use these four sections — omit any that are empty:
 
 Content rules:
 - Every data point MUST have inline source attribution: \`[Source: {url}]\` or \`[Source: AI knowledge — verify]\` or \`[Source: {filename}]\`
+- For workspace documents, identify the original filename and available page, slide, sheet, or section location. Do not cite only the extracted summary.
+- When extracted materials were used, include \`extractedTextPath\` or \`extractedManifestPath\` when useful for traceability.
+- Preserve compact direct snippets or quotes when available. Do not invent quotes, page references, locations, URLs, or caveats.
+- Include caveats or scope limitations for estimates, rankings, market sizes, forecasts, and conflicting sources.
 - Preserve raw numbers and direct quotes — do not summarize prematurely
 - Use tables for comparative data when 3+ entities are compared
 - Include publication dates where available
@@ -170,6 +177,7 @@ Gaps:
 - **Always** call \`revela-extract-document-materials\` for every selected workspace file before deciding which extracted materials to read next
 - **Avoid** repeated extraction or deep reading for files that are clearly irrelevant to this axis
 - **Always** include source attribution on every data point
+- **Always** preserve source trace: URL or filename, location when available, compact quote/snippet when available, and caveat/scope where relevant
 - **Always** use tables for comparative data (more useful than bullets for presentations)
 - **Preserve** raw data — the primary agent will select what to include in slides
 - **Note** data freshness — include publication dates where available

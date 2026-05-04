@@ -42,6 +42,17 @@ describe("revela-research subagent prompt", () => {
     expect(RESEARCH_PROMPT).toContain("One file only")
   })
 
+  it("requires source trace in research findings for slide evidence mapping", () => {
+    expect(RESEARCH_PROMPT).toContain("slide-level evidence mapping")
+    expect(RESEARCH_PROMPT).toContain("Preserve compact source trace")
+    expect(RESEARCH_PROMPT).toContain("Location: {page/slide/sheet/section if known}")
+    expect(RESEARCH_PROMPT).toContain("Quote: \"{short exact snippet if available}\"")
+    expect(RESEARCH_PROMPT).toContain("Caveat: {scope/uncertainty if relevant}")
+    expect(RESEARCH_PROMPT).toContain("extractedTextPath")
+    expect(RESEARCH_PROMPT).toContain("extractedManifestPath")
+    expect(RESEARCH_PROMPT).toContain("Do not invent quotes, page references, locations, URLs, or caveats")
+  })
+
   it("no longer says workspace scan is always first", () => {
     expect(RESEARCH_PROMPT).not.toContain("Scan the workspace for existing documents (always first)")
     expect(RESEARCH_PROMPT).not.toContain("Workspace documents (always first)")

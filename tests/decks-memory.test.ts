@@ -101,6 +101,17 @@ describe("review command", () => {
     expect(prompt).toContain("Create it through the revela-decks tool")
     expect(prompt).toContain("action `review`")
   })
+
+  it("requires source trace mapping during evidence readiness review", () => {
+    const prompt = buildReviewPrompt({ exists: true })
+    expect(prompt).toContain("source trace mapping")
+    expect(prompt).toContain("researchPlan[].findingsFile")
+    expect(prompt).toContain("slides[].evidence[]")
+    expect(prompt).toContain("findingsFile")
+    expect(prompt).toContain("sourcePath")
+    expect(prompt).toContain("extractedTextPath")
+    expect(prompt).toContain("Do not invent quotes, page references, locations, URLs, caveats, or extraction paths")
+  })
 })
 
 describe("DECKS.json state readiness", () => {
