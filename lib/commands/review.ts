@@ -15,10 +15,12 @@ export function buildReviewPrompt({
 
 Goal:
 - Use ${DECKS_STATE_FILE} as the source of truth for whether the current workspace deck is ready to be written to \`decks/*.html\`.
-- Preserve the deck spec for future sessions: every slide's content, layout, components, evidence, visuals, and production status.
+- Preserve the deck spec for future sessions: every slide's content, layout, components, evidence, visuals, production status, and the 0.9 narrative compiler brief when available.
 - Do not write, patch, or directly edit ${DECKS_STATE_FILE}. Use the \`revela-decks\` tool for all state changes.
 - Let \`revela-decks\` action \`review\` compute writeReadiness; do not manually set readiness to ready.
-- Treat this as an evidence and lightweight narrative readiness review, not only a checklist review: unsupported numbers, market sizing, recommendations, competitor comparisons, technical assertions, investment conclusions, weak so-what, missing risk/assumption handling, or abrupt narrative transitions should be made visible before writing.
+- Treat this as an evidence and Narrative Compiler readiness review, not only a checklist review: unsupported numbers, market sizing, recommendations, competitor comparisons, technical assertions, investment conclusions, missing audience belief change, unclear decision/action, unproven key claims, unhandled objections, weak so-what, missing risk/assumption handling, or abrupt narrative transitions should be made visible before writing.
+- For substantial decision decks, use the read-only Task subagent \`revela-narrative-reviewer\` for independent rubric-based critique of narrative brief and slide-plan alignment. Do not self-certify semantic narrative quality in the primary agent.
+- Treat \`revela-narrative-reviewer\` findings as advisory critique only. Do not represent them as \`revela-decks\` readiness issues, blockers, or authoritative \`writeReadiness\`.
 - Treat source trace mapping as part of evidence readiness: when research findings have been read, relevant findings should appear in slide-level \`slides[].evidence[]\` records rather than only in raw research files.
 
 Current state:
@@ -33,14 +35,16 @@ Workspace boundary rules:
 
 Workflow:
 1. Call \`revela-decks\` with action \`read\` for the current workspace deck.
-2. If no current deck exists but the conversation contains enough deck context, call \`revela-decks\` action \`upsertDeck\` with goal, outputPath, theme, requiredInputs, and researchPlan. Do not invent or ask for a deck key; the tool uses the workspace folder name internally.
+2. If no current deck exists but the conversation contains enough deck context, call \`revela-decks\` action \`upsertDeck\` with goal, outputPath, theme, requiredInputs, researchPlan, and narrativeBrief if the story intent is clear. Do not invent or ask for a deck key; the tool uses the workspace folder name internally.
 3. If \`researchPlan[].status\` is \`done\` or \`read\` and \`researchPlan[].findingsFile\` exists, verify that evidence-sensitive slide claims are backed by compact \`slides[].evidence[]\` records that reference the relevant findings file or source material where known.
 4. If a user-confirmed slide plan is available, call \`revela-decks\` action \`upsertSlides\` with every slide's title, purpose, narrativeRole, layout, components, structured content, evidence, visuals, and status. Use only lightweight narrativeRole values that are clear from the plan: \`context\`, \`tension\`, \`evidence\`, \`recommendation\`, \`risk\`, \`ask\`, \`appendix\`, or \`close\`.
 5. Prefer evidence records with \`findingsFile\`, \`sourcePath\`, \`location\`, \`quote\`, \`url\`, \`caveat\`, \`extractedTextPath\`, or \`extractedManifestPath\` when those fields are known from research files or extracted workspace materials.
 6. Do not invent quotes, page references, locations, URLs, caveats, or extraction paths. If source trace is missing, preserve the blocker or warning and report exactly what trace is needed.
 7. Only set requiredInputs fields true when explicit conversation state, files read, research findings read, selected design, fetched layouts/components, or user confirmation supports them. Do not infer completion.
-8. Call \`revela-decks\` action \`review\`. The tool computes and writes \`writeReadiness\` plus structured readiness issues for the current workspace deck.
-9. Briefly report whether the deck is ready. If blocked, list the exact blockers returned by the tool. If warnings exist, list them after blockers as residual risks; separate evidence/source warnings from narrative warnings when possible.
+8. For substantial decision decks, preserve a compact \`narrativeBrief\` through \`upsertDeck\` when the conversation or confirmed plan supports it. Do not invent stakeholder beliefs, objections, or risks; leave gaps visible if unknown.
+9. For substantial decision decks, launch the Task subagent with \`subagent_type: "revela-narrative-reviewer"\` after deck/slides are up to date. Ask it to read the current \`DECKS.json\`, run only its fixed rubric, use stable finding IDs, return \`Findings: none\` when all checks pass, and avoid optional pre-write improvements. Do not ask it to write state, call \`revela-decks review\`, or produce HTML.
+10. Call \`revela-decks\` action \`review\`. The tool computes and writes \`writeReadiness\` plus structured readiness issues for the current workspace deck.
+11. Briefly report whether the deck is ready. If blocked, list the exact blockers returned by the tool. If warnings exist, list them after blockers as residual risks; separate evidence/source warnings from narrative warnings when possible. If the reviewer returned findings, include them in a separate \`Narrative reviewer notes\` section and label them advisory.
 
 Minimum conditions for \`ready\`:
 - Topic, audience, slide count, language, and visual style/design are decided.
@@ -52,6 +56,7 @@ Minimum conditions for \`ready\`:
 - ${DECKS_STATE_FILE} contains per-slide specs with content, layout, components, and evidence where applicable.
 - Evidence-sensitive slide claims have compact evidence references with source trace where available. Numeric claims and strong recommendations should not be unsupported or source-only when trace exists.
 - Multi-slide decision decks have a practical narrative flow: context/tension before evidence, recommendations after support, risk or assumption handling when recommending action, and a clear so-what or ask at the end. Narrative gaps are normally warnings, not hard blockers.
+- Substantial decision decks should have a compact \`narrativeBrief\` that states the intended audience belief change, required decision/action, key claims, likely objections, and risks/assumptions. Missing fields are narrative warnings, not hard blockers.
 - The needed design layouts and components have been fetched with \`revela-designs read\`.
 - No unresolved blockers remain.
 
@@ -61,6 +66,7 @@ Report format:
 - If warnings exist but the deck is otherwise ready, say the deck can be written but note the residual risks.
 - Report \`narrative_gap\` warnings as story-structure risks such as weak so-what, missing risk/assumption handling, conclusion before support, missing audience framing, or abrupt transition.
 - Do not invent evidence or silently downgrade blockers. Use the tool result as authoritative.
+- Do not convert \`revela-narrative-reviewer\` advisory findings into tool readiness issues. Keep them separate from \`revela-decks review\` blockers and warnings, and preserve the reviewer's stable finding IDs when reporting them.
 - When reporting weak evidence, say whether the missing trace is \`findingsFile\`, \`sourcePath\`, \`location\`, \`quote\`, \`url\`, or \`caveat\` if that is clear from the reviewed materials.
 
 Rules:

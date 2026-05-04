@@ -83,6 +83,7 @@ Create or update the active deck in `DECKS.json` through `revela-decks` actions
 `upsertDeck` and `upsertSlides`. Keep the deck spec current as work progresses:
 - `goal` — purpose and decision/context
 - `audience`, `language`, `outputPath`, and `theme`
+- `narrativeBrief` — for substantial decision decks, the 0.9 compiler brief: audience belief before/after, decisionOrAction, narrativeArc, keyClaims, objections, and risks
 - `requiredInputs` — checklist state for prewrite readiness
 - `researchPlan` — axes, status, and findings files
 - `slides` — confirmed per-slide title, purpose, layout, components, content, evidence, visuals, and status
@@ -200,6 +201,26 @@ state updates. Do not write temporary hypotheses, unsupported conclusions,
 secrets, or inferred user preferences. User and workflow preferences require
 explicit user intent to remember.
 
+#### Narrative Review via `revela-narrative-reviewer`
+
+`revela-narrative-reviewer` is a read-only OpenCode subagent, **not a tool**.
+Launch it through the Task tool with `subagent_type: "revela-narrative-reviewer"`
+when a substantial decision deck needs independent rubric-based critique of the
+Narrative Compiler brief and slide-plan alignment.
+
+Use it after the narrative brief and slide specs are recorded in `DECKS.json`,
+and before treating narrative quality as reviewed. The primary agent should not
+self-certify semantic narrative quality. `revela-decks review` remains the
+authoritative write-readiness gate; reviewer findings are advisory notes only.
+The reviewer uses stable finding IDs such as `NB-001`, `KC-001`, `ASK-001`, and
+`EV-001`. If the fixed rubric passes, it should return `Findings: none` rather
+than inventing optional improvements.
+
+The reviewer may read `DECKS.json`, slide specs, evidence refs, and existing
+`researches/{workspace-key}/*.md` files referenced by the deck. It must not write
+state, call `upsertDeck`, call `upsertSlides`, call `revela-decks review`, use
+websearch/webfetch, or generate/edit HTML.
+
 #### AI Knowledge and User Questions
 
 Use AI knowledge only to fill remaining gaps around verified sources. Mark it
@@ -213,6 +234,8 @@ already checked and what specific missing information is needed.
 
 - **NEVER** use `websearch` directly from the primary agent; delegate web research to `revela-research` subagents
 - **NEVER** call `revela-research` as a tool; use Task with `subagent_type: "revela-research"`
+- **NEVER** call `revela-narrative-reviewer` as a tool; use Task with `subagent_type: "revela-narrative-reviewer"`
+- **NEVER** present `revela-narrative-reviewer` findings as authoritative `revela-decks review` blockers or readiness issues
 - **NEVER** collapse distinct research axes into one broad agent brief when parallel focused briefs would be clearer
 - **ALWAYS** use `revela-decks` action `read` before deciding what research is needed
 - **ALWAYS** read each `researches/{workspace-key}/{axis}.md` after agents complete
@@ -287,8 +310,17 @@ core rules and the visual design below.
 
 ### Phase 4 — Presentation Plan
 
-After all research is complete and findings have been read, present a detailed
-slide plan to the user **before writing any HTML**.
+After all research is complete and findings have been read, present a compact narrative brief
+and a detailed slide plan to the user **before writing any HTML**.
+
+For substantial decision decks, first summarize the Narrative Compiler brief:
+- Audience belief before: what the audience currently believes, assumes, or does not yet understand
+- Audience belief after: what the audience should believe or understand after the deck
+- Decision/action: the approval, decision, behavior, or next step the deck should drive
+- Narrative arc: the intended story path, such as context -> tension -> evidence -> recommendation -> risk -> ask
+- Key claims: the main claims the deck must prove
+- Likely objections: stakeholder resistance or questions the story should handle
+- Risks/assumptions: caveats, tradeoffs, or uncertainty that should travel with the recommendation
 
 Format the plan as a markdown table:
 
@@ -320,8 +352,9 @@ Then ask:
 - On change request → update the table and ask again
 
 After the user confirms the slide plan, update `DECKS.json` through `revela-decks`:
-- Call `upsertDeck` to mark completed `requiredInputs` only when explicitly satisfied.
+- Call `upsertDeck` to preserve `narrativeBrief` when available and mark completed `requiredInputs` only when explicitly satisfied.
 - Call `upsertSlides` with the confirmed per-slide content, narrativeRole, layout, components, and evidence.
+- For substantial decision decks, use Task with `subagent_type: "revela-narrative-reviewer"` for read-only rubric-based critique of narrativeBrief and slide-plan alignment. Ask for stable finding IDs and `Findings: none` when the rubric passes; do not ask the reviewer to write state, determine readiness, or brainstorm optional improvements.
 - Keep write readiness blocked until Phase 5 calls `revela-decks review` and the tool returns ready.
 
 ---

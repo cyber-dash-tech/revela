@@ -186,6 +186,88 @@ describe("DECKS.json state readiness", () => {
     expect(state.decks.narrative.slides[0].narrativeRole).toBe("context")
   })
 
+  it("preserves narrativeBrief during deck upsert", () => {
+    const state = upsertDeck(createEmptyDecksState(), {
+      slug: "narrative-compiler",
+      goal: "Recommend the launch path",
+      outputPath: "decks/narrative-compiler.html",
+      narrativeBrief: {
+        audienceBeliefBefore: "The team is unsure which launch path is safer.",
+        audienceBeliefAfter: "The team agrees the phased launch is safer and faster to approve.",
+        decisionOrAction: "Approve the phased launch plan.",
+        narrativeArc: "context -> tension -> evidence -> recommendation -> risk -> ask",
+        keyClaims: ["Phased launch reduces execution risk."],
+        objections: ["A phased launch may look slower."],
+        risks: ["Customer migration needs active monitoring."],
+      },
+    })
+
+    expect(state.decks["narrative-compiler"].narrativeBrief).toMatchObject({
+      decisionOrAction: "Approve the phased launch plan.",
+      keyClaims: ["Phased launch reduces execution risk."],
+    })
+  })
+
+  it("warns when a decision-oriented deck has no narrative brief", () => {
+    let state = readyState()
+    state.decks["test-two-page-deck"].goal = "Recommend whether to approve the investment"
+    state.decks["test-two-page-deck"].slides = [
+      narrativeSlide(1, "Context", "context"),
+      narrativeSlide(2, "Evidence", "evidence"),
+      narrativeSlide(3, "Path Forward", "recommendation"),
+      narrativeSlide(4, "Decision Ask", "ask"),
+    ]
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(true)
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "narrative_gap",
+      severity: "warning",
+      message: "Narrative brief is missing for a decision-oriented deck",
+    }))
+  })
+
+  it("warns when narrative brief is missing compiler fields", () => {
+    let state = readyState()
+    state.decks["test-two-page-deck"].narrativeBrief = {
+      audienceBeliefBefore: "Board is uncertain about the recommendation.",
+      keyClaims: [],
+      objections: [],
+      risks: [],
+    }
+    state.decks["test-two-page-deck"].slides = [
+      narrativeSlide(1, "Context", "context"),
+      narrativeSlide(2, "Evidence", "evidence"),
+      narrativeSlide(3, "Path Forward", "recommendation"),
+      narrativeSlide(4, "Decision Ask", "ask"),
+    ]
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(true)
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "narrative_gap",
+      message: "Narrative brief is missing the intended audience belief after the deck",
+    }))
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "narrative_gap",
+      message: "Narrative brief is missing the decision or action the deck should drive",
+    }))
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "narrative_gap",
+      message: "Narrative brief has no key claims for the recommendation to prove",
+    }))
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "narrative_gap",
+      message: "Narrative brief has no stakeholder objections to handle",
+    }))
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "narrative_gap",
+      message: "Narrative brief has no risks, assumptions, or tradeoffs for the recommendation",
+    }))
+  })
+
   it("warns but stays ready when a recommendation has no risk handling", () => {
     let state = readyState()
     state.decks["test-two-page-deck"].slides = [

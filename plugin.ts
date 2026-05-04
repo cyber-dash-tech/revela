@@ -87,6 +87,7 @@ import pdfTool from "./tools/pdf"
 import pptxTool from "./tools/pptx"
 import createEditTool from "./tools/edit"
 import { RESEARCH_PROMPT, RESEARCH_AGENT_SIGNATURE } from "./lib/agents/research-prompt"
+import { NARRATIVE_REVIEWER_PROMPT, NARRATIVE_REVIEWER_SIGNATURE } from "./lib/agents/narrative-reviewer-prompt"
 import { formatReport, runComplianceQA } from "./lib/qa"
 import { extractDesignClasses } from "./lib/design/designs"
 import { log, childLog } from "./lib/log"
@@ -204,7 +205,7 @@ const server: Plugin = (async (pluginCtx) => {
   }
 
   return {
-    // ── Register /revela command + revela-research subagent ───────────────
+    // ── Register /revela command + Revela subagents ───────────────────────
     config: async (opencodeConfig) => {
       opencodeConfig.command ??= {}
       opencodeConfig.command["revela"] = {
@@ -234,6 +235,24 @@ const server: Plugin = (async (pluginCtx) => {
       }
       // Give revela-research explicit websearch allow (overrides global deny below)
       ;(opencodeConfig.agent["revela-research"].permission as any).websearch = "allow"
+
+      // Register the read-only narrative reviewer subagent.
+      // It can inspect workspace state and referenced files, but cannot write or browse.
+      opencodeConfig.agent["revela-narrative-reviewer"] = {
+        description: "Revela narrative reviewer — read-only critique of narrative brief and slide-plan alignment",
+        mode: "subagent",
+        prompt: NARRATIVE_REVIEWER_PROMPT,
+        permission: {
+          edit: "deny",
+          bash: {
+            "*": "deny",
+            "ls *": "allow",
+            "ls": "allow",
+          },
+          webfetch: "deny",
+          websearch: "deny",
+        } as any,
+      }
 
       // Block websearch for the primary agent globally.
       // permission.ask hook is not triggered by OpenCode (no R.trigger call in binary).
@@ -481,7 +500,7 @@ const server: Plugin = (async (pluginCtx) => {
 
     // ── Inject three-layer prompt when enabled ─────────────────────────────
     // Skip injection for:
-    //   1. revela-research subagent (has its own research-focused prompt)
+    //   1. Revela subagents (they have focused prompts)
     //   2. OpenCode internal agents (title, summary, compaction)
     "experimental.chat.system.transform": async (input, output) => {
       if (!ctx.enabled) return
@@ -497,6 +516,10 @@ const server: Plugin = (async (pluginCtx) => {
           return
         }
         ctx.isResearchAgent = false
+
+        // Skip revela-narrative-reviewer subagent — it is read-only critique,
+        // not a deck-writing agent and not a research agent.
+        if (systemText.includes(NARRATIVE_REVIEWER_SIGNATURE)) return
 
         // Skip OpenCode internal system agents (title generator, summary, compaction)
         if (INTERNAL_AGENT_SIGNATURES.some((sig) => systemText.includes(sig))) return

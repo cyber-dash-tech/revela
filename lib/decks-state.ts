@@ -58,6 +58,7 @@ export interface DeckSpec {
   audience?: string
   language?: string
   outputPath: string
+  narrativeBrief?: NarrativeBrief
   theme: {
     design?: string
     domain?: string
@@ -71,6 +72,16 @@ export interface DeckSpec {
     blockers: string[]
     lastReviewedAt?: string
   }
+}
+
+export interface NarrativeBrief {
+  audienceBeliefBefore?: string
+  audienceBeliefAfter?: string
+  decisionOrAction?: string
+  narrativeArc?: string
+  keyClaims: string[]
+  objections: string[]
+  risks: string[]
 }
 
 export interface RequiredInputs {
@@ -242,6 +253,7 @@ export function createDeckSpec(input: Partial<DeckSpec> & { slug: string }): Dec
     audience: input.audience,
     language: input.language,
     outputPath: normalizeDeckPath(input.outputPath || `decks/${slug}.html`),
+    narrativeBrief: normalizeNarrativeBrief(input.narrativeBrief),
     theme: input.theme ?? {},
     requiredInputs: defaultRequiredInputs(input.requiredInputs),
     researchPlan: input.researchPlan ?? [],
@@ -468,6 +480,7 @@ function compactWorkspaceForPrompt(workspace: DecksState["workspace"]): DecksSta
 function compactDeckForPrompt(deck: DeckSpec): DeckSpec {
   return {
     ...deck,
+    narrativeBrief: compactNarrativeBriefForPrompt(deck.narrativeBrief),
     slides: deck.slides.map((slide) => ({
       ...slide,
       content: {
@@ -477,6 +490,19 @@ function compactDeckForPrompt(deck: DeckSpec): DeckSpec {
       evidence: slide.evidence.map(compactEvidenceForPrompt),
       notes: truncatePromptText(slide.notes),
     })),
+  }
+}
+
+function compactNarrativeBriefForPrompt(brief: NarrativeBrief | undefined): NarrativeBrief | undefined {
+  if (!brief) return undefined
+  return {
+    audienceBeliefBefore: truncatePromptText(brief.audienceBeliefBefore),
+    audienceBeliefAfter: truncatePromptText(brief.audienceBeliefAfter),
+    decisionOrAction: truncatePromptText(brief.decisionOrAction),
+    narrativeArc: truncatePromptText(brief.narrativeArc),
+    keyClaims: brief.keyClaims.map((claim) => truncatePromptText(claim)).filter(Boolean) as string[],
+    objections: brief.objections.map((objection) => truncatePromptText(objection)).filter(Boolean) as string[],
+    risks: brief.risks.map((risk) => truncatePromptText(risk)).filter(Boolean) as string[],
   }
 }
 
@@ -621,6 +647,53 @@ function computeNarrativeReadinessIssues(deck: DeckSpec): ReadinessIssue[] {
   const issues: ReadinessIssue[] = []
   const slides = deck.slides.filter((slide) => slide.index > 0).sort((a, b) => a.index - b.index)
   if (slides.length === 0) return issues
+  const decisionOriented = isDecisionOrientedDeck(deck, slides)
+
+  if (decisionOriented && !hasNarrativeBriefContent(deck.narrativeBrief)) {
+    issues.push(warningIssue(
+      "narrative_gap",
+      "Narrative brief is missing for a decision-oriented deck",
+      "Add a 0.9 narrativeBrief with audience belief before/after, decisionOrAction, narrativeArc, keyClaims, objections, and risks so review can compile the deck against explicit story intent.",
+    ))
+  }
+
+  if (decisionOriented && deck.narrativeBrief) {
+    if (!deck.narrativeBrief.audienceBeliefAfter?.trim()) {
+      issues.push(warningIssue(
+        "narrative_gap",
+        "Narrative brief is missing the intended audience belief after the deck",
+        "Set narrativeBrief.audienceBeliefAfter so the deck can be reviewed against the belief change it is meant to create.",
+      ))
+    }
+    if (!deck.narrativeBrief.decisionOrAction?.trim() && slides.some((slide) => isAskSlide(slide) || isRecommendationSlide(slide))) {
+      issues.push(warningIssue(
+        "narrative_gap",
+        "Narrative brief is missing the decision or action the deck should drive",
+        "Set narrativeBrief.decisionOrAction so recommendation and ask slides have an explicit communication target.",
+      ))
+    }
+    if (deck.narrativeBrief.keyClaims.length === 0 && slides.some(isRecommendationSlide)) {
+      issues.push(warningIssue(
+        "narrative_gap",
+        "Narrative brief has no key claims for the recommendation to prove",
+        "Add narrativeBrief.keyClaims that capture the main claims the deck must support with slide evidence.",
+      ))
+    }
+    if (deck.narrativeBrief.objections.length === 0 && slides.some((slide) => isAskSlide(slide) || isRecommendationSlide(slide))) {
+      issues.push(warningIssue(
+        "narrative_gap",
+        "Narrative brief has no stakeholder objections to handle",
+        "Add likely objections or questions to narrativeBrief.objections so the story can anticipate resistance before the ask.",
+      ))
+    }
+    if (deck.narrativeBrief.risks.length === 0 && slides.some(isRecommendationSlide)) {
+      issues.push(warningIssue(
+        "narrative_gap",
+        "Narrative brief has no risks, assumptions, or tradeoffs for the recommendation",
+        "Add risks, assumptions, caveats, or tradeoffs to narrativeBrief.risks so the recommendation does not overclaim certainty.",
+      ))
+    }
+  }
 
   if (slides.length >= 4 && slides.every((slide) => !slide.narrativeRole)) {
     issues.push(warningIssue(
@@ -698,6 +771,26 @@ function computeNarrativeReadinessIssues(deck: DeckSpec): ReadinessIssue[] {
   }
 
   return issues
+}
+
+function isDecisionOrientedDeck(deck: DeckSpec, slides: SlideSpec[]): boolean {
+  return Boolean(
+    deck.narrativeBrief?.decisionOrAction?.trim() ||
+      slides.some((slide) => isAskSlide(slide) || isRecommendationSlide(slide)) ||
+      /\b(decision|approve|approval|recommend(?:ation)?|go\/?no-go|action)\b|决策|批准|建议|行动/.test(deck.goal.toLowerCase()),
+  )
+}
+
+function hasNarrativeBriefContent(brief: NarrativeBrief | undefined): boolean {
+  return Boolean(
+    brief?.audienceBeliefBefore?.trim() ||
+      brief?.audienceBeliefAfter?.trim() ||
+      brief?.decisionOrAction?.trim() ||
+      brief?.narrativeArc?.trim() ||
+      brief?.keyClaims.length ||
+      brief?.objections.length ||
+      brief?.risks.length,
+  )
 }
 
 function blockerIssue(type: ReadinessIssueType, message: string, suggestedAction: string, extra: Partial<ReadinessIssue> = {}): ReadinessIssue {
@@ -837,6 +930,38 @@ function normalizeSlides(slides: SlideSpec[]): SlideSpec[] {
       status: slide.status ?? "planned",
     }))
     .sort((a, b) => a.index - b.index)
+}
+
+function normalizeNarrativeBrief(brief: NarrativeBrief | undefined): NarrativeBrief | undefined {
+  if (!brief) return undefined
+  const normalized: NarrativeBrief = {
+    audienceBeliefBefore: cleanOptionalText(brief.audienceBeliefBefore),
+    audienceBeliefAfter: cleanOptionalText(brief.audienceBeliefAfter),
+    decisionOrAction: cleanOptionalText(brief.decisionOrAction),
+    narrativeArc: cleanOptionalText(brief.narrativeArc),
+    keyClaims: normalizeTextList(brief.keyClaims),
+    objections: normalizeTextList(brief.objections),
+    risks: normalizeTextList(brief.risks),
+  }
+  if (
+    !normalized.audienceBeliefBefore &&
+    !normalized.audienceBeliefAfter &&
+    !normalized.decisionOrAction &&
+    !normalized.narrativeArc &&
+    normalized.keyClaims.length === 0 &&
+    normalized.objections.length === 0 &&
+    normalized.risks.length === 0
+  ) return undefined
+  return normalized
+}
+
+function normalizeTextList(values: string[] | undefined): string[] {
+  return [...new Set((values ?? []).map(cleanOptionalText).filter(Boolean) as string[])]
+}
+
+function cleanOptionalText(value: string | undefined): string | undefined {
+  const text = String(value ?? "").trim()
+  return text || undefined
 }
 
 function hasSlideContent(slide: SlideSpec): boolean {

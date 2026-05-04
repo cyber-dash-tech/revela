@@ -102,8 +102,18 @@ describe("review command", () => {
     expect(prompt).toContain("Review Revela deck write readiness")
     expect(prompt).toContain("current workspace deck")
     expect(prompt).toContain("writeReadiness")
-    expect(prompt).toContain("evidence and lightweight narrative readiness review")
+    expect(prompt).toContain("evidence and Narrative Compiler readiness review")
     expect(prompt).toContain("unsupported numbers")
+    expect(prompt).toContain("narrativeBrief")
+    expect(prompt).toContain("audience belief change")
+    expect(prompt).toContain("decision/action")
+    expect(prompt).toContain("subagent_type: \"revela-narrative-reviewer\"")
+    expect(prompt).toContain("Do not self-certify semantic narrative quality")
+    expect(prompt).toContain("findings as advisory critique only")
+    expect(prompt).toContain("run only its fixed rubric")
+    expect(prompt).toContain("stable finding IDs")
+    expect(prompt).toContain("Findings: none")
+    expect(prompt).toContain("avoid optional pre-write improvements")
     expect(prompt).toContain("narrativeRole")
     expect(prompt).toContain("narrative_gap")
     expect(prompt).toContain("warnings")
@@ -261,6 +271,15 @@ describe("DECKS.json state readiness", () => {
         slug: "investor-update",
         goal: "Board update",
         outputPath: "decks/investor-update.html",
+        narrativeBrief: {
+          audienceBeliefBefore: "Board needs confidence in the recommendation.",
+          audienceBeliefAfter: "Board understands why the recommendation is evidence-backed.",
+          decisionOrAction: "Approve the recommended path.",
+          narrativeArc: "context -> evidence -> recommendation -> ask",
+          keyClaims: ["Revenue growth supports the recommendation."],
+          objections: ["Growth may not persist."],
+          risks: ["Base case excludes one-time revenue."],
+        },
       })
       state = upsertSlides(state, "investor-update", [{
         ...readySlide(),
@@ -282,6 +301,10 @@ describe("DECKS.json state readiness", () => {
       const layer = buildDecksStatePromptLayer(workspaceRoot)
 
       expect(layer).toContain("findingsFile")
+      expect(layer).toContain("narrativeBrief")
+      expect(layer).toContain("audienceBeliefAfter")
+      expect(layer).toContain("decisionOrAction")
+      expect(layer).toContain("keyClaims")
       expect(layer).toContain("narrativeRole")
       expect(layer).toContain("evidence")
       expect(layer).toContain("researches/investor-update/market.md")
