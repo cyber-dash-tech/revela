@@ -140,6 +140,28 @@ export interface DeckStateReadinessResult {
   status?: WriteReadinessStatus
   blocker: string
   blockers: string[]
+  warnings: string[]
+  issues: ReadinessIssue[]
+}
+
+export type ReadinessSeverity = "blocker" | "warning"
+
+export type ReadinessIssueType =
+  | "missing_required_input"
+  | "missing_slide_spec"
+  | "research_not_ready"
+  | "missing_evidence"
+  | "weak_evidence"
+  | "source_not_processed"
+
+export interface ReadinessIssue {
+  type: ReadinessIssueType
+  severity: ReadinessSeverity
+  message: string
+  suggestedAction: string
+  slideIndex?: number
+  slideTitle?: string
+  claimText?: string
 }
 
 export function decksStatePath(workspaceRoot: string): string {
@@ -279,11 +301,20 @@ export function reviewDeckState(state: DecksState, slug?: string): { state: Deck
         slug: missing,
         blocker: `Deck ${missing} does not exist in ${DECKS_STATE_FILE}.`,
         blockers: [`Deck ${missing} does not exist in ${DECKS_STATE_FILE}.`],
+        warnings: [],
+        issues: [{
+          type: "missing_slide_spec",
+          severity: "blocker",
+          message: `Deck ${missing} does not exist in ${DECKS_STATE_FILE}.`,
+          suggestedAction: "Create the current workspace deck spec with revela-decks upsertDeck before reviewing readiness.",
+        }],
       },
     }
   }
 
-  const blockers = computeDeckBlockers(deck)
+  const issues = computeDeckReadinessIssues(deck, normalized.workspace)
+  const blockers = issues.filter((issue) => issue.severity === "blocker").map((issue) => issue.message)
+  const warnings = issues.filter((issue) => issue.severity === "warning").map((issue) => issue.message)
   deck.writeReadiness = {
     status: blockers.length === 0 ? "ready" : "blocked",
     blockers,
@@ -300,6 +331,8 @@ export function reviewDeckState(state: DecksState, slug?: string): { state: Deck
       status: deck.writeReadiness.status,
       blocker: blockers.join("; "),
       blockers,
+      warnings,
+      issues,
     },
   }
 }
@@ -321,18 +354,48 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
       slug: targetSlug,
       blocker: currentDeckBlocker(normalized),
       blockers: [currentDeckBlocker(normalized)],
+      warnings: [],
+      issues: [{
+        type: "missing_slide_spec",
+        severity: "blocker",
+        message: currentDeckBlocker(normalized),
+        suggestedAction: "Create or select the current workspace deck through revela-decks before writing deck HTML.",
+      }],
     }
   }
 
-  const blockers = computeDeckBlockers(deck)
+  const issues = computeDeckReadinessIssues(deck, normalized.workspace)
+  const blockers = issues.filter((issue) => issue.severity === "blocker").map((issue) => issue.message)
+  const warnings = issues.filter((issue) => issue.severity === "warning").map((issue) => issue.message)
   if (normalizeDeckPath(deck.outputPath) !== targetPath) {
-    blockers.unshift(`Deck outputPath is ${deck.outputPath || "missing"}, not ${targetPath}`)
+    const message = `Deck outputPath is ${deck.outputPath || "missing"}, not ${targetPath}`
+    blockers.unshift(message)
+    issues.unshift({
+      type: "missing_slide_spec",
+      severity: "blocker",
+      message,
+      suggestedAction: "Update deck.outputPath through revela-decks or write to the reviewed outputPath.",
+    })
   }
   if (deck.writeReadiness.status !== "ready") {
-    blockers.unshift(`Deck writeReadiness is ${deck.writeReadiness.status || "missing"}, not ready`)
+    const message = `Deck writeReadiness is ${deck.writeReadiness.status || "missing"}, not ready`
+    blockers.unshift(message)
+    issues.unshift({
+      type: "missing_slide_spec",
+      severity: "blocker",
+      message,
+      suggestedAction: "Run /revela review and resolve all readiness blockers before writing deck HTML.",
+    })
   }
   if (deck.writeReadiness.blockers.length > 0) {
-    blockers.unshift(`Deck still has readiness blockers: ${deck.writeReadiness.blockers.join("; ")}`)
+    const message = `Deck still has readiness blockers: ${deck.writeReadiness.blockers.join("; ")}`
+    blockers.unshift(message)
+    issues.unshift({
+      type: "missing_slide_spec",
+      severity: "blocker",
+      message,
+      suggestedAction: "Resolve the stored writeReadiness blockers and rerun /revela review.",
+    })
   }
 
   return {
@@ -341,6 +404,8 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
     status: deck.writeReadiness.status,
     blocker: blockers.join("; "),
     blockers,
+    warnings,
+    issues,
   }
 }
 
@@ -416,30 +481,161 @@ function currentDeckBlocker(state: DecksState): string {
   return `${DECKS_STATE_FILE} contains multiple deck records and no activeDeck. Select one current deck explicitly or move extra decks to separate workspaces.`
 }
 
-function computeDeckBlockers(deck: DeckSpec): string[] {
-  const blockers: string[] = []
-  if (!deck.goal.trim()) blockers.push("Deck goal is missing")
-  if (!isDeckHtmlPath(deck.outputPath)) blockers.push(`outputPath must be decks/*.html, got ${deck.outputPath || "missing"}`)
-
-  for (const [key, value] of Object.entries(deck.requiredInputs) as Array<[keyof RequiredInputs, boolean]>) {
-    if (value !== true) blockers.push(`requiredInputs.${key} is not true`)
+function computeDeckReadinessIssues(deck: DeckSpec, workspace: DecksState["workspace"]): ReadinessIssue[] {
+  const issues: ReadinessIssue[] = []
+  if (!deck.goal.trim()) issues.push(blockerIssue("missing_slide_spec", "Deck goal is missing", "Set the deck goal through revela-decks upsertDeck."))
+  if (!isDeckHtmlPath(deck.outputPath)) {
+    issues.push(blockerIssue(
+      "missing_slide_spec",
+      `outputPath must be decks/*.html, got ${deck.outputPath || "missing"}`,
+      "Set outputPath to the target decks/*.html file through revela-decks upsertDeck.",
+    ))
   }
 
-  if (deck.slides.length === 0) blockers.push("slides are missing")
+  for (const [key, value] of Object.entries(deck.requiredInputs) as Array<[keyof RequiredInputs, boolean]>) {
+    if (value !== true) {
+      issues.push(blockerIssue(
+        "missing_required_input",
+        `requiredInputs.${key} is not true`,
+        `Complete and explicitly record requiredInputs.${key} before writing the deck.`,
+      ))
+    }
+  }
+
+  if (deck.slides.length === 0) issues.push(blockerIssue("missing_slide_spec", "slides are missing", "Add the confirmed slide plan through revela-decks upsertSlides."))
   for (const slide of deck.slides) {
-    if (!slide.title.trim()) blockers.push(`Slide ${slide.index} title is missing`)
-    if (!slide.layout.trim()) blockers.push(`Slide ${slide.index} layout is missing`)
-    if (slide.components.length === 0) blockers.push(`Slide ${slide.index} components are missing`)
-    if (!hasSlideContent(slide)) blockers.push(`Slide ${slide.index} content is missing`)
+    const slideRef = { slideIndex: slide.index, slideTitle: slide.title }
+    if (!slide.title.trim()) issues.push(blockerIssue("missing_slide_spec", `Slide ${slide.index} title is missing`, "Add a slide title to the slide spec.", slideRef))
+    if (!slide.layout.trim()) issues.push(blockerIssue("missing_slide_spec", `Slide ${slide.index} layout is missing`, "Fetch and record the intended design layout for this slide.", slideRef))
+    if (slide.components.length === 0) issues.push(blockerIssue("missing_slide_spec", `Slide ${slide.index} components are missing`, "Record the design components needed for this slide.", slideRef))
+    if (!hasSlideContent(slide)) issues.push(blockerIssue("missing_slide_spec", `Slide ${slide.index} content is missing`, "Add structured headline/body/bullets/data content to the slide spec.", slideRef))
+
+    const claim = findEvidenceSensitiveClaim(slide)
+    if (claim && slide.evidence.length === 0) {
+      issues.push(blockerIssue(
+        "missing_evidence",
+        `Slide ${slide.index} has an evidence-sensitive claim without evidence: ${claim}`,
+        "Add a compact evidence reference to slides[].evidence or reframe the claim as an explicit assumption/opinion.",
+        { ...slideRef, claimText: claim },
+      ))
+    } else if (claim && slide.evidence.some((item) => !hasEvidenceDetail(item))) {
+      issues.push(warningIssue(
+        "weak_evidence",
+        `Slide ${slide.index} evidence for a high-risk claim has no quote, page, or URL detail: ${claim}`,
+        "Add quote/page/url details where available so the writing agent can ground the slide more reliably.",
+        { ...slideRef, claimText: claim },
+      ))
+    }
   }
 
   for (const axis of deck.researchPlan) {
     if (axis.needed && axis.status !== "done" && axis.status !== "read" && axis.status !== "skipped") {
-      blockers.push(`Research axis ${axis.axis || "unnamed"} is needed but ${axis.status}`)
+      issues.push(blockerIssue(
+        "research_not_ready",
+        `Research axis ${axis.axis || "unnamed"} is needed but ${axis.status}`,
+        "Complete, read, or explicitly skip this research axis before writing the deck.",
+      ))
     }
   }
-  return blockers
+
+  const hasNeededResearch = deck.researchPlan.some((axis) => axis.needed && axis.status !== "skipped")
+  for (const material of workspace.sourceMaterials ?? []) {
+    if (material.status !== "discovered") continue
+    const message = `Source material ${material.path} has been identified but not extracted, summarized, or researched`
+    if (hasNeededResearch) {
+      issues.push(blockerIssue(
+        "source_not_processed",
+        message,
+        "Extract, summarize, research, or explicitly exclude this source before writing evidence-backed slides.",
+      ))
+    } else {
+      issues.push(warningIssue(
+        "source_not_processed",
+        message,
+        "Consider extracting or excluding this source if it may support the deck narrative.",
+      ))
+    }
+  }
+
+  return issues
 }
+
+function blockerIssue(type: ReadinessIssueType, message: string, suggestedAction: string, extra: Partial<ReadinessIssue> = {}): ReadinessIssue {
+  return { type, severity: "blocker", message, suggestedAction, ...extra }
+}
+
+function warningIssue(type: ReadinessIssueType, message: string, suggestedAction: string, extra: Partial<ReadinessIssue> = {}): ReadinessIssue {
+  return { type, severity: "warning", message, suggestedAction, ...extra }
+}
+
+function findEvidenceSensitiveClaim(slide: SlideSpec): string | undefined {
+  const candidates = [
+    slide.title,
+    slide.purpose,
+    slide.content?.headline,
+    ...(slide.content?.body ?? []),
+    ...(slide.content?.bullets ?? []),
+  ]
+    .map((item) => item?.trim())
+    .filter((item): item is string => Boolean(item))
+
+  return candidates.find(isEvidenceSensitiveClaim)
+}
+
+function isEvidenceSensitiveClaim(text: string): boolean {
+  const normalized = text.toLowerCase()
+  return hasNumericClaim(normalized) || EVIDENCE_SENSITIVE_TERMS.some((pattern) => pattern.test(normalized))
+}
+
+function hasNumericClaim(text: string): boolean {
+  return /(?:[$¥€£]\s?\d|\d+(?:\.\d+)?\s?(?:%|x|倍|万|亿|m|mn|million|b|bn|billion|k|千|年|months?|days?|users?|customers?|revenue|margin|cagr|tam|sam|som)\b|\b20\d{2}\b)/i.test(text)
+}
+
+function hasEvidenceDetail(evidence: EvidenceRef): boolean {
+  return Boolean(evidence.quote?.trim() || evidence.page?.trim() || evidence.url?.trim())
+}
+
+const EVIDENCE_SENSITIVE_TERMS = [
+  /\bmarket size\b/,
+  /\bcagr\b/,
+  /\btam\b/,
+  /\bsam\b/,
+  /\bsom\b/,
+  /\brecommend(?:ation|ed)?\b/,
+  /\bshould\b/,
+  /\bmust\b/,
+  /\bgo\/?no-go\b/,
+  /\bvs\.?\b/,
+  /\bbetter than\b/,
+  /\boutperform\b/,
+  /\bleading\b/,
+  /\bcompetitor\b/,
+  /\bmarket leader\b/,
+  /\binvest(?:ment)?\b/,
+  /\brevenue\b/,
+  /\bmargin\b/,
+  /\bcost\b/,
+  /\brisk\b/,
+  /\blatency\b/,
+  /\baccuracy\b/,
+  /\bscalable\b/,
+  /\barchitecture\b/,
+  /市场规模/,
+  /增长/,
+  /领先/,
+  /超过/,
+  /竞品/,
+  /建议/,
+  /必须/,
+  /投资/,
+  /收入/,
+  /利润/,
+  /成本/,
+  /风险/,
+  /性能/,
+  /架构/,
+  /可扩展/,
+]
 
 function normalizeSlides(slides: SlideSpec[]): SlideSpec[] {
   return slides

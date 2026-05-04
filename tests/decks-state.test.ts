@@ -78,6 +78,79 @@ describe("DECKS.json state readiness", () => {
     expect(reviewed.result.blocker).toContain("slides are missing")
   })
 
+  it("blocks evidence-sensitive numeric claims without slide evidence", () => {
+    let state = readyState()
+    state.decks["test-two-page-deck"].slides[1].content.bullets = ["Market grows 25% annually through 2028"]
+    state.decks["test-two-page-deck"].slides[1].evidence = []
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(false)
+    expect(reviewed.result.blocker).toContain("evidence-sensitive claim without evidence")
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "missing_evidence",
+      severity: "blocker",
+      slideIndex: 2,
+      claimText: "Market grows 25% annually through 2028",
+    }))
+  })
+
+  it("allows simple non-claim slides without evidence", () => {
+    let state = readyState()
+    for (const slide of state.decks["test-two-page-deck"].slides) slide.evidence = []
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(true)
+    expect(reviewed.result.issues.some((issue) => issue.type === "missing_evidence")).toBe(false)
+  })
+
+  it("keeps source-only evidence as a warning instead of a blocker", () => {
+    let state = readyState()
+    state.decks["test-two-page-deck"].slides[1].content.bullets = ["Revenue grows 25% annually through 2028"]
+    state.decks["test-two-page-deck"].slides[1].evidence = [{ source: "researches/test/market.md" }]
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(true)
+    expect(reviewed.result.warnings).toContain("Slide 2 evidence for a high-risk claim has no quote, page, or URL detail: Revenue grows 25% annually through 2028")
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "weak_evidence",
+      severity: "warning",
+      slideIndex: 2,
+    }))
+  })
+
+  it("blocks discovered source materials when evidence-backed research is needed", () => {
+    let state = readyState()
+    state.decks["test-two-page-deck"].researchPlan = [{ axis: "Market", needed: true, status: "read", findingsFile: "researches/test/market.md" }]
+    upsertSourceMaterial(state, { path: "source.pdf", type: "pdf", status: "discovered" }, "discovered")
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(false)
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "source_not_processed",
+      severity: "blocker",
+      message: "Source material source.pdf has been identified but not extracted, summarized, or researched",
+    }))
+  })
+
+  it("warns on discovered source materials when research is explicitly skipped", () => {
+    let state = readyState()
+    state.decks["test-two-page-deck"].researchPlan = [{ axis: "none", needed: false, status: "skipped" }]
+    upsertSourceMaterial(state, { path: "optional.pdf", type: "pdf", status: "discovered" }, "discovered")
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(true)
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "source_not_processed",
+      severity: "warning",
+      message: "Source material optional.pdf has been identified but not extracted, summarized, or researched",
+    }))
+  })
+
   it("drops legacy slideCount fields when normalizing state", () => {
     const state = upsertDeck(createEmptyDecksState(), {
       slug: "legacy",
