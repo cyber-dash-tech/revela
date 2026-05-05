@@ -19,6 +19,7 @@ import {
 } from "../lib/decks-state"
 import { upsertSourceMaterial } from "../lib/source-materials"
 import { recordWorkspaceAction } from "../lib/workspace-state/actions"
+import { activeReviewTargetId, latestReviewSnapshotForTarget } from "../lib/workspace-state/review-snapshots"
 
 export default tool({
   description:
@@ -191,6 +192,8 @@ export default tool({
 
       if (args.action === "review") {
         const reviewed = reviewDeckState(state, undefined, { workspaceRoot })
+        const targetId = activeReviewTargetId(reviewed.state)
+        const snapshot = latestReviewSnapshotForTarget(reviewed.state, targetId)
         recordWorkspaceAction(reviewed.state, {
           type: "review.performed",
           actor: "revela-decks",
@@ -203,10 +206,13 @@ export default tool({
             warningCount: reviewed.result.warnings.length,
             issueCount: reviewed.result.issues.length,
             evidenceCandidateCount: reviewed.result.evidenceCandidates?.length ?? 0,
+            snapshotId: snapshot?.id,
+            inputHash: snapshot?.inputHash,
+            targetId: snapshot?.targetId,
           },
           status: "success",
           summary: `Reviewed deck readiness: ${reviewed.result.ready ? "ready" : "blocked"}.`,
-          nodeIds: [`artifact:${reviewed.state.decks[reviewed.result.slug]?.outputPath ?? reviewed.result.slug}`],
+          nodeIds: [`artifact:${reviewed.state.decks[reviewed.result.slug]?.outputPath ?? reviewed.result.slug}`, ...(snapshot ? [snapshot.id] : [])],
         })
         writeDecksState(workspaceRoot, reviewed.state)
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: reviewed.result }, null, 2)

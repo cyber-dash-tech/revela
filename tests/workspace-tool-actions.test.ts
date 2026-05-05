@@ -111,7 +111,17 @@ describe("workspace tool action provenance", () => {
     expect(next.actions).toContainEqual(expect.objectContaining({
       type: "review.performed",
       actor: "revela-decks",
-      outputs: expect.objectContaining({ ready: true, blockerCount: 0 }),
+      outputs: expect.objectContaining({
+        ready: true,
+        blockerCount: 0,
+        snapshotId: expect.stringMatching(/^review:/),
+        inputHash: expect.stringMatching(/^[a-f0-9]{40}$/),
+        targetId: "target:html_deck:decks/tool-actions.html",
+      }),
+    }))
+    expect(next.reviews).toContainEqual(expect.objectContaining({
+      targetId: "target:html_deck:decks/tool-actions.html",
+      status: "ready",
     }))
     expect(next.actions).toContainEqual(expect.objectContaining({
       type: "evidence.binding_applied",
