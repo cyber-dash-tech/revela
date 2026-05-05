@@ -14,7 +14,7 @@ export async function handleRefine(
     })
 
     await send(
-      `Opened Revela Refine for the only deck in \`decks/\`.\n` +
+      `Opened Revela Refine for the active HTML deck.\n` +
       `File: \`${result.deck.file}\`\n` +
       `${result.stateNote}\n` +
       `URL: ${result.url}\n\n` +

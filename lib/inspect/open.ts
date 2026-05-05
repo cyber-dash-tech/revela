@@ -52,7 +52,7 @@ export function openInspectDeck(target: string, options: OpenInspectDeckOptions)
   return {
     deck,
     url,
-    source: deck.source === "decks-state" ? "DECKS.json" : deck.source === "file-path" ? "file path" : "fallback path",
+    source: deck.source === "render-target" ? "render target" : deck.source === "decks-state" ? "DECKS.json" : deck.source === "file-path" ? "file path" : "fallback path",
     stateNote: preflight.changed ? "Deck state was prepared in DECKS.json for inspection." : "Deck state already points to this inspection target.",
     preflightChanged: preflight.changed,
     reusedSession: session.reused,

@@ -167,7 +167,7 @@ describe("resolvePptxDeck", () => {
         },
       }))
 
-      expect(resolvePptxDeck(tempRoot).file).toBe("decks/state.html")
+      expect(resolvePptxDeck(tempRoot)).toMatchObject({ file: "decks/state.html", source: "render-target" })
     } finally {
       rmSync(tempRoot, { recursive: true, force: true })
     }

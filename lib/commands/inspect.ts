@@ -11,7 +11,7 @@ export async function handleInspect(
       workspaceRoot: options.workspaceRoot,
     })
     await send(
-      `Opened Evidence Inspector for the only deck in \`decks/\`.\n` +
+      `Opened Evidence Inspector for the active HTML deck.\n` +
       `File: \`${result.deck.file}\`\n` +
       `${result.stateNote}\n` +
       `URL: ${result.url}\n\n` +

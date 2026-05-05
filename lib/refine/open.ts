@@ -57,7 +57,7 @@ export function openRefineDeck(target: string, options: OpenRefineDeckOptions): 
   return {
     deck,
     url,
-    source: deck.source === "decks-state" ? "DECKS.json" : deck.source === "file-path" ? "file path" : "fallback path",
+    source: deck.source === "render-target" ? "render target" : deck.source === "decks-state" ? "DECKS.json" : deck.source === "file-path" ? "file path" : "fallback path",
     stateNote: preflight.changed ? "Deck state was prepared in DECKS.json for refinement." : "Deck state already points to this refinement target.",
     preflightChanged: preflight.changed,
     reusedSession: session.reused,

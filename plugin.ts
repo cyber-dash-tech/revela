@@ -423,7 +423,7 @@ const server: Plugin = (async (pluginCtx) => {
         throw new Error("__REVELA_DOMAINS_RM_HANDLED__")
       }
       if (sub === "pdf") {
-        await handlePdf(param, send)
+        await handlePdf(param, send, workspaceRoot)
         throw new Error("__REVELA_PDF_HANDLED__")
       }
       if (sub === "pptx") {

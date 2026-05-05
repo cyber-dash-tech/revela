@@ -8,7 +8,8 @@ import {
   workspaceStatePath,
   writeWorkspaceState,
 } from "./workspace-state/repository"
-import { WORKSPACE_STATE_FILE, type WorkspaceAction } from "./workspace-state/types"
+import { ensureActiveHtmlDeckRenderTarget } from "./workspace-state/render-targets"
+import { WORKSPACE_STATE_FILE, type RenderTarget, type WorkspaceAction } from "./workspace-state/types"
 
 export const DECKS_STATE_FILE = WORKSPACE_STATE_FILE
 
@@ -32,6 +33,7 @@ export interface DecksState {
   }
   decks: Record<string, DeckSpec>
   actions: WorkspaceAction[]
+  renderTargets: RenderTarget[]
 }
 
 export interface SourceMaterial {
@@ -276,6 +278,7 @@ export function createEmptyDecksState(): DecksState {
     },
     decks: {},
     actions: [],
+    renderTargets: [],
   }
 }
 
@@ -299,6 +302,7 @@ export function normalizeWorkspaceDeckState(state: DecksState, workspaceRoot: st
   delete normalized.decks[existingKey]
   normalized.decks[slug] = deck
   normalized.activeDeck = slug
+  ensureActiveHtmlDeckRenderTarget(normalized)
   return normalized
 }
 
@@ -358,6 +362,7 @@ export function upsertDeck(state: DecksState, input: Partial<DeckSpec> & { slug:
   const next = createDeckSpec({ ...existing, ...input, slug })
   normalized.decks[slug] = next
   normalized.activeDeck = slug
+  ensureActiveHtmlDeckRenderTarget(normalized)
   return normalized
 }
 
@@ -374,6 +379,7 @@ export function upsertSlides(state: DecksState, slug: string, slides: SlideSpec[
   deck.slides = [...byIndex.values()].sort((a, b) => a.index - b.index)
   normalized.decks[key] = deck
   normalized.activeDeck = key
+  ensureActiveHtmlDeckRenderTarget(normalized)
   return normalized
 }
 
@@ -583,11 +589,11 @@ export function buildDecksStatePromptLayer(workspaceRoot: string, maxChars = 140
     activeDeck: activeKey,
     workspace: compactWorkspaceForPrompt(state.workspace),
     deck: active ? compactDeckForPrompt(active) : undefined,
+    renderTargets: state.renderTargets,
   }
   let text = JSON.stringify(compact, null, 2)
   if (text.length > maxChars) text = text.slice(0, maxChars).trimEnd() + "\n[DECKS.json state truncated for prompt size.]"
-  return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as the source of truth for the single current deck's specs, slide plan, and write readiness.\n- The decks map is compatibility storage; operate only on the current workspace deck.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- Before writing decks/*.html, the current deck must have writeReadiness.status=ready and a complete slide spec, and its outputPath must match the target file.`
-  return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as the source of truth for the single current deck's specs, slide plan, evidence, and write readiness.\n- The decks map is compatibility storage; operate only on the current workspace deck.\n- ${DECKS_STATE_FILE} deck slides use 1-based \`slides[].index\` values. Render every HTML \`<section class="slide">\` with a matching 1-based \`data-slide-index\` attribute, and do not use 0-based \`data-index\` as slide identity.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- Before writing decks/*.html, the current deck must have writeReadiness.status=ready and a complete slide spec, and its outputPath must match the target file.`
+  return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as the source of truth for the single current deck's specs, slide plan, evidence, render targets, and write readiness.\n- The decks map is compatibility storage; operate only on the current workspace deck.\n- ${DECKS_STATE_FILE} deck slides use 1-based \`slides[].index\` values. Render every HTML \`<section class="slide">\` with a matching 1-based \`data-slide-index\` attribute, and do not use 0-based \`data-index\` as slide identity.\n- The active HTML deck is represented as a \`renderTarget\` of type \`html_deck\`; PDF/PPTX exports should be recorded as derived render targets, not as separate deck specs.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- Before writing decks/*.html, the current deck must have writeReadiness.status=ready and a complete slide spec, and its outputPath must match the target file.`
 }
 
 function compactWorkspaceForPrompt(workspace: DecksState["workspace"]): DecksState["workspace"] {
@@ -664,6 +670,7 @@ function normalizeDecksState(input: DecksState): DecksState {
     },
     decks: {},
     actions: input.actions ?? [],
+    renderTargets: input.renderTargets ?? [],
   }
   for (const [slug, deck] of Object.entries(input.decks ?? {})) {
     const normalizedSlug = normalizeSlug(deck.slug || slug)
@@ -674,6 +681,7 @@ function normalizeDecksState(input: DecksState): DecksState {
     const keys = Object.keys(state.decks)
     if (keys.length === 1) state.activeDeck = keys[0]
   }
+  ensureActiveHtmlDeckRenderTarget(state)
   return state
 }
 

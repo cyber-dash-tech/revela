@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { createEmptyDecksState, upsertDeck, upsertSlides } from "../lib/decks-state"
 import { projectWorkspaceGraph } from "../lib/workspace-state/graph"
+import { recordArtifactRenderTarget } from "../lib/workspace-state/render-targets"
 
 describe("workspace graph projection", () => {
   function stateWithGraphInputs() {
@@ -173,12 +174,41 @@ describe("workspace graph projection", () => {
     expect(risk).toMatchObject({ type: "risk", label: "Execution risk remains material." })
     expect(graph.nodes["artifact:decks/graph-demo.html"]).toMatchObject({
       type: "artifact",
-      data: { type: "html_deck", outputPath: "decks/graph-demo.html" },
+      data: {
+        renderTargetId: "target:html_deck:decks/graph-demo.html",
+        type: "html_deck",
+        outputPath: "decks/graph-demo.html",
+      },
     })
     expect(graph.edges).toContainEqual(expect.objectContaining({
       type: "renders_from",
       from: "artifact:decks/graph-demo.html",
       to: "slide:1",
+    }))
+  })
+
+  it("projects exported render targets as artifacts derived from the HTML deck", () => {
+    const state = stateWithGraphInputs()
+    recordArtifactRenderTarget(state, {
+      sourceHtmlPath: "decks/graph-demo.html",
+      type: "pdf",
+      outputPath: "decks/graph-demo.pdf",
+    })
+
+    const graph = projectWorkspaceGraph(state)
+
+    expect(graph.nodes["artifact:decks/graph-demo.pdf"]).toMatchObject({
+      type: "artifact",
+      data: {
+        renderTargetId: "target:pdf:decks/graph-demo.pdf",
+        type: "pdf",
+        outputPath: "decks/graph-demo.pdf",
+      },
+    })
+    expect(graph.edges).toContainEqual(expect.objectContaining({
+      type: "renders_from",
+      from: "artifact:decks/graph-demo.pdf",
+      to: "artifact:decks/graph-demo.html",
     }))
   })
 })

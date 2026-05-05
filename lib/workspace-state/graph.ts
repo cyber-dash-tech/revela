@@ -1,6 +1,7 @@
 import { createHash } from "crypto"
 import type { DeckSpec, DecksState, EvidenceRef, NarrativeBrief, ResearchAxis, SlideSpec, SourceMaterial } from "../decks-state"
-import type { GraphEdge, GraphEdgeType, GraphNode, GraphNodeType, WorkspaceGraph } from "./types"
+import { renderTargetId } from "./render-targets"
+import type { GraphEdge, GraphEdgeType, GraphNode, GraphNodeType, RenderTarget, WorkspaceGraph } from "./types"
 
 export interface ProjectWorkspaceGraphOptions {
   slug?: string
@@ -21,7 +22,8 @@ export function projectWorkspaceGraph(state: DecksState, options: ProjectWorkspa
   const narrativeId = addNarrative(builder, deck)
   for (const slide of deck.slides.slice().sort((a, b) => a.index - b.index)) addSlide(builder, slide)
   for (const slide of deck.slides.slice().sort((a, b) => a.index - b.index)) addSlideClaimsAndEvidence(builder, slide)
-  addArtifact(builder, deck, narrativeId)
+  const targets = renderTargetsForDeck(state, deck)
+  for (const target of targets) addArtifact(builder, deck, target, narrativeId, targets)
 
   return normalizeGraph(builder)
 }
@@ -220,17 +222,61 @@ function addEvidenceSupportNode(builder: GraphBuilder, evidence: EvidenceRef): s
   return id
 }
 
-function addArtifact(builder: GraphBuilder, deck: DeckSpec, narrativeId: string | undefined): void {
-  const artifactId = artifactNodeId(deck.outputPath)
+function addArtifact(builder: GraphBuilder, deck: DeckSpec, target: RenderTarget, narrativeId: string | undefined, targets: RenderTarget[]): void {
+  const artifactId = artifactNodeId(target.outputPath ?? deck.outputPath)
   addNode(builder, {
     id: artifactId,
     type: "artifact",
-    label: deck.outputPath,
-    data: compactData({ type: "html_deck", outputPath: deck.outputPath, slug: deck.slug, status: deck.status }),
+    label: target.outputPath ?? deck.outputPath,
+    data: compactData({
+      renderTargetId: target.id,
+      type: target.type,
+      outputPath: target.outputPath ?? deck.outputPath,
+      slug: deck.slug,
+      status: deck.status,
+      artifactVersion: target.artifactVersion,
+      contractStatus: target.contractStatus,
+    }),
   })
 
   if (narrativeId) addEdge(builder, "renders_from", artifactId, narrativeId)
-  for (const slide of deck.slides ?? []) addEdge(builder, "renders_from", artifactId, slideNodeId(slide.index))
+  const sourceNodeIds = target.sourceNodeIds.length > 0 ? target.sourceNodeIds : deck.slides.map((slide) => slideNodeId(slide.index))
+  for (const sourceNodeId of sourceNodeIds) addEdge(builder, "renders_from", artifactId, resolveRenderSourceNodeId(sourceNodeId, targets))
+}
+
+function renderTargetsForDeck(state: DecksState, deck: DeckSpec): RenderTarget[] {
+  const deckOutputPath = normalizePath(deck.outputPath)
+  const htmlTargetId = renderTargetId("html_deck", deckOutputPath)
+  const htmlArtifactId = artifactNodeId(deckOutputPath)
+  const targets = (state.renderTargets ?? []).filter((target) => {
+    if (target.id === htmlTargetId) return true
+    if (target.type === "html_deck") return normalizePath(target.outputPath ?? "") === deckOutputPath
+    const data = target.data ?? {}
+    return data.sourceTargetId === htmlTargetId ||
+      data.sourceOutputPath === deckOutputPath ||
+      target.sourceNodeIds.includes(htmlTargetId) ||
+      target.sourceNodeIds.includes(htmlArtifactId)
+  })
+  const htmlTarget = targets.find((target) => target.id === htmlTargetId) ?? fallbackHtmlDeckRenderTarget(deck)
+  if (!targets.some((target) => target.id === htmlTarget.id)) targets.push(htmlTarget)
+  return targets.sort((a, b) => a.id.localeCompare(b.id))
+}
+
+function resolveRenderSourceNodeId(sourceNodeId: string, targets: RenderTarget[]): string {
+  if (!sourceNodeId.startsWith("target:")) return sourceNodeId
+  const target = targets.find((item) => item.id === sourceNodeId)
+  return target ? artifactNodeId(target.outputPath ?? target.id) : sourceNodeId
+}
+
+function fallbackHtmlDeckRenderTarget(deck: DeckSpec): RenderTarget {
+  return {
+    id: renderTargetId("html_deck", deck.outputPath),
+    type: "html_deck",
+    outputPath: deck.outputPath,
+    sourceNodeIds: deck.slides.map((slide) => slideNodeId(slide.index)),
+    contractStatus: "unknown",
+    data: { slug: deck.slug, compatibilityOutputPath: deck.outputPath },
+  }
 }
 
 function claimCandidates(slide: SlideSpec): Array<{ origin: string; text: string }> {

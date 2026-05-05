@@ -69,6 +69,36 @@ describe("openRefineDeck", () => {
     expect(result.url).toContain("/refine?token=")
     expect(result.openedBrowser).toBe(false)
   })
+
+  it("opens the active render target instead of requiring a single fallback deck", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "active.html"), "<html><body><section class=\"slide\"><h2>Active</h2></section></body></html>", "utf-8")
+    writeFileSync(join(root, "decks", "other.html"), "<html><body><section class=\"slide\"><h2>Other</h2></section></body></html>", "utf-8")
+    const slug = workspaceDeckSlug(root)
+    let state = createEmptyDecksState()
+    state = upsertDeck(state, { slug, goal: "Refine active", outputPath: "decks/active.html" })
+    state = upsertSlides(state, slug, [{
+      index: 1,
+      title: "Active",
+      purpose: "Use active render target",
+      layout: "cover",
+      components: ["hero-title"],
+      content: { headline: "Active" },
+      evidence: [{ source: "user request" }],
+      status: "ready",
+    }])
+    writeDecksState(root, state)
+
+    const result = openRefineDeck("", {
+      client: { session: { prompt: async () => undefined } },
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openBrowser: false,
+    })
+
+    expect(result.deck.file).toBe("decks/active.html")
+    expect(result.deck.source).toBe("render-target")
+  })
 })
 
 describe("refine HTTP inspect lifecycle", () => {

@@ -8,6 +8,7 @@ import { tool } from "@opencode-ai/plugin"
 import { existsSync } from "fs"
 import { resolve } from "path"
 import { exportToPptx } from "../lib/pptx/export"
+import { recordRenderedArtifact, workspaceRelative } from "../lib/workspace-state/rendered-artifacts"
 
 export default tool({
   description:
@@ -47,6 +48,13 @@ export default tool({
         onProgress: (event) => {
           progress.push(event.message)
         },
+      })
+      const root = directory || process.cwd()
+      recordRenderedArtifact(root, {
+        sourceHtmlPath: workspaceRelative(resolve(root), filePath),
+        outputPath: result.outputPath,
+        type: "pptx",
+        actor: "revela-pptx",
       })
       return JSON.stringify({ ok: true, ...result, progress }, null, 2)
     } catch (e: any) {
