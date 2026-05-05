@@ -2,6 +2,7 @@ import { existsSync } from "fs"
 import { ACTIVE_PROMPT_FILE } from "../config"
 import { ctx } from "../ctx"
 import { seedBuiltinDesigns } from "../design/designs"
+import { assertDeckHtmlContractValid } from "../deck-html/contract"
 import { seedBuiltinDomains } from "../domain/domains"
 import { ensureEditableDeckState } from "../edit/deck-state"
 import { openUrl } from "../edit/open"
@@ -33,6 +34,7 @@ export interface OpenRefineDeckOptions {
 export function openRefineDeck(target: string, options: OpenRefineDeckOptions): OpenRefineDeckResult {
   const deck = resolveEditableDeck(options.workspaceRoot, target)
   const preflight = ensureEditableDeckState(options.workspaceRoot, deck)
+  assertDeckHtmlContractValid(options.workspaceRoot, deck.absoluteFile)
   const mode = options.mode ?? "edit"
 
   ctx.enabled = true

@@ -48,6 +48,7 @@ import { buildPptxNotesPrompt, handlePptx, parsePptxArgs, resolvePptxDeck } from
 import { handleEdit } from "./lib/commands/edit"
 import { handleInspect } from "./lib/commands/inspect"
 import { handleRefine } from "./lib/commands/refine"
+import { formatDeckHtmlContractReport, validateDeckHtmlContract } from "./lib/deck-html/contract"
 import { ensureEditableDeckOpenForChange } from "./lib/edit/open"
 import { hasLiveEditorSessionForFile } from "./lib/edit/server"
 import { handleDesignsPreview } from "./lib/commands/designs-preview"
@@ -171,6 +172,27 @@ const server: Plugin = (async (pluginCtx) => {
       )
     } catch (e) {
       childLog("compliance").warn("static compliance failed", {
+        filePath,
+        error: e instanceof Error ? e.message : String(e),
+      })
+    }
+  }
+
+  async function appendDeckHtmlContractReport(filePath: string, output: any): Promise<void> {
+    if (!isDeckHtmlPath(filePath)) return
+
+    try {
+      const report = validateDeckHtmlContract(workspaceRoot, filePath)
+      if (report.status === "valid" || report.status === "skipped") return
+
+      appendToolResult(
+        output,
+        "---\n\n**[revela deck HTML contract]** Slide identity check failed:\n\n" +
+        formatDeckHtmlContractReport(report) +
+        "\n\nFix every `<section class=\"slide\">` to use the matching 1-based `data-slide-index` from DECKS.json before inspection or export."
+      )
+    } catch (e) {
+      childLog("deck-contract").warn("deck HTML contract report failed", {
         filePath,
         error: e instanceof Error ? e.message : String(e),
       })
@@ -742,6 +764,7 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
           return
         }
         await appendComplianceReport(filePath, output)
+        await appendDeckHtmlContractReport(filePath, output)
         ensureEditorOpenAfterDeckChange(filePath, extractSessionID(input))
         return
       }
@@ -763,6 +786,7 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
         const targets = patchText ? extractDeckHtmlTargetsFromPatch(patchText) : []
         for (const target of targets) {
           await appendComplianceReport(target, output)
+          await appendDeckHtmlContractReport(target, output)
           ensureEditorOpenAfterDeckChange(target, extractSessionID(input))
         }
         return
@@ -771,6 +795,7 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
       if (input.tool === "edit") {
         const filePath = extractEditFilePath(input.args)
         await appendComplianceReport(filePath, output)
+        await appendDeckHtmlContractReport(filePath, output)
         ensureEditorOpenAfterDeckChange(filePath, extractSessionID(input))
         return
       }

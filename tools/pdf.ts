@@ -36,9 +36,9 @@ export default tool({
     }
 
     try {
-      await assertExportQAPassed(filePath)
-      const result = await exportToPdf(filePath)
       const root = directory || process.cwd()
+      await assertExportQAPassed(filePath, { workspaceRoot: root })
+      const result = await exportToPdf(filePath)
       recordRenderedArtifact(root, {
         sourceHtmlPath: workspaceRelative(resolve(root), filePath),
         outputPath: result.outputPath,

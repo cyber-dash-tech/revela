@@ -34,7 +34,7 @@ export async function handlePdf(
   await send(`Running pre-export QA for \`${abs}\`...`)
 
   try {
-    await assertExportQAPassed(abs)
+    await assertExportQAPassed(abs, { workspaceRoot: root })
     await send(`Exporting \`${abs}\` to PDF...`)
     const result = await exportToPdf(abs)
     recordRenderedArtifact(root, {
