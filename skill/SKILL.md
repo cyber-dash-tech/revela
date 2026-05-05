@@ -261,12 +261,17 @@ A 6-slide deck might be: Cover → Background → Content × 3 → Closing.
 An 8-slide deck might be: Cover → TOC → Background → Content × 3 → Summary → Closing.
 Never skip Cover, Background, or Closing regardless of deck length.
 
-**Every `<section class="slide">` must include a `slide-qa` attribute.** Set
-`slide-qa="true"` for content-heavy layouts (those marked ✓ in the Layout Index
-QA column of the active design). Set `slide-qa="false"` for structural or sparse
-layouts (cover, TOC, closing, quote, summary, etc.). When unsure, use `"false"`.
+**Every `<section class="slide">` must include `slide-qa` and
+`data-slide-index` attributes.** Set `slide-qa="true"` for content-heavy layouts
+(those marked ✓ in the Layout Index QA column of the active design). Set
+`slide-qa="false"` for structural or sparse layouts (cover, TOC, closing, quote,
+summary, etc.). When unsure, use `"false"`.
 
-Example: `<section class="slide" slide-qa="true" data-index="0">`
+`data-slide-index` is the canonical 1-based slide identity. It must match the
+corresponding `DECKS.json` `slides[].index` value. Do not use 0-based
+`data-index` as slide identity.
+
+Example: `<section class="slide" slide-qa="true" data-slide-index="1">`
 
 The export QA path treats this as deck metadata. It is consumed when PDF/PPTX
 export runs preflight checks.

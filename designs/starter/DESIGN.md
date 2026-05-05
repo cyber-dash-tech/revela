@@ -117,7 +117,7 @@ Every generated presentation must use this exact HTML skeleton:
     <style>/* all CSS here */</style>
 </head>
 <body>
-    <section class="slide" slide-qa="false" data-index="0">
+    <section class="slide" slide-qa="false" data-slide-index="1">
         <div class="slide-canvas"><div class="page">...</div></div>
     </section>
     <script>/* all JS here */</script>
@@ -246,7 +246,7 @@ new SlidePresentation();
 
 ### Layout Types
 
-Each `<section class="slide">` must set `slide-qa="true"` or `slide-qa="false"`. Use the QA flag on each layout marker.
+Each `<section class="slide">` must set `slide-qa="true"` or `slide-qa="false"`. Use the QA flag on each layout marker. It must also set `data-slide-index="N"`, where `N` is the 1-based `DECKS.json` `slides[].index` value.
 
 <!-- @layout:fullbleed:start qa=false -->
 #### Fullbleed
@@ -254,7 +254,7 @@ Each `<section class="slide">` must set `slide-qa="true"` or `slide-qa="false"`.
 Full-page layout for a single dominant component such as `image-title`, a large `svg-motif`, or a sparse title field.
 
 ```html
-<section class="slide" slide-qa="false" data-index="N">
+<section class="slide" slide-qa="false" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page" style="padding:0;">
       <!-- [slot: content] — usually image-title, svg-motif, or a custom hero component -->
@@ -270,7 +270,7 @@ Full-page layout for a single dominant component such as `image-title`, a large 
 Asymmetric two-column layout. Use when one side needs more visual or reading weight.
 
 ```html
-<section class="slide" slide-qa="true" data-index="N">
+<section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page" style="padding:0;">
       <div class="narrative-grid">
@@ -295,7 +295,7 @@ Asymmetric two-column layout. Use when one side needs more visual or reading wei
 Mirrored asymmetric two-column layout. Same structure as `narrative`, with the wider column on the right.
 
 ```html
-<section class="slide" slide-qa="true" data-index="N">
+<section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page" style="padding:0;">
       <div class="narrative-grid narrative-grid--reverse">
@@ -314,7 +314,7 @@ Mirrored asymmetric two-column layout. Same structure as `narrative`, with the w
 Equal-column layout for parallel ideas, feature groups, proof points, or compact component showcases.
 
 ```html
-<section class="slide" slide-qa="true" data-index="N">
+<section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page">
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px;max-width:620px;">
@@ -343,7 +343,7 @@ Equal-column layout for parallel ideas, feature groups, proof points, or compact
 Symmetric two-column layout for direct comparison, paired evidence, or split workflows.
 
 ```html
-<section class="slide" slide-qa="true" data-index="N">
+<section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page" style="padding:0;">
       <div class="halves-grid">
@@ -367,7 +367,7 @@ Symmetric two-column layout for direct comparison, paired evidence, or split wor
 Two-row layout for a compact header/summary above a larger evidence, chart, or flow area.
 
 ```html
-<section class="slide" slide-qa="true" data-index="N">
+<section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page" style="padding:0;">
       <div class="stacked-grid">

@@ -29,6 +29,7 @@ export async function handleHelp(
     `\`/revela init\`                — initialize or refresh workspace DECKS.json\n` +
     `\`/revela review\`              — review current deck readiness before writing HTML\n` +
     `\`/revela edit\`                — open visual editor for the only deck in decks/\n` +
+    `\`/revela inspect\`             — open Evidence Inspector for click-to-inspect review\n` +
     `\`/revela remember <text>\`     — save an explicit preference to DECKS.json\n` +
     `\`/revela designs\`             — list installed designs\n` +
     `\`/revela designs <name>\`      — activate a design\n` +

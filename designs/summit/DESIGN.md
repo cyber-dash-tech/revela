@@ -131,10 +131,10 @@ Every generated presentation must use this exact HTML skeleton:
     <style>/* all CSS here */</style>
 </head>
 <body>
-    <section class="slide cover-slide" slide-qa="false" data-index="0">
+    <section class="slide cover-slide" slide-qa="false" data-slide-index="1">
         <div class="slide-canvas"> ... </div>
     </section>
-    <section class="slide" slide-qa="true" data-index="1">
+    <section class="slide" slide-qa="true" data-slide-index="2">
         <div class="slide-canvas"> ... </div>
     </section>
     <script>/* all JS here */</script>
@@ -445,7 +445,7 @@ These rules are mandatory for Summit.
 
 ### Layout Types
 
-Each `<section class="slide">` must set `slide-qa="true"` or `slide-qa="false"`. Use the QA column to decide which value to write. Fetch any layout with the `revela-designs` tool (`action: "read"`, `layout: "<name>"`).
+Each `<section class="slide">` must set `slide-qa="true"` or `slide-qa="false"`. It must also set `data-slide-index="N"`, where `N` is the 1-based `DECKS.json` `slides[].index` value. Use the QA column to decide which value to write. Fetch any layout with the `revela-designs` tool (`action: "read"`, `layout: "<name>"`).
 
 <!-- @layout:fullbleed:start qa=false -->
 #### Fullbleed
@@ -456,7 +456,7 @@ Structural intent:
 - Single slot: place one `image-title` component directly inside `.page`. The component is self-contained — it manages its own image, blur, overlay, and text layers internally.
 
 ```html
-<section class="slide" slide-qa="false" data-index="N">
+<section class="slide" slide-qa="false" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page" style="padding:0;">
 
@@ -488,7 +488,7 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 
 
 ```html
-<section class="slide" slide-qa="true" data-index="N">
+<section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page" style="padding:0;overflow:hidden;">
       <div class="narrative-grid">
@@ -548,7 +548,7 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 
 
 ```html
-<section class="slide" slide-qa="true" data-index="N">
+<section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page" style="padding:0;overflow:hidden;">
       <div class="narrative-grid narrative-grid--reverse">
@@ -587,7 +587,7 @@ Structural intent:
 Every slot accepts 1 or more components. Add or remove child divs to control column count — 3 is the default, but 4 or 5 columns work equally well.
 
 ```html
-<section class="slide" slide-qa="true" data-index="N">
+<section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page">
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px;max-width:520px;">
@@ -652,7 +652,7 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 
 
 ```html
-<section class="slide" slide-qa="true" data-index="N">
+<section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page" style="overflow:hidden;">
       <div class="halves-grid" style="flex:1;min-height:0;">
@@ -706,7 +706,7 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 
 
 ```html
-<section class="slide" slide-qa="true" data-index="N">
+<section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page" style="padding:0;">
       <div class="stacked-grid">

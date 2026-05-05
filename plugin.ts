@@ -46,6 +46,7 @@ import {
 import { handlePdf } from "./lib/commands/pdf"
 import { buildPptxNotesPrompt, handlePptx, parsePptxArgs, resolvePptxDeck } from "./lib/commands/pptx"
 import { handleEdit } from "./lib/commands/edit"
+import { handleInspect } from "./lib/commands/inspect"
 import { ensureEditableDeckOpenForChange } from "./lib/edit/open"
 import { hasLiveEditorSessionForFile } from "./lib/edit/server"
 import { handleDesignsPreview } from "./lib/commands/designs-preview"
@@ -80,6 +81,8 @@ import mediaBatchSaveTool from "./tools/media-batch-save"
 import mediaSaveTool from "./tools/media-save"
 import researchImagesListTool from "./tools/research-images-list"
 import researchSaveTool from "./tools/research-save"
+import inspectionContextTool from "./tools/inspection-context"
+import inspectionResultTool from "./tools/inspection-result"
 import workspaceScanTool from "./tools/workspace-scan"
 import extractDocumentMaterialsTool from "./tools/extract-document-materials"
 import qaTool from "./tools/qa"
@@ -340,6 +343,14 @@ const server: Plugin = (async (pluginCtx) => {
         await handleEdit({ client, sessionID, workspaceRoot }, send)
         throw new Error("__REVELA_EDIT_HANDLED__")
       }
+      if (sub === "inspect") {
+        if (param) {
+          await send("`/revela inspect` does not accept a target. It opens the only HTML deck in `decks/`.")
+          throw new Error("__REVELA_INSPECT_USAGE_HANDLED__")
+        }
+        await handleInspect({ client, sessionID, workspaceRoot }, send)
+        throw new Error("__REVELA_INSPECT_HANDLED__")
+      }
       if (sub === "designs" && !param) {
         await handleDesignsList(send)
         throw new Error("__REVELA_DESIGNS_LIST_HANDLED__")
@@ -438,6 +449,8 @@ const server: Plugin = (async (pluginCtx) => {
       "revela-media-save": mediaSaveTool,
       "revela-research-images-list": researchImagesListTool,
       "revela-research-save": researchSaveTool,
+      "revela-inspection-context": inspectionContextTool,
+      "revela-inspection-result": inspectionResultTool,
       "revela-workspace-scan": workspaceScanTool,
       "revela-extract-document-materials": extractDocumentMaterialsTool,
       "revela-qa": qaTool,
