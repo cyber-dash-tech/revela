@@ -49,7 +49,10 @@ export function appendReviewSnapshot(state: DecksState, snapshot: ReviewSnapshot
 export function latestReviewSnapshotForTarget(state: DecksState, targetId?: string): ReviewSnapshot | undefined {
   const reviews = state.reviews ?? []
   const candidates = targetId ? reviews.filter((item) => item.targetId === targetId) : reviews
-  return candidates.slice().sort((a, b) => b.reviewedAt.localeCompare(a.reviewedAt))[0]
+  return candidates.reduce<ReviewSnapshot | undefined>((latest, item) => {
+    if (!latest) return item
+    return item.reviewedAt.localeCompare(latest.reviewedAt) >= 0 ? item : latest
+  }, undefined)
 }
 
 export function isReviewSnapshotCurrent(state: DecksState, snapshot: ReviewSnapshot, slug?: string): boolean {

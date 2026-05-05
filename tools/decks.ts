@@ -1,6 +1,5 @@
 import { tool } from "@opencode-ai/plugin"
 import {
-  applyEvidenceCandidates,
   createDeckSpec,
   DECKS_STATE_FILE,
   normalizeWorkspaceDeckState,
@@ -19,6 +18,7 @@ import {
 } from "../lib/decks-state"
 import { upsertSourceMaterial } from "../lib/source-materials"
 import { recordWorkspaceAction } from "../lib/workspace-state/actions"
+import { applyEvidenceBindings } from "../lib/workspace-state/evidence-status"
 import { activeReviewTargetId, latestReviewSnapshotForTarget } from "../lib/workspace-state/review-snapshots"
 
 export default tool({
@@ -221,22 +221,8 @@ export default tool({
       if (args.action === "applyEvidenceCandidates") {
         const candidateIds = args.candidateIds ?? []
         if (candidateIds.length === 0) return JSON.stringify({ ok: false, error: "candidateIds are required for applyEvidenceCandidates" })
-        const applied = applyEvidenceCandidates(state, candidateIds, { workspaceRoot })
-        recordWorkspaceAction(applied.state, {
-          type: "evidence.binding_applied",
-          actor: "revela-decks",
-          inputs: { candidateIds },
-          outputs: {
-            applied: applied.result.applied.map((item) => ({ candidateId: item.candidateId, slideIndex: item.slideIndex, evidence: item.evidence })),
-            skipped: applied.result.skipped,
-            nextReviewNeeded: applied.result.nextReviewNeeded,
-          },
-          status: applied.result.applied.length > 0 ? "success" : "skipped",
-          summary: `Applied ${applied.result.applied.length} evidence candidate${applied.result.applied.length === 1 ? "" : "s"}.`,
-          nodeIds: applied.result.applied.map((item) => `slide:${item.slideIndex}`),
-        })
-        writeDecksState(workspaceRoot, applied.state)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: applied.result }, null, 2)
+        const result = applyEvidenceBindings(workspaceRoot, candidateIds)
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result }, null, 2)
       }
 
       if (args.action === "remember") {
