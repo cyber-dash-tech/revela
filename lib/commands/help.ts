@@ -28,6 +28,7 @@ export async function handleHelp(
     `\`/revela disable\`             — disable slide generation mode\n` +
     `\`/revela init\`                — initialize or refresh workspace DECKS.json\n` +
     `\`/revela review\`              — review current deck readiness before writing HTML\n` +
+    `\`/revela refine\`              — open unified Edit/Inspect refinement workspace\n` +
     `\`/revela edit\`                — open visual editor for the only deck in decks/\n` +
     `\`/revela inspect\`             — open Evidence Inspector for click-to-inspect review\n` +
     `\`/revela remember <text>\`     — save an explicit preference to DECKS.json\n` +

@@ -139,6 +139,7 @@ Create a 6-slide HTML deck on humanoid robotics supply chains. Cite the main mar
 /revela init                     为当前 deck 项目准备工作区
 /revela review                   检查上下文、结构和证据是否 ready
 /revela remember <text>          保存明确的用户/工作流偏好
+/revela refine                   打开统一的 Edit/Inspect refinement workspace
 /revela edit                     打开 decks/ 下唯一 deck 的可视化编辑器
 /revela inspect                  打开 Cmd/Ctrl-click 式 Evidence Inspector
 
@@ -159,7 +160,7 @@ Create a 6-slide HTML deck on humanoid robotics supply chains. Cite the main mar
 /revela pptx <file>              将 HTML deck 导出为同目录可编辑 PPTX
 ```
 
-大多数 `/revela` 命令都在本地执行，不消耗 LLM token。`/revela init`、`/revela review`、`/revela remember`、`/revela designs-new` 和 `/revela designs-edit` 会启动 AI 辅助流程，因为它们需要读取或更新项目状态。`/revela edit` 会打开本地可视化编辑器，并在用户提交评论后把修改请求发回当前 OpenCode 会话。`/revela inspect` 会打开本地 Evidence Inspector，使用和 `/revela edit` 一样的 Cmd/Ctrl-click 元素引用方式，并先渲染确定性预处理结果，再 lazy 显示 LLM 生成的卡片；它没有聊天框，也不会修改 deck。
+大多数 `/revela` 命令都在本地执行，不消耗 LLM token。`/revela init`、`/revela review`、`/revela remember`、`/revela designs-new` 和 `/revela designs-edit` 会启动 AI 辅助流程，因为它们需要读取或更新项目状态。`/revela refine` 会打开一个本地浏览器 workspace，里面有 Edit 和 Inspect 两个 tab，并共享同一套 Cmd/Ctrl-click 元素引用。Edit 会把精准修改评论发回当前 OpenCode 会话；Inspect 会先渲染确定性 Source/Purpose 预处理结果，再 lazy 显示 LLM 生成的卡片。它没有聊天框，也不会修改 deck。
 
 ---
 
@@ -188,8 +189,8 @@ Create a 6-slide HTML deck on humanoid robotics supply chains. Cite the main mar
 4. 给 agent 一个清楚的 deck 任务：受众、目标、语言、页数、来源要求和输出路径。
 5. 如果 deck 需要调研、引用或已确认的 slide plan，写作前先运行 `/revela review`。
 6. 让 agent 把 HTML deck 写到 `decks/` 下。
-7. 用 `/revela inspect` 检查选中 deck 元素的数据可信度和叙事目的。
-8. 用 `/revela edit` 做可视化评论和精准修改。
+7. 用 `/revela refine` 对选中 deck 元素做可视化评论、精准修改，以及可选的 Source/Purpose 检查。
+8. 只有在需要旧的单一功能 shell 时，才单独使用 `/revela edit` 或 `/revela inspect`。
 9. 用 `/revela pdf <file>` 或 `/revela pptx <file>` 导出。
 
 `/revela review` 检查的是实际生产问题：受众是否清楚、是否缺来源材料、调研是否完成、关键 claim 是否有证据、source trace 是否太弱、页面结构是否完整、design/layout 信息是否齐全，以及轻量叙事问题，例如 so-what 不清晰、缺少风险/假设处理或转场突兀。它不会写最终 deck。
@@ -525,6 +526,14 @@ Prompt 注入规则：
 
 ## 可视化编辑
 
+正常的写后 review 和修改建议使用统一 refinement workspace：
+
+```text
+/revela refine
+```
+
+`/revela refine` 会打开 `decks/` 下唯一的 HTML deck，并提供两个 tab。使用 `Ctrl`/`Cmd` + click 先引用 deck 元素，然后在 Edit 里快速写自然语言修改评论，或在 Inspect 里做只读 Source 和 Purpose 检查。Inspect 不会修改 deck；真正的 mutation 仍然只走 Edit。
+
 打开 `decks/` 下唯一 HTML deck 的可视化编辑器：
 
 ```text
@@ -533,7 +542,7 @@ Prompt 注入规则：
 
 Revela 0.8 中 `/revela edit` 不接受 target。如果 `decks/` 下正好有一个 `.html` 文件，Revela 会打开它。如果 `decks/` 下没有 HTML 或有多个 HTML，Revela 会提示先生成 deck，或把多余 deck 移到独立 workspace。
 
-编辑器会在浏览器中打开。使用 `Ctrl`/`Cmd` + 点击 deck 元素来引用它们，写一段自然语言评论，然后发送回 OpenCode。Revela 会把 deck 文件、slide 上下文、选中元素 metadata 和你的评论整理成结构化 edit prompt。
+旧的 edit-only shell 会在浏览器中打开。使用 `Ctrl`/`Cmd` + 点击 deck 元素来引用它们，写一段自然语言评论，然后发送回 OpenCode。Revela 会把 deck 文件、slide 上下文、选中元素 metadata 和你的评论整理成结构化 edit prompt。
 
 对应的 LLM tool：`revela-edit`，不需要 target。因此当你说“我要编辑这个 deck”时，agent 也可以主动打开同一个编辑器。
 
@@ -543,7 +552,7 @@ Revela 0.8 中 `/revela edit` 不接受 target。如果 `decks/` 下正好有一
 
 ## Evidence Inspector
 
-打开 `decks/` 下唯一 HTML deck 的 Evidence Inspector：
+打开 `decks/` 下唯一 HTML deck 的 Evidence Inspector，或直接使用 `/revela refine` 里的 Inspect tab：
 
 ```text
 /revela inspect

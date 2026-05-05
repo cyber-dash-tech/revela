@@ -47,6 +47,7 @@ import { handlePdf } from "./lib/commands/pdf"
 import { buildPptxNotesPrompt, handlePptx, parsePptxArgs, resolvePptxDeck } from "./lib/commands/pptx"
 import { handleEdit } from "./lib/commands/edit"
 import { handleInspect } from "./lib/commands/inspect"
+import { handleRefine } from "./lib/commands/refine"
 import { ensureEditableDeckOpenForChange } from "./lib/edit/open"
 import { hasLiveEditorSessionForFile } from "./lib/edit/server"
 import { handleDesignsPreview } from "./lib/commands/designs-preview"
@@ -334,6 +335,14 @@ const server: Plugin = (async (pluginCtx) => {
           text: buildReviewPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
         } as any)
         return
+      }
+      if (sub === "refine") {
+        if (param) {
+          await send("`/revela refine` does not accept a target. It opens the only HTML deck in `decks/`.")
+          throw new Error("__REVELA_REFINE_USAGE_HANDLED__")
+        }
+        await handleRefine({ client, sessionID, workspaceRoot }, send)
+        throw new Error("__REVELA_REFINE_HANDLED__")
       }
       if (sub === "edit") {
         if (param) {
