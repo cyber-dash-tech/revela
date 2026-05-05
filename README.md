@@ -2,14 +2,14 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-178%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-302%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
 </p>
 
-Revela is an [OpenCode](https://opencode.ai) plugin that turns your current agent into an HTML slide deck generator.
-Enable it for the current session, assign a presentation task, and the agent can research, structure, write, QA, and export a deck.
+Revela is an [OpenCode](https://opencode.ai) plugin for building trusted narrative artifacts from workspace sources, research, evidence, and user intent.
+Its first render target is still the HTML slide deck: enable Revela for the current session, assign a presentation task, and the agent can research, structure, write, QA, inspect, refine, and export a deck.
 
 **[Live Demo — The AI Power Shift](https://cyber-dash-tech.github.io/revela/assets/html/ai-power-shift.html)**
 
@@ -20,8 +20,10 @@ Enable it for the current session, assign a presentation task, and the agent can
 - injects a presentation-specific system prompt into your current agent with `/revela enable`
 - builds that prompt from 3 layers: core skill, active domain, active design
 - supports workspace document discovery, transparent text extraction for `.pdf`, `.docx`, `.pptx`, and `.xlsx`, and cached embedded-material extraction for those formats
-- keeps track of deck context, slide structure, sources, and readiness across the current workspace
+- keeps `DECKS.json` as the current workspace state engine for sources, research actions, findings, claims, evidence, narrative intent, render targets, and readiness
 - checks for missing context, weak evidence, and incomplete structure before writing `decks/*.html`
+- records review snapshots so stale readiness cannot silently authorize new deck HTML after important state changes
+- treats HTML decks, PDF, and PPTX as render targets from shared workspace state rather than isolated output files
 - runs fast design compliance checks whenever the agent writes, patches, or edits `decks/*.html`
 - opens a visual comment editor for existing decks so users can Ctrl/Cmd-click elements and send precise edit requests back to OpenCode
 - exports finished decks to PDF and editable PPTX
@@ -178,6 +180,22 @@ That prompt is built from 3 layers:
 Persistent preferences live in `~/.config/revela/config.json`.
 The enabled or disabled state is session-level only.
 
+### Workspace State
+
+`DECKS.json` is Revela's workspace state engine and compatibility file. It is still stored at the workspace root and remains readable as the current deck project state, but internally Revela now treats it as a lightweight persistence layer for more than a deck checklist.
+
+The state records:
+
+- workspace source materials and reusable extraction cache paths
+- research plans, saved findings, and compact action provenance
+- narrative intent, objections, risks, slide specs, claim candidates, and slide-level evidence trace
+- render targets such as the active HTML deck plus derived PDF and PPTX artifacts
+- review snapshots with input hashes so old readiness results become stale after meaningful state changes
+
+0.11 keeps backward compatibility with existing root `DECKS.json` workspaces. Running `/revela init` or `/revela review` on an older project can normalize and refresh the new projection fields without requiring a manual migration, moving files, or replacing `DECKS.json` with a database.
+
+Decks remain the primary authored artifact, but they are now treated as render targets from the same workspace state that can later support briefs, appendix material, Evidence Inspector views, Q&A, and interactive reading layers without duplicating source/evidence logic.
+
 ---
 
 ## Recommended Workflow
@@ -196,7 +214,7 @@ Use Revela as a guided deck-production mode:
 
 `/revela review` checks for practical readiness problems: unclear audience, missing source material, unfinished research, unsupported claims, weak source trace, incomplete slide structure, missing design/layout information, or lightweight narrative issues such as weak so-what, missing risk/assumption handling, and abrupt transitions. It does not write the final deck.
 
-If Revela blocks a deck write, ask the agent to run `/revela review`, resolve the reported gaps, and try again. This protects the deck file from being overwritten before the plan, evidence, and structure are ready.
+If Revela blocks a deck write, ask the agent to run `/revela review`, resolve the reported gaps, and try again. This protects the deck file from being overwritten before the plan, evidence, and structure are ready. In 0.11, review results are also saved as input-hashed snapshots; if sources, slide specs, evidence, narrative state, or the active render target changes afterward, the old review can no longer silently authorize a write.
 
 To remember long-term preferences, use:
 
@@ -596,6 +614,8 @@ Open the Evidence Inspector for the only HTML deck in `decks/`, or use the Inspe
 The inspector opens in your browser with the deck on the left and fixed cards on the right: Source and Purpose. Use `Ctrl`/`Cmd` + click to reference deck elements exactly like `/revela edit`, then click `Inspect Selection`. Selection is locked while the request is being processed.
 
 The inspector is not chat and has no freeform prompt. It does not mutate `DECKS.json` or the deck HTML. It uses recorded slide specs, narrative state, and slide-level evidence trace as grounded context. Deterministic preprocessing appears immediately; lazy LLM judgment then refines the Source and Purpose cards without inventing edits.
+
+Inspection and refinement use the active HTML deck render target recorded in workspace state. The deck HTML must satisfy Revela's slide identity contract: every `<section class="slide">` in the active artifact needs a positive 1-based `data-slide-index` matching the current slide specs. Invalid active artifacts are refused or reported before inspect/refine/export workflows trust them.
 
 ---
 

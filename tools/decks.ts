@@ -19,6 +19,7 @@ import {
 import { upsertSourceMaterial } from "../lib/source-materials"
 import { recordWorkspaceAction } from "../lib/workspace-state/actions"
 import { applyEvidenceBindings } from "../lib/workspace-state/evidence-status"
+import { attachResearchFindings } from "../lib/workspace-state/research-attachments"
 import { activeReviewTargetId, latestReviewSnapshotForTarget } from "../lib/workspace-state/review-snapshots"
 
 export default tool({
@@ -28,7 +29,7 @@ export default tool({
     "It stores active deck specs, per-slide content/layout/components, and computes write readiness.",
   args: {
     action: tool.schema
-      .enum(["read", "init", "upsertDeck", "upsertSlides", "review", "applyEvidenceCandidates", "remember"])
+      .enum(["read", "init", "upsertDeck", "upsertSlides", "review", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
       .describe("Action to perform on DECKS.json."),
     summary: tool.schema.boolean().optional().describe("For read: return a compact summary instead of full state."),
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
@@ -120,6 +121,9 @@ export default tool({
       notes: tool.schema.string().optional().describe("Implementation notes for this slide."),
     })).optional().describe("For upsertSlides: complete or partial slide specs."),
     candidateIds: tool.schema.array(tool.schema.string()).optional().describe("For applyEvidenceCandidates: candidate IDs returned by revela-decks review to explicitly bind proposed evidenceDraft records into slide evidence."),
+    findingsFile: tool.schema.string().optional().describe("For attachResearchFindings: workspace-relative researches/{topic}/{axis}.md file to attach to researchPlan."),
+    researchAxis: tool.schema.string().optional().describe("For attachResearchFindings: researchPlan axis to attach the findings file to. Required when filename matching would be ambiguous."),
+    researchStatus: tool.schema.enum(["done", "read"]).optional().describe("For attachResearchFindings: optional explicit status to set on the matched research axis."),
   },
   async execute(args, context) {
     try {
@@ -222,6 +226,16 @@ export default tool({
         const candidateIds = args.candidateIds ?? []
         if (candidateIds.length === 0) return JSON.stringify({ ok: false, error: "candidateIds are required for applyEvidenceCandidates" })
         const result = applyEvidenceBindings(workspaceRoot, candidateIds)
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result }, null, 2)
+      }
+
+      if (args.action === "attachResearchFindings") {
+        if (!args.findingsFile?.trim()) return JSON.stringify({ ok: false, error: "findingsFile is required for attachResearchFindings" })
+        const result = attachResearchFindings(workspaceRoot, {
+          findingsFile: args.findingsFile,
+          researchAxis: args.researchAxis,
+          status: args.researchStatus,
+        })
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result }, null, 2)
       }
 
