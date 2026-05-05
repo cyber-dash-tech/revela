@@ -1,8 +1,16 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs"
+import { existsSync, readdirSync, readFileSync, statSync } from "fs"
 import { createHash } from "crypto"
-import { basename, dirname, join, resolve } from "path"
+import { basename, join, resolve } from "path"
+import {
+  hasWorkspaceState,
+  readOrCreateWorkspaceState,
+  readWorkspaceState,
+  workspaceStatePath,
+  writeWorkspaceState,
+} from "./workspace-state/repository"
+import { WORKSPACE_STATE_FILE } from "./workspace-state/types"
 
-export const DECKS_STATE_FILE = "DECKS.json"
+export const DECKS_STATE_FILE = WORKSPACE_STATE_FILE
 
 export type DeckProductionStatus = "planning" | "blocked" | "ready" | "written"
 export type SlideProductionStatus = "planned" | "ready" | "written" | "qa_passed" | "qa_failed"
@@ -249,11 +257,11 @@ export interface ReviewDeckStateOptions {
 }
 
 export function decksStatePath(workspaceRoot: string): string {
-  return join(workspaceRoot, DECKS_STATE_FILE)
+  return workspaceStatePath(workspaceRoot, DECKS_STATE_FILE)
 }
 
 export function hasDecksState(workspaceRoot: string): boolean {
-  return existsSync(decksStatePath(workspaceRoot))
+  return hasWorkspaceState(workspaceRoot, DECKS_STATE_FILE)
 }
 
 export function createEmptyDecksState(): DecksState {
@@ -326,21 +334,15 @@ export function createDeckSpec(input: Partial<DeckSpec> & { slug: string }): Dec
 }
 
 export function readDecksState(workspaceRoot: string): DecksState {
-  const parsed = JSON.parse(readFileSync(decksStatePath(workspaceRoot), "utf-8")) as DecksState
-  return normalizeDecksState(parsed)
+  return readWorkspaceState(workspaceRoot, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksState })
 }
 
 export function writeDecksState(workspaceRoot: string, state: DecksState): void {
-  const filePath = decksStatePath(workspaceRoot)
-  mkdirSync(dirname(filePath), { recursive: true })
-  writeFileSync(filePath, JSON.stringify(normalizeDecksState(state), null, 2) + "\n", "utf-8")
+  writeWorkspaceState(workspaceRoot, state, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksState })
 }
 
 export function readOrCreateDecksState(workspaceRoot: string): DecksState {
-  if (hasDecksState(workspaceRoot)) return readDecksState(workspaceRoot)
-  const state = createEmptyDecksState()
-  writeDecksState(workspaceRoot, state)
-  return state
+  return readOrCreateWorkspaceState(workspaceRoot, createEmptyDecksState, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksState })
 }
 
 export function upsertDeck(state: DecksState, input: Partial<DeckSpec> & { slug: string }): DecksState {
