@@ -61,6 +61,12 @@ describe("workspace state repository", () => {
   it("keeps DECKS.json IO compatible through the repository", () => {
     const root = tempRoot()
     const state = createEmptyDecksState()
+    state.actions.push({
+      id: "action:test",
+      type: "workspace.scanned",
+      timestamp: "2026-05-05T00:00:00.000Z",
+      status: "success",
+    })
 
     writeDecksState(root, state)
 

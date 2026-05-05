@@ -8,7 +8,7 @@ import {
   workspaceStatePath,
   writeWorkspaceState,
 } from "./workspace-state/repository"
-import { WORKSPACE_STATE_FILE } from "./workspace-state/types"
+import { WORKSPACE_STATE_FILE, type WorkspaceAction } from "./workspace-state/types"
 
 export const DECKS_STATE_FILE = WORKSPACE_STATE_FILE
 
@@ -31,6 +31,7 @@ export interface DecksState {
     openQuestions: string[]
   }
   decks: Record<string, DeckSpec>
+  actions: WorkspaceAction[]
 }
 
 export interface SourceMaterial {
@@ -274,6 +275,7 @@ export function createEmptyDecksState(): DecksState {
       openQuestions: [],
     },
     decks: {},
+    actions: [],
   }
 }
 
@@ -661,6 +663,7 @@ function normalizeDecksState(input: DecksState): DecksState {
       openQuestions: input.workspace?.openQuestions ?? [],
     },
     decks: {},
+    actions: input.actions ?? [],
   }
   for (const [slug, deck] of Object.entries(input.decks ?? {})) {
     const normalizedSlug = normalizeSlug(deck.slug || slug)

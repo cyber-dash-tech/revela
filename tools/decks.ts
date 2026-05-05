@@ -18,6 +18,7 @@ import {
   type SlideSpec,
 } from "../lib/decks-state"
 import { upsertSourceMaterial } from "../lib/source-materials"
+import { recordWorkspaceAction } from "../lib/workspace-state/actions"
 
 export default tool({
   description:
@@ -126,8 +127,20 @@ export default tool({
       const defaultSlug = workspaceDeckSlug(workspaceRoot)
 
       if (args.action === "init") {
+        const discovered: SourceMaterial[] = []
         for (const material of (args.sourceMaterials ?? []) as SourceMaterial[]) {
           upsertSourceMaterial(state, material, material.status ?? "discovered")
+          discovered.push(material)
+        }
+        if (discovered.length > 0) {
+          recordWorkspaceAction(state, {
+            type: "source.discovered",
+            actor: "revela-decks",
+            inputs: { count: discovered.length },
+            outputs: { paths: discovered.map((material) => material.path), statuses: discovered.map((material) => material.status ?? "discovered") },
+            summary: `Registered ${discovered.length} discovered source material${discovered.length === 1 ? "" : "s"}.`,
+            nodeIds: discovered.map((material) => `source:${material.path}`),
+          })
         }
         writeDecksState(workspaceRoot, state)
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, state }, null, 2)
@@ -178,6 +191,23 @@ export default tool({
 
       if (args.action === "review") {
         const reviewed = reviewDeckState(state, undefined, { workspaceRoot })
+        recordWorkspaceAction(reviewed.state, {
+          type: "review.performed",
+          actor: "revela-decks",
+          inputs: { activeDeck: state.activeDeck },
+          outputs: {
+            slug: reviewed.result.slug,
+            status: reviewed.result.status,
+            ready: reviewed.result.ready,
+            blockerCount: reviewed.result.blockers.length,
+            warningCount: reviewed.result.warnings.length,
+            issueCount: reviewed.result.issues.length,
+            evidenceCandidateCount: reviewed.result.evidenceCandidates?.length ?? 0,
+          },
+          status: "success",
+          summary: `Reviewed deck readiness: ${reviewed.result.ready ? "ready" : "blocked"}.`,
+          nodeIds: [`artifact:${reviewed.state.decks[reviewed.result.slug]?.outputPath ?? reviewed.result.slug}`],
+        })
         writeDecksState(workspaceRoot, reviewed.state)
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: reviewed.result }, null, 2)
       }
@@ -186,6 +216,19 @@ export default tool({
         const candidateIds = args.candidateIds ?? []
         if (candidateIds.length === 0) return JSON.stringify({ ok: false, error: "candidateIds are required for applyEvidenceCandidates" })
         const applied = applyEvidenceCandidates(state, candidateIds, { workspaceRoot })
+        recordWorkspaceAction(applied.state, {
+          type: "evidence.binding_applied",
+          actor: "revela-decks",
+          inputs: { candidateIds },
+          outputs: {
+            applied: applied.result.applied.map((item) => ({ candidateId: item.candidateId, slideIndex: item.slideIndex, evidence: item.evidence })),
+            skipped: applied.result.skipped,
+            nextReviewNeeded: applied.result.nextReviewNeeded,
+          },
+          status: applied.result.applied.length > 0 ? "success" : "skipped",
+          summary: `Applied ${applied.result.applied.length} evidence candidate${applied.result.applied.length === 1 ? "" : "s"}.`,
+          nodeIds: applied.result.applied.map((item) => `slide:${item.slideIndex}`),
+        })
         writeDecksState(workspaceRoot, applied.state)
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: applied.result }, null, 2)
       }
