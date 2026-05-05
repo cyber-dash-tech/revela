@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs"
+import { createHash } from "crypto"
 import { basename, dirname, join, resolve } from "path"
 
 export const DECKS_STATE_FILE = "DECKS.json"
@@ -161,6 +162,7 @@ export interface DeckStateReadinessResult {
   blockers: string[]
   warnings: string[]
   issues: ReadinessIssue[]
+  evidenceCandidates?: EvidenceBindingCandidate[]
 }
 
 export type ReadinessSeverity = "blocker" | "warning"
@@ -182,9 +184,69 @@ export interface ReadinessIssue {
   slideIndex?: number
   slideTitle?: string
   claimText?: string
+  evidenceCandidates?: EvidenceBindingCandidate[]
+  evidenceCandidateSearch?: EvidenceCandidateSearchDiagnostic
+}
+
+export interface EvidenceBindingCandidate {
+  candidateId: string
+  slideIndex: number
+  slideTitle?: string
+  claimText?: string
+  source: string
+  findingsFile?: string
+  sourcePath?: string
+  location?: string
+  quote?: string
+  caveat?: string
+  supportScope: string[]
+  supportStrength: "partial" | "strong"
+  sourceKind?: "researchPlan" | "researchesFallback"
+  evidenceDraft?: EvidenceRef
+  unsupportedScope?: string[]
+  recommendedRewrite?: string
+}
+
+export interface EvidenceCandidateSearchDiagnostic {
+  queryTokens: string[]
+  researchPlanFindingsSearched: string[]
+  fallbackResearchFilesSearched: string[]
+  fallbackResearchFilesSkipped: string[]
+  nearMisses: EvidenceCandidateNearMiss[]
+}
+
+export interface EvidenceCandidateNearMiss {
+  findingsFile: string
+  sourceKind: "researchPlan" | "researchesFallback"
+  bestScore: number
+  threshold: number
+  supportScope: string[]
+  quote?: string
+  reason: string
+}
+
+export interface ApplyEvidenceCandidatesResult {
+  applied: AppliedEvidenceCandidate[]
+  skipped: SkippedEvidenceCandidate[]
+  nextReviewNeeded: boolean
+}
+
+export interface AppliedEvidenceCandidate {
+  candidateId: string
+  slideIndex: number
+  evidence: EvidenceRef
+}
+
+export interface SkippedEvidenceCandidate {
+  candidateId: string
+  reason: string
 }
 
 const SOURCE_TRACE_ACTION = "Add slide evidence with source plus source trace such as findingsFile or sourcePath, and quote, location, url, or caveat where available; otherwise reframe the claim as an explicit assumption/opinion."
+
+export interface ReviewDeckStateOptions {
+  workspaceRoot?: string
+}
 
 export function decksStatePath(workspaceRoot: string): string {
   return join(workspaceRoot, DECKS_STATE_FILE)
@@ -311,7 +373,65 @@ export function upsertSlides(state: DecksState, slug: string, slides: SlideSpec[
   return normalized
 }
 
-export function reviewDeckState(state: DecksState, slug?: string): { state: DecksState; result: DeckStateReadinessResult } {
+export function applyEvidenceCandidates(state: DecksState, candidateIds: string[], options: ReviewDeckStateOptions = {}): { state: DecksState; result: ApplyEvidenceCandidatesResult } {
+  const normalized = normalizeDecksState(state)
+  const ids = [...new Set(candidateIds.map((id) => id.trim()).filter(Boolean))]
+  const applied: AppliedEvidenceCandidate[] = []
+  const skipped: SkippedEvidenceCandidate[] = []
+  const key = currentDeckKey(normalized)
+  const deck = key ? normalized.decks[key] : undefined
+
+  if (!deck) {
+    return {
+      state: normalized,
+      result: {
+        applied,
+        skipped: ids.map((candidateId) => ({ candidateId, reason: `No active deck exists in ${DECKS_STATE_FILE}.` })),
+        nextReviewNeeded: false,
+      },
+    }
+  }
+
+  const review = reviewDeckState(normalized, deck.slug, options)
+  const byId = new Map((review.result.evidenceCandidates ?? []).map((candidate) => [candidate.candidateId, candidate]))
+  const next = normalizeDecksState(review.state)
+  const nextDeck = next.decks[deck.slug]
+
+  for (const candidateId of ids) {
+    const candidate = byId.get(candidateId)
+    if (!candidate) {
+      skipped.push({ candidateId, reason: "Candidate was not found in the current review result." })
+      continue
+    }
+    if (!candidate.evidenceDraft) {
+      skipped.push({ candidateId, reason: "Candidate has no evidenceDraft to apply." })
+      continue
+    }
+    const slide = nextDeck.slides.find((item) => item.index === candidate.slideIndex)
+    if (!slide) {
+      skipped.push({ candidateId, reason: `Slide ${candidate.slideIndex} no longer exists.` })
+      continue
+    }
+    const evidence = cleanEvidenceRef(candidate.evidenceDraft)
+    if (slide.evidence.some((item) => sameEvidenceRef(item, evidence))) {
+      skipped.push({ candidateId, reason: `Slide ${candidate.slideIndex} already has this evidence record.` })
+      continue
+    }
+    slide.evidence.push(evidence)
+    applied.push({ candidateId, slideIndex: candidate.slideIndex, evidence })
+  }
+
+  return {
+    state: next,
+    result: {
+      applied,
+      skipped,
+      nextReviewNeeded: applied.length > 0,
+    },
+  }
+}
+
+export function reviewDeckState(state: DecksState, slug?: string, options: ReviewDeckStateOptions = {}): { state: DecksState; result: DeckStateReadinessResult } {
   const normalized = normalizeDecksState(state)
   const key = normalizeSlug(slug || currentDeckKey(normalized) || "")
   const deck = key ? normalized.decks[key] : undefined
@@ -335,9 +455,10 @@ export function reviewDeckState(state: DecksState, slug?: string): { state: Deck
     }
   }
 
-  const issues = computeDeckReadinessIssues(deck, normalized.workspace)
+  const issues = computeDeckReadinessIssues(deck, normalized.workspace, options)
   const blockers = issues.filter((issue) => issue.severity === "blocker").map((issue) => issue.message)
   const warnings = issues.filter((issue) => issue.severity === "warning").map((issue) => issue.message)
+  const evidenceCandidates = issues.flatMap((issue) => issue.evidenceCandidates ?? [])
   deck.writeReadiness = {
     status: blockers.length === 0 ? "ready" : "blocked",
     blockers,
@@ -356,6 +477,7 @@ export function reviewDeckState(state: DecksState, slug?: string): { state: Deck
       blockers,
       warnings,
       issues,
+      evidenceCandidates,
     },
   }
 }
@@ -563,7 +685,7 @@ function currentDeckBlocker(state: DecksState): string {
   return `${DECKS_STATE_FILE} contains multiple deck records and no activeDeck. Select one current deck explicitly or move extra decks to separate workspaces.`
 }
 
-function computeDeckReadinessIssues(deck: DeckSpec, workspace: DecksState["workspace"]): ReadinessIssue[] {
+function computeDeckReadinessIssues(deck: DeckSpec, workspace: DecksState["workspace"], options: ReviewDeckStateOptions = {}): ReadinessIssue[] {
   const issues: ReadinessIssue[] = []
   if (!deck.goal.trim()) issues.push(blockerIssue("missing_slide_spec", "Deck goal is missing", "Set the deck goal through revela-decks upsertDeck."))
   if (!isDeckHtmlPath(deck.outputPath)) {
@@ -593,12 +715,18 @@ function computeDeckReadinessIssues(deck: DeckSpec, workspace: DecksState["works
     if (!hasSlideContent(slide)) issues.push(blockerIssue("missing_slide_spec", `Slide ${slide.index} content is missing`, "Add structured headline/body/bullets/data content to the slide spec.", slideRef))
 
     const claim = findEvidenceSensitiveClaim(slide)
-    if (claim && slide.evidence.length === 0) {
+    if (claim && slide.evidence.length === 0 && !isNavigationSlide(slide)) {
+      const { candidates: evidenceCandidates, search: evidenceCandidateSearch } = findEvidenceBindingCandidates(deck, slide, claim, options)
       issues.push(blockerIssue(
         "missing_evidence",
         `Slide ${slide.index} has an evidence-sensitive claim without evidence: ${claim}`,
         SOURCE_TRACE_ACTION,
-        { ...slideRef, claimText: claim },
+        {
+          ...slideRef,
+          claimText: claim,
+          evidenceCandidates: evidenceCandidates.length > 0 ? evidenceCandidates : undefined,
+          evidenceCandidateSearch,
+        },
       ))
     } else if (claim && slide.evidence.some((item) => !hasEvidenceDetail(item))) {
       issues.push(warningIssue(
@@ -625,6 +753,7 @@ function computeDeckReadinessIssues(deck: DeckSpec, workspace: DecksState["works
   const hasNeededResearch = deck.researchPlan.some((axis) => axis.needed && axis.status !== "skipped")
   for (const material of workspace.sourceMaterials ?? []) {
     if (material.status !== "discovered") continue
+    if (isIgnorableSourceMaterial(material.path)) continue
     const message = `Source material ${material.path} has been identified but not extracted, summarized, or researched`
     if (hasNeededResearch) {
       issues.push(blockerIssue(
@@ -642,6 +771,297 @@ function computeDeckReadinessIssues(deck: DeckSpec, workspace: DecksState["works
   }
 
   return issues
+}
+
+function findEvidenceBindingCandidates(deck: DeckSpec, slide: SlideSpec, claimText: string, options: ReviewDeckStateOptions): { candidates: EvidenceBindingCandidate[]; search?: EvidenceCandidateSearchDiagnostic } {
+  if (!options.workspaceRoot) return { candidates: [] }
+  const queryText = slideSearchText(slide)
+  const queryTokens = meaningfulTokens(queryText)
+  if (queryTokens.length === 0) return { candidates: [] }
+
+  const candidates: EvidenceBindingCandidate[] = []
+  const search: EvidenceCandidateSearchDiagnostic = {
+    queryTokens,
+    researchPlanFindingsSearched: [],
+    fallbackResearchFilesSearched: [],
+    fallbackResearchFilesSkipped: [],
+    nearMisses: [],
+  }
+  const planFindings = new Set<string>()
+  for (const axis of deck.researchPlan) {
+    if (!axis.needed || (axis.status !== "done" && axis.status !== "read") || !axis.findingsFile?.trim()) continue
+    const normalizedFindingsFile = normalizePath(axis.findingsFile)
+    planFindings.add(normalizedFindingsFile)
+    search.researchPlanFindingsSearched.push(normalizedFindingsFile)
+    const findingsPath = safeWorkspacePath(options.workspaceRoot, axis.findingsFile)
+    if (!findingsPath || !existsSync(findingsPath)) continue
+    const text = readTextPrefix(findingsPath, 100_000)
+    if (!text.trim()) continue
+    const result = candidateFromFindingsFile({
+      slide,
+      claimText,
+      queryTokens,
+      findingsFile: normalizedFindingsFile,
+      text,
+      sourceKind: "researchPlan",
+    })
+    if (result.candidate) candidates.push(result.candidate)
+    else if (result.nearMiss) search.nearMisses.push(result.nearMiss)
+  }
+
+  if (candidates.length === 0) {
+    for (const findingsFile of listWorkspaceResearchFindings(options.workspaceRoot, planFindings)) {
+      search.fallbackResearchFilesSearched.push(findingsFile)
+      const findingsPath = safeWorkspacePath(options.workspaceRoot, findingsFile)
+      if (!findingsPath || !existsSync(findingsPath)) {
+        search.fallbackResearchFilesSkipped.push(findingsFile)
+        continue
+      }
+      const text = readTextPrefix(findingsPath, 100_000)
+      if (!text.trim()) {
+        search.fallbackResearchFilesSkipped.push(findingsFile)
+        continue
+      }
+      const result = candidateFromFindingsFile({
+        slide,
+        claimText,
+        queryTokens,
+        findingsFile,
+        text,
+        sourceKind: "researchesFallback",
+      })
+      if (result.candidate) candidates.push(result.candidate)
+      else if (result.nearMiss) search.nearMisses.push(result.nearMiss)
+    }
+  }
+
+  search.nearMisses = search.nearMisses
+    .sort((a, b) => b.bestScore - a.bestScore)
+    .slice(0, 5)
+  return {
+    candidates: candidates
+      .sort((a, b) => b.supportScope.length - a.supportScope.length)
+      .slice(0, 3),
+    search,
+  }
+}
+
+function candidateFromFindingsFile({
+  slide,
+  claimText,
+  queryTokens,
+  findingsFile,
+  text,
+  sourceKind,
+}: {
+  slide: SlideSpec
+  claimText: string
+  queryTokens: string[]
+  findingsFile: string
+  text: string
+  sourceKind: "researchPlan" | "researchesFallback"
+}): { candidate?: EvidenceBindingCandidate; nearMiss?: EvidenceCandidateNearMiss } {
+  const lines = extractFindingsLines(text)
+  let best: { line: string; scope: string[]; score: number } | undefined
+  for (const line of lines) {
+    const normalizedLine = line.toLowerCase()
+    const scope = queryTokens.filter((token) => normalizedLine.includes(token))
+    const phraseScore = importantPhrases(slide).filter((phrase) => normalizedLine.includes(phrase)).length * 2
+    const score = scope.length + phraseScore
+    if (!best || score > best.score) best = { line, scope, score }
+  }
+  if (!best || best.score <= 0) return {}
+
+  const threshold = 2
+  const supportScope = [...new Set(best.scope)].slice(0, 8)
+  if (best.score < threshold) {
+    return {
+      nearMiss: {
+        findingsFile,
+        sourceKind,
+        bestScore: best.score,
+        threshold,
+        supportScope,
+        quote: best.line,
+        reason: `Best matching line scored ${best.score}, below binding threshold ${threshold}.`,
+      },
+    }
+  }
+
+  const sourcePath = extractSourcePath(text)
+  const coverage = supportScope.length / Math.max(1, queryTokens.length)
+  const supportStrength = best.score >= Math.min(5, Math.max(3, queryTokens.length)) && coverage >= 0.5 ? "strong" : "partial"
+  const unsupportedScope = unsupportedClaimScope(slide, best.line).slice(0, 5)
+  const caveats = []
+  if (supportStrength === "partial") {
+    caveats.push("Candidate support is partial. Bind only the matched claim scope; do not use it to support unrelated future-state or recommendation claims on the same slide.")
+  }
+  if (sourceKind === "researchesFallback") {
+    caveats.push("Candidate was discovered from researches/ fallback and is not referenced by researchPlan; confirm relevance before binding it into slide evidence.")
+  }
+  if (unsupportedScope.length > 0) {
+    caveats.push(`Unsupported claim scope: ${unsupportedScope.join("; ")}.`)
+  }
+  const caveat = caveats.length > 0 ? caveats.join(" ") : undefined
+  const evidenceDraft: EvidenceRef = {
+    source: sourcePath || findingsFile,
+    findingsFile,
+    sourcePath,
+    location: "research findings excerpt",
+    quote: best.line,
+    caveat,
+  }
+  return {
+    candidate: {
+      candidateId: evidenceCandidateId(slide.index, findingsFile, best.line, supportScope),
+      slideIndex: slide.index,
+      slideTitle: slide.title,
+      claimText,
+      source: sourcePath || findingsFile,
+      findingsFile,
+      sourcePath,
+      location: "research findings excerpt",
+      quote: best.line,
+      caveat,
+      supportScope,
+      supportStrength,
+      sourceKind,
+      evidenceDraft,
+      unsupportedScope,
+      recommendedRewrite: recommendedEvidenceRewrite(supportScope, unsupportedScope),
+    },
+  }
+}
+
+function unsupportedClaimScope(slide: SlideSpec, supportedLine: string): string[] {
+  const normalizedLine = supportedLine.toLowerCase()
+  const phrases = [slide.purpose, slide.content?.headline, ...(slide.content?.bullets ?? [])]
+    .map((item) => cleanMarkdownText(item ?? ""))
+    .filter((item) => item.length >= 8)
+
+  return [...new Set(phrases.filter((phrase) => {
+    const normalizedPhrase = phrase.toLowerCase()
+    return FUTURE_STATE_SCOPE_PATTERN.test(normalizedPhrase) && !normalizedLine.includes(normalizedPhrase)
+  }))]
+}
+
+function recommendedEvidenceRewrite(supportScope: string[], unsupportedScope: string[]): string | undefined {
+  if (unsupportedScope.length === 0) return undefined
+  const supported = supportScope.length > 0 ? supportScope.join(", ") : "the quoted current-state support"
+  return `Bind this evidence only to the supported scope (${supported}). Reframe unsupported scope as internal synthesis, target-state hypothesis, or a separately sourced claim: ${unsupportedScope.join("; ")}.`
+}
+
+function evidenceCandidateId(slideIndex: number, findingsFile: string, quote: string, supportScope: string[]): string {
+  const hash = createHash("sha1")
+    .update(JSON.stringify({ slideIndex, findingsFile, quote, supportScope }))
+    .digest("hex")
+    .slice(0, 8)
+  return `s${slideIndex}-${hash}`
+}
+
+function cleanEvidenceRef(evidence: EvidenceRef): EvidenceRef {
+  const cleaned: EvidenceRef = { source: cleanMarkdownText(evidence.source) }
+  for (const key of ["quote", "page", "url", "sourcePath", "location", "findingsFile", "caveat", "extractedTextPath", "extractedManifestPath"] as const) {
+    const value = cleanOptionalText(evidence[key])
+    if (value) cleaned[key] = value
+  }
+  return cleaned
+}
+
+function sameEvidenceRef(a: EvidenceRef, b: EvidenceRef): boolean {
+  return normalizeEvidenceComparable(a) === normalizeEvidenceComparable(b)
+}
+
+function normalizeEvidenceComparable(evidence: EvidenceRef): string {
+  const cleaned = cleanEvidenceRef(evidence)
+  return JSON.stringify({
+    source: cleaned.source,
+    findingsFile: cleaned.findingsFile,
+    sourcePath: cleaned.sourcePath,
+    quote: cleaned.quote,
+    location: cleaned.location,
+    caveat: cleaned.caveat,
+  })
+}
+
+function listWorkspaceResearchFindings(workspaceRoot: string, exclude: Set<string>): string[] {
+  const researchRoot = safeWorkspacePath(workspaceRoot, "researches")
+  if (!researchRoot || !existsSync(researchRoot)) return []
+  const files: string[] = []
+  collectMarkdownFiles(researchRoot, files, 0)
+  return files
+    .map((file) => normalizePath(file.slice(resolve(workspaceRoot).length + 1)))
+    .filter((file) => file.startsWith("researches/") && !exclude.has(file))
+    .slice(0, 50)
+}
+
+function collectMarkdownFiles(dir: string, output: string[], depth: number): void {
+  if (depth > 4) return
+  let entries: string[]
+  try {
+    entries = readdirSync(dir)
+  } catch {
+    return
+  }
+  for (const entry of entries) {
+    const fullPath = join(dir, entry)
+    let stat
+    try {
+      stat = statSync(fullPath)
+    } catch {
+      continue
+    }
+    if (stat.isDirectory()) {
+      collectMarkdownFiles(fullPath, output, depth + 1)
+    } else if (stat.isFile() && entry.endsWith(".md")) {
+      output.push(fullPath)
+    }
+  }
+}
+
+function safeWorkspacePath(workspaceRoot: string, relativePath: string): string | undefined {
+  const root = resolve(workspaceRoot)
+  const target = resolve(root, relativePath)
+  if (target !== root && !target.startsWith(root + "/")) return undefined
+  return target
+}
+
+function readTextPrefix(filePath: string, maxChars: number): string {
+  try {
+    return readFileSync(filePath, "utf-8").slice(0, maxChars)
+  } catch {
+    return ""
+  }
+}
+
+function extractFindingsLines(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*(?:[-*+]\s+|\d+\.\s+|>\s*)/, "").trim())
+    .filter((line) => line.length >= 24 && !/^---$/.test(line) && !/^#/.test(line))
+    .slice(0, 300)
+}
+
+function extractSourcePath(text: string): string | undefined {
+  const sourceLine = text.split(/\r?\n/).find((line) => /^\s*(?:[-*+]\s*)?(?:source|来源)\s*:/i.test(line))
+  if (!sourceLine) return undefined
+  return cleanMarkdownText(sourceLine.replace(/^\s*(?:[-*+]\s*)?(?:source|来源)\s*:\s*/i, "")) || undefined
+}
+
+function meaningfulTokens(text: string): string[] {
+  const normalized = text.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, " ")
+  const latin = normalized
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 4 && !EVIDENCE_BINDING_STOPWORDS.has(token))
+  const chinese = Array.from(normalized.matchAll(/[\u4e00-\u9fa5]{2,}/g), (match) => match[0])
+  return [...new Set([...latin, ...chinese])].slice(0, 40)
+}
+
+function importantPhrases(slide: SlideSpec): string[] {
+  return [slide.title, slide.content?.headline, ...(slide.content?.bullets ?? [])]
+    .map((item) => item?.trim().toLowerCase())
+    .filter((item): item is string => Boolean(item && item.length >= 8 && item.length <= 80))
 }
 
 function computeNarrativeReadinessIssues(deck: DeckSpec): ReadinessIssue[] {
@@ -843,6 +1263,25 @@ function hasClearEnding(slides: SlideSpec[]): boolean {
   return finalSlides.some((slide) => slide.narrativeRole === "recommendation" || slide.narrativeRole === "ask" || slide.narrativeRole === "close" || /\b(so what|takeaway|recommend(?:ation)?|decision|ask|next step|conclusion|close)\b|结论|建议|决策|请求|下一步|收尾|总结/.test(slideSearchText(slide)))
 }
 
+function isNavigationSlide(slide: SlideSpec): boolean {
+  const text = slideSearchText(slide)
+  return slide.layout === "toc" || /\b(table of contents|agenda|contents|outline|section guide)\b|目录|议程|大纲/.test(text)
+}
+
+function isIgnorableSourceMaterial(path: string): boolean {
+  const normalized = normalizePath(path).replace(/^\.\//, "")
+  const name = basename(normalized)
+  return Boolean(
+    name.startsWith("~$") ||
+      /^(AGENTS|README(?:\.zh-CN)?|DECKS)\.md$/.test(name) ||
+      name === DECKS_STATE_FILE ||
+      normalized.startsWith("decks/") ||
+      normalized.startsWith("researches/") ||
+      normalized.startsWith("assets/") ||
+      normalized.startsWith(".opencode/"),
+  )
+}
+
 function slideSearchText(slide: SlideSpec): string {
   return [
     slide.title,
@@ -918,6 +1357,36 @@ const EVIDENCE_SENSITIVE_TERMS = [
   /架构/,
   /可扩展/,
 ]
+
+const FUTURE_STATE_SCOPE_PATTERN = /\b(20\d{2}|future|target-state|end state|roadmap|pathway|architecture|capabilit(?:y|ies)|autonomy|autonomous|self-organizing|ecosystem|ai manufacturing os|ai brain|digital workers|closed-loop|orchestration)\b|未来|目标态|路线图|架构|能力|自治|自组织|生态|智能体|闭环/
+
+const EVIDENCE_BINDING_STOPWORDS = new Set([
+  "about",
+  "after",
+  "again",
+  "also",
+  "before",
+  "between",
+  "could",
+  "deck",
+  "from",
+  "have",
+  "into",
+  "must",
+  "only",
+  "over",
+  "page",
+  "roadmap",
+  "show",
+  "slide",
+  "that",
+  "their",
+  "there",
+  "this",
+  "through",
+  "with",
+  "would",
+])
 
 function normalizeSlides(slides: SlideSpec[]): SlideSpec[] {
   return slides

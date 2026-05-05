@@ -1,5 +1,9 @@
 import { describe, expect, it } from "bun:test"
+import { mkdtempSync, mkdirSync, writeFileSync } from "fs"
+import { tmpdir } from "os"
+import { join } from "path"
 import {
+  applyEvidenceCandidates,
   createDeckSpec,
   createEmptyDecksState,
   evaluateDeckStateWriteReadiness,
@@ -95,6 +99,253 @@ describe("DECKS.json state readiness", () => {
       suggestedAction: expect.stringContaining("findingsFile or sourcePath"),
     }))
     expect(reviewed.result.issues.find((issue) => issue.type === "missing_evidence")?.suggestedAction).toContain("quote, location, url, or caveat")
+  })
+
+  it("surfaces conservative evidence binding candidates from read research findings", () => {
+    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-review-candidates-"))
+    mkdirSync(join(workspaceRoot, "researches", "factory"), { recursive: true })
+    writeFileSync(join(workspaceRoot, "researches", "factory", "context.md"), `---
+topic: factory
+---
+
+## Data
+- P&G/Plug and Play proposal summarizes the current state as "Automation Islands" caused by heterogeneous systems, heavy middleware, and human bottlenecks.
+- Legacy assets lack a unified language; decisions and exceptions still rely on manual intervention.
+- Source: Updating V2-Plug and Play Proposal for P&G (English).pdf
+`)
+    let state = readyState()
+    state.decks["test-two-page-deck"].researchPlan = [{ axis: "factory context", needed: true, status: "read", findingsFile: "researches/factory/context.md" }]
+    state.decks["test-two-page-deck"].slides[1] = {
+      ...state.decks["test-two-page-deck"].slides[1],
+      title: "Factory Intelligence Evolution Roadmap",
+      purpose: "Show the path from Automation Islands to a future AI Manufacturing OS",
+      content: {
+        headline: "From Automation Islands to AI Manufacturing OS",
+        bullets: ["Factory intelligence must overcome fragmented legacy systems, heavy middleware, and human bottlenecks", "Future AI Brain and Digital Workers enable closed-loop coordination"],
+      },
+      evidence: [],
+    }
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck", { workspaceRoot })
+    const missing = reviewed.result.issues.find((issue) => issue.type === "missing_evidence")
+
+    expect(reviewed.result.ready).toBe(false)
+    expect(missing?.evidenceCandidates).toEqual([expect.objectContaining({
+      findingsFile: "researches/factory/context.md",
+      sourcePath: "Updating V2-Plug and Play Proposal for P&G (English).pdf",
+      supportStrength: "partial",
+      quote: expect.stringContaining("Automation Islands"),
+      caveat: expect.stringContaining("partial"),
+      supportScope: expect.arrayContaining(["automation", "islands"]),
+    })])
+    expect(reviewed.result.evidenceCandidates).toHaveLength(1)
+    expect(reviewed.result.evidenceCandidates?.[0].candidateId).toMatch(/^s2-[a-f0-9]{8}$/)
+    expect(reviewed.state.decks["test-two-page-deck"].slides[1].evidence).toEqual([])
+  })
+
+  it("finds partial candidates even when future-state claim text has low overlap", () => {
+    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-review-low-overlap-"))
+    mkdirSync(join(workspaceRoot, "researches", "factory"), { recursive: true })
+    writeFileSync(join(workspaceRoot, "researches", "factory", "context.md"), `## Data
+- P&G/Plug and Play proposal summarizes current operations as "Automation Islands" with fragmented legacy systems and human bottlenecks.
+- Source: Updating V2-Plug and Play Proposal for P&G (English).pdf
+`)
+    let state = readyState()
+    state.decks["test-two-page-deck"].researchPlan = [{ axis: "factory context", needed: true, status: "read", findingsFile: "researches/factory/context.md" }]
+    state.decks["test-two-page-deck"].slides[1] = {
+      ...state.decks["test-two-page-deck"].slides[1],
+      title: "Factory Intelligence Evolution Roadmap",
+      purpose: "Show the progression from automation islands to 2030 AI manufacturing OS and long-term self-organizing ecosystems.",
+      content: {
+        headline: "Factory Intelligence Evolution Roadmap",
+        bullets: ["Automation Islands", "2030 AI Manufacturing OS", "Self-Organizing Manufacturing Ecosystem"],
+      },
+      evidence: [],
+    }
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck", { workspaceRoot })
+    const candidate = reviewed.result.evidenceCandidates?.[0]
+
+    expect(candidate).toMatchObject({
+      candidateId: expect.stringMatching(/^s2-[a-f0-9]{8}$/),
+      findingsFile: "researches/factory/context.md",
+      supportStrength: "partial",
+      quote: expect.stringContaining("Automation Islands"),
+      supportScope: expect.arrayContaining(["automation", "islands"]),
+      caveat: expect.stringContaining("future-state"),
+      evidenceDraft: expect.objectContaining({
+        source: "Updating V2-Plug and Play Proposal for P&G (English).pdf",
+        findingsFile: "researches/factory/context.md",
+        quote: expect.stringContaining("Automation Islands"),
+        caveat: expect.stringContaining("Unsupported claim scope"),
+      }),
+      unsupportedScope: expect.arrayContaining(["2030 AI Manufacturing OS", "Self-Organizing Manufacturing Ecosystem"]),
+      recommendedRewrite: expect.stringContaining("internal synthesis"),
+    })
+  })
+
+  it("applies selected evidence candidates explicitly without rewriting slide content", () => {
+    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-review-apply-candidates-"))
+    mkdirSync(join(workspaceRoot, "researches", "factory"), { recursive: true })
+    writeFileSync(join(workspaceRoot, "researches", "factory", "context.md"), `## Data
+- P&G/Plug and Play proposal summarizes current operations as "Automation Islands" with fragmented legacy systems and human bottlenecks.
+- Source: Updating V2-Plug and Play Proposal for P&G (English).pdf
+`)
+    let state = readyState()
+    state.decks["test-two-page-deck"].researchPlan = [{ axis: "factory context", needed: true, status: "read", findingsFile: "researches/factory/context.md" }]
+    state.decks["test-two-page-deck"].slides[1] = {
+      ...state.decks["test-two-page-deck"].slides[1],
+      title: "Factory Intelligence Evolution Roadmap",
+      purpose: "Show the progression from automation islands to 2030 AI manufacturing OS and long-term self-organizing ecosystems.",
+      content: {
+        headline: "Factory Intelligence Evolution Roadmap",
+        bullets: ["Automation Islands", "2030 AI Manufacturing OS", "Self-Organizing Manufacturing Ecosystem"],
+      },
+      evidence: [],
+    }
+    const reviewed = reviewDeckState(state, "test-two-page-deck", { workspaceRoot })
+    const candidateId = reviewed.result.evidenceCandidates?.[0]?.candidateId
+    expect(typeof candidateId).toBe("string")
+
+    const applied = applyEvidenceCandidates(state, [candidateId!], { workspaceRoot })
+    const slide = applied.state.decks["test-two-page-deck"].slides[1]
+
+    expect(applied.result.applied).toEqual([expect.objectContaining({
+      candidateId,
+      slideIndex: 2,
+      evidence: expect.objectContaining({
+        source: "Updating V2-Plug and Play Proposal for P&G (English).pdf",
+        findingsFile: "researches/factory/context.md",
+        quote: expect.stringContaining("Automation Islands"),
+        caveat: expect.stringContaining("Unsupported claim scope"),
+      }),
+    })])
+    expect(applied.result.skipped).toEqual([])
+    expect(applied.result.nextReviewNeeded).toBe(true)
+    expect(slide.content.bullets).toEqual(["Automation Islands", "2030 AI Manufacturing OS", "Self-Organizing Manufacturing Ecosystem"])
+    expect(slide.evidence).toHaveLength(1)
+    expect(slide.evidence[0].caveat).toContain("partial")
+    expect(applied.state.decks["test-two-page-deck"].writeReadiness.status).toBe("blocked")
+  })
+
+  it("skips unknown or stale evidence candidate applications", () => {
+    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-review-apply-skip-"))
+    mkdirSync(join(workspaceRoot, "researches", "factory"), { recursive: true })
+    writeFileSync(join(workspaceRoot, "researches", "factory", "context.md"), `## Data
+- P&G/Plug and Play proposal summarizes current operations as "Automation Islands" with fragmented legacy systems and human bottlenecks.
+- Source: Updating V2-Plug and Play Proposal for P&G (English).pdf
+`)
+    let state = readyState()
+    state.decks["test-two-page-deck"].researchPlan = [{ axis: "factory context", needed: true, status: "read", findingsFile: "researches/factory/context.md" }]
+    state.decks["test-two-page-deck"].slides[1] = {
+      ...state.decks["test-two-page-deck"].slides[1],
+      title: "Factory Intelligence Evolution Roadmap",
+      purpose: "Show the progression from automation islands to 2030 AI manufacturing OS.",
+      content: { headline: "Factory Intelligence Evolution Roadmap", bullets: ["Automation Islands", "2030 AI Manufacturing OS"] },
+      evidence: [],
+    }
+    const candidateId = reviewDeckState(state, "test-two-page-deck", { workspaceRoot }).result.evidenceCandidates?.[0]?.candidateId
+    expect(typeof candidateId).toBe("string")
+    const once = applyEvidenceCandidates(state, [candidateId!, "missing-candidate"], { workspaceRoot })
+    const twice = applyEvidenceCandidates(once.state, [candidateId!], { workspaceRoot })
+
+    expect(once.result.applied).toHaveLength(1)
+    expect(once.result.skipped).toEqual([{ candidateId: "missing-candidate", reason: "Candidate was not found in the current review result." }])
+    expect(twice.result.applied).toEqual([])
+    expect(twice.result.skipped).toEqual([{ candidateId: candidateId!, reason: "Candidate was not found in the current review result." }])
+    expect(twice.state.decks["test-two-page-deck"].slides[1].evidence).toHaveLength(1)
+  })
+
+  it("falls back to workspace research files when researchPlan does not bind the findings file", () => {
+    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-review-researches-fallback-"))
+    mkdirSync(join(workspaceRoot, "researches", "pg_future_manufacturing_opening"), { recursive: true })
+    writeFileSync(join(workspaceRoot, "researches", "pg_future_manufacturing_opening", "unified-data-context-challenges.md"), `## Data
+- P&G/Plug and Play proposal summarizes current operations as "Automation Islands" caused by fragmented legacy systems and human bottlenecks.
+- Source: 更新V2-Plug and Play Proposal for P&G (English).pdf
+`)
+    let state = readyState()
+    state.decks["test-two-page-deck"].researchPlan = [{ axis: "unbound", needed: true, status: "read" }]
+    state.decks["test-two-page-deck"].slides[1] = {
+      ...state.decks["test-two-page-deck"].slides[1],
+      title: "Factory Intelligence Evolution Roadmap",
+      purpose: "Show the progression from automation islands to 2030 AI manufacturing OS and long-term self-organizing ecosystems.",
+      content: {
+        headline: "Factory Intelligence Evolution Roadmap",
+        bullets: ["Automation Islands", "2030 AI Manufacturing OS", "Self-Organizing Manufacturing Ecosystem"],
+      },
+      evidence: [],
+    }
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck", { workspaceRoot })
+    const candidate = reviewed.result.evidenceCandidates?.[0]
+
+    expect(candidate).toMatchObject({
+      sourceKind: "researchesFallback",
+      findingsFile: "researches/pg_future_manufacturing_opening/unified-data-context-challenges.md",
+      sourcePath: "更新V2-Plug and Play Proposal for P&G (English).pdf",
+      supportStrength: "partial",
+      quote: expect.stringContaining("Automation Islands"),
+    })
+    expect(candidate?.caveat).toContain("not referenced by researchPlan")
+    const search = reviewed.result.issues.find((issue) => issue.type === "missing_evidence")?.evidenceCandidateSearch
+    expect(search?.researchPlanFindingsSearched).toEqual([])
+    expect(search?.fallbackResearchFilesSearched).toContain("researches/pg_future_manufacturing_opening/unified-data-context-challenges.md")
+    expect(reviewed.state.decks["test-two-page-deck"].researchPlan[0].findingsFile).toBeUndefined()
+    expect(reviewed.state.decks["test-two-page-deck"].slides[1].evidence).toEqual([])
+  })
+
+  it("reports evidence candidate search near misses when no binding candidate is strong enough", () => {
+    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-review-near-miss-"))
+    mkdirSync(join(workspaceRoot, "researches", "factory"), { recursive: true })
+    writeFileSync(join(workspaceRoot, "researches", "factory", "weak.md"), `## Data
+- This note only mentions automation as a broad theme.
+`)
+    let state = readyState()
+    state.decks["test-two-page-deck"].researchPlan = [{ axis: "weak", needed: true, status: "read" }]
+    state.decks["test-two-page-deck"].slides[1] = {
+      ...state.decks["test-two-page-deck"].slides[1],
+      title: "Factory Intelligence Evolution Roadmap",
+      purpose: "Show the progression from automation islands to 2030 AI manufacturing OS and long-term self-organizing ecosystems.",
+      content: {
+        headline: "Factory Intelligence Evolution Roadmap",
+        bullets: ["Automation Islands", "2030 AI Manufacturing OS", "Self-Organizing Manufacturing Ecosystem"],
+      },
+      evidence: [],
+    }
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck", { workspaceRoot })
+    const missing = reviewed.result.issues.find((issue) => issue.type === "missing_evidence")
+
+    expect(missing?.evidenceCandidates).toBeUndefined()
+    expect(missing?.evidenceCandidateSearch).toMatchObject({
+      fallbackResearchFilesSearched: ["researches/factory/weak.md"],
+      nearMisses: [expect.objectContaining({
+        findingsFile: "researches/factory/weak.md",
+        sourceKind: "researchesFallback",
+        bestScore: 1,
+        threshold: 2,
+        quote: expect.stringContaining("automation"),
+      })],
+    })
+  })
+
+  it("does not block table-of-contents navigation slides without evidence", () => {
+    let state = readyState()
+    state.decks["test-two-page-deck"].slides[1] = {
+      ...state.decks["test-two-page-deck"].slides[1],
+      title: "Table of Contents",
+      purpose: "Frames future manufacturing through target architecture, system decomposition, current-state bottlenecks, technology levers and action pathways.",
+      layout: "toc",
+      content: { headline: "Table of Contents", bullets: ["Target architecture", "Technology levers", "Action pathways"] },
+      evidence: [],
+    }
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.issues).not.toContainEqual(expect.objectContaining({
+      type: "missing_evidence",
+      slideIndex: 2,
+    }))
   })
 
   it("allows simple non-claim slides without evidence", () => {
@@ -407,6 +658,41 @@ describe("DECKS.json state readiness", () => {
       type: "source_not_processed",
       severity: "warning",
       message: "Source material optional.pdf has been identified but not extracted, summarized, or researched",
+    }))
+  })
+
+  it("ignores workflow, temporary, and generated files in source material readiness warnings", () => {
+    let state = readyState()
+    state.decks["test-two-page-deck"].researchPlan = [{ axis: "Market", needed: true, status: "read", findingsFile: "researches/test/market.md" }]
+    for (const path of [
+      "~$W_China Emerging Technology Trends v2.docx",
+      "AGENTS.md",
+      "README.md",
+      "DECKS.json",
+      "decks/pg_future_manufacturing_opening.pptx",
+      "decks/pg_future_manufacturing_opening.html",
+      "更新V2-Plug and Play Proposal for P&G (English).pdf",
+    ]) {
+      upsertSourceMaterial(state, { path, status: "discovered" }, "discovered")
+    }
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.issues).not.toContainEqual(expect.objectContaining({
+      type: "source_not_processed",
+      message: expect.stringContaining("~$W_China"),
+    }))
+    expect(reviewed.result.issues).not.toContainEqual(expect.objectContaining({
+      type: "source_not_processed",
+      message: expect.stringContaining("AGENTS.md"),
+    }))
+    expect(reviewed.result.issues).not.toContainEqual(expect.objectContaining({
+      type: "source_not_processed",
+      message: expect.stringContaining("decks/pg_future_manufacturing_opening.pptx"),
+    }))
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "source_not_processed",
+      message: "Source material 更新V2-Plug and Play Proposal for P&G (English).pdf has been identified but not extracted, summarized, or researched",
     }))
   })
 

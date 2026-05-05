@@ -22,6 +22,9 @@ Goal:
 - For substantial decision decks, use the read-only Task subagent \`revela-narrative-reviewer\` for independent rubric-based critique of narrative brief and slide-plan alignment. Do not self-certify semantic narrative quality in the primary agent.
 - Treat \`revela-narrative-reviewer\` findings as advisory critique only. Do not represent them as \`revela-decks\` readiness issues, blockers, or authoritative \`writeReadiness\`.
 - Treat source trace mapping as part of evidence readiness: when research findings have been read, relevant findings should appear in slide-level \`slides[].evidence[]\` records rather than only in raw research files.
+- When \`revela-decks review\` returns \`evidenceCandidates\`, treat them as conservative binding candidates only. They are not proof that the full slide is supported, and they are not automatically applied to \`slides[].evidence[]\`. If a candidate has \`sourceKind: "researchesFallback"\`, say it was discovered from workspace \`researches/\` files that are not currently referenced by \`researchPlan\`.
+- When an evidence candidate includes \`evidenceDraft\`, report it as a proposed slide evidence record with its \`candidateId\`; it still requires explicit user/agent confirmation before calling \`revela-decks\` action \`applyEvidenceCandidates\`. Also report \`unsupportedScope\` and \`recommendedRewrite\` so partial evidence is not stretched to future-state claims.
+- When a missing-evidence issue has \`evidenceCandidateSearch\`, use it to explain search coverage: which \`researchPlan\` findings were searched, which fallback \`researches/**/*.md\` files were searched, and any near misses that were below binding threshold.
 
 Current state:
 - ${state}
@@ -36,7 +39,7 @@ Workspace boundary rules:
 Workflow:
 1. Call \`revela-decks\` with action \`read\` for the current workspace deck.
 2. If no current deck exists but the conversation contains enough deck context, call \`revela-decks\` action \`upsertDeck\` with goal, outputPath, theme, requiredInputs, researchPlan, and narrativeBrief if the story intent is clear. Do not invent or ask for a deck key; the tool uses the workspace folder name internally.
-3. If \`researchPlan[].status\` is \`done\` or \`read\` and \`researchPlan[].findingsFile\` exists, verify that evidence-sensitive slide claims are backed by compact \`slides[].evidence[]\` records that reference the relevant findings file or source material where known.
+3. If \`researchPlan[].status\` is \`done\` or \`read\` and \`researchPlan[].findingsFile\` exists, verify that evidence-sensitive slide claims are backed by compact \`slides[].evidence[]\` records that reference the relevant findings file or source material where known. The review tool may surface conservative \`evidenceCandidates\` for missing evidence by matching slide text against those findings files, and may fall back to bounded workspace \`researches/**/*.md\` discovery when the research plan has no matching findings file; report these as candidate bindings, not as already-bound evidence.
 4. If a user-confirmed slide plan is available, call \`revela-decks\` action \`upsertSlides\` with every slide's title, purpose, narrativeRole, layout, components, structured content, evidence, visuals, and status. Use only lightweight narrativeRole values that are clear from the plan: \`context\`, \`tension\`, \`evidence\`, \`recommendation\`, \`risk\`, \`ask\`, \`appendix\`, or \`close\`.
 5. Prefer evidence records with \`findingsFile\`, \`sourcePath\`, \`location\`, \`quote\`, \`url\`, \`caveat\`, \`extractedTextPath\`, or \`extractedManifestPath\` when those fields are known from research files or extracted workspace materials.
 6. Do not invent quotes, page references, locations, URLs, caveats, or extraction paths. If source trace is missing, preserve the blocker or warning and report exactly what trace is needed.
@@ -44,7 +47,7 @@ Workflow:
 8. For substantial decision decks, preserve a compact \`narrativeBrief\` through \`upsertDeck\` when the conversation or confirmed plan supports it. Do not invent stakeholder beliefs, objections, or risks; leave gaps visible if unknown.
 9. For substantial decision decks, launch the Task subagent with \`subagent_type: "revela-narrative-reviewer"\` after deck/slides are up to date. Ask it to read the current \`DECKS.json\`, run only its fixed rubric, use stable finding IDs, return \`Findings: none\` when all checks pass, and avoid optional pre-write improvements. Do not ask it to write state, call \`revela-decks review\`, or produce HTML.
 10. Call \`revela-decks\` action \`review\`. The tool computes and writes \`writeReadiness\` plus structured readiness issues for the current workspace deck.
-11. Briefly report whether the deck is ready. If blocked, list the exact blockers returned by the tool. If warnings exist, list them after blockers as residual risks; separate evidence/source warnings from narrative warnings when possible. If the reviewer returned findings, include them in a separate \`Narrative reviewer notes\` section and label them advisory.
+11. Briefly report whether the deck is ready. If blocked, list the exact blockers returned by the tool. If warnings exist, list them after blockers as residual risks; separate evidence/source warnings from narrative warnings when possible. If the review result includes \`evidenceCandidates\`, add a separate \`Candidate evidence bindings\` section with candidateId, slide index/title, supported claim scope, sourceKind, findingsFile/sourcePath, quote/snippet, caveat, evidenceDraft summary, unsupportedScope, and recommendedRewrite. Tell the user they may explicitly ask to apply selected candidate IDs; do not apply them during review. If candidates are absent but \`evidenceCandidateSearch\` is present, briefly report searched file counts and the best near misses so the user can tell whether review failed to search or searched but did not find a bindable match. If the reviewer returned findings, include them in a separate \`Narrative reviewer notes\` section and label them advisory.
 
 Minimum conditions for \`ready\`:
 - Topic, audience, slide count, language, and visual style/design are decided.
@@ -68,6 +71,9 @@ Report format:
 - Do not invent evidence or silently downgrade blockers. Use the tool result as authoritative.
 - Do not convert \`revela-narrative-reviewer\` advisory findings into tool readiness issues. Keep them separate from \`revela-decks review\` blockers and warnings, and preserve the reviewer's stable finding IDs when reporting them.
 - When reporting weak evidence, say whether the missing trace is \`findingsFile\`, \`sourcePath\`, \`location\`, \`quote\`, \`url\`, or \`caveat\` if that is clear from the reviewed materials.
+- When reporting candidate evidence bindings, distinguish partial support from full-slide support. Never say a candidate supports unrelated future-state, recommendation, roadmap, or product-vision claims unless the candidate explicitly supports those claims.
+- Treat \`evidenceDraft\` as a proposed record, not a mutation. Do not call \`upsertSlides\` to bind it. Only call \`revela-decks\` action \`applyEvidenceCandidates\` with explicit \`candidateIds\` if the user asks to apply candidate bindings.
+- When reporting candidate search diagnostics, do not present near misses as evidence. Say they are below binding threshold and use them only to explain why no candidate was returned.
 
 Rules:
 - Do not write or overwrite \`decks/*.html\` during review.
