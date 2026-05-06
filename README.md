@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-302%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-322%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
@@ -17,11 +17,11 @@ Its first render target is still the HTML slide deck: enable Revela for the curr
 
 ## What It Does
 
-- injects a presentation-specific system prompt into your current agent with `/revela enable`
-- builds that prompt from 3 layers: core skill, active domain, active design
+- injects a narrative-first system prompt into your current agent with `/revela enable`
+- switches into deck-render prompt mode only when you explicitly start `/revela deck`
 - supports workspace document discovery, transparent text extraction for `.pdf`, `.docx`, `.pptx`, and `.xlsx`, and cached embedded-material extraction for those formats
 - keeps `DECKS.json` as the current workspace state engine for sources, research actions, findings, claims, evidence, narrative intent, render targets, and readiness
-- checks for missing context, weak evidence, and incomplete structure before writing `decks/*.html`
+- reviews narrative readiness before artifact rendering, then separately gates deck HTML writes through deck/artifact readiness
 - records review snapshots so stale readiness cannot silently authorize new deck HTML after important state changes
 - treats HTML decks, PDF, and PPTX as render targets from shared workspace state rather than isolated output files
 - runs fast design compliance checks whenever the agent writes, patches, or edits `decks/*.html`
@@ -105,16 +105,17 @@ Optionally switch design or domain:
 /revela domains deeptech-investment
 ```
 
-Then give the agent a deck task:
-
-```text
-Create a 6-slide HTML deck on humanoid robotics supply chains. Cite the main market drivers, use the active design faithfully, and save the result to decks/humanoid-robotics.html.
-```
-
-If the task depends on sources, research, or a confirmed slide plan, you can ask Revela to review whether the deck has enough context, structure, and evidence before writing:
+Then shape or review the narrative. When the narrative is ready and approved, start deck handoff:
 
 ```text
 /revela review
+/revela deck
+```
+
+If you need to check only the deck/artifact gate before HTML writing, use:
+
+```text
+/revela deck --review
 ```
 
 Export when needed, either manually or by asking the agent to export:
@@ -136,11 +137,13 @@ Disable presentation mode when done:
 
 ```text
 /revela                          show status and help
-/revela enable                   enable presentation mode for this session
-/revela disable                  disable presentation mode
+/revela enable                   enable narrative/artifact mode for this session
+/revela disable                  disable Revela mode
 
-/revela init                     prepare the workspace for a deck project
-/revela review                   check whether context, structure, and evidence are ready
+/revela init                     initialize or refresh narrative workspace state
+/revela review                   review narrative readiness and approval state
+/revela deck                     start deck handoff from approved narrative
+/revela deck --review            review deck/artifact readiness before writing HTML
 /revela remember <text>          save an explicit user/workflow preference
 /revela refine                   open unified Edit/Inspect refinement workspace
 /revela edit                     open visual editor for the only deck in decks/
@@ -163,7 +166,7 @@ Disable presentation mode when done:
 /revela pptx <file>              export an HTML deck to editable PPTX in the same directory
 ```
 
-Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela review`, `/revela remember`, `/revela designs-new`, and `/revela designs-edit` start AI-assisted workflows because they need to read or update project files. `/revela refine` opens a local browser workspace with Edit and Inspect tabs that share the same Cmd/Ctrl-click element references. Edit sends targeted comments back into the current OpenCode session; Inspect renders deterministic Source/Purpose preprocessing first before lazy LLM-generated cards arrive, has no chat box, and does not edit the deck.
+Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela review`, `/revela deck`, `/revela remember`, `/revela designs-new`, and `/revela designs-edit` start AI-assisted workflows because they need to read or update project files. `/revela refine` opens a local browser workspace with Edit and Inspect tabs that share the same Cmd/Ctrl-click element references. Edit sends targeted comments back into the current OpenCode session; Inspect renders deterministic Source/Purpose preprocessing first before lazy LLM-generated cards arrive, has no chat box, and does not edit the deck.
 
 ---
 
@@ -171,9 +174,11 @@ Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela
 
 When Revela is enabled, it appends a generated prompt to the current agent's system prompt.
 
-That prompt is built from 3 layers:
+The default prompt is narrative-first: it focuses on audience belief shift, decision/action, thesis, claims, evidence boundaries, objections, risks, and approval. Active design CSS, layout catalogs, component indexes, chart rules, and deck HTML skeletons are intentionally omitted until `/revela deck` switches the session into deck-render mode.
 
-1. `skill/SKILL.md` - the core slide-generation workflow
+Deck-render mode is built from 3 layers:
+
+1. `skill/SKILL.md` - the core deck-render workflow
 2. active domain - domain-specific report structure and terminology
 3. active design - visual system, layouts, components, and chart rules
 
@@ -188,11 +193,11 @@ The state records:
 
 - workspace source materials and reusable extraction cache paths
 - research plans, saved findings, and compact action provenance
-- narrative intent, objections, risks, slide specs, claim candidates, and slide-level evidence trace
+- canonical narrative state, approvals, objections, risks, slide specs, claim candidates, and evidence trace
 - render targets such as the active HTML deck plus derived PDF and PPTX artifacts
 - review snapshots with input hashes so old readiness results become stale after meaningful state changes
 
-0.11 keeps backward compatibility with existing root `DECKS.json` workspaces. Running `/revela init` or `/revela review` on an older project can normalize and refresh the new projection fields without requiring a manual migration, moving files, or replacing `DECKS.json` with a database.
+Existing root `DECKS.json` workspaces remain compatible. Running `/revela init` or `/revela review` on an older project can normalize canonical narrative state and refresh projection fields without requiring a manual migration, moving files, or replacing `DECKS.json` with a database. `writeReadiness.status: "ready"` is deck/artifact readiness only; it is never narrative approval.
 
 Decks remain the primary authored artifact, but they are now treated as render targets from the same workspace state that can later support briefs, appendix material, Evidence Inspector views, Q&A, and interactive reading layers without duplicating source/evidence logic.
 
@@ -200,21 +205,22 @@ Decks remain the primary authored artifact, but they are now treated as render t
 
 ## Recommended Workflow
 
-Use Revela as a guided deck-production mode:
+Use Revela as a narrative-first artifact workflow:
 
 1. Enable Revela with `/revela enable`.
 2. Run `/revela init` when starting in a new project or when the workspace has changed significantly.
-3. Choose a design or domain if the default style is not right.
-4. Give the agent a clear deck task: audience, goal, language, number of slides, source requirements, and output path.
-5. Use `/revela review` before writing if the deck needs research, citations, or a confirmed slide plan.
-6. Let the agent write the HTML deck under `decks/`.
-7. Use `/revela refine` for visual comments, targeted revisions, and optional Source/Purpose inspection of selected deck elements.
-8. Use `/revela edit` or `/revela inspect` directly only if you need the older single-purpose shells.
-9. Export with `/revela pdf <file>` or `/revela pptx <file>`.
+3. Use `/revela review` to check narrative readiness: audience, belief shift, decision/action, thesis, central claims, evidence, objections, risks, and approval state.
+4. Approve the narrative or request revisions. If you intentionally render before full strategic approval, record an explicit render override.
+5. Run `/revela deck` to compile the approved narrative into deck slide specs and enter deck-render mode.
+6. Choose or confirm design only during deck handoff, then run the deck/artifact gate with `/revela deck --review` or the handoff workflow.
+7. Let the agent write the HTML deck under `decks/` only after the artifact gate is ready.
+8. Use `/revela refine` for visual comments, targeted revisions, and optional Source/Purpose inspection of selected deck elements.
+9. Use `/revela edit` or `/revela inspect` directly only if you need the older single-purpose shells.
+10. Export with `/revela pdf <file>` or `/revela pptx <file>`.
 
-`/revela review` checks for practical readiness problems: unclear audience, missing source material, unfinished research, unsupported claims, weak source trace, incomplete slide structure, missing design/layout information, or lightweight narrative issues such as weak so-what, missing risk/assumption handling, and abrupt transitions. It does not write the final deck.
+`/revela review` checks narrative readiness: unclear audience, missing belief shift, missing decision/action, weak thesis, unsupported central claims, weak evidence, unsupported scope, unhandled objections, missing risk/assumption handling, stale approval, or missing approval. It does not review design/layout readiness and does not write the final deck.
 
-If Revela blocks a deck write, ask the agent to run `/revela review`, resolve the reported gaps, and try again. This protects the deck file from being overwritten before the plan, evidence, and structure are ready. In 0.11, review results are also saved as input-hashed snapshots; if sources, slide specs, evidence, narrative state, or the active render target changes afterward, the old review can no longer silently authorize a write.
+If Revela blocks a deck write, ask the agent to run `/revela deck --review`, resolve the reported artifact gaps, and try again. This protects the deck file from being overwritten before the slide specs, evidence projection, design/layout readiness, review snapshot, and deck HTML contract are ready.
 
 To remember long-term preferences, use:
 
