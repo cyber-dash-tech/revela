@@ -9,12 +9,75 @@ export function buildReviewPrompt({
 }): string {
   const state = exists
     ? `${DECKS_STATE_FILE} exists. Read it through the revela-decks tool.`
+    : `${DECKS_STATE_FILE} does not exist yet. Create or normalize it through the revela-decks tool only if there is enough workspace narrative context.`
+
+  return `Review Revela narrative readiness.
+
+Goal:
+- Use ${DECKS_STATE_FILE} as the compatibility workspace-state file, but review the canonical narrative state first: audience, belief shift, decision/action, thesis, central claims, evidence boundaries, objections, risks, and approval state.
+- Treat this as a narrative readiness review, not a deck HTML write-readiness review.
+- Do not write, patch, or directly edit ${DECKS_STATE_FILE}. Use the \`revela-decks\` tool for all state changes.
+- Call \`revela-decks\` action \`reviewNarrative\` as the authoritative deterministic readiness engine.
+- Do not call \`revela-decks\` action \`review\` here. That action is the deck/artifact gate and belongs to \`/revela deck --review\`.
+- Do not treat legacy \`writeReadiness.status\`, old review snapshots, or an existing HTML deck as narrative approval.
+- Do not write or overwrite \`decks/*.html\` during narrative review.
+- If the narrative is \`ready_for_approval\`, ask whether the user wants to approve it or revise it. Do not approve automatically.
+- Only call \`revela-decks\` action \`approveNarrative\` when the user explicitly asks to approve or override.
+
+Current state:
+- ${state}
+${workspaceRoot ? `- Current workspace root: \`${workspaceRoot}\`` : ""}
+
+Workspace boundary rules:
+- Stay strictly inside the current workspace root for every scan, glob, read, and write.
+- Do not search parent directories, home directories, or unrelated absolute directories.
+- Do not use \`~\`, \`..\`, or parent-directory traversal to discover files.
+- For Glob/file searches, use the current workspace as the search root. Do not set the search root to a parent directory or home directory.
+
+Workflow:
+1. Call \`revela-decks\` with action \`read\` to inspect the current workspace state.
+2. If ${DECKS_STATE_FILE} is missing or empty, do not invent a deck plan, slide count, design, output path, or visual style. Report the smallest narrative inputs needed, usually audience, belief-before, belief-after, decision/action, thesis, central claims, evidence availability, objections, and risks.
+3. If legacy deck state exists, let the tool-normalized canonical narrative derived from \`narrativeBrief\`, slide roles, slide content, and slide evidence be reviewed. Do not assume old deck readiness means approval.
+4. Call \`revela-decks\` action \`reviewNarrative\`. Use its returned \`status\`, \`blockers\`, \`warnings\`, \`issues\`, \`narrativeHash\`, \`approval\`, and \`nextActions\` as authoritative.
+5. If research findings have been saved but not attached or evidence-bound, report them as unattached research state, not proof.
+6. If central claims lack required evidence, report the named claim and the exact next action: attach findings, bind evidence, run targeted research, narrow unsupported scope, or rewrite the claim.
+7. If approval is missing or stale, clearly distinguish \`ready_for_approval\`, \`approved\`, and render override.
+
+Report format:
+- Start with \`Narrative readiness: <status>\`.
+- Include \`Narrative hash: <hash>\` when returned.
+- If blocked or needs research, list each blocker with issue type, claim text when available, and suggested next action.
+- If warnings exist, list them after blockers as residual risks.
+- If approval is missing, ask whether the user wants to approve the narrative or revise it.
+- If approval is stale, say the prior approval no longer matches the current narrative hash.
+- Keep deck/artifact readiness separate. If the user wants to review slide-writing readiness, tell them to run \`/revela deck --review\`.
+
+Rules:
+- Do not write or overwrite \`decks/*.html\` during narrative review.
+- Do not call \`revela-decks review\` during narrative review.
+- Do not apply evidence candidates, bind evidence, or rewrite slide text unless the user explicitly asks.
+- Do not store secrets, credentials, tokens, or sensitive personal information.
+- Do not add inferred user preferences to long-term preference state.
+
+Start now by reading ${DECKS_STATE_FILE} through \`revela-decks\`, then call \`revela-decks\` action \`reviewNarrative\`.`
+}
+
+export function buildDeckReviewPrompt({
+  exists,
+  workspaceRoot,
+}: {
+  exists: boolean
+  workspaceRoot?: string
+}): string {
+  const state = exists
+    ? `${DECKS_STATE_FILE} exists. Read it through the revela-decks tool.`
     : `${DECKS_STATE_FILE} does not exist yet. Create it through the revela-decks tool if there is enough deck context.`
 
-  return `Review Revela deck write readiness.
+  return `Review Revela deck/artifact write readiness.
 
 Goal:
 - Use ${DECKS_STATE_FILE} as the source of truth for whether the current workspace deck is ready to be written to \`decks/*.html\`.
+- Treat this as an artifact gate for deck rendering, not strategic narrative approval. Narrative readiness is reviewed by \`/revela review\`.
 - Preserve the deck spec for future sessions: every slide's content, layout, components, evidence, visuals, production status, and the 0.9 narrative compiler brief when available.
 - Do not write, patch, or directly edit ${DECKS_STATE_FILE}. Use the \`revela-decks\` tool for all state changes.
 - Let \`revela-decks\` action \`review\` compute writeReadiness; do not manually set readiness to ready.

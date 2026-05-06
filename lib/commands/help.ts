@@ -24,10 +24,11 @@ export async function handleHelp(
     `🟠 **Domain:** \`${domain}\`\n\n` +
     `---\n\n` +
     `**Commands**\n\n` +
-    `\`/revela enable\`              — enable slide generation mode\n` +
-    `\`/revela disable\`             — disable slide generation mode\n` +
+    `\`/revela enable\`              — enable Revela narrative/artifact mode\n` +
+    `\`/revela disable\`             — disable Revela mode\n` +
     `\`/revela init\`                — initialize or refresh workspace DECKS.json\n` +
-    `\`/revela review\`              — review current deck readiness before writing HTML\n` +
+    `\`/revela review\`              — review narrative readiness and approval state\n` +
+    `\`/revela deck --review\`       — review deck/artifact readiness before writing HTML\n` +
     `\`/revela refine\`              — open unified Edit/Inspect refinement workspace\n` +
     `\`/revela edit\`                — open visual editor for the only deck in decks/\n` +
     `\`/revela inspect\`             — open Evidence Inspector for click-to-inspect review\n` +

@@ -60,7 +60,7 @@ import {
 } from "./lib/commands/designs-new"
 import { buildInitPrompt } from "./lib/commands/init"
 import { parseRememberArgs, buildRememberPrompt } from "./lib/commands/remember"
-import { buildReviewPrompt } from "./lib/commands/review"
+import { buildDeckReviewPrompt, buildReviewPrompt } from "./lib/commands/review"
 import {
   extractDeckHtmlTargetsFromPatch,
   extractPatchTextArg,
@@ -348,13 +348,25 @@ const server: Plugin = (async (pluginCtx) => {
       }
       if (sub === "review") {
         if (param) {
-          await send("`/revela review` no longer accepts a deck name. It reviews the current workspace deck.")
+          await send("`/revela review` no longer accepts a deck name. It reviews the current workspace narrative. Use `/revela deck --review` for deck/artifact readiness.")
           throw new Error("__REVELA_REVIEW_USAGE_HANDLED__")
         }
         output.parts.length = 0
         output.parts.push({
           type: "text",
           text: buildReviewPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
+        } as any)
+        return
+      }
+      if (sub === "deck") {
+        if (param !== "--review") {
+          await send("`/revela deck` currently supports only `/revela deck --review`. Deck rendering handoff will be added in a later 0.12 slice.")
+          throw new Error("__REVELA_DECK_USAGE_HANDLED__")
+        }
+        output.parts.length = 0
+        output.parts.push({
+          type: "text",
+          text: buildDeckReviewPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
         } as any)
         return
       }

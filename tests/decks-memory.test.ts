@@ -10,7 +10,7 @@ import {
 } from "../lib/decks-memory"
 import { buildInitPrompt } from "../lib/commands/init"
 import { buildRememberPrompt, parseRememberArgs } from "../lib/commands/remember"
-import { buildReviewPrompt } from "../lib/commands/review"
+import { buildDeckReviewPrompt, buildReviewPrompt } from "../lib/commands/review"
 import {
   createDeckSpec,
   createEmptyDecksState,
@@ -97,10 +97,26 @@ describe("remember command", () => {
 })
 
 describe("review command", () => {
-  it("builds a prompt that reviews write readiness", () => {
+  it("builds a prompt that reviews narrative readiness", () => {
     const prompt = buildReviewPrompt({ exists: true })
-    expect(prompt).toContain("Review Revela deck write readiness")
-    expect(prompt).toContain("current workspace deck")
+    expect(prompt).toContain("Review Revela narrative readiness")
+    expect(prompt).toContain("canonical narrative state")
+    expect(prompt).toContain("reviewNarrative")
+    expect(prompt).toContain("Do not call `revela-decks` action `review` here")
+    expect(prompt).toContain("writeReadiness.status")
+    expect(prompt).toContain("Narrative readiness: <status>")
+    expect(prompt).toContain("ready_for_approval")
+    expect(prompt).toContain("approved")
+    expect(prompt).toContain("render override")
+    expect(prompt).toContain("/revela deck --review")
+    expect(prompt).toContain("Do not write or overwrite `decks/*.html`")
+  })
+
+  it("builds a deck/artifact gate prompt separately", () => {
+    const prompt = buildDeckReviewPrompt({ exists: true })
+    expect(prompt).toContain("Review Revela deck/artifact write readiness")
+    expect(prompt).toContain("artifact gate")
+    expect(prompt).toContain("Narrative readiness is reviewed by `/revela review`")
     expect(prompt).toContain("writeReadiness")
     expect(prompt).toContain("evidence and Narrative Compiler readiness review")
     expect(prompt).toContain("unsupported numbers")
@@ -125,14 +141,14 @@ describe("review command", () => {
   })
 
   it("initializes DECKS.json through the tool when missing", () => {
-    const prompt = buildReviewPrompt({ exists: false })
+    const prompt = buildDeckReviewPrompt({ exists: false })
     expect(prompt).toContain("DECKS.json does not exist yet")
     expect(prompt).toContain("Create it through the revela-decks tool")
     expect(prompt).toContain("action `review`")
   })
 
-  it("requires source trace mapping during evidence readiness review", () => {
-    const prompt = buildReviewPrompt({ exists: true })
+  it("requires source trace mapping during deck evidence readiness review", () => {
+    const prompt = buildDeckReviewPrompt({ exists: true })
     expect(prompt).toContain("source trace mapping")
     expect(prompt).toContain("researchPlan[].findingsFile")
     expect(prompt).toContain("slides[].evidence[]")
