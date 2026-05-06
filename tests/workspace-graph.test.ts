@@ -187,6 +187,67 @@ describe("workspace graph projection", () => {
     }))
   })
 
+  it("prefers canonical narrative claims, evidence, objections, and risks when available", () => {
+    const state = stateWithGraphInputs()
+    state.narrative = {
+      version: 1,
+      id: "narrative:canonical-demo",
+      status: "ready_for_approval",
+      audience: {
+        primary: "Board",
+        beliefBefore: "The board is unsure a pilot is safer.",
+        beliefAfter: "The board sees pilot approval as the safer path.",
+      },
+      decision: { action: "Approve pilot expansion.", decisionType: "approve" },
+      thesis: { id: "thesis:pilot", statement: "Pilot expansion bounds risk.", confidence: "medium" },
+      claims: [{
+        id: "claim:pilot-risk",
+        kind: "recommendation",
+        text: "Pilot expansion lowers execution risk.",
+        importance: "central",
+        evidenceRequired: true,
+        evidenceStatus: "partial",
+        unsupportedScope: "Does not prove full rollout readiness.",
+      }],
+      evidenceBindings: [{
+        id: "evidence:pilot-risk:ops",
+        claimId: "claim:pilot-risk",
+        source: "Operations findings",
+        findingsFile: "researches/graph-demo/ops.md",
+        quote: "Pilot scope fits current hiring capacity.",
+        location: "section 2",
+        strength: "partial",
+        unsupportedScope: "Full rollout capacity remains unproven.",
+      }],
+      objections: [{ id: "objection:capacity", text: "Capacity may still be too thin.", claimId: "claim:pilot-risk", priority: "high" }],
+      risks: [{ id: "risk:hiring", text: "Hiring capacity remains constrained.", claimId: "claim:pilot-risk", severity: "medium" }],
+      approvals: [],
+      updatedAt: "2026-05-06T00:00:00.000Z",
+    }
+
+    const graph = projectWorkspaceGraph(state)
+
+    expect(graph.nodes["narrative:canonical-demo"]).toMatchObject({
+      type: "narrativeIntent",
+      data: { decisionOrAction: "Approve pilot expansion.", thesis: "Pilot expansion bounds risk." },
+    })
+    expect(graph.nodes["claim:pilot-risk"]).toMatchObject({
+      type: "claim",
+      label: "Pilot expansion lowers execution risk.",
+      data: { source: "canonicalNarrative", unsupportedScope: "Does not prove full rollout readiness." },
+    })
+    expect(graph.edges).toContainEqual(expect.objectContaining({ type: "contains", from: "narrative:canonical-demo", to: "claim:pilot-risk" }))
+    expect(graph.edges).toContainEqual(expect.objectContaining({
+      type: "supports",
+      from: "finding:researches/graph-demo/ops.md",
+      to: "claim:pilot-risk",
+      data: expect.objectContaining({ strength: "partial", unsupportedScope: "Full rollout capacity remains unproven." }),
+    }))
+    expect(graph.edges).toContainEqual(expect.objectContaining({ type: "challenges", from: "objection:capacity", to: "claim:pilot-risk" }))
+    expect(graph.edges).toContainEqual(expect.objectContaining({ type: "constrained_by", from: "claim:pilot-risk", to: "risk:hiring" }))
+    expect(graph.edges).toContainEqual(expect.objectContaining({ type: "renders_from", from: "artifact:decks/graph-demo.html", to: "narrative:canonical-demo" }))
+  })
+
   it("projects exported render targets as artifacts derived from the HTML deck", () => {
     const state = stateWithGraphInputs()
     recordArtifactRenderTarget(state, {

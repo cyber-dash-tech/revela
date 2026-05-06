@@ -1,5 +1,6 @@
 import { createHash } from "crypto"
 import type { DeckSpec, DecksState, EvidenceRef, NarrativeBrief, ResearchAxis, SlideSpec, SourceMaterial } from "../decks-state"
+import type { NarrativeEvidenceBinding, NarrativeStateV1 } from "../narrative-state/types"
 import { renderTargetId } from "./render-targets"
 import type { GraphEdge, GraphEdgeType, GraphNode, GraphNodeType, RenderTarget, WorkspaceGraph } from "./types"
 
@@ -19,7 +20,7 @@ export function projectWorkspaceGraph(state: DecksState, options: ProjectWorkspa
   for (const material of state.workspace.sourceMaterials ?? []) addSourceMaterial(builder, material)
   for (const axis of deck.researchPlan ?? []) addResearchFinding(builder, axis)
 
-  const narrativeId = addNarrative(builder, deck)
+  const narrativeId = addNarrative(builder, state, deck)
   for (const slide of deck.slides.slice().sort((a, b) => a.index - b.index)) addSlide(builder, slide)
   for (const slide of deck.slides.slice().sort((a, b) => a.index - b.index)) addSlideClaimsAndEvidence(builder, slide)
   const targets = renderTargetsForDeck(state, deck)
@@ -84,7 +85,9 @@ function addResearchFinding(builder: GraphBuilder, axis: ResearchAxis): void {
   })
 }
 
-function addNarrative(builder: GraphBuilder, deck: DeckSpec): string | undefined {
+function addNarrative(builder: GraphBuilder, state: DecksState, deck: DeckSpec): string | undefined {
+  if (hasCanonicalNarrative(state.narrative)) return addCanonicalNarrative(builder, state.narrative, deck)
+
   const brief = deck.narrativeBrief
   if (!hasNarrativeBrief(brief)) return undefined
 
@@ -120,6 +123,84 @@ function addNarrative(builder: GraphBuilder, deck: DeckSpec): string | undefined
   }
 
   return narrativeId
+}
+
+function addCanonicalNarrative(builder: GraphBuilder, narrative: NarrativeStateV1, deck: DeckSpec): string {
+  addNode(builder, {
+    id: narrative.id,
+    type: "narrativeIntent",
+    label: narrative.thesis?.statement || deck.goal || narrative.id,
+    data: compactData({
+      status: narrative.status,
+      goal: deck.goal,
+      audience: narrative.audience.primary || deck.audience,
+      language: deck.language,
+      beliefBefore: narrative.audience.beliefBefore,
+      beliefAfter: narrative.audience.beliefAfter,
+      decisionOrAction: narrative.decision.action,
+      thesis: narrative.thesis?.statement,
+    }),
+  })
+
+  for (const claim of narrative.claims) {
+    addNode(builder, {
+      id: claim.id,
+      type: "claim",
+      label: claim.text,
+      data: compactData({
+        text: claim.text,
+        kind: claim.kind,
+        importance: claim.importance,
+        evidenceRequired: claim.evidenceRequired,
+        evidenceStatus: claim.evidenceStatus,
+        supportedScope: claim.supportedScope,
+        unsupportedScope: claim.unsupportedScope,
+        caveats: claim.caveats,
+        source: "canonicalNarrative",
+      }),
+    })
+    addEdge(builder, "contains", narrative.id, claim.id)
+  }
+
+  for (const binding of narrative.evidenceBindings) {
+    const supportId = addNarrativeEvidenceSupportNode(builder, binding)
+    addEdge(builder, "supports", supportId, binding.claimId, compactData({
+      strength: binding.strength,
+      source: binding.source,
+      quote: binding.quote,
+      url: binding.url,
+      sourcePath: binding.sourcePath,
+      location: binding.location,
+      findingsFile: binding.findingsFile,
+      caveat: binding.caveat,
+      supportScope: binding.supportScope,
+      unsupportedScope: binding.unsupportedScope,
+    }))
+  }
+
+  for (const objection of narrative.objections) {
+    addNode(builder, {
+      id: objection.id,
+      type: "objection",
+      label: objection.text,
+      data: compactData({ text: objection.text, priority: objection.priority, response: objection.response }),
+    })
+    addEdge(builder, "contains", narrative.id, objection.id)
+    addEdge(builder, "challenges", objection.id, objection.claimId || narrative.id)
+  }
+
+  for (const risk of narrative.risks) {
+    addNode(builder, {
+      id: risk.id,
+      type: "risk",
+      label: risk.text,
+      data: compactData({ text: risk.text, severity: risk.severity, mitigation: risk.mitigation }),
+    })
+    addEdge(builder, "contains", narrative.id, risk.id)
+    addEdge(builder, "constrained_by", risk.claimId || narrative.id, risk.id)
+  }
+
+  return narrative.id
 }
 
 function addSlide(builder: GraphBuilder, slide: SlideSpec): void {
@@ -222,6 +303,29 @@ function addEvidenceSupportNode(builder: GraphBuilder, evidence: EvidenceRef): s
   return id
 }
 
+function addNarrativeEvidenceSupportNode(builder: GraphBuilder, binding: NarrativeEvidenceBinding): string {
+  if (binding.findingsFile?.trim()) {
+    const id = findingNodeId(binding.findingsFile)
+    addNode(builder, {
+      id,
+      type: "finding",
+      label: binding.findingsFile,
+      data: compactData({ findingsFile: binding.findingsFile, source: binding.source, quote: binding.quote, location: binding.location, caveat: binding.caveat }),
+    })
+    return id
+  }
+
+  const sourceKey = binding.sourcePath || binding.source || binding.url || "unknown-narrative-evidence-source"
+  const id = sourceNodeId(sourceKey)
+  addNode(builder, {
+    id,
+    type: "source",
+    label: sourceKey,
+    data: compactData({ source: binding.source, sourcePath: binding.sourcePath, url: binding.url }),
+  })
+  return id
+}
+
 function addArtifact(builder: GraphBuilder, deck: DeckSpec, target: RenderTarget, narrativeId: string | undefined, targets: RenderTarget[]): void {
   const artifactId = artifactNodeId(target.outputPath ?? deck.outputPath)
   addNode(builder, {
@@ -305,6 +409,20 @@ function hasNarrativeBrief(brief: NarrativeBrief | undefined): boolean {
       brief?.keyClaims.length ||
       brief?.objections.length ||
       brief?.risks.length,
+  )
+}
+
+function hasCanonicalNarrative(narrative: NarrativeStateV1 | undefined): narrative is NarrativeStateV1 {
+  return Boolean(
+    narrative?.audience.primary?.trim() ||
+      narrative?.audience.beliefBefore?.trim() ||
+      narrative?.audience.beliefAfter?.trim() ||
+      narrative?.decision.action?.trim() ||
+      narrative?.thesis?.statement?.trim() ||
+      narrative?.claims.length ||
+      narrative?.evidenceBindings.length ||
+      narrative?.objections.length ||
+      narrative?.risks.length,
   )
 }
 
