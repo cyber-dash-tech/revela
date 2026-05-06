@@ -90,6 +90,7 @@ export type WorkspaceActionType =
   | "research.findings_attached"
   | "evidence.candidate_generated"
   | "evidence.binding_applied"
+  | "narrative.approved"
   | "review.performed"
   | "artifact.rendered"
 

@@ -21,15 +21,21 @@ import { recordWorkspaceAction } from "../lib/workspace-state/actions"
 import { applyEvidenceBindings } from "../lib/workspace-state/evidence-status"
 import { attachResearchFindings } from "../lib/workspace-state/research-attachments"
 import { activeReviewTargetId, latestReviewSnapshotForTarget } from "../lib/workspace-state/review-snapshots"
+import {
+  approveNarrativeState,
+  recordNarrativeApprovalAction,
+  recordNarrativeReviewAction,
+  reviewNarrativeState,
+} from "../lib/narrative-state/readiness"
 
 export default tool({
   description:
     `Read and update ${DECKS_STATE_FILE}, Revela's workspace deck state file. ` +
     "Use this tool instead of writing or patching the state file directly. " +
-    "It stores active deck specs, per-slide content/layout/components, and computes write readiness.",
+    "It stores workspace narrative state, active deck specs, per-slide content/layout/components, and computes narrative or deck readiness.",
   args: {
     action: tool.schema
-      .enum(["read", "init", "upsertDeck", "upsertSlides", "review", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
+      .enum(["read", "init", "upsertDeck", "upsertSlides", "review", "reviewNarrative", "approveNarrative", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
       .describe("Action to perform on DECKS.json."),
     summary: tool.schema.boolean().optional().describe("For read: return a compact summary instead of full state."),
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
@@ -124,6 +130,9 @@ export default tool({
     findingsFile: tool.schema.string().optional().describe("For attachResearchFindings: workspace-relative researches/{topic}/{axis}.md file to attach to researchPlan."),
     researchAxis: tool.schema.string().optional().describe("For attachResearchFindings: researchPlan axis to attach the findings file to. Required when filename matching would be ambiguous."),
     researchStatus: tool.schema.enum(["done", "read"]).optional().describe("For attachResearchFindings: optional explicit status to set on the matched research axis."),
+    approvalNote: tool.schema.string().optional().describe("For approveNarrative: optional note explaining the approval or override."),
+    approvalBy: tool.schema.enum(["user", "override"]).optional().describe("For approveNarrative: use override only for explicit render overrides, not normal strategic approval."),
+    approvalScope: tool.schema.enum(["narrative", "render_override"]).optional().describe("For approveNarrative: narrative approval or explicit render override scope."),
   },
   async execute(args, context) {
     try {
@@ -220,6 +229,24 @@ export default tool({
         })
         writeDecksState(workspaceRoot, reviewed.state)
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: reviewed.result }, null, 2)
+      }
+
+      if (args.action === "reviewNarrative") {
+        const reviewed = reviewNarrativeState(state)
+        recordNarrativeReviewAction(reviewed.state, reviewed.result)
+        writeDecksState(workspaceRoot, reviewed.state)
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: reviewed.result, narrative: reviewed.state.narrative }, null, 2)
+      }
+
+      if (args.action === "approveNarrative") {
+        const approved = approveNarrativeState(state, {
+          approvedBy: args.approvalBy,
+          scope: args.approvalScope,
+          note: args.approvalNote,
+        })
+        recordNarrativeApprovalAction(approved.state, approved.result)
+        writeDecksState(workspaceRoot, approved.state)
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: approved.result, narrative: approved.state.narrative }, null, 2)
       }
 
       if (args.action === "applyEvidenceCandidates") {

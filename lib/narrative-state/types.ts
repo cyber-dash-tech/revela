@@ -94,3 +94,46 @@ export interface NarrativeApproval {
   scope: "narrative" | "render_override"
   note?: string
 }
+
+export type NarrativeReadinessStatus = "blocked" | "needs_research" | "needs_user_confirmation" | "ready_for_approval" | "approved"
+
+export type NarrativeReadinessIssueType =
+  | "missing_audience"
+  | "missing_belief_shift"
+  | "missing_decision"
+  | "missing_thesis"
+  | "claim_chain_gap"
+  | "missing_evidence"
+  | "weak_evidence"
+  | "unsupported_scope"
+  | "unhandled_objection"
+  | "missing_risk"
+  | "approval_missing"
+  | "approval_stale"
+  | "artifact_stale"
+  | "research_findings_unattached"
+
+export interface NarrativeReadinessIssue {
+  type: NarrativeReadinessIssueType
+  severity: "blocker" | "warning"
+  message: string
+  suggestedAction: string
+  claimId?: string
+  claimText?: string
+  source?: string
+}
+
+export interface NarrativeReadinessResult {
+  status: NarrativeReadinessStatus
+  narrativeHash: string
+  reviewedAt: string
+  blockers: string[]
+  warnings: string[]
+  issues: NarrativeReadinessIssue[]
+  approval?: {
+    current: boolean
+    stale: boolean
+    latest?: NarrativeApproval
+  }
+  nextActions: string[]
+}

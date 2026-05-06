@@ -6,6 +6,8 @@ import { createEmptyDecksState, readDecksState, upsertDeck, upsertSlides, writeD
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { narrativeToBrief } from "../lib/narrative-state/project-compat"
+import { approveNarrativeState, reviewNarrativeState } from "../lib/narrative-state/readiness"
+import decksTool from "../tools/decks"
 
 describe("narrative state", () => {
   function legacyDecisionDeck() {
@@ -147,5 +149,85 @@ describe("narrative state", () => {
       objections: ["The forecast may be too optimistic."],
       risks: ["Execution risk remains material."],
     })
+  })
+
+  it("marks evidence-complete narratives as ready for approval before explicit approval", () => {
+    const reviewed = reviewNarrativeState(legacyDecisionDeck(), { now: "2026-05-06T00:00:00.000Z" })
+
+    expect(reviewed.result.status).toBe("ready_for_approval")
+    expect(reviewed.result.blockers).toEqual([])
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({ type: "approval_missing", severity: "warning" }))
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({ type: "weak_evidence", severity: "warning", claimText: "Demand supports phased expansion." }))
+    expect(reviewed.state.narrative?.status).toBe("ready_for_approval")
+  })
+
+  it("blocks central claims with missing required evidence as needs_research", () => {
+    const state = legacyDecisionDeck()
+    state.decks["narrative-demo"].slides[0].evidence = []
+
+    const reviewed = reviewNarrativeState(state, { now: "2026-05-06T00:00:00.000Z" })
+
+    expect(reviewed.result.status).toBe("needs_research")
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "missing_evidence",
+      severity: "blocker",
+      claimText: "Demand supports phased expansion.",
+    }))
+    expect(reviewed.state.narrative?.status).toBe("needs_research")
+  })
+
+  it("records current approval and detects stale approval after narrative changes", () => {
+    const approved = approveNarrativeState(legacyDecisionDeck(), { now: "2026-05-06T00:00:00.000Z" })
+
+    expect(approved.result.approved).toBe(true)
+    expect(approved.result.readiness.status).toBe("approved")
+    expect(approved.state.narrative?.approvals).toContainEqual(expect.objectContaining({
+      narrativeHash: approved.result.narrativeHash,
+      approvedBy: "user",
+      scope: "narrative",
+    }))
+
+    approved.state.narrative!.claims[0].text = "Demand evidence now supports only a pilot expansion."
+    const stale = reviewNarrativeState(approved.state, { now: "2026-05-07T00:00:00.000Z" })
+
+    expect(stale.result.status).toBe("ready_for_approval")
+    expect(stale.result.approval).toMatchObject({ current: false, stale: true })
+    expect(stale.result.issues).toContainEqual(expect.objectContaining({ type: "approval_stale", severity: "warning" }))
+  })
+
+  it("refuses normal approval when narrative has unresolved blockers", () => {
+    const state = legacyDecisionDeck()
+    state.decks["narrative-demo"].slides[0].evidence = []
+
+    const result = approveNarrativeState(state, { now: "2026-05-06T00:00:00.000Z" })
+
+    expect(result.result).toMatchObject({ approved: false, skipped: true })
+    expect(result.result.reason).toContain("unresolved readiness blockers")
+    expect(result.state.narrative?.approvals).toEqual([])
+  })
+
+  it("exposes reviewNarrative and approveNarrative through revela-decks", async () => {
+    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-tool-"))
+    writeDecksState(workspaceRoot, legacyDecisionDeck())
+
+    const review = JSON.parse(await (decksTool as any).execute({ action: "reviewNarrative" }, { directory: workspaceRoot }))
+    const approval = JSON.parse(await (decksTool as any).execute({ action: "approveNarrative", approvalNote: "Approved for narrative handoff." }, { directory: workspaceRoot }))
+    const reloaded = readDecksState(workspaceRoot)
+
+    expect(review.ok).toBe(true)
+    expect(review.result.status).toBe("ready_for_approval")
+    expect(approval.ok).toBe(true)
+    expect(approval.result.approved).toBe(true)
+    expect(reloaded.narrative?.status).toBe("approved")
+    expect(reloaded.actions).toContainEqual(expect.objectContaining({
+      type: "review.performed",
+      actor: "revela-decks",
+      outputs: expect.objectContaining({ kind: "narrative", status: "ready_for_approval" }),
+    }))
+    expect(reloaded.actions).toContainEqual(expect.objectContaining({
+      type: "narrative.approved",
+      actor: "revela-decks",
+      outputs: expect.objectContaining({ approved: true, approvalId: expect.stringMatching(/^approval:/) }),
+    }))
   })
 })
