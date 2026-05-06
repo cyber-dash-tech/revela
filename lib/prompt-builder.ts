@@ -1,9 +1,14 @@
 /**
- * Prompt builder — assembles the three-layer system prompt.
+ * Prompt builder — assembles Revela system prompts.
  *
- * Layer 1: SKILL.md     — core protocol (conversation flow, HTML rules, quality)
- * Layer 2: DOMAIN.md    — domain knowledge (report structure, terminology)
- * Layer 3: DESIGN.md    — visual style (colors, fonts, animations, layout)
+ * Narrative mode:
+ *   Layer 1: NARRATIVE_SKILL.md — audience/decision/claim/evidence readiness
+ *   Layer 2: DOMAIN.md          — domain reasoning guidance when present
+ *
+ * Deck-render mode:
+ *   Layer 1: SKILL.md           — legacy deck render protocol (HTML rules, quality)
+ *   Layer 2: DOMAIN.md          — domain structure/terminology
+ *   Layer 3: DESIGN.md          — visual style (colors, fonts, animations, layout)
  *
  * When the active DESIGN.md has @section markers, only the global section,
  * layouts section, and a generated component index are injected into the
@@ -37,22 +42,43 @@ import { childLog } from "./log"
 
 const promptLog = childLog("prompt-builder")
 
-/** Path to SKILL.md shipped with this package. */
+export type PromptMode = "narrative" | "deck-render"
+
+export interface BuildPromptOptions {
+  mode?: PromptMode
+  designName?: string
+  domainName?: string
+}
+
+/** Path to deck-render SKILL.md shipped with this package. */
 const SKILL_MD_PATH = resolve(__dirname, "..", "skill", "SKILL.md")
+const NARRATIVE_SKILL_MD_PATH = resolve(__dirname, "..", "skill", "NARRATIVE_SKILL.md")
 
 /**
- * Build the combined system prompt and write it to _active-prompt.md.
+ * Build the active system prompt and write it to _active-prompt.md.
  *
- * @param designName - Override design (defaults to active)
- * @param domainName - Override domain (defaults to active)
+ * Backward-compatible call form:
+ * - buildPrompt() builds the default narrative prompt.
+ * - buildPrompt("aurora", "general") builds the default narrative prompt with active metadata overrides.
+ *
+ * New call form:
+ * - buildPrompt({ mode: "narrative" }) avoids design/HTML instructions.
+ * - buildPrompt({ mode: "deck-render" }) preserves the legacy deck render prompt.
+ *
  * @returns The path to the written file.
  */
-export function buildPrompt(designName?: string, domainName?: string): string {
-  const design = designName || activeDesign()
-  const domain = domainName || activeDomain()
+export function buildPrompt(options?: BuildPromptOptions): string
+export function buildPrompt(designName?: string, domainName?: string): string
+export function buildPrompt(optionsOrDesignName?: BuildPromptOptions | string, legacyDomainName?: string): string {
+  const options = typeof optionsOrDesignName === "object" && optionsOrDesignName !== null
+    ? optionsOrDesignName
+    : { designName: optionsOrDesignName, domainName: legacyDomainName }
+  const mode: PromptMode = options.mode || "narrative"
+  const design = options.designName || activeDesign()
+  const domain = options.domainName || activeDomain()
 
-  // Layer 1 — SKILL.md
-  const coreSkill = readFileSync(SKILL_MD_PATH, "utf-8")
+  // Layer 1 — core skill for the selected prompt mode.
+  const coreSkill = readFileSync(mode === "deck-render" ? SKILL_MD_PATH : NARRATIVE_SKILL_MD_PATH, "utf-8")
 
   // Check for preview.html
   const designDir = join(DESIGNS_DIR, design)
@@ -73,30 +99,37 @@ export function buildPrompt(designName?: string, domainName?: string): string {
     })
   }
 
-  // Layer 3 — DESIGN.md: marker-aware or full-text fallback
-  const designSkill = buildDesignLayer(design)
+  // Layer 3 — DESIGN.md: deck-render only. Narrative mode must not inject
+  // visual CSS, layout catalogs, component indexes, or HTML skeleton rules.
+  const designSkill = mode === "deck-render" ? buildDesignLayer(design) : ""
 
   // Assemble header
-  const header =
-    `<!-- Active design: ${design} -->\n` +
-    `<!-- Active domain: ${domain} -->\n` +
-    `<!-- Design files: ${designDir}/ -->\n` +
-    `<!--   - DESIGN.md — metadata + style instructions (injected below) -->\n` +
-    `${previewLine}\n\n`
+  const header = mode === "deck-render"
+    ? `<!-- Revela prompt mode: deck-render -->\n` +
+      `<!-- Active design: ${design} -->\n` +
+      `<!-- Active domain: ${domain} -->\n` +
+      `<!-- Design files: ${designDir}/ -->\n` +
+      `<!--   - DESIGN.md — metadata + style instructions (injected below) -->\n` +
+      `${previewLine}\n\n`
+    : `<!-- Revela prompt mode: narrative -->\n` +
+      `<!-- Active domain: ${domain} -->\n` +
+      `<!-- Design layer intentionally omitted in narrative mode. Use deck-render mode before writing deck artifacts. -->\n\n`
 
-  // Three-layer concatenation: Header → SKILL → Domain → Design
+  // Concatenation: Header → Skill → Domain → Design (deck-render only)
   const parts = [header, coreSkill]
   if (domainSkill) {
     parts.push(`\n\n---\n\n${domainSkill}`)
   }
-  parts.push(`\n\n---\n\n${designSkill}`)
+  if (designSkill) {
+    parts.push(`\n\n---\n\n${designSkill}`)
+  }
 
   const prompt = parts.join("")
 
   // Write to _active-prompt.md
   mkdirSync(CONFIG_DIR, { recursive: true })
   writeFileSync(ACTIVE_PROMPT_FILE, prompt, "utf-8")
-  promptLog.info("prompt rebuilt", { design, domain, bytes: prompt.length })
+  promptLog.info("prompt rebuilt", { mode, design, domain, bytes: prompt.length })
 
   return ACTIVE_PROMPT_FILE
 }
