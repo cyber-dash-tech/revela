@@ -27,6 +27,7 @@ import {
   recordNarrativeReviewAction,
   reviewNarrativeState,
 } from "../lib/narrative-state/readiness"
+import { compileDeckPlanFromNarrative } from "../lib/narrative-state/render-plan"
 import { normalizeCanonicalNarrativeState, normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { narrativeToBrief } from "../lib/narrative-state/project-compat"
 import type { NarrativeStateV1 } from "../lib/narrative-state/types"
@@ -62,7 +63,7 @@ export default tool({
     "It stores workspace narrative state, active deck specs, per-slide content/layout/components, and computes narrative or deck readiness.",
   args: {
     action: tool.schema
-      .enum(["read", "init", "upsertDeck", "upsertSlides", "upsertNarrative", "review", "reviewNarrative", "approveNarrative", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
+      .enum(["read", "init", "upsertDeck", "upsertSlides", "upsertNarrative", "compileDeckPlan", "review", "reviewNarrative", "approveNarrative", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
       .describe("Action to perform on DECKS.json."),
     summary: tool.schema.boolean().optional().describe("For read: return a compact summary instead of full state."),
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
@@ -358,6 +359,27 @@ export default tool({
         })
         writeDecksState(workspaceRoot, reviewed.state)
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: reviewed.result }, null, 2)
+      }
+
+      if (args.action === "compileDeckPlan") {
+        const compiled = compileDeckPlanFromNarrative(state)
+        if (compiled.result.compiled) {
+          recordWorkspaceAction(compiled.state, {
+            type: "deck.plan_compiled",
+            actor: "revela-decks",
+            inputs: { narrativeId: compiled.state.narrative?.id, activeDeck: compiled.state.activeDeck },
+            outputs: {
+              narrativeHash: compiled.result.narrativeHash,
+              slideCount: compiled.result.slideCount,
+              outputPath: compiled.state.activeDeck ? compiled.state.decks[compiled.state.activeDeck]?.outputPath : undefined,
+            },
+            status: "success",
+            summary: `Compiled deck plan from canonical narrative with ${compiled.result.slideCount} slide${compiled.result.slideCount === 1 ? "" : "s"}.`,
+            nodeIds: [compiled.state.narrative?.id, compiled.state.activeDeck ? `artifact:${compiled.state.decks[compiled.state.activeDeck]?.outputPath ?? compiled.state.activeDeck}` : undefined].filter((item): item is string => Boolean(item)),
+          })
+        }
+        writeDecksState(workspaceRoot, compiled.state)
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: compiled.result, deck: compiled.state.activeDeck ? compiled.state.decks[compiled.state.activeDeck] : undefined, narrative: compiled.state.narrative }, null, 2)
       }
 
       if (args.action === "reviewNarrative") {

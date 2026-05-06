@@ -280,4 +280,51 @@ describe("narrative state", () => {
       outputs: expect.objectContaining({ claimCount: 1, riskCount: 1 }),
     }))
   })
+
+  it("compiles an approved canonical narrative into deck slide specs without marking deck ready", async () => {
+    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-compile-"))
+    writeDecksState(workspaceRoot, legacyDecisionDeck())
+    await (decksTool as any).execute({ action: "approveNarrative", approvalNote: "Approved for deck planning." }, { directory: workspaceRoot })
+
+    const result = JSON.parse(await (decksTool as any).execute({ action: "compileDeckPlan" }, { directory: workspaceRoot }))
+    const reloaded = readDecksState(workspaceRoot)
+    const deck = reloaded.decks[reloaded.activeDeck!]
+
+    expect(result.ok).toBe(true)
+    expect(result.result).toMatchObject({ compiled: true, skipped: false, slideCount: 5 })
+    expect(deck.slides.map((slide) => slide.narrativeRole)).toEqual(["context", "recommendation", "evidence", "risk", "ask"])
+    expect(deck.slides[1]).toMatchObject({
+      title: "Demand supports phased expansion.",
+      content: { headline: "Demand supports phased expansion." },
+      evidence: [expect.objectContaining({ findingsFile: "researches/narrative-demo/market.md", quote: "Demand increased 25% from 2024 to 2025." })],
+    })
+    expect(deck.requiredInputs).toMatchObject({
+      topicClarified: true,
+      audienceClarified: true,
+      researchNeedAssessed: true,
+      researchFindingsRead: true,
+      slidePlanConfirmed: false,
+      designLayoutsFetched: false,
+    })
+    expect(deck.writeReadiness.status).toBe("blocked")
+    expect(deck.narrativeBrief?.decisionOrAction).toBe("Approve phased expansion.")
+    expect(reloaded.actions).toContainEqual(expect.objectContaining({
+      type: "deck.plan_compiled",
+      actor: "revela-decks",
+      outputs: expect.objectContaining({ slideCount: 5, narrativeHash: expect.any(String) }),
+    }))
+  })
+
+  it("refuses to compile a deck plan before narrative approval or render override", async () => {
+    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-compile-refuse-"))
+    writeDecksState(workspaceRoot, legacyDecisionDeck())
+
+    const result = JSON.parse(await (decksTool as any).execute({ action: "compileDeckPlan" }, { directory: workspaceRoot }))
+    const reloaded = readDecksState(workspaceRoot)
+
+    expect(result.ok).toBe(true)
+    expect(result.result).toMatchObject({ compiled: false, skipped: true })
+    expect(result.result.reason).toContain("approved or explicitly overridden")
+    expect(reloaded.actions.some((action) => action.type === "deck.plan_compiled")).toBe(false)
+  })
 })

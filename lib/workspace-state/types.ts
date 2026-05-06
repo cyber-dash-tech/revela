@@ -89,6 +89,7 @@ export type WorkspaceActionType =
   | "research.findings_saved"
   | "research.findings_attached"
   | "narrative.upserted"
+  | "deck.plan_compiled"
   | "evidence.candidate_generated"
   | "evidence.binding_applied"
   | "narrative.approved"
