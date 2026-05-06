@@ -60,7 +60,7 @@ import {
 } from "./lib/commands/designs-new"
 import { buildInitPrompt } from "./lib/commands/init"
 import { parseRememberArgs, buildRememberPrompt } from "./lib/commands/remember"
-import { buildDeckReviewPrompt, buildReviewPrompt } from "./lib/commands/review"
+import { buildDeckPrompt, buildDeckReviewPrompt, buildReviewPrompt } from "./lib/commands/review"
 import {
   extractDeckHtmlTargetsFromPatch,
   extractPatchTextArg,
@@ -359,9 +359,18 @@ const server: Plugin = (async (pluginCtx) => {
         return
       }
       if (sub === "deck") {
-        if (param !== "--review") {
-          await send("`/revela deck` currently supports only `/revela deck --review`. Deck rendering handoff will be added in a later 0.12 slice.")
+        if (param && param !== "--review") {
+          await send("Usage: `/revela deck` starts approved-narrative deck handoff; `/revela deck --review` reviews deck/artifact readiness.")
           throw new Error("__REVELA_DECK_USAGE_HANDLED__")
+        }
+        if (!param) {
+          buildPrompt({ mode: "deck-render" })
+          output.parts.length = 0
+          output.parts.push({
+            type: "text",
+            text: buildDeckPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
+          } as any)
+          return
         }
         output.parts.length = 0
         output.parts.push({

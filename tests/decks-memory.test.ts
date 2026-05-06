@@ -10,7 +10,7 @@ import {
 } from "../lib/decks-memory"
 import { buildInitPrompt } from "../lib/commands/init"
 import { buildRememberPrompt, parseRememberArgs } from "../lib/commands/remember"
-import { buildDeckReviewPrompt, buildReviewPrompt } from "../lib/commands/review"
+import { buildDeckPrompt, buildDeckReviewPrompt, buildReviewPrompt } from "../lib/commands/review"
 import {
   createDeckSpec,
   createEmptyDecksState,
@@ -153,6 +153,23 @@ describe("review command", () => {
     expect(prompt).toContain("DECKS.json")
     expect(prompt).toContain("revela-decks")
     expect(prompt).toContain("Do not write or overwrite `decks/*.html`")
+  })
+
+  it("builds a deck handoff prompt from approved narrative to artifact gate", () => {
+    const prompt = buildDeckPrompt({ exists: true, workspaceRoot: "/workspace/project" })
+    expect(prompt).toContain("Begin Revela deck render handoff")
+    expect(prompt).toContain("deck-render prompt mode")
+    expect(prompt).toContain("reviewNarrative")
+    expect(prompt).toContain("compileDeckPlan")
+    expect(prompt).toContain("approved")
+    expect(prompt).toContain("ready_for_approval")
+    expect(prompt).toContain("render override")
+    expect(prompt).toContain("revela-designs read")
+    expect(prompt).toContain("revela-decks` action `review`")
+    expect(prompt).toContain("Deck handoff: <status>")
+    expect(prompt).toContain("deck HTML contract")
+    expect(prompt).toContain("Do not write or overwrite `decks/*.html` until")
+    expect(prompt).toContain("Current workspace root: `/workspace/project`")
   })
 
   it("initializes DECKS.json through the tool when missing", () => {

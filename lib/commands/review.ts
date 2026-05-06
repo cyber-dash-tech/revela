@@ -62,6 +62,57 @@ Rules:
 Start now by reading ${DECKS_STATE_FILE} through \`revela-decks\`, then call \`revela-decks\` action \`reviewNarrative\`.`
 }
 
+export function buildDeckPrompt({
+  exists,
+  workspaceRoot,
+}: {
+  exists: boolean
+  workspaceRoot?: string
+}): string {
+  const state = exists
+    ? `${DECKS_STATE_FILE} exists. Read it through the revela-decks tool.`
+    : `${DECKS_STATE_FILE} does not exist yet. Do not invent a deck; initialize narrative state first with /revela init.`
+
+  return `Begin Revela deck render handoff.
+
+Goal:
+- Treat this as the explicit transition from approved narrative state to deck render planning.
+- Use the deck-render prompt mode for design, layout, component, HTML, QA, and deck artifact rules.
+- Do not write or overwrite \`decks/*.html\` until the narrative handoff and deck/artifact gate are both satisfied.
+- Do not treat legacy \`writeReadiness.status\`, old review snapshots, or existing HTML decks as narrative approval.
+- Do not bypass the deck HTML contract, review snapshot freshness, source-trace expectations, or export preflight protections.
+
+Current state:
+- ${state}
+${workspaceRoot ? `- Current workspace root: \`${workspaceRoot}\`` : ""}
+
+Workflow:
+1. Call \`revela-decks\` action \`read\`.
+2. Call \`revela-decks\` action \`reviewNarrative\` before planning deck slides.
+3. If narrative readiness is \`approved\`, continue. If it is \`ready_for_approval\`, ask the user for explicit approval before continuing. If it is blocked, stale, or needs research, stop and report the smallest next action. Do not call \`approveNarrative\` unless the user explicitly approves or requests a render override.
+4. After approval or explicit render override exists, call \`revela-decks\` action \`compileDeckPlan\`. This projects canonical narrative claims and evidence bindings into compatibility \`slides[]\` and \`slides[].evidence[]\`; it must not write HTML.
+5. If \`compileDeckPlan\` returns \`skipped\`, stop and report the reason. Do not invent slide specs manually to bypass approval.
+6. Ask for or confirm visual design only after the narrative deck plan exists. Fetch required design layouts/components with \`revela-designs read\` as needed.
+7. Update only deck/artifact metadata through \`revela-decks upsertDeck\` / \`upsertSlides\` when required by confirmed design/layout choices. Do not change canonical narrative claims unless the user asks to revise the narrative.
+8. Call \`revela-decks\` action \`review\` as the artifact gate. It computes \`writeReadiness\` and review snapshots for deck HTML writing.
+9. Write \`decks/*.html\` only if the deck/artifact gate is ready and all deck HTML contract requirements can be satisfied. If not ready, report blockers and stop.
+
+Report format before any HTML write:
+- Start with \`Deck handoff: <status>\`.
+- Include narrative readiness status and narrative hash when available.
+- Include whether \`compileDeckPlan\` compiled or skipped.
+- If deck/artifact review is blocked, list blockers separately from narrative blockers.
+- If proceeding to HTML writing, state which approved narrative hash and deck review snapshot authorized the artifact work.
+
+Rules:
+- \`compileDeckPlan\` is the canonical narrative-to-deck planning path. Do not manually invent slide specs to avoid it.
+- Deck slide specs are render-target projections. Canonical narrative remains the authority for audience, decision, claims, evidence boundaries, objections, risks, and approval.
+- Applying evidence candidates, rewriting canonical claims, or approving narratives requires explicit user instruction.
+- Do not store secrets, credentials, tokens, or sensitive personal information.
+
+Start now by reading ${DECKS_STATE_FILE}, reviewing narrative readiness, and then compiling the deck plan only if approval or explicit render override is current.`
+}
+
 export function buildDeckReviewPrompt({
   exists,
   workspaceRoot,
