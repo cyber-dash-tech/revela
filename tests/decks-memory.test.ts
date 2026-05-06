@@ -27,15 +27,22 @@ import {
 } from "../lib/decks-state"
 
 describe("buildInitPrompt", () => {
-  it("instructs the agent to scan workspace and update DECKS.json", () => {
+  it("instructs the agent to scan workspace and initialize narrative state", () => {
     const prompt = buildInitPrompt({ exists: false, workspaceRoot: "/workspace/project" })
+    expect(prompt).toContain("Initialize Revela narrative workspace state")
     expect(prompt).toContain("revela-workspace-scan")
     expect(prompt).toContain("revela-extract-document-materials")
     expect(prompt).toContain("DECKS.json")
+    expect(prompt).toContain("primary audience")
+    expect(prompt).toContain("belief before")
+    expect(prompt).toContain("belief after")
+    expect(prompt).toContain("decision/action")
+    expect(prompt).toContain("thesis")
     expect(prompt).toContain("Do not infer personal preferences")
     expect(prompt).toContain("Current workspace root: `/workspace/project`")
     expect(prompt).toContain("Stay strictly inside the current workspace root")
     expect(prompt).toContain("Start with no `path` and `max_depth: 2`")
+    expect(prompt).toContain("Do not require slide count, visual style, design selection, output path, layout choices, or component choices during narrative initialization")
   })
 
   it("keeps init search bounded to the current workspace", () => {
@@ -46,13 +53,13 @@ describe("buildInitPrompt", () => {
     expect(prompt).toContain("workspace-relative path only")
   })
 
-  it("instructs the agent to scan generated deck history separately", () => {
+  it("instructs the agent to scan generated artifact history separately", () => {
     const prompt = buildInitPrompt({ exists: false })
-    expect(prompt).toContain("deck outputs and deck history")
+    expect(prompt).toContain("artifact history")
     expect(prompt).toContain("decks/**/*.html")
     expect(prompt).toContain("slides/**/*.html")
     expect(prompt).toContain("presentations/**/*.html")
-    expect(prompt).toContain("generated/output decks")
+    expect(prompt).toContain("generated/output artifacts")
     expect(prompt).toContain("not necessarily source materials")
     expect(prompt).toContain("Run these searches only inside the current workspace root")
   })
@@ -72,7 +79,14 @@ describe("buildInitPrompt", () => {
     expect(prompt).toContain("location")
     expect(prompt).toContain("extractedTextPath")
     expect(prompt).toContain("extractedManifestPath")
-    expect(prompt).toContain("A source material record alone is not slide evidence")
+    expect(prompt).toContain("A source material record alone is not narrative evidence or slide evidence")
+  })
+
+  it("does not make deck render inputs mandatory during narrative init", () => {
+    const prompt = buildInitPrompt({ exists: false })
+    expect(prompt).toContain("Do not require slide count, visual style, design selection, output path, layout choices, or component choices during narrative initialization")
+    expect(prompt).toContain("Do not mark narrative approval, render override, or writeReadiness as ready during init")
+    expect(prompt).toContain("narrativeBrief")
   })
 })
 
