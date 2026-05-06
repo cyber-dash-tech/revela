@@ -17,6 +17,8 @@ import {
   latestReviewSnapshotForTarget,
 } from "./workspace-state/review-snapshots"
 import { WORKSPACE_STATE_FILE, type RenderTarget, type ReviewSnapshot, type WorkspaceAction } from "./workspace-state/types"
+import { normalizeCanonicalNarrativeState, normalizeNarrativeState } from "./narrative-state/normalize"
+import type { NarrativeStateV1 } from "./narrative-state/types"
 
 export const DECKS_STATE_FILE = WORKSPACE_STATE_FILE
 
@@ -28,6 +30,7 @@ export type NarrativeRole = "context" | "tension" | "evidence" | "recommendation
 export interface DecksState {
   version: 1
   activeDeck?: string
+  narrative?: NarrativeStateV1
   workspace: {
     brief?: string
     sourceMaterials: SourceMaterial[]
@@ -349,15 +352,15 @@ export function createDeckSpec(input: Partial<DeckSpec> & { slug: string }): Dec
 }
 
 export function readDecksState(workspaceRoot: string): DecksState {
-  return readWorkspaceState(workspaceRoot, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksState })
+  return readWorkspaceState(workspaceRoot, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksStateWithNarrative })
 }
 
 export function writeDecksState(workspaceRoot: string, state: DecksState): void {
-  writeWorkspaceState(workspaceRoot, state, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksState })
+  writeWorkspaceState(workspaceRoot, state, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksStateWithNarrative })
 }
 
 export function readOrCreateDecksState(workspaceRoot: string): DecksState {
-  return readOrCreateWorkspaceState(workspaceRoot, createEmptyDecksState, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksState })
+  return readOrCreateWorkspaceState(workspaceRoot, createEmptyDecksState, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksStateWithNarrative })
 }
 
 export function upsertDeck(state: DecksState, input: Partial<DeckSpec> & { slug: string }): DecksState {
@@ -717,6 +720,7 @@ function normalizeDecksState(input: DecksState): DecksState {
   const state: DecksState = {
     version: 1,
     activeDeck: input.activeDeck ? normalizeSlug(input.activeDeck) : undefined,
+    narrative: normalizeCanonicalNarrativeState(input.narrative, input.activeDeck || "workspace"),
     workspace: {
       brief: input.workspace?.brief,
       sourceMaterials: input.workspace?.sourceMaterials ?? [],
@@ -742,6 +746,12 @@ function normalizeDecksState(input: DecksState): DecksState {
     if (keys.length === 1) state.activeDeck = keys[0]
   }
   ensureActiveHtmlDeckRenderTarget(state)
+  return state
+}
+
+function normalizeDecksStateWithNarrative(input: DecksState): DecksState {
+  const state = normalizeDecksState(input)
+  if (!state.narrative && currentDeckKey(state)) state.narrative = normalizeNarrativeState(state)
   return state
 }
 
