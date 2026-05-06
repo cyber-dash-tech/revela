@@ -230,4 +230,54 @@ describe("narrative state", () => {
       outputs: expect.objectContaining({ approved: true, approvalId: expect.stringMatching(/^approval:/) }),
     }))
   })
+
+  it("exposes upsertNarrative through revela-decks and projects compatibility brief", async () => {
+    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-upsert-"))
+    writeDecksState(workspaceRoot, legacyDecisionDeck())
+
+    const result = JSON.parse(await (decksTool as any).execute({
+      action: "upsertNarrative",
+      narrative: {
+        audience: {
+          primary: "Board",
+          beliefBefore: "The board is unsure a pilot is safer.",
+          beliefAfter: "The board sees pilot approval as the safer path.",
+        },
+        decision: { action: "Approve pilot expansion.", decisionType: "approve" },
+        thesis: { statement: "Pilot expansion preserves upside while bounding execution risk.", confidence: "medium" },
+        claims: [{
+          text: "Pilot expansion lowers execution risk.",
+          kind: "recommendation",
+          importance: "central",
+          evidenceRequired: true,
+        }],
+        risks: [{ text: "Execution capacity remains constrained.", severity: "medium" }],
+      },
+    }, { directory: workspaceRoot }))
+    const reloaded = readDecksState(workspaceRoot)
+
+    expect(result.ok).toBe(true)
+    expect(reloaded.narrative).toMatchObject({
+      audience: { primary: "Board" },
+      decision: { action: "Approve pilot expansion." },
+      thesis: { statement: "Pilot expansion preserves upside while bounding execution risk." },
+    })
+    expect(reloaded.narrative?.claims).toContainEqual(expect.objectContaining({
+      id: expect.stringMatching(/^claim:/),
+      text: "Pilot expansion lowers execution risk.",
+      evidenceStatus: "missing",
+    }))
+    expect(reloaded.decks[reloaded.activeDeck!].narrativeBrief).toMatchObject({
+      audienceBeliefBefore: "The board is unsure a pilot is safer.",
+      audienceBeliefAfter: "The board sees pilot approval as the safer path.",
+      decisionOrAction: "Approve pilot expansion.",
+      keyClaims: ["Pilot expansion lowers execution risk."],
+      risks: ["Execution capacity remains constrained."],
+    })
+    expect(reloaded.actions).toContainEqual(expect.objectContaining({
+      type: "narrative.upserted",
+      actor: "revela-decks",
+      outputs: expect.objectContaining({ claimCount: 1, riskCount: 1 }),
+    }))
+  })
 })

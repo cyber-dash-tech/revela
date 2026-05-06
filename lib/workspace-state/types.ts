@@ -88,6 +88,7 @@ export type WorkspaceActionType =
   | "source.extracted"
   | "research.findings_saved"
   | "research.findings_attached"
+  | "narrative.upserted"
   | "evidence.candidate_generated"
   | "evidence.binding_applied"
   | "narrative.approved"

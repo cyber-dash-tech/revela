@@ -27,6 +27,33 @@ import {
   recordNarrativeReviewAction,
   reviewNarrativeState,
 } from "../lib/narrative-state/readiness"
+import { normalizeCanonicalNarrativeState, normalizeNarrativeState } from "../lib/narrative-state/normalize"
+import { narrativeToBrief } from "../lib/narrative-state/project-compat"
+import type { NarrativeStateV1 } from "../lib/narrative-state/types"
+
+function mergeNarrativeInput(current: NarrativeStateV1, input: Partial<NarrativeStateV1>): Partial<NarrativeStateV1> {
+  return {
+    ...current,
+    ...input,
+    id: current.id,
+    version: 1,
+    audience: {
+      ...current.audience,
+      ...(input.audience ?? {}),
+    },
+    decision: {
+      ...current.decision,
+      ...(input.decision ?? {}),
+    },
+    thesis: input.thesis ? { ...current.thesis, ...input.thesis } as NarrativeStateV1["thesis"] : current.thesis,
+    claims: input.claims ?? current.claims,
+    evidenceBindings: input.evidenceBindings ?? current.evidenceBindings,
+    objections: input.objections ?? current.objections,
+    risks: input.risks ?? current.risks,
+    approvals: current.approvals,
+    updatedAt: new Date().toISOString(),
+  }
+}
 
 export default tool({
   description:
@@ -35,7 +62,7 @@ export default tool({
     "It stores workspace narrative state, active deck specs, per-slide content/layout/components, and computes narrative or deck readiness.",
   args: {
     action: tool.schema
-      .enum(["read", "init", "upsertDeck", "upsertSlides", "review", "reviewNarrative", "approveNarrative", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
+      .enum(["read", "init", "upsertDeck", "upsertSlides", "upsertNarrative", "review", "reviewNarrative", "approveNarrative", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
       .describe("Action to perform on DECKS.json."),
     summary: tool.schema.boolean().optional().describe("For read: return a compact summary instead of full state."),
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
@@ -51,6 +78,69 @@ export default tool({
       objections: tool.schema.array(tool.schema.string()).optional().describe("Likely stakeholder objections or questions the narrative should handle."),
       risks: tool.schema.array(tool.schema.string()).optional().describe("Risks, assumptions, caveats, or tradeoffs that should travel with the narrative."),
     }).optional().describe("For upsertDeck: 0.9 Narrative Compiler brief used to review story intent before writing."),
+    narrative: tool.schema.object({
+      status: tool.schema.enum(["draft", "needs_research", "needs_user_confirmation", "ready_for_approval", "approved"]).optional(),
+      audience: tool.schema.object({
+        primary: tool.schema.string().optional(),
+        secondary: tool.schema.array(tool.schema.string()).optional(),
+        beliefBefore: tool.schema.string().optional(),
+        beliefAfter: tool.schema.string().optional(),
+        decisionContext: tool.schema.string().optional(),
+        successCriteria: tool.schema.array(tool.schema.string()).optional(),
+      }).optional(),
+      decision: tool.schema.object({
+        action: tool.schema.string().optional(),
+        owner: tool.schema.string().optional(),
+        deadline: tool.schema.string().optional(),
+        decisionType: tool.schema.enum(["approve", "invest", "prioritize", "align", "choose", "understand", "other"]).optional(),
+        consequenceOfNoDecision: tool.schema.string().optional(),
+      }).optional(),
+      thesis: tool.schema.object({
+        id: tool.schema.string().optional(),
+        statement: tool.schema.string().optional(),
+        confidence: tool.schema.enum(["high", "medium", "low"]).optional(),
+        caveat: tool.schema.string().optional(),
+      }).optional(),
+      claims: tool.schema.array(tool.schema.object({
+        id: tool.schema.string().optional(),
+        kind: tool.schema.enum(["context", "problem", "opportunity", "evidence", "recommendation", "risk", "assumption", "ask"]).optional(),
+        text: tool.schema.string().describe("Claim text."),
+        importance: tool.schema.enum(["central", "supporting", "background"]).optional(),
+        evidenceRequired: tool.schema.boolean().optional(),
+        evidenceStatus: tool.schema.enum(["supported", "partial", "weak", "missing", "not_required"]).optional(),
+        supportedScope: tool.schema.string().optional(),
+        unsupportedScope: tool.schema.string().optional(),
+        caveats: tool.schema.array(tool.schema.string()).optional(),
+      })).optional(),
+      evidenceBindings: tool.schema.array(tool.schema.object({
+        id: tool.schema.string().optional(),
+        claimId: tool.schema.string().describe("Canonical claim id this evidence supports."),
+        source: tool.schema.string().describe("Source file, URL, research finding, or material name."),
+        sourcePath: tool.schema.string().optional(),
+        findingsFile: tool.schema.string().optional(),
+        quote: tool.schema.string().optional(),
+        location: tool.schema.string().optional(),
+        url: tool.schema.string().optional(),
+        caveat: tool.schema.string().optional(),
+        supportScope: tool.schema.string().optional(),
+        unsupportedScope: tool.schema.string().optional(),
+        strength: tool.schema.enum(["strong", "partial", "weak"]).optional(),
+      })).optional(),
+      objections: tool.schema.array(tool.schema.object({
+        id: tool.schema.string().optional(),
+        text: tool.schema.string().describe("Objection text."),
+        claimId: tool.schema.string().optional(),
+        priority: tool.schema.enum(["high", "medium", "low"]).optional(),
+        response: tool.schema.string().optional(),
+      })).optional(),
+      risks: tool.schema.array(tool.schema.object({
+        id: tool.schema.string().optional(),
+        text: tool.schema.string().describe("Risk, assumption, caveat, or tradeoff text."),
+        claimId: tool.schema.string().optional(),
+        severity: tool.schema.enum(["high", "medium", "low"]).optional(),
+        mitigation: tool.schema.string().optional(),
+      })).optional(),
+    }).optional().describe("For upsertNarrative: canonical narrative state fields to merge into DECKS.json. Replaces provided arrays, preserves approvals."),
     design: tool.schema.string().optional().describe("For upsertDeck: active design name."),
     domain: tool.schema.string().optional().describe("For upsertDeck: active domain name."),
     memory: tool.schema.string().optional().describe("For remember: explicit user or workflow preference to store."),
@@ -201,6 +291,45 @@ export default tool({
         const next = upsertSlides(state, deckKey, args.slides as SlideSpec[])
         writeDecksState(workspaceRoot, next)
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, deck: next.activeDeck ? next.decks[next.activeDeck] : undefined }, null, 2)
+      }
+
+      if (args.action === "upsertNarrative") {
+        if (!args.narrative) return JSON.stringify({ ok: false, error: "narrative is required for upsertNarrative" })
+        const current = state.narrative ?? normalizeNarrativeState(state)
+        const merged = mergeNarrativeInput(current, args.narrative as Partial<NarrativeStateV1>)
+        const normalized = normalizeCanonicalNarrativeState(merged, state.activeDeck ?? defaultSlug)
+        if (!normalized) return JSON.stringify({ ok: false, error: "narrative could not be normalized" })
+        state.narrative = normalized
+
+        const deckKey = state.activeDeck
+        if (deckKey && state.decks[deckKey]) {
+          state = upsertDeck(state, {
+            ...state.decks[deckKey],
+            slug: deckKey,
+            audience: normalized.audience.primary || state.decks[deckKey].audience,
+            narrativeBrief: narrativeToBrief(normalized),
+          })
+        }
+
+        recordWorkspaceAction(state, {
+          type: "narrative.upserted",
+          actor: "revela-decks",
+          inputs: { hadExistingNarrative: Boolean(current), providedFields: Object.keys(args.narrative as object) },
+          outputs: {
+            narrativeId: normalized.id,
+            status: normalized.status,
+            claimCount: normalized.claims.length,
+            evidenceBindingCount: normalized.evidenceBindings.length,
+            objectionCount: normalized.objections.length,
+            riskCount: normalized.risks.length,
+          },
+          status: "success",
+          summary: `Updated canonical narrative state with ${normalized.claims.length} claim${normalized.claims.length === 1 ? "" : "s"}.`,
+          nodeIds: [normalized.id],
+        })
+
+        writeDecksState(workspaceRoot, state)
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, narrative: state.narrative, deck: state.activeDeck ? state.decks[state.activeDeck] : undefined }, null, 2)
       }
 
       if (args.action === "review") {
