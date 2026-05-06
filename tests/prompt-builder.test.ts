@@ -6,6 +6,18 @@ import { seedBuiltinDomains } from "../lib/domain/domains"
 import { buildPrompt } from "../lib/prompt-builder"
 
 describe("buildPrompt", () => {
+  it("defaults to narrative mode", () => {
+    seedBuiltinDesigns()
+    seedBuiltinDomains()
+
+    buildPrompt()
+    const prompt = readFileSync(ACTIVE_PROMPT_FILE, "utf-8")
+
+    expect(prompt).toContain("Revela prompt mode: narrative")
+    expect(prompt).toContain("Revela — Narrative Workspace")
+    expect(prompt).not.toContain("On-Demand Design Sections")
+  })
+
   it("builds narrative mode without design or HTML generation layers", () => {
     seedBuiltinDesigns()
     seedBuiltinDomains()

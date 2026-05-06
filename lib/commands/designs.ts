@@ -35,8 +35,8 @@ export async function handleDesignsActivate(
 ): Promise<void> {
   try {
     activateDesign(name)
-    buildPrompt()
-    await send(`**Design activated:** \`${name}\`\nPrompt rebuilt. The new visual style will apply to the next message.`)
+    buildPrompt({ mode: "narrative" })
+    await send(`**Design activated:** \`${name}\`\nNarrative prompt rebuilt. The design will apply when \`/revela deck\` enters deck-render mode.`)
   } catch (e: any) {
     await send(`**Error:** ${e.message}`)
   }

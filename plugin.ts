@@ -326,6 +326,7 @@ const server: Plugin = (async (pluginCtx) => {
         throw new Error("__REVELA_DISABLE_HANDLED__")
       }
       if (sub === "init") {
+        buildPrompt({ mode: "narrative" })
         output.parts.length = 0
         output.parts.push({
           type: "text",
@@ -339,6 +340,7 @@ const server: Plugin = (async (pluginCtx) => {
           await send(parsed.error)
           throw new Error("__REVELA_REMEMBER_USAGE_HANDLED__")
         }
+        buildPrompt({ mode: "narrative" })
         output.parts.length = 0
         output.parts.push({
           type: "text",
@@ -351,6 +353,7 @@ const server: Plugin = (async (pluginCtx) => {
           await send("`/revela review` no longer accepts a deck name. It reviews the current workspace narrative. Use `/revela deck --review` for deck/artifact readiness.")
           throw new Error("__REVELA_REVIEW_USAGE_HANDLED__")
         }
+        buildPrompt({ mode: "narrative" })
         output.parts.length = 0
         output.parts.push({
           type: "text",
@@ -372,6 +375,7 @@ const server: Plugin = (async (pluginCtx) => {
           } as any)
           return
         }
+        buildPrompt({ mode: "deck-render" })
         output.parts.length = 0
         output.parts.push({
           type: "text",

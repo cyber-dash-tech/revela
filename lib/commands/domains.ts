@@ -35,8 +35,8 @@ export async function handleDomainsActivate(
 ): Promise<void> {
   try {
     activateDomain(name)
-    buildPrompt()
-    await send(`**Domain activated:** \`${name}\`\nPrompt rebuilt. The new domain context will apply to the next message.`)
+    buildPrompt({ mode: "narrative" })
+    await send(`**Domain activated:** \`${name}\`\nNarrative prompt rebuilt. Domain reasoning applies now; deck-specific render guidance applies during \`/revela deck\`.`)
   } catch (e: any) {
     await send(`**Error:** ${e.message}`)
   }
