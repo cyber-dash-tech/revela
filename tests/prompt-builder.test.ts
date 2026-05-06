@@ -15,6 +15,7 @@ describe("buildPrompt", () => {
 
     expect(prompt).toContain("Revela prompt mode: narrative")
     expect(prompt).toContain("Revela — Narrative Workspace")
+    expect(prompt).toContain("upsertNarrative")
     expect(prompt).toContain("reviewNarrative")
     expect(prompt).toContain("Design layer intentionally omitted")
     expect(prompt).not.toContain("Active design:")

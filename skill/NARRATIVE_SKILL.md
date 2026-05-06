@@ -27,7 +27,9 @@ Use `DECKS.json` as Revela's current compatibility workspace-state file. Do not 
 
 Use `revela-decks` for state operations:
 - `read` to inspect current workspace state
-- `init`, `upsertDeck`, or existing compatibility actions only when explicitly needed by a workflow prompt
+- `init` to register discovered source material candidates during workspace initialization
+- `upsertNarrative` to preserve canonical audience, decision, thesis, claims, evidence bindings, objections, and risks
+- `upsertDeck` or `upsertSlides` only when explicitly needed by a deck/artifact workflow prompt
 - `reviewNarrative` to run deterministic narrative readiness
 - `approveNarrative` only when the user explicitly approves or requests an override
 

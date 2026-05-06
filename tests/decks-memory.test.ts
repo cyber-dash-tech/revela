@@ -86,6 +86,7 @@ describe("buildInitPrompt", () => {
     const prompt = buildInitPrompt({ exists: false })
     expect(prompt).toContain("Do not require slide count, visual style, design selection, output path, layout choices, or component choices during narrative initialization")
     expect(prompt).toContain("Do not mark narrative approval, render override, or writeReadiness as ready during init")
+    expect(prompt).toContain("upsertNarrative")
     expect(prompt).toContain("narrativeBrief")
   })
 })
