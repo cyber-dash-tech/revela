@@ -30,6 +30,26 @@ describe("workspace tool action provenance", () => {
     }))
   })
 
+  it("excludes project docs and Office lock files from workspace scans", async () => {
+    const root = tempRoot()
+    writeDecksState(root, createEmptyDecksState())
+    writeFileSync(join(root, "AGENTS.md"), "agent notes", "utf-8")
+    writeFileSync(join(root, "README.md"), "readme", "utf-8")
+    writeFileSync(join(root, "~$proposal.docx"), "lock", "utf-8")
+    writeFileSync(join(root, "proposal.docx"), "proposal", "utf-8")
+
+    const result = JSON.parse(await (workspaceScanTool as any).execute({ max_depth: 1 }, { directory: root }))
+    const state = readDecksState(root)
+
+    expect(result.found).toBe(1)
+    expect(result.files.map((file: { path: string }) => file.path)).toEqual(["proposal.docx"])
+    expect(state.actions).toContainEqual(expect.objectContaining({
+      type: "workspace.scanned",
+      outputs: expect.objectContaining({ found: 1, paths: ["proposal.docx"] }),
+      nodeIds: ["source:proposal.docx"],
+    }))
+  })
+
   it("records research findings save actions without storing full markdown content", async () => {
     const root = tempRoot()
     writeDecksState(root, createEmptyDecksState())

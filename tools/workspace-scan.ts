@@ -18,6 +18,17 @@ const EXCLUDE_DIRS = new Set([
   "designs", "domains",  // Exclude revela plugin assets
 ])
 
+const EXCLUDE_FILENAMES = new Set([
+  "AGENTS.md",
+  "DECKS.md",
+  "README.md",
+  "README.zh-CN.md",
+])
+
+function isExcludedFile(entry: string): boolean {
+  return entry.startsWith("~$") || EXCLUDE_FILENAMES.has(entry)
+}
+
 type FileEntry = {
   path: string
   type: string
@@ -84,6 +95,8 @@ function scanDir(dir: string, rootDir: string, results: FileEntry[], maxDepth: n
     if (stat.isDirectory()) {
       scanDir(fullPath, rootDir, results, maxDepth, depth + 1)
     } else if (stat.isFile()) {
+      if (isExcludedFile(entry)) continue
+
       const ext = extname(entry).toLowerCase()
       if (DOC_EXTENSIONS.has(ext)) {
         const sourceMaterial = sourceMaterialMetadata(fullPath, rootDir)
@@ -104,7 +117,7 @@ export default tool({
     "Scan the current workspace for document and data files that can be used as research input. " +
     "Returns a structured list of all found files with their type and size. " +
     "Searches for: PDF, Word (docx/doc), Excel (xlsx/xls), PowerPoint (pptx/ppt), CSV, Markdown, and text files. " +
-    "Excludes node_modules, .git, dist, and the researches/ output directory. " +
+    "Excludes node_modules, .git, dist, the researches/ output directory, project docs, and Office lock files. " +
     "Use this as the first step before reading workspace documents.",
   args: {
     path: tool.schema
