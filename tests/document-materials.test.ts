@@ -570,12 +570,28 @@ describe("extractDocumentMaterials", () => {
       lastChecked: expect.any(String),
       lastExtracted: expect.any(String),
     })
+    expect(stateAfterFirst.actions).toContainEqual(expect.objectContaining({
+      type: "source.extracted",
+      actor: "revela-extract-document-materials",
+      outputs: expect.objectContaining({
+        status: "processed",
+        cacheStatus: "miss",
+        manifestPath: first.manifest_path,
+        textPath: first.text_path,
+      }),
+      nodeIds: ["source:source.pptx"],
+    }))
 
     const second = await extractDocumentMaterials("source.pptx", workspaceDir)
-    const materialAfterSecond = readDecksState(workspaceDir).workspace.sourceMaterials.find((entry) => entry.path === "source.pptx")
+    const stateAfterSecond = readDecksState(workspaceDir)
+    const materialAfterSecond = stateAfterSecond.workspace.sourceMaterials.find((entry) => entry.path === "source.pptx")
 
     expect(second.cache_status).toBe("hit")
     expect(materialAfterSecond?.lastExtracted).toBe(firstLastExtracted)
+    expect(stateAfterSecond.actions).toContainEqual(expect.objectContaining({
+      type: "source.extracted",
+      outputs: expect.objectContaining({ cacheStatus: "hit" }),
+    }))
   })
 
   it("registers unsupported materials as discovered when DECKS exists", async () => {
@@ -595,5 +611,11 @@ describe("extractDocumentMaterials", () => {
         size: expect.any(Number),
       }),
     ])
+    expect(state.actions).toContainEqual(expect.objectContaining({
+      type: "source.extracted",
+      status: "skipped",
+      outputs: expect.objectContaining({ status: "skipped", reason: "unsupported_file_type" }),
+      nodeIds: ["source:notes.md"],
+    }))
   })
 })

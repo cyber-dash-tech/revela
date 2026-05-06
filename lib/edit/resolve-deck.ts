@@ -1,17 +1,28 @@
 import { existsSync, readdirSync } from "fs"
 import { relative, resolve, sep } from "path"
-import { DECKS_STATE_FILE, isDeckHtmlPath, workspaceDeckSlug } from "../decks-state"
+import { DECKS_STATE_FILE, hasDecksState, isDeckHtmlPath, readDecksState, workspaceDeckSlug } from "../decks-state"
+import { resolveActiveHtmlDeckPath } from "../workspace-state/render-targets"
 
 export interface EditableDeck {
   slug: string
   file: string
   absoluteFile: string
-  source: "decks-state" | "fallback" | "file-path"
+  source: "render-target" | "decks-state" | "fallback" | "file-path"
 }
 
 export function resolveEditableDeck(workspaceRoot: string, input = ""): EditableDeck {
   if (input.trim()) {
     throw new Error("/revela edit no longer accepts a target. It opens the only HTML deck in decks/.")
+  }
+
+  if (hasDecksState(workspaceRoot)) {
+    const state = readDecksState(workspaceRoot)
+    const deckPath = resolveActiveHtmlDeckPath(state)
+    const source = state.renderTargets.some((target) => target.type === "html_deck" && target.outputPath === deckPath) ? "render-target" : "decks-state"
+    if (deckPath && isDeckHtmlPath(deckPath)) {
+      const absoluteFile = resolve(workspaceRoot, deckPath)
+      if (existsSync(absoluteFile)) return resolveDeckFile(workspaceRoot, workspaceDeckSlug(workspaceRoot), deckPath, source)
+    }
   }
 
   const htmlFiles = listDeckHtmlFiles(workspaceRoot)

@@ -53,7 +53,7 @@ describe("renderRefineShell", () => {
 describe("openRefineDeck", () => {
   it("opens a refine session for the only HTML deck without launching a browser when disabled", () => {
     const root = workspace()
-    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\"><h2>Market Map</h2></section></body></html>", "utf-8")
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Market Map</h2></section></body></html>", "utf-8")
 
     const result = openRefineDeck("", {
       client: { session: { prompt: async () => undefined } },
@@ -68,6 +68,62 @@ describe("openRefineDeck", () => {
     expect(result.url).toStartWith("http://127.0.0.1:")
     expect(result.url).toContain("/refine?token=")
     expect(result.openedBrowser).toBe(false)
+  })
+
+  it("opens the active render target instead of requiring a single fallback deck", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "active.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Active</h2></section></body></html>", "utf-8")
+    writeFileSync(join(root, "decks", "other.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Other</h2></section></body></html>", "utf-8")
+    const slug = workspaceDeckSlug(root)
+    let state = createEmptyDecksState()
+    state = upsertDeck(state, { slug, goal: "Refine active", outputPath: "decks/active.html" })
+    state = upsertSlides(state, slug, [{
+      index: 1,
+      title: "Active",
+      purpose: "Use active render target",
+      layout: "cover",
+      components: ["hero-title"],
+      content: { headline: "Active" },
+      evidence: [{ source: "user request" }],
+      status: "ready",
+    }])
+    writeDecksState(root, state)
+
+    const result = openRefineDeck("", {
+      client: { session: { prompt: async () => undefined } },
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openBrowser: false,
+    })
+
+    expect(result.deck.file).toBe("decks/active.html")
+    expect(result.deck.source).toBe("render-target")
+  })
+
+  it("refuses to open the active deck when slide identity does not match DECKS.json", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "active.html"), "<html><body><section class=\"slide\"><h2>Active</h2></section></body></html>", "utf-8")
+    const slug = workspaceDeckSlug(root)
+    let state = createEmptyDecksState()
+    state = upsertDeck(state, { slug, goal: "Refine active", outputPath: "decks/active.html" })
+    state = upsertSlides(state, slug, [{
+      index: 1,
+      title: "Active",
+      purpose: "Use active render target",
+      layout: "cover",
+      components: ["hero-title"],
+      content: { headline: "Active" },
+      evidence: [{ source: "user request" }],
+      status: "ready",
+    }])
+    writeDecksState(root, state)
+
+    expect(() => openRefineDeck("", {
+      client: { session: { prompt: async () => undefined } },
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openBrowser: false,
+    })).toThrow("Deck HTML contract validation failed")
   })
 })
 

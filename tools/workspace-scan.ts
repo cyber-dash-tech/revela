@@ -3,6 +3,8 @@ import { readdirSync, statSync, existsSync } from "fs"
 import { join, relative, extname, resolve, sep, isAbsolute } from "path"
 import { sourceMaterialMetadata } from "../lib/source-materials"
 import type { SourceMaterial } from "../lib/decks-state"
+import { hasDecksState, readDecksState, writeDecksState } from "../lib/decks-state"
+import { recordWorkspaceAction } from "../lib/workspace-state/actions"
 
 const DOC_EXTENSIONS = new Set([
   ".pdf", ".docx", ".doc", ".xlsx", ".xls",
@@ -144,6 +146,19 @@ export default tool({
 
       const results: FileEntry[] = []
       scanDir(scanRoot, workspaceDir, results, maxDepth, 0)
+
+      if (hasDecksState(workspaceDir)) {
+        const state = readDecksState(workspaceDir)
+        recordWorkspaceAction(state, {
+          type: "workspace.scanned",
+          actor: "revela-workspace-scan",
+          inputs: { path: args.path, maxDepth },
+          outputs: { found: results.length, paths: results.map((file) => file.path) },
+          summary: `Scanned workspace documents and found ${results.length} file${results.length === 1 ? "" : "s"}.`,
+          nodeIds: results.map((file) => `source:${file.sourceMaterial.path}`),
+        })
+        writeDecksState(workspaceDir, state)
+      }
 
       if (results.length === 0) {
         return JSON.stringify({

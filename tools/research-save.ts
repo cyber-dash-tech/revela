@@ -1,6 +1,8 @@
 import { tool } from "@opencode-ai/plugin"
 import { mkdirSync, writeFileSync } from "fs"
 import { join } from "path"
+import { hasDecksState, readDecksState, writeDecksState } from "../lib/decks-state"
+import { recordWorkspaceAction } from "../lib/workspace-state/actions"
 
 /**
  * Format today's date as YYYY-MM-DD
@@ -87,6 +89,19 @@ export default tool({
       const relPath = `researches/${topicKey}/${fileKey}.md`
 
       writeFileSync(filePath, fileContent, "utf-8")
+
+      if (hasDecksState(workspaceDir)) {
+        const state = readDecksState(workspaceDir)
+        recordWorkspaceAction(state, {
+          type: "research.findings_saved",
+          actor: "revela-research-save",
+          inputs: { topic: topicKey, axis: fileKey, sourceCount: args.sources?.length ?? 0 },
+          outputs: { path: relPath, sources: args.sources ?? [] },
+          summary: `Saved research findings for ${topicKey}/${fileKey}.`,
+          nodeIds: [`finding:${relPath}`],
+        })
+        writeDecksState(workspaceDir, state)
+      }
 
       return JSON.stringify({ ok: true, path: relPath })
     } catch (e: any) {

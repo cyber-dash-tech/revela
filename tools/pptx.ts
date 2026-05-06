@@ -7,7 +7,9 @@
 import { tool } from "@opencode-ai/plugin"
 import { existsSync } from "fs"
 import { resolve } from "path"
+import { assertDeckHtmlContractValid } from "../lib/deck-html/contract"
 import { exportToPptx } from "../lib/pptx/export"
+import { recordRenderedArtifact, workspaceRelative } from "../lib/workspace-state/rendered-artifacts"
 
 export default tool({
   description:
@@ -42,11 +44,19 @@ export default tool({
     const progress: string[] = []
 
     try {
+      const root = directory || process.cwd()
+      assertDeckHtmlContractValid(root, filePath)
       const result = await exportToPptx(filePath, {
         speakerNotes: normalizeSpeakerNotes(speakerNotes),
         onProgress: (event) => {
           progress.push(event.message)
         },
+      })
+      recordRenderedArtifact(root, {
+        sourceHtmlPath: workspaceRelative(resolve(root), filePath),
+        outputPath: result.outputPath,
+        type: "pptx",
+        actor: "revela-pptx",
       })
       return JSON.stringify({ ok: true, ...result, progress }, null, 2)
     } catch (e: any) {

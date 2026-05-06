@@ -1,8 +1,24 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs"
+import { existsSync, readdirSync, readFileSync, statSync } from "fs"
 import { createHash } from "crypto"
-import { basename, dirname, join, resolve } from "path"
+import { basename, join, resolve } from "path"
+import {
+  hasWorkspaceState,
+  readOrCreateWorkspaceState,
+  readWorkspaceState,
+  workspaceStatePath,
+  writeWorkspaceState,
+} from "./workspace-state/repository"
+import { ensureActiveHtmlDeckRenderTarget } from "./workspace-state/render-targets"
+import {
+  activeReviewTargetId,
+  appendReviewSnapshot,
+  createReviewSnapshot,
+  isReviewSnapshotCurrent,
+  latestReviewSnapshotForTarget,
+} from "./workspace-state/review-snapshots"
+import { WORKSPACE_STATE_FILE, type RenderTarget, type ReviewSnapshot, type WorkspaceAction } from "./workspace-state/types"
 
-export const DECKS_STATE_FILE = "DECKS.json"
+export const DECKS_STATE_FILE = WORKSPACE_STATE_FILE
 
 export type DeckProductionStatus = "planning" | "blocked" | "ready" | "written"
 export type SlideProductionStatus = "planned" | "ready" | "written" | "qa_passed" | "qa_failed"
@@ -23,6 +39,9 @@ export interface DecksState {
     openQuestions: string[]
   }
   decks: Record<string, DeckSpec>
+  actions: WorkspaceAction[]
+  renderTargets: RenderTarget[]
+  reviews: ReviewSnapshot[]
 }
 
 export interface SourceMaterial {
@@ -249,11 +268,11 @@ export interface ReviewDeckStateOptions {
 }
 
 export function decksStatePath(workspaceRoot: string): string {
-  return join(workspaceRoot, DECKS_STATE_FILE)
+  return workspaceStatePath(workspaceRoot, DECKS_STATE_FILE)
 }
 
 export function hasDecksState(workspaceRoot: string): boolean {
-  return existsSync(decksStatePath(workspaceRoot))
+  return hasWorkspaceState(workspaceRoot, DECKS_STATE_FILE)
 }
 
 export function createEmptyDecksState(): DecksState {
@@ -266,6 +285,9 @@ export function createEmptyDecksState(): DecksState {
       openQuestions: [],
     },
     decks: {},
+    actions: [],
+    renderTargets: [],
+    reviews: [],
   }
 }
 
@@ -289,6 +311,7 @@ export function normalizeWorkspaceDeckState(state: DecksState, workspaceRoot: st
   delete normalized.decks[existingKey]
   normalized.decks[slug] = deck
   normalized.activeDeck = slug
+  ensureActiveHtmlDeckRenderTarget(normalized)
   return normalized
 }
 
@@ -326,21 +349,15 @@ export function createDeckSpec(input: Partial<DeckSpec> & { slug: string }): Dec
 }
 
 export function readDecksState(workspaceRoot: string): DecksState {
-  const parsed = JSON.parse(readFileSync(decksStatePath(workspaceRoot), "utf-8")) as DecksState
-  return normalizeDecksState(parsed)
+  return readWorkspaceState(workspaceRoot, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksState })
 }
 
 export function writeDecksState(workspaceRoot: string, state: DecksState): void {
-  const filePath = decksStatePath(workspaceRoot)
-  mkdirSync(dirname(filePath), { recursive: true })
-  writeFileSync(filePath, JSON.stringify(normalizeDecksState(state), null, 2) + "\n", "utf-8")
+  writeWorkspaceState(workspaceRoot, state, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksState })
 }
 
 export function readOrCreateDecksState(workspaceRoot: string): DecksState {
-  if (hasDecksState(workspaceRoot)) return readDecksState(workspaceRoot)
-  const state = createEmptyDecksState()
-  writeDecksState(workspaceRoot, state)
-  return state
+  return readOrCreateWorkspaceState(workspaceRoot, createEmptyDecksState, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksState })
 }
 
 export function upsertDeck(state: DecksState, input: Partial<DeckSpec> & { slug: string }): DecksState {
@@ -354,6 +371,7 @@ export function upsertDeck(state: DecksState, input: Partial<DeckSpec> & { slug:
   const next = createDeckSpec({ ...existing, ...input, slug })
   normalized.decks[slug] = next
   normalized.activeDeck = slug
+  ensureActiveHtmlDeckRenderTarget(normalized)
   return normalized
 }
 
@@ -370,6 +388,7 @@ export function upsertSlides(state: DecksState, slug: string, slides: SlideSpec[
   deck.slides = [...byIndex.values()].sort((a, b) => a.index - b.index)
   normalized.decks[key] = deck
   normalized.activeDeck = key
+  ensureActiveHtmlDeckRenderTarget(normalized)
   return normalized
 }
 
@@ -459,26 +478,29 @@ export function reviewDeckState(state: DecksState, slug?: string, options: Revie
   const blockers = issues.filter((issue) => issue.severity === "blocker").map((issue) => issue.message)
   const warnings = issues.filter((issue) => issue.severity === "warning").map((issue) => issue.message)
   const evidenceCandidates = issues.flatMap((issue) => issue.evidenceCandidates ?? [])
+  const reviewedAt = new Date().toISOString()
   deck.writeReadiness = {
     status: blockers.length === 0 ? "ready" : "blocked",
     blockers,
-    lastReviewedAt: new Date().toISOString(),
+    lastReviewedAt: reviewedAt,
   }
   deck.status = blockers.length === 0 ? "ready" : "blocked"
   normalized.decks[deck.slug] = deck
   normalized.activeDeck = deck.slug
+  const result: DeckStateReadinessResult = {
+    ready: blockers.length === 0,
+    slug: deck.slug,
+    status: deck.writeReadiness.status,
+    blocker: blockers.join("; "),
+    blockers,
+    warnings,
+    issues,
+    evidenceCandidates,
+  }
+  appendReviewSnapshot(normalized, createReviewSnapshot(normalized, { slug: deck.slug, result, reviewedAt }))
   return {
     state: normalized,
-    result: {
-      ready: blockers.length === 0,
-      slug: deck.slug,
-      status: deck.writeReadiness.status,
-      blocker: blockers.join("; "),
-      blockers,
-      warnings,
-      issues,
-      evidenceCandidates,
-    },
+    result,
   }
 }
 
@@ -542,6 +564,38 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
       suggestedAction: "Resolve the stored writeReadiness blockers and rerun /revela review.",
     })
   }
+  if (normalized.reviews.length > 0) {
+    const targetId = activeReviewTargetId(normalized)
+    const snapshot = latestReviewSnapshotForTarget(normalized, targetId)
+    if (!snapshot) {
+      const message = "No review snapshot exists for the active HTML render target"
+      blockers.unshift(message)
+      issues.unshift({
+        type: "missing_slide_spec",
+        severity: "blocker",
+        message,
+        suggestedAction: "Run /revela review so readiness is recorded against the current active render target.",
+      })
+    } else if (!isReviewSnapshotCurrent(normalized, snapshot, deck.slug)) {
+      const message = "Latest review snapshot is stale for the current deck, sources, evidence, narrative state, or render target"
+      blockers.unshift(message)
+      issues.unshift({
+        type: "missing_slide_spec",
+        severity: "blocker",
+        message,
+        suggestedAction: "Run /revela review again after the latest state changes before writing deck HTML.",
+      })
+    } else if (snapshot.status !== "ready") {
+      const message = `Latest review snapshot is ${snapshot.status}, not ready`
+      blockers.unshift(message)
+      issues.unshift({
+        type: "missing_slide_spec",
+        severity: "blocker",
+        message,
+        suggestedAction: "Resolve review blockers and rerun /revela review before writing deck HTML.",
+      })
+    }
+  }
 
   return {
     ready: blockers.length === 0,
@@ -579,11 +633,12 @@ export function buildDecksStatePromptLayer(workspaceRoot: string, maxChars = 140
     activeDeck: activeKey,
     workspace: compactWorkspaceForPrompt(state.workspace),
     deck: active ? compactDeckForPrompt(active) : undefined,
+    renderTargets: state.renderTargets,
+    reviews: compactReviewsForPrompt(state.reviews),
   }
   let text = JSON.stringify(compact, null, 2)
   if (text.length > maxChars) text = text.slice(0, maxChars).trimEnd() + "\n[DECKS.json state truncated for prompt size.]"
-  return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as the source of truth for the single current deck's specs, slide plan, and write readiness.\n- The decks map is compatibility storage; operate only on the current workspace deck.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- Before writing decks/*.html, the current deck must have writeReadiness.status=ready and a complete slide spec, and its outputPath must match the target file.`
-  return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as the source of truth for the single current deck's specs, slide plan, evidence, and write readiness.\n- The decks map is compatibility storage; operate only on the current workspace deck.\n- ${DECKS_STATE_FILE} deck slides use 1-based \`slides[].index\` values. Render every HTML \`<section class="slide">\` with a matching 1-based \`data-slide-index\` attribute, and do not use 0-based \`data-index\` as slide identity.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- Before writing decks/*.html, the current deck must have writeReadiness.status=ready and a complete slide spec, and its outputPath must match the target file.`
+  return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as the source of truth for the single current deck's specs, slide plan, evidence, render targets, and write readiness.\n- The decks map is compatibility storage; operate only on the current workspace deck.\n- ${DECKS_STATE_FILE} deck slides use 1-based \`slides[].index\` values. Render every HTML \`<section class="slide">\` with a matching 1-based \`data-slide-index\` attribute, and do not use 0-based \`data-index\` as slide identity.\n- The active HTML deck is represented as a \`renderTarget\` of type \`html_deck\`; PDF/PPTX exports should be recorded as derived render targets, not as separate deck specs.\n- \`writeReadiness\` is a compatibility projection. When review snapshots exist, deck HTML writes require a current non-stale ready review snapshot for the active HTML render target.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- Before writing decks/*.html, the current deck must have writeReadiness.status=ready and a complete slide spec, and its outputPath must match the target file.`
 }
 
 function compactWorkspaceForPrompt(workspace: DecksState["workspace"]): DecksState["workspace"] {
@@ -614,6 +669,20 @@ function compactDeckForPrompt(deck: DeckSpec): DeckSpec {
       notes: truncatePromptText(slide.notes),
     })),
   }
+}
+
+function compactReviewsForPrompt(reviews: ReviewSnapshot[]): ReviewSnapshot[] {
+  return reviews.slice(-5).map((review) => ({
+    id: review.id,
+    targetId: review.targetId,
+    inputHash: review.inputHash,
+    status: review.status,
+    blockers: review.blockers.slice(0, 5),
+    warnings: review.warnings.slice(0, 5),
+    issues: review.issues.slice(0, 10),
+    evidenceCandidates: review.evidenceCandidates?.slice(0, 10),
+    reviewedAt: review.reviewedAt,
+  }))
 }
 
 function compactNarrativeBriefForPrompt(brief: NarrativeBrief | undefined): NarrativeBrief | undefined {
@@ -659,6 +728,9 @@ function normalizeDecksState(input: DecksState): DecksState {
       openQuestions: input.workspace?.openQuestions ?? [],
     },
     decks: {},
+    actions: input.actions ?? [],
+    renderTargets: input.renderTargets ?? [],
+    reviews: input.reviews ?? [],
   }
   for (const [slug, deck] of Object.entries(input.decks ?? {})) {
     const normalizedSlug = normalizeSlug(deck.slug || slug)
@@ -669,6 +741,7 @@ function normalizeDecksState(input: DecksState): DecksState {
     const keys = Object.keys(state.decks)
     if (keys.length === 1) state.activeDeck = keys[0]
   }
+  ensureActiveHtmlDeckRenderTarget(state)
   return state
 }
 

@@ -1,6 +1,5 @@
 import { tool } from "@opencode-ai/plugin"
 import {
-  applyEvidenceCandidates,
   createDeckSpec,
   DECKS_STATE_FILE,
   normalizeWorkspaceDeckState,
@@ -18,6 +17,10 @@ import {
   type SlideSpec,
 } from "../lib/decks-state"
 import { upsertSourceMaterial } from "../lib/source-materials"
+import { recordWorkspaceAction } from "../lib/workspace-state/actions"
+import { applyEvidenceBindings } from "../lib/workspace-state/evidence-status"
+import { attachResearchFindings } from "../lib/workspace-state/research-attachments"
+import { activeReviewTargetId, latestReviewSnapshotForTarget } from "../lib/workspace-state/review-snapshots"
 
 export default tool({
   description:
@@ -26,7 +29,7 @@ export default tool({
     "It stores active deck specs, per-slide content/layout/components, and computes write readiness.",
   args: {
     action: tool.schema
-      .enum(["read", "init", "upsertDeck", "upsertSlides", "review", "applyEvidenceCandidates", "remember"])
+      .enum(["read", "init", "upsertDeck", "upsertSlides", "review", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
       .describe("Action to perform on DECKS.json."),
     summary: tool.schema.boolean().optional().describe("For read: return a compact summary instead of full state."),
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
@@ -118,6 +121,9 @@ export default tool({
       notes: tool.schema.string().optional().describe("Implementation notes for this slide."),
     })).optional().describe("For upsertSlides: complete or partial slide specs."),
     candidateIds: tool.schema.array(tool.schema.string()).optional().describe("For applyEvidenceCandidates: candidate IDs returned by revela-decks review to explicitly bind proposed evidenceDraft records into slide evidence."),
+    findingsFile: tool.schema.string().optional().describe("For attachResearchFindings: workspace-relative researches/{topic}/{axis}.md file to attach to researchPlan."),
+    researchAxis: tool.schema.string().optional().describe("For attachResearchFindings: researchPlan axis to attach the findings file to. Required when filename matching would be ambiguous."),
+    researchStatus: tool.schema.enum(["done", "read"]).optional().describe("For attachResearchFindings: optional explicit status to set on the matched research axis."),
   },
   async execute(args, context) {
     try {
@@ -126,8 +132,20 @@ export default tool({
       const defaultSlug = workspaceDeckSlug(workspaceRoot)
 
       if (args.action === "init") {
+        const discovered: SourceMaterial[] = []
         for (const material of (args.sourceMaterials ?? []) as SourceMaterial[]) {
           upsertSourceMaterial(state, material, material.status ?? "discovered")
+          discovered.push(material)
+        }
+        if (discovered.length > 0) {
+          recordWorkspaceAction(state, {
+            type: "source.discovered",
+            actor: "revela-decks",
+            inputs: { count: discovered.length },
+            outputs: { paths: discovered.map((material) => material.path), statuses: discovered.map((material) => material.status ?? "discovered") },
+            summary: `Registered ${discovered.length} discovered source material${discovered.length === 1 ? "" : "s"}.`,
+            nodeIds: discovered.map((material) => `source:${material.path}`),
+          })
         }
         writeDecksState(workspaceRoot, state)
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, state }, null, 2)
@@ -178,6 +196,28 @@ export default tool({
 
       if (args.action === "review") {
         const reviewed = reviewDeckState(state, undefined, { workspaceRoot })
+        const targetId = activeReviewTargetId(reviewed.state)
+        const snapshot = latestReviewSnapshotForTarget(reviewed.state, targetId)
+        recordWorkspaceAction(reviewed.state, {
+          type: "review.performed",
+          actor: "revela-decks",
+          inputs: { activeDeck: state.activeDeck },
+          outputs: {
+            slug: reviewed.result.slug,
+            status: reviewed.result.status,
+            ready: reviewed.result.ready,
+            blockerCount: reviewed.result.blockers.length,
+            warningCount: reviewed.result.warnings.length,
+            issueCount: reviewed.result.issues.length,
+            evidenceCandidateCount: reviewed.result.evidenceCandidates?.length ?? 0,
+            snapshotId: snapshot?.id,
+            inputHash: snapshot?.inputHash,
+            targetId: snapshot?.targetId,
+          },
+          status: "success",
+          summary: `Reviewed deck readiness: ${reviewed.result.ready ? "ready" : "blocked"}.`,
+          nodeIds: [`artifact:${reviewed.state.decks[reviewed.result.slug]?.outputPath ?? reviewed.result.slug}`, ...(snapshot ? [snapshot.id] : [])],
+        })
         writeDecksState(workspaceRoot, reviewed.state)
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: reviewed.result }, null, 2)
       }
@@ -185,9 +225,18 @@ export default tool({
       if (args.action === "applyEvidenceCandidates") {
         const candidateIds = args.candidateIds ?? []
         if (candidateIds.length === 0) return JSON.stringify({ ok: false, error: "candidateIds are required for applyEvidenceCandidates" })
-        const applied = applyEvidenceCandidates(state, candidateIds, { workspaceRoot })
-        writeDecksState(workspaceRoot, applied.state)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: applied.result }, null, 2)
+        const result = applyEvidenceBindings(workspaceRoot, candidateIds)
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result }, null, 2)
+      }
+
+      if (args.action === "attachResearchFindings") {
+        if (!args.findingsFile?.trim()) return JSON.stringify({ ok: false, error: "findingsFile is required for attachResearchFindings" })
+        const result = attachResearchFindings(workspaceRoot, {
+          findingsFile: args.findingsFile,
+          researchAxis: args.researchAxis,
+          status: args.researchStatus,
+        })
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result }, null, 2)
       }
 
       if (args.action === "remember") {

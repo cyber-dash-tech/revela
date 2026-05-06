@@ -13,6 +13,7 @@ import {
   upsertSlides,
 } from "../lib/decks-state"
 import { upsertSourceMaterial } from "../lib/source-materials"
+import { currentReviewInputHash, isReviewSnapshotCurrent } from "../lib/workspace-state/review-snapshots"
 
 describe("DECKS.json state readiness", () => {
   function readyState() {
@@ -68,6 +69,58 @@ describe("DECKS.json state readiness", () => {
 
   it("allows writing only when DECKS.json readiness is complete", () => {
     const result = evaluateDeckStateWriteReadiness(readyState(), "decks/test-two-page-deck.html")
+    expect(result.ready).toBe(true)
+  })
+
+  it("records a current review snapshot for the active HTML render target", () => {
+    const state = readyState()
+    const snapshot = state.reviews.at(-1)
+
+    expect(snapshot).toMatchObject({
+      targetId: "target:html_deck:decks/test-two-page-deck.html",
+      inputHash: currentReviewInputHash(state, "test-two-page-deck"),
+      status: "ready",
+      blockers: [],
+    })
+    expect(snapshot && isReviewSnapshotCurrent(state, snapshot, "test-two-page-deck")).toBe(true)
+  })
+
+  it("keeps review input hashes stable across derived readiness status changes", () => {
+    const state = readyState()
+    const before = currentReviewInputHash(state, "test-two-page-deck")
+    state.decks["test-two-page-deck"].status = "written"
+    state.decks["test-two-page-deck"].writeReadiness.lastReviewedAt = "2099-01-01T00:00:00.000Z"
+
+    expect(currentReviewInputHash(state, "test-two-page-deck")).toBe(before)
+  })
+
+  it("blocks deck writes when the latest review snapshot is stale", () => {
+    const state = readyState()
+    state.decks["test-two-page-deck"].slides[1].content.bullets = ["Updated post-review bullet"]
+
+    const result = evaluateDeckStateWriteReadiness(state, "decks/test-two-page-deck.html")
+
+    expect(result.ready).toBe(false)
+    expect(result.blocker).toContain("Latest review snapshot is stale")
+  })
+
+  it("allows legacy ready states without review snapshots", () => {
+    const state = readyState()
+    state.reviews = []
+
+    const result = evaluateDeckStateWriteReadiness(state, "decks/test-two-page-deck.html")
+
+    expect(result.ready).toBe(true)
+  })
+
+  it("re-review refreshes stale review snapshots", () => {
+    const state = readyState()
+    state.decks["test-two-page-deck"].slides[1].content.bullets = ["Updated post-review bullet"]
+    expect(evaluateDeckStateWriteReadiness(state, "decks/test-two-page-deck.html").ready).toBe(false)
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+    const result = evaluateDeckStateWriteReadiness(reviewed.state, "decks/test-two-page-deck.html")
+
     expect(result.ready).toBe(true)
   })
 

@@ -10,7 +10,10 @@
 import { existsSync, readdirSync } from "fs"
 import { relative, resolve, sep } from "path"
 import { hasDecksState, isDeckHtmlPath, readDecksState } from "../decks-state"
+import { assertDeckHtmlContractValid } from "../deck-html/contract"
 import { exportToPptx } from "../pptx/export"
+import { recordRenderedArtifact } from "../workspace-state/rendered-artifacts"
+import { resolveActiveHtmlDeckPath } from "../workspace-state/render-targets"
 
 export interface PptxArgs {
   filePath: string
@@ -20,7 +23,7 @@ export interface PptxArgs {
 export interface ResolvedPptxDeck {
   file: string
   absoluteFile: string
-  source: "decks-state" | "fallback" | "file-path"
+  source: "render-target" | "decks-state" | "fallback" | "file-path"
 }
 
 function formatSecs(ms: number): string {
@@ -46,12 +49,12 @@ export function resolvePptxDeck(workspaceRoot: string, filePath = ""): ResolvedP
 
   if (hasDecksState(root)) {
     const state = readDecksState(root)
-    const key = state.activeDeck || singleDeckKey(state.decks)
-    const outputPath = key ? state.decks[key]?.outputPath : undefined
+    const outputPath = resolveActiveHtmlDeckPath(state)
     if (outputPath && isDeckHtmlPath(outputPath)) {
       const absoluteFile = resolve(root, outputPath)
       if (existsSync(absoluteFile)) {
-        return { file: workspaceRelative(root, absoluteFile), absoluteFile, source: "decks-state" }
+        const source = state.renderTargets.some((target) => target.type === "html_deck" && target.outputPath === outputPath) ? "render-target" : "decks-state"
+        return { file: workspaceRelative(root, absoluteFile), absoluteFile, source }
       }
     }
   }
@@ -114,6 +117,7 @@ export async function handlePptx(
     const deck = resolvePptxDeck(workspaceRoot, args.filePath)
     const abs = deck.absoluteFile
 
+    assertDeckHtmlContractValid(workspaceRoot, abs)
     await send(`Exporting \`${abs}\` to PPTX...`)
     let lastSlideUpdate = 0
     let longDeckThreshold: number | null = null
@@ -141,6 +145,12 @@ export async function handlePptx(
         await send(`Editable export progress: slide ${current}/${total}`)
       },
     })
+    recordRenderedArtifact(workspaceRoot, {
+      sourceHtmlPath: deck.file,
+      outputPath: result.outputPath,
+      type: "pptx",
+      actor: "revela-pptx",
+    })
 
     await send(
       `**PPTX exported successfully**\n\n` +
@@ -157,11 +167,6 @@ export async function handlePptx(
     const msg = e instanceof Error ? e.message : String(e)
     await send(`**PPTX export failed**\n\n\`\`\`\n${msg}\n\`\`\``)
   }
-}
-
-function singleDeckKey(decks: Record<string, unknown>): string | undefined {
-  const keys = Object.keys(decks)
-  return keys.length === 1 ? keys[0] : undefined
 }
 
 function listDeckHtmlFiles(workspaceRoot: string): string[] {

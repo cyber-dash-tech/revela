@@ -10,6 +10,7 @@ import { extractPptx } from "../read-hooks/extractors/pptx"
 import { extractXlsx } from "../read-hooks/extractors/xlsx"
 import { hasDecksState, readDecksState, writeDecksState } from "../decks-state"
 import { computeSourceFingerprint, sourceMaterialMetadata, upsertSourceMaterial } from "../source-materials"
+import { recordWorkspaceAction } from "../workspace-state/actions"
 
 export type DocumentMaterial = {
   path: string
@@ -180,6 +181,25 @@ function updateDecksSourceMaterialIndex(
       : undefined,
     lastExtracted: extracted ? (result.cache_status === "hit" ? existing?.lastExtracted ?? now : now) : undefined,
   }, extracted ? "extracted" : "discovered")
+  recordWorkspaceAction(state, {
+    type: "source.extracted",
+    actor: "revela-extract-document-materials",
+    inputs: { file: base.path, type: base.type, fingerprint: base.fingerprint },
+    outputs: {
+      status: result.status,
+      cacheStatus: result.cache_status,
+      source: result.source,
+      manifestPath: result.manifest_path,
+      textPath: result.text_path,
+      cacheDir: result.cache_dir,
+      reason: result.reason,
+      imageCount: result.images?.length ?? 0,
+      tableCount: result.tables?.length ?? 0,
+    },
+    status: result.status === "failed" ? "failed" : result.status === "skipped" ? "skipped" : "success",
+    summary: extracted ? `Extracted reusable materials from ${base.path}.` : `Registered ${base.path} without reusable extraction output.`,
+    nodeIds: [`source:${base.path}`],
+  })
   writeDecksState(workspaceDir, state)
 }
 

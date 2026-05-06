@@ -9,6 +9,7 @@ import { existsSync } from "fs"
 import { resolve } from "path"
 import { exportToPdf } from "../lib/pdf/export"
 import { assertExportQAPassed } from "../lib/qa/export-gate"
+import { recordRenderedArtifact, workspaceRelative } from "../lib/workspace-state/rendered-artifacts"
 
 export default tool({
   description:
@@ -35,8 +36,15 @@ export default tool({
     }
 
     try {
-      await assertExportQAPassed(filePath)
+      const root = directory || process.cwd()
+      await assertExportQAPassed(filePath, { workspaceRoot: root })
       const result = await exportToPdf(filePath)
+      recordRenderedArtifact(root, {
+        sourceHtmlPath: workspaceRelative(resolve(root), filePath),
+        outputPath: result.outputPath,
+        type: "pdf",
+        actor: "revela-pdf",
+      })
       return JSON.stringify({ ok: true, ...result }, null, 2)
     } catch (e: any) {
       return JSON.stringify({ ok: false, error: e?.message ?? String(e) })

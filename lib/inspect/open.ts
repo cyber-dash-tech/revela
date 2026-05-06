@@ -2,6 +2,7 @@ import { existsSync } from "fs"
 import { ACTIVE_PROMPT_FILE } from "../config"
 import { ctx } from "../ctx"
 import { seedBuiltinDesigns } from "../design/designs"
+import { assertDeckHtmlContractValid } from "../deck-html/contract"
 import { seedBuiltinDomains } from "../domain/domains"
 import { ensureEditableDeckState } from "../edit/deck-state"
 import { openUrl } from "../edit/open"
@@ -30,6 +31,7 @@ export interface OpenInspectDeckOptions {
 export function openInspectDeck(target: string, options: OpenInspectDeckOptions): OpenInspectDeckResult {
   const deck = resolveEditableDeck(options.workspaceRoot, target)
   const preflight = ensureEditableDeckState(options.workspaceRoot, deck)
+  assertDeckHtmlContractValid(options.workspaceRoot, deck.absoluteFile)
 
   ctx.enabled = true
   if (!existsSync(ACTIVE_PROMPT_FILE)) {
@@ -52,7 +54,7 @@ export function openInspectDeck(target: string, options: OpenInspectDeckOptions)
   return {
     deck,
     url,
-    source: deck.source === "decks-state" ? "DECKS.json" : deck.source === "file-path" ? "file path" : "fallback path",
+    source: deck.source === "render-target" ? "render target" : deck.source === "decks-state" ? "DECKS.json" : deck.source === "file-path" ? "file path" : "fallback path",
     stateNote: preflight.changed ? "Deck state was prepared in DECKS.json for inspection." : "Deck state already points to this inspection target.",
     preflightChanged: preflight.changed,
     reusedSession: session.reused,
