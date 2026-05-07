@@ -191,7 +191,8 @@ function computeNarrativeReadiness(narrative: NarrativeStateV1, state: DecksStat
     const path = typeof action.outputs?.path === "string" ? action.outputs.path : undefined
     if (!path) continue
     const attached = Object.values(state.decks ?? {}).some((deck) => deck.researchPlan.some((axis) => axis.findingsFile === path))
-    if (!attached) add({
+    const boundToNarrative = narrative.evidenceBindings.some((binding) => binding.findingsFile === path)
+    if (!attached && !boundToNarrative) add({
       type: "research_findings_unattached",
       severity: "warning",
       message: `Research findings are saved but not attached: ${path}`,

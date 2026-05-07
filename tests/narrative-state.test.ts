@@ -195,6 +195,46 @@ describe("narrative state", () => {
     expect(stale.result.issues).toContainEqual(expect.objectContaining({ type: "approval_stale", severity: "warning" }))
   })
 
+  it("does not warn about saved findings already bound to canonical narrative evidence", () => {
+    const state = legacyDecisionDeck()
+    state.actions.push({
+      id: "action:findings-saved",
+      type: "research.findings_saved",
+      actor: "revela-research-save",
+      timestamp: "2026-05-07T00:00:00.000Z",
+      inputs: {},
+      outputs: { path: "researches/narrative-demo/market.md" },
+      status: "success",
+      summary: "Saved market findings.",
+    })
+
+    const reviewed = reviewNarrativeState(state, { now: "2026-05-07T00:00:00.000Z" })
+
+    expect(reviewed.result.issues).not.toContainEqual(expect.objectContaining({ type: "research_findings_unattached" }))
+    expect(reviewed.result.nextActions).not.toContain("Attach the findings to a research axis or bind specific evidence before treating them as canonical support.")
+  })
+
+  it("warns about saved findings that are neither attached nor bound", () => {
+    const state = legacyDecisionDeck()
+    state.actions.push({
+      id: "action:findings-saved-unbound",
+      type: "research.findings_saved",
+      actor: "revela-research-save",
+      timestamp: "2026-05-07T00:00:00.000Z",
+      inputs: {},
+      outputs: { path: "researches/narrative-demo/unbound.md" },
+      status: "success",
+      summary: "Saved unbound findings.",
+    })
+
+    const reviewed = reviewNarrativeState(state, { now: "2026-05-07T00:00:00.000Z" })
+
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "research_findings_unattached",
+      source: "researches/narrative-demo/unbound.md",
+    }))
+  })
+
   it("refuses normal approval when narrative has unresolved blockers", () => {
     const state = legacyDecisionDeck()
     state.decks["narrative-demo"].slides[0].evidence = []
