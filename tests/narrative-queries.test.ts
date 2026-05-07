@@ -3,7 +3,6 @@ import { createEmptyDecksState, upsertDeck, type DecksState } from "../lib/decks
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import {
-  classifyNarrativeImpact,
   getArtifactClaimRefs,
   getClaimEvidenceBoard,
   getObjectionRiskClaimIndex,
@@ -146,18 +145,4 @@ describe("narrative query services", () => {
     expect(refs).toContainEqual(expect.objectContaining({ type: "pdf", note: "Claim-to-slide/page coverage is not computed yet; page-level artifact coverage belongs to Phase 4." }))
   })
 
-  it("classifies narrative-impacting, artifact-only, and ambiguous edits", () => {
-    expect(classifyNarrativeImpact({ comment: "Change the recommendation and caveat on this slide" })).toMatchObject({
-      classification: "narrative-impacting",
-      recommendedPath: "update_narrative_first",
-    })
-    expect(classifyNarrativeImpact({ comment: "Fix spacing and align the cards" })).toMatchObject({
-      classification: "artifact-only",
-      recommendedPath: "artifact_edit",
-    })
-    expect(classifyNarrativeImpact({ comment: "Make this better" })).toMatchObject({
-      classification: "ambiguous",
-      recommendedPath: "clarify_or_update_narrative_first",
-    })
-  })
 })

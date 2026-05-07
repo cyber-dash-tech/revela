@@ -192,7 +192,7 @@ function computeNarrativeReadiness(narrative: NarrativeStateV1, state: DecksStat
     if (!path) continue
     const attached = Object.values(state.decks ?? {}).some((deck) => deck.researchPlan.some((axis) => axis.findingsFile === path))
     const boundToNarrative = narrative.evidenceBindings.some((binding) => binding.findingsFile === path)
-    if (!attached && !boundToNarrative) add({
+    if (!attached && !boundToNarrative && !isVisualOrMediaFindings(action.inputs?.axis, path)) add({
       type: "research_findings_unattached",
       severity: "warning",
       message: `Research findings are saved but not attached: ${path}`,
@@ -242,6 +242,11 @@ function approvalState(narrative: NarrativeStateV1, narrativeHash: string): Narr
   const narrativeApprovals = [...(narrative.approvals ?? [])].filter((approval) => approval.scope === "narrative" && approval.approvedBy === "user")
   const latest = narrativeApprovals[narrativeApprovals.length - 1]
   return { current: Boolean(latest && latest.narrativeHash === narrativeHash), stale: Boolean(latest && latest.narrativeHash !== narrativeHash), latest }
+}
+
+function isVisualOrMediaFindings(axis: unknown, path: string): boolean {
+  const value = `${typeof axis === "string" ? axis : ""} ${path}`.toLowerCase()
+  return /(^|[-_/\s])(image|images|media|asset|assets|visual|visuals|logo|logos|screenshot|screenshots)([-_/\s.]|$)/.test(value)
 }
 
 function nextActions(issues: NarrativeReadinessIssue[], approvalCurrent: boolean): string[] {

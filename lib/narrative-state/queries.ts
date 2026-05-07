@@ -85,20 +85,6 @@ export interface ArtifactClaimRef {
   note?: string
 }
 
-export interface NarrativeImpactInput {
-  comment: string
-  selectedText?: string
-  slideTitle?: string
-  slideRole?: string
-}
-
-export interface NarrativeImpactClassification {
-  classification: "narrative-impacting" | "artifact-only" | "ambiguous"
-  confidence: "high" | "medium" | "low"
-  reasons: string[]
-  recommendedPath: "update_narrative_first" | "artifact_edit" | "clarify_or_update_narrative_first"
-}
-
 export function getClaimEvidenceBoard(state: DecksState): ClaimEvidenceBoard {
   const narrative = canonicalNarrative(state)
   const evidenceByClaim = groupEvidenceByClaim(narrative.evidenceBindings)
@@ -212,41 +198,6 @@ export function getArtifactClaimRefs(state: DecksState): ArtifactClaimRef[] {
     .sort((a, b) => artifactSortValue(a.type) - artifactSortValue(b.type) || (a.outputPath ?? a.artifactId).localeCompare(b.outputPath ?? b.artifactId))
 }
 
-export function classifyNarrativeImpact(input: NarrativeImpactInput): NarrativeImpactClassification {
-  const text = normalizeText([input.comment, input.selectedText, input.slideTitle, input.slideRole].filter(Boolean).join(" "))
-  const reasons: string[] = []
-  const narrativeMatches = matchKeywords(text, NARRATIVE_KEYWORDS)
-  const artifactMatches = matchKeywords(text, ARTIFACT_ONLY_KEYWORDS)
-
-  if (narrativeMatches.length > 0) {
-    reasons.push(`Mentions narrative-impacting content: ${narrativeMatches.join(", ")}.`)
-    if (artifactMatches.length > 0) reasons.push(`Also mentions artifact polish: ${artifactMatches.join(", ")}.`)
-    return {
-      classification: "narrative-impacting",
-      confidence: artifactMatches.length > 0 ? "medium" : "high",
-      reasons,
-      recommendedPath: "update_narrative_first",
-    }
-  }
-
-  if (artifactMatches.length > 0) {
-    reasons.push(`Mentions artifact-only polish: ${artifactMatches.join(", ")}.`)
-    return {
-      classification: "artifact-only",
-      confidence: "high",
-      reasons,
-      recommendedPath: "artifact_edit",
-    }
-  }
-
-  return {
-    classification: "ambiguous",
-    confidence: "low",
-    reasons: ["No clear artifact-only polish cue was found; default ambiguous content edits to narrative-first handling."],
-    recommendedPath: "clarify_or_update_narrative_first",
-  }
-}
-
 function canonicalNarrative(state: DecksState): NarrativeStateV1 {
   return state.narrative ?? normalizeNarrativeState(state)
 }
@@ -293,68 +244,3 @@ function artifactSortValue(type: RenderTarget["type"]): number {
   if (type === "pptx") return 2
   return 3
 }
-
-function matchKeywords(text: string, keywords: readonly string[]): string[] {
-  return keywords.filter((keyword) => text.includes(keyword))
-}
-
-function normalizeText(value: string): string {
-  return value.toLowerCase().replace(/\s+/g, " ").trim()
-}
-
-const NARRATIVE_KEYWORDS = [
-  "claim",
-  "thesis",
-  "recommendation",
-  "recommend",
-  "evidence",
-  "source",
-  "caveat",
-  "risk",
-  "objection",
-  "decision",
-  "ask",
-  "audience",
-  "belief",
-  "scope",
-  "unsupported",
-  "rewrite the bullet",
-  "change the message",
-  "make the argument",
-  "结论",
-  "观点",
-  "证据",
-  "风险",
-  "建议",
-  "决策",
-  "受众",
-]
-
-const ARTIFACT_ONLY_KEYWORDS = [
-  "spacing",
-  "align",
-  "alignment",
-  "font",
-  "color",
-  "colour",
-  "margin",
-  "padding",
-  "overflow",
-  "crop",
-  "image crop",
-  "layout",
-  "visual",
-  "hierarchy",
-  "animation",
-  "export",
-  "pdf",
-  "pptx",
-  "typo",
-  "间距",
-  "对齐",
-  "字体",
-  "颜色",
-  "排版",
-  "裁切",
-  "导出",
-]

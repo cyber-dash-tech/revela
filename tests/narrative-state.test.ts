@@ -235,6 +235,28 @@ describe("narrative state", () => {
     }))
   })
 
+  it("does not warn about unbound visual asset findings", () => {
+    const state = legacyDecisionDeck()
+    state.actions.push({
+      id: "action:image-leads-saved",
+      type: "research.findings_saved",
+      actor: "revela-research-save",
+      timestamp: "2026-05-07T00:00:00.000Z",
+      inputs: { axis: "image-asset-leads-md" },
+      outputs: { path: "researches/narrative-demo/image-asset-leads-md.md" },
+      status: "success",
+      summary: "Saved visual asset leads.",
+    })
+
+    const reviewed = reviewNarrativeState(state, { now: "2026-05-07T00:00:00.000Z" })
+
+    expect(reviewed.result.issues).not.toContainEqual(expect.objectContaining({
+      type: "research_findings_unattached",
+      source: "researches/narrative-demo/image-asset-leads-md.md",
+    }))
+    expect(reviewed.result.nextActions).not.toContain("Attach the findings to a research axis or bind specific evidence before treating them as canonical support.")
+  })
+
   it("refuses normal approval when narrative has unresolved blockers", () => {
     const state = legacyDecisionDeck()
     state.decks["narrative-demo"].slides[0].evidence = []
