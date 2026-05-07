@@ -71,6 +71,9 @@ Instructions:
 - Make the smallest targeted change that satisfies the user's comment.
 - If there are multiple comments, apply them as one coherent edit pass and avoid changes from one comment overwriting another.
 - Each comment may reference one or more selected elements. Treat the elements in a single comment as a group.
+- Preserve the narrative boundary: if the requested edit changes audience framing, belief shift, decision/action, thesis, recommendation, claim wording, evidence scope, caveat, risk, objection, or decision ask, do not patch the HTML directly. Explain that the canonical narrative must be updated first through ${"`revela-decks`"} action ${"`upsertNarrative`"}, then reviewed/approved or explicitly overridden before updating the deck projection.
+- Pure artifact polish such as layout, spacing, typography, alignment, color, image crop, animation, export fidelity, or deck HTML contract fixes may remain an artifact-level edit.
+- If the request mixes content meaning and visual polish, treat it as narrative-impacting unless the user clarifies otherwise.
 - Preserve the existing deck structure, active design language, typography, spacing system, animations, and slide count unless the comment explicitly asks otherwise.
 - Do not rewrite unrelated slides or broad sections of the deck.
 - Locate each target primarily with slideIndex, slideTitle, selected text, nearbyText, and outerHTMLExcerpt. Use selector/domPath as hints; they may be approximate.

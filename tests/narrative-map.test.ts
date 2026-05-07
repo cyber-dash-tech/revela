@@ -141,8 +141,9 @@ describe("narrative map", () => {
     expect(text).toContain("### missing (1)")
     expect(text).toContain("Evidence: Operations study (strong)")
     expect(text).toContain("## Objections & Risks")
-    expect(text).toContain("## Artifact Coverage")
+    expect(text).toContain("## Render Target Coverage")
     expect(text).toContain("html_deck: decks/map-demo.html")
+    expect(text).toContain("Claim-to-slide/page coverage is not computed yet")
   })
 
   it("reports stale approval when canonical narrative changes", () => {
