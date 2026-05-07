@@ -59,6 +59,7 @@ import {
   buildDesignsEditPrompt,
 } from "./lib/commands/designs-new"
 import { buildInitPrompt } from "./lib/commands/init"
+import { handleNarrative } from "./lib/commands/narrative"
 import { parseRememberArgs, buildRememberPrompt } from "./lib/commands/remember"
 import { buildDeckPrompt, buildDeckReviewPrompt, buildReviewPrompt } from "./lib/commands/review"
 import {
@@ -360,6 +361,14 @@ const server: Plugin = (async (pluginCtx) => {
           text: buildReviewPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
         } as any)
         return
+      }
+      if (sub === "narrative") {
+        if (param) {
+          await send("`/revela narrative` does not accept arguments. It shows the current read-only narrative map.")
+          throw new Error("__REVELA_NARRATIVE_USAGE_HANDLED__")
+        }
+        await handleNarrative({ workspaceRoot }, send)
+        throw new Error("__REVELA_NARRATIVE_HANDLED__")
       }
       if (sub === "deck") {
         if (param && param !== "--review") {
