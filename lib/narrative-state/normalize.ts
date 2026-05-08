@@ -1,9 +1,11 @@
 import type { DeckSpec, DecksState, EvidenceRef, SlideSpec } from "../decks-state"
 import {
   stableClaimId,
+  stableClaimRelationId,
   stableEvidenceId,
   stableNarrativeId,
   stableObjectionId,
+  stableResearchGapId,
   stableRiskId,
 } from "./hash"
 import type {
@@ -11,9 +13,12 @@ import type {
   DecisionIntent,
   NarrativeClaim,
   NarrativeClaimKind,
+  NarrativeClaimRelation,
+  NarrativeClaimRelationType,
   NarrativeEvidenceBinding,
   NarrativeEvidenceStatus,
   NarrativeObjection,
+  NarrativeResearchGap,
   NarrativeRisk,
   NarrativeStateV1,
   NarrativeStatus,
@@ -26,6 +31,7 @@ export function normalizeCanonicalNarrativeState(input: Partial<NarrativeStateV1
   if (!input) return undefined
   const id = input.id?.trim() || stableNarrativeId(seed)
   const claims = dedupeById((input.claims ?? []).map(normalizeClaim).filter((claim): claim is NarrativeClaim => Boolean(claim)))
+  const claimRelations = dedupeById((input.claimRelations ?? []).map((relation) => normalizeClaimRelation(relation, claims)).filter((relation): relation is NarrativeClaimRelation => Boolean(relation)))
   const evidenceBindings = dedupeById((input.evidenceBindings ?? []).map((binding) => normalizeEvidenceBinding(binding, claims)).filter((binding): binding is NarrativeEvidenceBinding => Boolean(binding)))
   return {
     version: 1,
@@ -35,9 +41,11 @@ export function normalizeCanonicalNarrativeState(input: Partial<NarrativeStateV1
     decision: normalizeDecision(input.decision),
     thesis: normalizeThesis(input.thesis),
     claims: claims.map((claim) => ({ ...claim, evidenceStatus: evidenceStatusForClaim(claim, evidenceBindings) })),
+    claimRelations,
     evidenceBindings,
     objections: dedupeById((input.objections ?? []).map(normalizeObjection).filter((objection): objection is NarrativeObjection => Boolean(objection))),
     risks: dedupeById((input.risks ?? []).map(normalizeRisk).filter((risk): risk is NarrativeRisk => Boolean(risk))),
+    researchGaps: dedupeById((input.researchGaps ?? []).map(normalizeResearchGap).filter((gap): gap is NarrativeResearchGap => Boolean(gap))),
     approvals: input.approvals ?? [],
     updatedAt: input.updatedAt || MIGRATED_UPDATED_AT,
   }
@@ -71,9 +79,11 @@ function migrateDeckNarrative(deck: DeckSpec | undefined, seed: string): Narrati
     },
     thesis: migrateThesis(deck),
     claims: withEvidenceStatus,
+    claimRelations: [],
     evidenceBindings,
     objections: (brief?.objections ?? []).map((text) => ({ id: stableObjectionId(text), text, priority: "medium" as const })),
     risks: (brief?.risks ?? []).map((text) => ({ id: stableRiskId(text), text, severity: "medium" as const })),
+    researchGaps: [],
     approvals: [],
     updatedAt: MIGRATED_UPDATED_AT,
   }
@@ -206,6 +216,26 @@ function normalizeClaim(input: Partial<NarrativeClaim>): NarrativeClaim | undefi
   }
 }
 
+function normalizeClaimRelation(input: Partial<NarrativeClaimRelation>, claims: NarrativeClaim[]): NarrativeClaimRelation | undefined {
+  const fromClaimId = clean(input.fromClaimId)
+  const toClaimId = clean(input.toClaimId)
+  if (!fromClaimId || !toClaimId || fromClaimId === toClaimId) return undefined
+  if (!claims.some((claim) => claim.id === fromClaimId) || !claims.some((claim) => claim.id === toClaimId)) return undefined
+  const relation = normalizeClaimRelationType(input.relation)
+  return {
+    id: input.id?.trim() || stableClaimRelationId(fromClaimId, toClaimId, relation),
+    fromClaimId,
+    toClaimId,
+    relation,
+    rationale: clean(input.rationale),
+  }
+}
+
+function normalizeClaimRelationType(input: NarrativeClaimRelationType | undefined): NarrativeClaimRelationType {
+  if (input === "supports" || input === "depends_on" || input === "contrasts_with" || input === "constrains" || input === "answers") return input
+  return "leads_to"
+}
+
 function normalizeEvidenceBinding(input: Partial<NarrativeEvidenceBinding>, claims: NarrativeClaim[]): NarrativeEvidenceBinding | undefined {
   const source = clean(input.source || input.sourcePath || input.findingsFile || input.url)
   const claimId = clean(input.claimId)
@@ -237,6 +267,30 @@ function normalizeRisk(input: Partial<NarrativeRisk>): NarrativeRisk | undefined
   const text = clean(input.text)
   if (!text) return undefined
   return { id: input.id?.trim() || stableRiskId(text), text, claimId: clean(input.claimId), severity: input.severity ?? "medium", mitigation: clean(input.mitigation) }
+}
+
+function normalizeResearchGap(input: Partial<NarrativeResearchGap>): NarrativeResearchGap | undefined {
+  const question = clean(input.question)
+  if (!question) return undefined
+  const targetType = input.targetType ?? "narrative"
+  const targetId = clean(input.targetId)
+  const now = clean(input.updatedAt) || clean(input.createdAt) || MIGRATED_UPDATED_AT
+  const status = input.status ?? "open"
+  return {
+    id: input.id?.trim() || stableResearchGapId([targetType, targetId, question].filter(Boolean).join("|")),
+    targetType,
+    targetId,
+    question,
+    status,
+    priority: input.priority ?? "medium",
+    findingsFile: clean(input.findingsFile),
+    evidenceBindingIds: (input.evidenceBindingIds ?? []).map(clean).filter(Boolean),
+    createdFromIssueType: input.createdFromIssueType,
+    notes: clean(input.notes),
+    createdAt: clean(input.createdAt) || now,
+    updatedAt: now,
+    closedAt: status === "closed" ? clean(input.closedAt) || now : clean(input.closedAt),
+  }
 }
 
 function evidenceStatusForClaim(claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): NarrativeEvidenceStatus {

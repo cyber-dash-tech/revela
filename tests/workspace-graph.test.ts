@@ -201,6 +201,13 @@ describe("workspace graph projection", () => {
       decision: { action: "Approve pilot expansion.", decisionType: "approve" },
       thesis: { id: "thesis:pilot", statement: "Pilot expansion bounds risk.", confidence: "medium" },
       claims: [{
+        id: "claim:capacity-proof",
+        kind: "evidence",
+        text: "Capacity evidence supports pilot sequencing.",
+        importance: "supporting",
+        evidenceRequired: true,
+        evidenceStatus: "partial",
+      }, {
         id: "claim:pilot-risk",
         kind: "recommendation",
         text: "Pilot expansion lowers execution risk.",
@@ -208,6 +215,13 @@ describe("workspace graph projection", () => {
         evidenceRequired: true,
         evidenceStatus: "partial",
         unsupportedScope: "Does not prove full rollout readiness.",
+      }],
+      claimRelations: [{
+        id: "relation:capacity-pilot",
+        fromClaimId: "claim:capacity-proof",
+        toClaimId: "claim:pilot-risk",
+        relation: "supports",
+        rationale: "Capacity proof supports the recommendation.",
       }],
       evidenceBindings: [{
         id: "evidence:pilot-risk:ops",
@@ -221,6 +235,19 @@ describe("workspace graph projection", () => {
       }],
       objections: [{ id: "objection:capacity", text: "Capacity may still be too thin.", claimId: "claim:pilot-risk", priority: "high" }],
       risks: [{ id: "risk:hiring", text: "Hiring capacity remains constrained.", claimId: "claim:pilot-risk", severity: "medium" }],
+      researchGaps: [{
+        id: "research-gap:pilot-capacity",
+        targetType: "claim",
+        targetId: "claim:pilot-risk",
+        question: "Find evidence that pilot capacity is sufficient.",
+        status: "attached",
+        priority: "high",
+        findingsFile: "researches/graph-demo/ops.md",
+        evidenceBindingIds: ["evidence:pilot-risk:ops"],
+        createdFromIssueType: "missing_evidence",
+        createdAt: "2026-05-07T00:00:00.000Z",
+        updatedAt: "2026-05-07T00:00:00.000Z",
+      }],
       approvals: [],
       updatedAt: "2026-05-06T00:00:00.000Z",
     }
@@ -239,12 +266,22 @@ describe("workspace graph projection", () => {
     expect(graph.edges).toContainEqual(expect.objectContaining({ type: "contains", from: "narrative:canonical-demo", to: "claim:pilot-risk" }))
     expect(graph.edges).toContainEqual(expect.objectContaining({
       type: "supports",
+      from: "claim:capacity-proof",
+      to: "claim:pilot-risk",
+      data: expect.objectContaining({ relationId: "relation:capacity-pilot", source: "canonicalNarrative" }),
+    }))
+    expect(graph.edges).toContainEqual(expect.objectContaining({
+      type: "supports",
       from: "finding:researches/graph-demo/ops.md",
       to: "claim:pilot-risk",
       data: expect.objectContaining({ strength: "partial", unsupportedScope: "Full rollout capacity remains unproven." }),
     }))
     expect(graph.edges).toContainEqual(expect.objectContaining({ type: "challenges", from: "objection:capacity", to: "claim:pilot-risk" }))
     expect(graph.edges).toContainEqual(expect.objectContaining({ type: "constrained_by", from: "claim:pilot-risk", to: "risk:hiring" }))
+    expect(graph.nodes["research-gap:pilot-capacity"]).toMatchObject({ type: "researchGap", label: "Find evidence that pilot capacity is sufficient." })
+    expect(graph.edges).toContainEqual(expect.objectContaining({ type: "contains", from: "narrative:canonical-demo", to: "research-gap:pilot-capacity" }))
+    expect(graph.edges).toContainEqual(expect.objectContaining({ type: "derived_from", from: "research-gap:pilot-capacity", to: "claim:pilot-risk" }))
+    expect(graph.edges).toContainEqual(expect.objectContaining({ type: "derived_from", from: "research-gap:pilot-capacity", to: "finding:researches/graph-demo/ops.md" }))
     expect(graph.edges).toContainEqual(expect.objectContaining({ type: "renders_from", from: "artifact:decks/graph-demo.html", to: "narrative:canonical-demo" }))
   })
 

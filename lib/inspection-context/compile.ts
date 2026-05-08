@@ -1,6 +1,7 @@
 import type { DeckSpec, DecksState, EvidenceRef, NarrativeBrief, NarrativeRole, SlideSpec, SourceMaterial } from "../decks-state"
+import type { NarrativeClaim, NarrativeEvidenceBinding, NarrativeStateV1 } from "../narrative-state/types"
 
-export type InspectionClaimOrigin = "title" | "headline" | "body" | "bullet" | "purpose"
+export type InspectionClaimOrigin = "narrative" | "title" | "headline" | "body" | "bullet" | "purpose"
 export type InspectionGapType = "missing_evidence" | "weak_evidence"
 export type InspectionEvidenceSupport = "supported" | "weak" | "unknown"
 
@@ -13,11 +14,18 @@ export interface InspectionContext {
   outputPath: string
   narrativeBrief?: NarrativeBrief
   sourceMaterials: InspectionSourceMaterial[]
+  narrative?: InspectionNarrativeStateContext
   slides: InspectionSlideContext[]
   gaps: InspectionGap[]
   appendixCandidates: InspectionAppendixCandidate[]
   objectionContext: InspectionNarrativeContext[]
   riskContext: InspectionNarrativeContext[]
+}
+
+export interface InspectionNarrativeStateContext {
+  id: string
+  status: string
+  claimCount: number
 }
 
 export interface InspectionSourceMaterial extends SourceMaterial {
@@ -46,6 +54,7 @@ export interface InspectionSlideText {
 
 export interface InspectionClaimCandidate {
   id: string
+  canonicalClaimId?: string
   slideIndex: number
   slideTitle: string
   origin: InspectionClaimOrigin
@@ -54,9 +63,18 @@ export interface InspectionClaimCandidate {
   evidenceSupport: InspectionEvidenceSupport
   evidence: InspectionEvidenceTrace[]
   gaps: InspectionGap[]
+  evidenceBindingIds: string[]
+  supportedScope?: string
+  unsupportedScope?: string
+  caveats: string[]
 }
 
 export interface InspectionEvidenceTrace extends EvidenceRef {
+  evidenceBindingId?: string
+  claimId?: string
+  supportScope?: string
+  unsupportedScope?: string
+  strength?: NarrativeEvidenceBinding["strength"]
   slideIndex: number
   slideTitle: string
   hasDetail: boolean
@@ -87,12 +105,13 @@ export interface InspectionNarrativeContext {
 
 export function compileInspectionContext(state: DecksState, slug?: string): InspectionContext {
   const deck = activeDeck(state, slug)
+  const narrative = state.narrative
   const evidence = collectEvidence(deck)
   const sourceMaterials = compileSourceMaterials(state.workspace.sourceMaterials ?? [], evidence)
   const slides = deck.slides
     .slice()
     .sort((a, b) => a.index - b.index)
-    .map((slide) => compileSlide(slide))
+    .map((slide) => compileSlide(slide, narrative))
   const gaps = slides.flatMap((slide) => slide.claims.flatMap((claim) => claim.gaps))
 
   return {
@@ -103,6 +122,7 @@ export function compileInspectionContext(state: DecksState, slug?: string): Insp
     language: deck.language,
     outputPath: deck.outputPath,
     narrativeBrief: deck.narrativeBrief,
+    narrative: narrative ? { id: narrative.id, status: narrative.status, claimCount: narrative.claims.length } : undefined,
     sourceMaterials,
     slides,
     gaps,
@@ -118,9 +138,15 @@ function activeDeck(state: DecksState, slug?: string): DeckSpec {
   return state.decks[key]
 }
 
-function compileSlide(slide: SlideSpec): InspectionSlideContext {
+function compileSlide(slide: SlideSpec, narrative: NarrativeStateV1 | undefined): InspectionSlideContext {
   const evidence = slide.evidence.map((item) => compileEvidence(slide, item))
-  const claims = claimCandidates(slide).map((claim, position) => compileClaim(slide, claim, position, evidence))
+  const canonicalClaims = narrative ? canonicalClaimCandidates(slide, narrative, evidence) : []
+  const canonicalText = new Set(canonicalClaims.map((claim) => normalizeText(claim.text)))
+  const heuristicClaims = claimCandidates(slide)
+    .filter((claim) => !canonicalText.has(normalizeText(claim.text)))
+    .map((claim, position) => compileClaim(slide, claim, position, evidence))
+  const claims = [...canonicalClaims, ...heuristicClaims]
+  const claimCaveats = canonicalClaims.flatMap((claim) => claim.caveats)
   return {
     index: slide.index,
     title: slide.title,
@@ -136,7 +162,61 @@ function compileSlide(slide: SlideSpec): InspectionSlideContext {
     },
     claims,
     evidence,
-    caveats: evidence.map((item) => item.caveat).filter((item): item is string => Boolean(item?.trim())),
+    caveats: dedupeText([
+      ...evidence.map((item) => item.caveat).filter((item): item is string => Boolean(item?.trim())),
+      ...claimCaveats,
+    ]),
+  }
+}
+
+function canonicalClaimCandidates(slide: SlideSpec, narrative: NarrativeStateV1, slideEvidence: InspectionEvidenceTrace[]): InspectionClaimCandidate[] {
+  const claimRefs = slide.claimRefs ?? []
+  const metadataClaimIds = new Set([
+    ...claimRefs.map((ref) => ref.claimId),
+    ...(slide.claimIds ?? []),
+  ].filter(Boolean))
+  const evidenceBindingIds = new Set(slide.evidenceBindingIds ?? [])
+  for (const binding of narrative.evidenceBindings) {
+    if (evidenceBindingIds.has(binding.id)) metadataClaimIds.add(binding.claimId)
+  }
+
+  return narrative.claims
+    .filter((claim) => metadataClaimIds.has(claim.id))
+    .map((claim) => compileCanonicalClaim(slide, claim, narrative.evidenceBindings, slideEvidence, evidenceBindingIds))
+}
+
+function compileCanonicalClaim(
+  slide: SlideSpec,
+  claim: NarrativeClaim,
+  bindings: NarrativeEvidenceBinding[],
+  slideEvidence: InspectionEvidenceTrace[],
+  slideEvidenceBindingIds: Set<string>,
+): InspectionClaimCandidate {
+  const allClaimBindings = bindings.filter((binding) => binding.claimId === claim.id)
+  const selectedBindings = allClaimBindings.filter((binding) => slideEvidenceBindingIds.size === 0 || slideEvidenceBindingIds.has(binding.id))
+  const evidenceBindings = selectedBindings.length > 0 ? selectedBindings : allClaimBindings
+  const evidence = evidenceBindings.length > 0
+    ? evidenceBindings.map((binding) => compileEvidenceBinding(slide, binding))
+    : slideEvidence
+  const gaps = canonicalClaimGaps(slide, claim, evidence)
+  return {
+    id: claim.id,
+    canonicalClaimId: claim.id,
+    slideIndex: slide.index,
+    slideTitle: slide.title,
+    origin: "narrative",
+    text: claim.text,
+    evidenceSensitive: claim.evidenceRequired || isEvidenceSensitiveClaim(claim.text),
+    evidenceSupport: narrativeEvidenceSupport(claim, evidence),
+    evidence,
+    gaps,
+    evidenceBindingIds: evidenceBindings.map((binding) => binding.id),
+    supportedScope: claim.supportedScope,
+    unsupportedScope: claim.unsupportedScope,
+    caveats: dedupeText([
+      ...(claim.caveats ?? []),
+      ...evidenceBindings.map((binding) => binding.caveat).filter((item): item is string => Boolean(item?.trim())),
+    ]),
   }
 }
 
@@ -159,7 +239,34 @@ function compileClaim(
     evidenceSupport: evidenceSupport(evidence),
     evidence,
     gaps,
+    evidenceBindingIds: [],
+    caveats: [],
   }
+}
+
+function canonicalClaimGaps(slide: SlideSpec, claim: NarrativeClaim, evidence: InspectionEvidenceTrace[]): InspectionGap[] {
+  if (!claim.evidenceRequired) return []
+  if (claim.evidenceStatus === "missing" || evidence.length === 0) {
+    return [{
+      type: "missing_evidence",
+      slideIndex: slide.index,
+      slideTitle: slide.title,
+      claimId: claim.id,
+      claimText: claim.text,
+      message: "Canonical narrative claim requires evidence but has no bound evidence trace.",
+    }]
+  }
+  if (claim.evidenceStatus === "weak" || evidence.some((item) => !item.hasDetail)) {
+    return [{
+      type: "weak_evidence",
+      slideIndex: slide.index,
+      slideTitle: slide.title,
+      claimId: claim.id,
+      claimText: claim.text,
+      message: "Canonical narrative claim has weak or source-only evidence trace.",
+    }]
+  }
+  return []
 }
 
 function claimGaps(slide: SlideSpec, claimId: string, claimText: string, evidence: InspectionEvidenceTrace[]): InspectionGap[] {
@@ -192,6 +299,12 @@ function evidenceSupport(evidence: InspectionEvidenceTrace[]): InspectionEvidenc
   return "supported"
 }
 
+function narrativeEvidenceSupport(claim: NarrativeClaim, evidence: InspectionEvidenceTrace[]): InspectionEvidenceSupport {
+  if (claim.evidenceStatus === "supported" || claim.evidenceStatus === "not_required") return "supported"
+  if (claim.evidenceStatus === "partial" || claim.evidenceStatus === "weak") return "weak"
+  return evidenceSupport(evidence)
+}
+
 function claimCandidates(slide: SlideSpec): Array<{ origin: InspectionClaimOrigin; text: string }> {
   const claims: Array<{ origin: InspectionClaimOrigin; text: string }> = []
   pushClaim(claims, "title", slide.title)
@@ -212,6 +325,29 @@ function pushClaim(claims: Array<{ origin: InspectionClaimOrigin; text: string }
 function compileEvidence(slide: SlideSpec, evidence: EvidenceRef): InspectionEvidenceTrace {
   return {
     ...evidence,
+    slideIndex: slide.index,
+    slideTitle: slide.title,
+    hasDetail: hasEvidenceDetail(evidence),
+  }
+}
+
+function compileEvidenceBinding(slide: SlideSpec, binding: NarrativeEvidenceBinding): InspectionEvidenceTrace {
+  const evidence: EvidenceRef = {
+    source: binding.source,
+    sourcePath: binding.sourcePath,
+    findingsFile: binding.findingsFile,
+    quote: binding.quote,
+    location: binding.location,
+    url: binding.url,
+    caveat: binding.caveat,
+  }
+  return {
+    ...evidence,
+    evidenceBindingId: binding.id,
+    claimId: binding.claimId,
+    supportScope: binding.supportScope,
+    unsupportedScope: binding.unsupportedScope,
+    strength: binding.strength,
     slideIndex: slide.index,
     slideTitle: slide.title,
     hasDetail: hasEvidenceDetail(evidence),
@@ -301,6 +437,24 @@ function cleanTextList(values: string[] | undefined): string[] {
 function cleanOptionalText(value: string | undefined): string | undefined {
   const text = String(value ?? "").trim()
   return text || undefined
+}
+
+function dedupeText(values: string[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const value of values) {
+    const cleaned = cleanOptionalText(value)
+    if (!cleaned) continue
+    const key = normalizeText(cleaned)
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(cleaned)
+  }
+  return result
+}
+
+function normalizeText(value: string | undefined): string {
+  return value?.replace(/\s+/g, " ").trim().toLowerCase() ?? ""
 }
 
 const EVIDENCE_SENSITIVE_TERMS = [

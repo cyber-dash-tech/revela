@@ -4,6 +4,12 @@ export type NarrativeClaimKind = "context" | "problem" | "opportunity" | "eviden
 
 export type NarrativeEvidenceStatus = "supported" | "partial" | "weak" | "missing" | "not_required"
 
+export type NarrativeResearchGapStatus = "open" | "in_progress" | "findings_saved" | "attached" | "evidence_bound" | "closed"
+
+export type NarrativeResearchGapTargetType = "claim" | "objection" | "risk" | "decision" | "narrative"
+
+export type NarrativeClaimRelationType = "leads_to" | "supports" | "depends_on" | "contrasts_with" | "constrains" | "answers"
+
 export interface NarrativeStateV1 {
   version: 1
   id: string
@@ -12,9 +18,11 @@ export interface NarrativeStateV1 {
   decision: DecisionIntent
   thesis?: NarrativeThesis
   claims: NarrativeClaim[]
+  claimRelations?: NarrativeClaimRelation[]
   evidenceBindings: NarrativeEvidenceBinding[]
   objections: NarrativeObjection[]
   risks: NarrativeRisk[]
+  researchGaps?: NarrativeResearchGap[]
   approvals: NarrativeApproval[]
   updatedAt: string
 }
@@ -55,6 +63,14 @@ export interface NarrativeClaim {
   caveats?: string[]
 }
 
+export interface NarrativeClaimRelation {
+  id: string
+  fromClaimId: string
+  toClaimId: string
+  relation: NarrativeClaimRelationType
+  rationale?: string
+}
+
 export interface NarrativeEvidenceBinding {
   id: string
   claimId: string
@@ -86,6 +102,22 @@ export interface NarrativeRisk {
   mitigation?: string
 }
 
+export interface NarrativeResearchGap {
+  id: string
+  targetType: NarrativeResearchGapTargetType
+  targetId?: string
+  question: string
+  status: NarrativeResearchGapStatus
+  priority: "high" | "medium" | "low"
+  findingsFile?: string
+  evidenceBindingIds?: string[]
+  createdFromIssueType?: NarrativeReadinessIssueType
+  notes?: string
+  createdAt: string
+  updatedAt: string
+  closedAt?: string
+}
+
 export interface NarrativeApproval {
   id: string
   narrativeHash: string
@@ -112,6 +144,7 @@ export type NarrativeReadinessIssueType =
   | "approval_stale"
   | "artifact_stale"
   | "research_findings_unattached"
+  | "research_gap_open"
 
 export interface NarrativeReadinessIssue {
   type: NarrativeReadinessIssueType

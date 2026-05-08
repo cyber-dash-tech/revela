@@ -48,6 +48,57 @@ describe("inspection element matching", () => {
     return compileInspectionContext(state)
   }
 
+  function canonicalContext() {
+    let state = createEmptyDecksState()
+    state = upsertDeck(state, {
+      slug: "canonical-match-demo",
+      goal: "Recommend whether to approve expansion.",
+      outputPath: "decks/canonical-match-demo.html",
+    })
+    state.narrative = {
+      version: 1,
+      id: "narrative:canonical-match-demo",
+      status: "approved",
+      audience: { primary: "Investment committee", beliefBefore: "Unsure", beliefAfter: "Ready" },
+      decision: { action: "Approve phased expansion." },
+      claims: [{
+        id: "claim:canonical-market",
+        kind: "evidence",
+        text: "Market demand has grown 25% since 2024",
+        importance: "central",
+        evidenceRequired: true,
+        evidenceStatus: "supported",
+      }],
+      evidenceBindings: [{
+        id: "evidence:canonical-market",
+        claimId: "claim:canonical-market",
+        source: "Market report",
+        sourcePath: "sources/market.pdf",
+        quote: "Demand increased 25% from 2024 to 2025.",
+        location: "page 4",
+        strength: "strong",
+      }],
+      objections: [],
+      risks: [],
+      approvals: [],
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    }
+    state = upsertSlides(state, "canonical-match-demo", [{
+      index: 1,
+      title: "Market Context",
+      purpose: "Frame the decision",
+      narrativeRole: "evidence",
+      layout: "two-col",
+      components: ["card"],
+      claimRefs: [{ claimId: "claim:canonical-market", role: "primary" }],
+      evidenceBindingIds: ["evidence:canonical-market"],
+      content: { headline: "Market demand has grown 25% since 2024", bullets: ["Expansion should be phased"] },
+      evidence: [],
+      status: "ready",
+    }])
+    return compileInspectionContext(state)
+  }
+
   it("matches selected headline text to a claim with high confidence", () => {
     const result = matchInspectionElement(context(), {
       slideIndex: 1,
@@ -60,6 +111,23 @@ describe("inspection element matching", () => {
     expect(result.claim?.origin).toBe("headline")
     expect(result.evidence[0]).toMatchObject({ sourcePath: "sources/market.pdf", hasDetail: true })
     expect(result.caveats).toEqual(["Forecast excludes downside scenario."])
+  })
+
+  it("prefers canonical narrative claims over slide-text heuristic claims", () => {
+    const result = matchInspectionElement(canonicalContext(), {
+      slideIndex: 1,
+      text: "Market demand has grown 25% since 2024",
+      tagName: "h2",
+    })
+
+    expect(result.confidence).toBe("high")
+    expect(result.claim).toMatchObject({
+      id: "claim:canonical-market",
+      canonicalClaimId: "claim:canonical-market",
+      origin: "narrative",
+      evidenceBindingIds: ["evidence:canonical-market"],
+    })
+    expect(result.evidence[0]).toMatchObject({ evidenceBindingId: "evidence:canonical-market", claimId: "claim:canonical-market" })
   })
 
   it("matches selected bullet text to a claim", () => {

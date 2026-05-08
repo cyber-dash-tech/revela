@@ -81,6 +81,83 @@ describe("inspection prompt projection", () => {
     })
   })
 
+  it("projects canonical claim ids, evidence bindings, and support boundaries", () => {
+    let state = createEmptyDecksState()
+    state = upsertDeck(state, {
+      slug: "canonical-projection-demo",
+      goal: "Recommend whether to approve phased expansion.",
+      audience: "Investment committee",
+      outputPath: "decks/canonical-projection-demo.html",
+    })
+    state.narrative = {
+      version: 1,
+      id: "narrative:canonical-projection-demo",
+      status: "approved",
+      audience: { primary: "Investment committee", beliefBefore: "Unsure", beliefAfter: "Ready" },
+      decision: { action: "Approve phased expansion." },
+      claims: [{
+        id: "claim:canonical-market",
+        kind: "evidence",
+        text: "Market demand has grown 25% since 2024",
+        importance: "central",
+        evidenceRequired: true,
+        evidenceStatus: "partial",
+        supportedScope: "Current demand growth.",
+        unsupportedScope: "Long-term forecast.",
+        caveats: ["Forecast excludes downside scenario."],
+      }],
+      evidenceBindings: [{
+        id: "evidence:canonical-market",
+        claimId: "claim:canonical-market",
+        source: "Market report",
+        sourcePath: "sources/market.pdf",
+        quote: "Demand increased 25% from 2024 to 2025.",
+        location: "page 4",
+        supportScope: "Current demand growth.",
+        unsupportedScope: "Long-term forecast.",
+        strength: "partial",
+      }],
+      objections: [],
+      risks: [],
+      approvals: [],
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    }
+    state = upsertSlides(state, "canonical-projection-demo", [{
+      index: 1,
+      title: "Market Context",
+      purpose: "Frame the investment decision",
+      narrativeRole: "evidence",
+      layout: "two-col",
+      components: ["card"],
+      claimRefs: [{ claimId: "claim:canonical-market", role: "primary" }],
+      evidenceBindingIds: ["evidence:canonical-market"],
+      content: { headline: "Market demand has grown 25% since 2024" },
+      evidence: [],
+      status: "ready",
+    }])
+    const ctx = compileInspectionContext(state)
+    const match = matchInspectionElement(ctx, { slideIndex: 1, text: "Market demand has grown 25% since 2024" })
+    const projection = projectInspectionMatch(ctx, match, { slideIndex: 1, text: "Market demand has grown 25% since 2024" })
+
+    expect(projection.match.claim).toMatchObject({
+      id: "claim:canonical-market",
+      canonicalClaimId: "claim:canonical-market",
+      origin: "narrative",
+      evidenceSupport: "weak",
+      evidenceBindingIds: ["evidence:canonical-market"],
+      supportedScope: "Current demand growth.",
+      unsupportedScope: "Long-term forecast.",
+      caveats: ["Forecast excludes downside scenario."],
+    })
+    expect(projection.cards.source.evidence[0]).toMatchObject({
+      evidenceBindingId: "evidence:canonical-market",
+      claimId: "claim:canonical-market",
+      supportScope: "Current demand growth.",
+      unsupportedScope: "Long-term forecast.",
+      strength: "partial",
+    })
+  })
+
   it("projects weak evidence gaps without promoting source materials to proof", () => {
     const snapshot = { slideIndex: 2, text: "Execution risk remains material" }
     const ctx = context()

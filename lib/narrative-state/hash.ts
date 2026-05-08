@@ -9,6 +9,10 @@ export function stableClaimId(text: string): string {
   return `claim:${stableHash(text)}`
 }
 
+export function stableClaimRelationId(fromClaimId: string, toClaimId: string, relation: string): string {
+  return `claim-relation:${stableHash(`${fromClaimId}:${toClaimId}:${relation}`)}`
+}
+
 export function stableEvidenceId(claimId: string, seed: string): string {
   return `evidence:${claimId}:${stableHash(seed)}`
 }
@@ -21,6 +25,10 @@ export function stableRiskId(text: string): string {
   return `risk:${stableHash(text)}`
 }
 
+export function stableResearchGapId(seed: string): string {
+  return `research-gap:${stableHash(seed)}`
+}
+
 export function computeNarrativeHash(narrative: NarrativeStateV1): string {
   return stableHash(stableStringify({
     version: narrative.version,
@@ -29,6 +37,7 @@ export function computeNarrativeHash(narrative: NarrativeStateV1): string {
     decision: narrative.decision,
     thesis: narrative.thesis,
     claims: narrative.claims,
+    claimRelations: narrative.claimRelations ?? [],
     evidenceBindings: narrative.evidenceBindings,
     objections: narrative.objections,
     risks: narrative.risks,

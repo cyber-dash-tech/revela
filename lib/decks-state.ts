@@ -26,6 +26,7 @@ export type DeckProductionStatus = "planning" | "blocked" | "ready" | "written"
 export type SlideProductionStatus = "planned" | "ready" | "written" | "qa_passed" | "qa_failed"
 export type WriteReadinessStatus = "blocked" | "ready" | "written"
 export type NarrativeRole = "context" | "tension" | "evidence" | "recommendation" | "risk" | "ask" | "appendix" | "close"
+export type SlideClaimRefRole = "primary" | "supporting" | "evidence" | "risk" | "objection"
 
 export interface DecksState {
   version: 1
@@ -135,6 +136,9 @@ export interface SlideSpec {
   layout: string
   qa?: boolean
   components: string[]
+  claimIds?: string[]
+  claimRefs?: SlideClaimRef[]
+  evidenceBindingIds?: string[]
   content: {
     headline?: string
     body?: string[]
@@ -146,6 +150,12 @@ export interface SlideSpec {
   visuals?: VisualBrief[]
   status: SlideProductionStatus
   notes?: string
+}
+
+export interface SlideClaimRef {
+  claimId: string
+  role: SlideClaimRefRole
+  note?: string
 }
 
 export interface EvidenceRef {
@@ -1478,11 +1488,34 @@ function normalizeSlides(slides: SlideSpec[]): SlideSpec[] {
       title: slide.title ?? "",
       layout: slide.layout ?? "",
       components: slide.components ?? [],
+      claimIds: normalizeTextList(slide.claimIds),
+      claimRefs: normalizeSlideClaimRefs(slide.claimRefs),
+      evidenceBindingIds: normalizeTextList(slide.evidenceBindingIds),
       content: slide.content ?? {},
       evidence: slide.evidence ?? [],
       status: slide.status ?? "planned",
     }))
     .sort((a, b) => a.index - b.index)
+}
+
+function normalizeSlideClaimRefs(refs: SlideClaimRef[] | undefined): SlideClaimRef[] {
+  const seen = new Set<string>()
+  const out: SlideClaimRef[] = []
+  for (const ref of refs ?? []) {
+    const claimId = cleanOptionalText(ref.claimId)
+    if (!claimId) continue
+    const role = isSlideClaimRefRole(ref.role) ? ref.role : "supporting"
+    const key = `${claimId}:${role}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    const note = cleanOptionalText(ref.note)
+    out.push({ claimId, role, ...(note ? { note } : {}) })
+  }
+  return out
+}
+
+function isSlideClaimRefRole(value: string | undefined): value is SlideClaimRefRole {
+  return value === "primary" || value === "supporting" || value === "evidence" || value === "risk" || value === "objection"
 }
 
 function normalizeNarrativeBrief(brief: NarrativeBrief | undefined): NarrativeBrief | undefined {

@@ -150,6 +150,8 @@ function computeNarrativeReadiness(narrative: NarrativeStateV1, state: DecksStat
   const centralClaims = narrative.claims.filter((claim) => claim.importance === "central")
   if (isDecisionOriented(narrative) && centralClaims.length === 0) add(blocker("claim_chain_gap", "Decision-oriented narrative has no central claims.", "Add one to three central claims that the narrative must prove."))
   if (centralClaims.length > 4) add(warning("claim_chain_gap", "Narrative has many central claims.", "Tighten the claim chain to the few claims the audience must believe."))
+  if (needsClaimRelations(narrative)) add(warning("claim_chain_gap", "Narrative claim progression is not explicit.", "Add claimRelations so the narrative flow shows how claims lead to, support, constrain, or answer each other."))
+  for (const relationIssue of claimRelationIssues(narrative)) add(relationIssue)
 
   for (const claim of narrative.claims) {
     if (!claim.evidenceRequired) continue
@@ -198,6 +200,20 @@ function computeNarrativeReadiness(narrative: NarrativeStateV1, state: DecksStat
       message: `Research findings are saved but not attached: ${path}`,
       suggestedAction: "Attach the findings to a research axis or bind specific evidence before treating them as canonical support.",
       source: path,
+    })
+  }
+
+  for (const gap of narrative.researchGaps ?? []) {
+    if (gap.status === "closed" || gap.status === "evidence_bound") continue
+    add({
+      type: "research_gap_open",
+      severity: "warning",
+      message: `Research gap is ${gap.status}: ${gap.question}`,
+      suggestedAction: gap.status === "open" || gap.status === "in_progress"
+        ? "Save findings, attach them to the research plan, and bind evidence before closing the gap."
+        : "Bind specific evidence from the findings before treating the gap as resolved.",
+      claimId: gap.targetType === "claim" ? gap.targetId : undefined,
+      source: gap.findingsFile,
     })
   }
 
@@ -263,6 +279,54 @@ function isDecisionOriented(narrative: NarrativeStateV1): boolean {
 
 function hasRecommendation(narrative: NarrativeStateV1): boolean {
   return narrative.claims.some((claim) => claim.kind === "recommendation" || claim.kind === "ask") || /recommend|approve|invest|prioriti[sz]e|建议|批准|投资|优先/i.test(narrative.decision.action)
+}
+
+function needsClaimRelations(narrative: NarrativeStateV1): boolean {
+  if (!isDecisionOriented(narrative)) return false
+  if ((narrative.claimRelations ?? []).length > 0) return false
+  const flowClaims = narrative.claims.filter((claim) => claim.importance === "central" || claim.kind === "recommendation" || claim.kind === "ask")
+  return flowClaims.length > 1
+}
+
+function claimRelationIssues(narrative: NarrativeStateV1): NarrativeReadinessIssue[] {
+  const issues: NarrativeReadinessIssue[] = []
+  const claimsById = new Map(narrative.claims.map((claim) => [claim.id, claim]))
+  for (const relation of narrative.claimRelations ?? []) {
+    const fromClaim = claimsById.get(relation.fromClaimId)
+    const toClaim = claimsById.get(relation.toClaimId)
+    if (!relation.rationale?.trim()) {
+      issues.push({
+        type: "claim_chain_gap",
+        severity: "warning",
+        message: "Claim relation lacks objective causal rationale.",
+        suggestedAction: "Add a factual causal bridge explaining what the source claim establishes and why the target claim follows within the evidence boundary.",
+        claimId: relation.toClaimId,
+        claimText: toClaim?.text,
+      })
+    }
+    if (relationMayOverextendEvidence(relation.relation) && fromClaim && toClaim && weakSourceForCausalBridge(fromClaim, toClaim)) {
+      issues.push({
+        type: "claim_chain_gap",
+        severity: "warning",
+        message: "Claim relation may overextend the source claim's evidence boundary.",
+        suggestedAction: "Narrow the target claim, add stronger evidence, or rewrite the relation rationale so it objectively reflects the supported scope.",
+        claimId: relation.toClaimId,
+        claimText: toClaim?.text,
+      })
+    }
+  }
+  return issues
+}
+
+function relationMayOverextendEvidence(relation: string): boolean {
+  return relation === "supports" || relation === "leads_to" || relation === "depends_on"
+}
+
+function weakSourceForCausalBridge(fromClaim: NarrativeClaim, toClaim: NarrativeClaim): boolean {
+  if (!fromClaim.evidenceRequired) return false
+  const targetNeedsObjectiveBridge = toClaim.importance === "central" || toClaim.kind === "recommendation" || toClaim.kind === "ask"
+  if (!targetNeedsObjectiveBridge) return false
+  return fromClaim.evidenceStatus === "missing" || fromClaim.evidenceStatus === "weak" || fromClaim.evidenceStatus === "partial" || Boolean(fromClaim.unsupportedScope)
 }
 
 function hasRiskHandling(narrative: NarrativeStateV1): boolean {

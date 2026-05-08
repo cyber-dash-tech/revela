@@ -104,6 +104,71 @@ describe("inspection context compiler", () => {
     expect(marketClaim?.gaps).toContainEqual(expect.objectContaining({ type: "missing_evidence" }))
   })
 
+  it("uses canonical narrative claim refs and evidence bindings when available", () => {
+    const state = stateWithDeck()
+    state.narrative = {
+      version: 1,
+      id: "narrative:inspection-demo",
+      status: "approved",
+      audience: { primary: "Investment committee", beliefBefore: "Unsure", beliefAfter: "Ready to approve" },
+      decision: { action: "Approve phased expansion." },
+      thesis: { id: "thesis:expansion", statement: "Expansion is justified if phased.", confidence: "medium" },
+      claims: [{
+        id: "claim:market-growth",
+        kind: "evidence",
+        text: "Market demand has grown 25% since 2024",
+        importance: "central",
+        evidenceRequired: true,
+        evidenceStatus: "supported",
+        supportedScope: "Current demand growth from 2024 to 2025.",
+        unsupportedScope: "Long-term forecast beyond the cited period.",
+        caveats: ["Forecast excludes downside scenario."],
+      }],
+      evidenceBindings: [{
+        id: "evidence:market-growth",
+        claimId: "claim:market-growth",
+        source: "Market report",
+        sourcePath: "sources/market.pdf",
+        location: "page 4",
+        quote: "Demand increased 25% from 2024 to 2025.",
+        caveat: "Forecast excludes downside scenario.",
+        supportScope: "Current demand growth from 2024 to 2025.",
+        unsupportedScope: "Long-term forecast beyond the cited period.",
+        strength: "strong",
+      }],
+      objections: [],
+      risks: [],
+      approvals: [],
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    }
+    state.decks["inspection-demo"].slides[0].claimRefs = [{ claimId: "claim:market-growth", role: "primary" }]
+    state.decks["inspection-demo"].slides[0].evidenceBindingIds = ["evidence:market-growth"]
+    state.decks["inspection-demo"].slides[0].evidence = []
+
+    const context = compileInspectionContext(state)
+    const claim = context.slides[0].claims.find((item) => item.id === "claim:market-growth")
+
+    expect(context.narrative).toMatchObject({ id: "narrative:inspection-demo", status: "approved", claimCount: 1 })
+    expect(claim).toMatchObject({
+      id: "claim:market-growth",
+      canonicalClaimId: "claim:market-growth",
+      origin: "narrative",
+      evidenceSupport: "supported",
+      evidenceBindingIds: ["evidence:market-growth"],
+      supportedScope: "Current demand growth from 2024 to 2025.",
+      unsupportedScope: "Long-term forecast beyond the cited period.",
+    })
+    expect(claim?.evidence[0]).toMatchObject({
+      evidenceBindingId: "evidence:market-growth",
+      claimId: "claim:market-growth",
+      sourcePath: "sources/market.pdf",
+      supportScope: "Current demand growth from 2024 to 2025.",
+      unsupportedScope: "Long-term forecast beyond the cited period.",
+      strength: "strong",
+      hasDetail: true,
+    })
+  })
+
   it("builds appendix and narrative risk context only from recorded state", () => {
     const context = compileInspectionContext(stateWithDeck())
 

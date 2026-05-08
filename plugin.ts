@@ -59,7 +59,7 @@ import {
   buildDesignsEditPrompt,
 } from "./lib/commands/designs-new"
 import { buildInitPrompt } from "./lib/commands/init"
-import { handleNarrative } from "./lib/commands/narrative"
+import { buildNarrativeViewPrompt, handleNarrative, parseNarrativeArgs } from "./lib/commands/narrative"
 import { parseRememberArgs, buildRememberPrompt } from "./lib/commands/remember"
 import { buildDeckPrompt, buildDeckReviewPrompt, buildReviewPrompt } from "./lib/commands/review"
 import {
@@ -86,6 +86,7 @@ import researchImagesListTool from "./tools/research-images-list"
 import researchSaveTool from "./tools/research-save"
 import inspectionContextTool from "./tools/inspection-context"
 import inspectionResultTool from "./tools/inspection-result"
+import narrativeViewTool from "./tools/narrative-view"
 import workspaceScanTool from "./tools/workspace-scan"
 import extractDocumentMaterialsTool from "./tools/extract-document-materials"
 import qaTool from "./tools/qa"
@@ -363,12 +364,22 @@ const server: Plugin = (async (pluginCtx) => {
         return
       }
       if (sub === "narrative") {
-        if (param) {
-          await send("`/revela narrative` does not accept arguments. It shows the current read-only narrative map.")
+        const parsed = parseNarrativeArgs(param)
+        if (!parsed.ok) {
+          await send(parsed.error)
           throw new Error("__REVELA_NARRATIVE_USAGE_HANDLED__")
         }
-        await handleNarrative({ workspaceRoot }, send)
-        throw new Error("__REVELA_NARRATIVE_HANDLED__")
+        if (parsed.args.raw) {
+          await handleNarrative({ workspaceRoot, openBrowser: true, language: parsed.args.language }, send)
+          throw new Error("__REVELA_NARRATIVE_HANDLED__")
+        }
+        buildPrompt({ mode: "narrative" })
+        output.parts.length = 0
+        output.parts.push({
+          type: "text",
+          text: buildNarrativeViewPrompt({ workspaceRoot, language: parsed.args.language }),
+        } as any)
+        return
       }
       if (sub === "deck") {
         if (param && param !== "--review") {
@@ -516,6 +527,7 @@ const server: Plugin = (async (pluginCtx) => {
       "revela-research-save": researchSaveTool,
       "revela-inspection-context": inspectionContextTool,
       "revela-inspection-result": inspectionResultTool,
+      "revela-narrative-view": narrativeViewTool,
       "revela-workspace-scan": workspaceScanTool,
       "revela-extract-document-materials": extractDocumentMaterialsTool,
       "revela-qa": qaTool,

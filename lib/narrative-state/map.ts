@@ -8,16 +8,20 @@ import {
   getObjectionRiskClaimIndex,
   type ClaimEvidenceRecord,
   type ClaimEvidenceBindingRecord,
+  type ClaimSlideRef,
 } from "./queries"
 import { reviewNarrativeState } from "./readiness"
-import type { NarrativeClaim, NarrativeStateV1 } from "./types"
+import type { NarrativeClaim, NarrativeClaimRelation, NarrativeResearchGap, NarrativeStateV1 } from "./types"
 
 export interface NarrativeMap {
   version: 1
   snapshot: NarrativeMapSnapshot
   claims: Record<NarrativeClaim["evidenceStatus"], NarrativeMapClaim[]>
+  claimFlow: NarrativeMapClaim[]
+  claimRelations: NarrativeMapClaimRelation[]
   objections: NarrativeMapObjection[]
   risks: NarrativeMapRisk[]
+  researchGaps: NarrativeMapResearchGap[]
   artifactCoverage: NarrativeMapArtifact[]
   nextActions: string[]
 }
@@ -38,6 +42,12 @@ export type NarrativeMapClaim = ClaimEvidenceRecord
 
 export type NarrativeMapEvidence = ClaimEvidenceBindingRecord
 
+export interface NarrativeMapClaimRelation extends NarrativeClaimRelation {
+  fromClaimText?: string
+  toClaimText?: string
+  inferred?: boolean
+}
+
 export interface NarrativeMapObjection {
   id: string
   text: string
@@ -56,6 +66,8 @@ export interface NarrativeMapRisk {
   mitigation?: string
 }
 
+export type NarrativeMapResearchGap = NarrativeResearchGap & { targetText?: string }
+
 export interface NarrativeMapArtifact {
   id: string
   type: RenderTarget["type"]
@@ -64,6 +76,9 @@ export interface NarrativeMapArtifact {
   sourceNodeIds: string[]
   claimIds: string[]
   narrativeIds: string[]
+  slideRefs: ClaimSlideRef[]
+  stale: boolean
+  staleReason?: string
   note?: string
 }
 
@@ -89,8 +104,11 @@ export function buildNarrativeMap(state: DecksState): NarrativeMap {
       approval: readiness.approval?.current ? "current" : readiness.approval?.stale ? "stale" : "missing",
     },
     claims: board.claims,
+    claimFlow: claimRecordsInNarrativeOrder(narrative, board.claims),
+    claimRelations: mapClaimRelations(narrative),
     objections: objectionRisk.objections,
     risks: objectionRisk.risks,
+    researchGaps: (narrative.researchGaps ?? []).map((gap) => ({ ...gap, targetText: targetText(narrative, gap) })),
     artifactCoverage: getArtifactClaimRefs({ ...state, narrative }).map((artifact) => ({
       id: artifact.artifactId,
       type: artifact.type,
@@ -99,10 +117,47 @@ export function buildNarrativeMap(state: DecksState): NarrativeMap {
       sourceNodeIds: artifact.sourceNodeIds,
       claimIds: artifact.claimIds,
       narrativeIds: artifact.narrativeIds,
+      slideRefs: artifact.slideRefs,
+      stale: artifact.stale,
+      staleReason: artifact.staleReason,
       note: artifact.note,
     })),
     nextActions: readiness.nextActions,
   }
+}
+
+function claimRecordsInNarrativeOrder(narrative: NarrativeStateV1, claimsByStatus: Record<NarrativeClaim["evidenceStatus"], NarrativeMapClaim[]>): NarrativeMapClaim[] {
+  const records = new Map(Object.values(claimsByStatus).flat().map((claim) => [claim.id, claim]))
+  return narrative.claims.map((claim) => records.get(claim.id)).filter((claim): claim is NarrativeMapClaim => Boolean(claim))
+}
+
+function mapClaimRelations(narrative: NarrativeStateV1): NarrativeMapClaimRelation[] {
+  const explicit = (narrative.claimRelations ?? []).map((relation) => withClaimRelationText(narrative, relation, false))
+  if (explicit.length > 0) return explicit
+  const flowClaims = narrative.claims.filter((claim) => claim.importance === "central" || claim.kind === "recommendation" || claim.kind === "ask" || claim.kind === "problem" || claim.kind === "evidence")
+  return flowClaims.slice(0, -1).map((claim, index) => withClaimRelationText(narrative, {
+    id: `inferred:${claim.id}:${flowClaims[index + 1].id}`,
+    fromClaimId: claim.id,
+    toClaimId: flowClaims[index + 1].id,
+    relation: inferredRelation(claim.kind, flowClaims[index + 1].kind),
+    rationale: "Inferred from claim order and claim kind for display only.",
+  }, true))
+}
+
+function withClaimRelationText(narrative: NarrativeStateV1, relation: NarrativeClaimRelation, inferred: boolean): NarrativeMapClaimRelation {
+  return {
+    ...relation,
+    fromClaimText: narrative.claims.find((claim) => claim.id === relation.fromClaimId)?.text,
+    toClaimText: narrative.claims.find((claim) => claim.id === relation.toClaimId)?.text,
+    inferred,
+  }
+}
+
+function inferredRelation(fromKind: NarrativeClaim["kind"], toKind: NarrativeClaim["kind"]): NarrativeClaimRelation["relation"] {
+  if (toKind === "risk") return "constrains"
+  if (toKind === "ask" || toKind === "recommendation") return "leads_to"
+  if (fromKind === "problem" && toKind === "evidence") return "supports"
+  return "leads_to"
 }
 
 export function formatNarrativeMap(map: NarrativeMap): string {
@@ -132,14 +187,18 @@ export function formatNarrativeMap(map: NarrativeMap): string {
       for (const caveat of claim.caveats) lines.push(`  Caveat: ${caveat}`)
       if (claim.evidence.length === 0) lines.push("  Evidence: none")
       for (const evidence of claim.evidence) {
-        lines.push(`  Evidence: ${evidence.source} (${evidence.strength})`)
-        if (evidence.findingsFile) lines.push(`  Findings: ${evidence.findingsFile}`)
-        if (evidence.location) lines.push(`  Location: ${evidence.location}`)
-        if (evidence.quote) lines.push(`  Quote: ${evidence.quote}`)
-        if (evidence.unsupportedScope) lines.push(`  Unsupported scope: ${evidence.unsupportedScope}`)
-        if (evidence.caveat) lines.push(`  Caveat: ${evidence.caveat}`)
+        lines.push(`  Evidence: ${evidenceLine(evidence)}`)
       }
     }
+  }
+
+  lines.push("", "## Claim Flow")
+  if (map.claimRelations.length === 0) lines.push("- No claim relations recorded")
+  for (const relation of map.claimRelations) {
+    lines.push(`- ${valueOrDash(relation.fromClaimText ?? relation.fromClaimId)} --${relationLabel(relation)}--> ${valueOrDash(relation.toClaimText ?? relation.toClaimId)}`)
+    if (relation.inferred) lines.push("  Rationale: unconfirmed order note only; no causal, support, or dependency relation has been judged")
+    else if (relation.rationale) lines.push(`  Rationale: ${relation.rationale}`)
+    else if (!relation.inferred) lines.push("  Rationale: causal rationale is not recorded")
   }
 
   lines.push("", "## Objections & Risks")
@@ -155,12 +214,24 @@ export function formatNarrativeMap(map: NarrativeMap): string {
     if (risk.mitigation) lines.push(`  Mitigation: ${risk.mitigation}`)
   }
 
+  lines.push("", "## Research Gaps")
+  if (map.researchGaps.length === 0) lines.push("- None recorded")
+  for (const gap of map.researchGaps) {
+    lines.push(`- ${gap.question} [${gap.status}/${gap.priority}]`)
+    lines.push(`  Target: ${gap.targetType}${gap.targetText ? ` - ${gap.targetText}` : ""}`)
+    if (gap.findingsFile) lines.push(`  Findings: ${gap.findingsFile}`)
+    if (gap.evidenceBindingIds?.length) lines.push(`  Evidence bindings: ${gap.evidenceBindingIds.join(", ")}`)
+    if (gap.notes) lines.push(`  Notes: ${gap.notes}`)
+  }
+
   lines.push("", "## Render Target Coverage")
   if (map.artifactCoverage.length === 0) lines.push("- No render targets recorded")
   for (const artifact of map.artifactCoverage) {
-    lines.push(`- ${artifact.type}: ${artifact.outputPath ?? artifact.id} [${artifact.contractStatus ?? "unknown"}]`)
+    lines.push(`- ${artifact.type}: ${artifact.outputPath ?? artifact.id} [${artifact.contractStatus ?? "unknown"}${artifact.stale ? ", stale" : ""}]`)
     if (artifact.narrativeIds.length > 0) lines.push(`  Narrative refs: ${artifact.narrativeIds.join(", ")}`)
     if (artifact.claimIds.length > 0) lines.push(`  Claim refs: ${artifact.claimIds.join(", ")}`)
+    for (const ref of artifact.slideRefs) lines.push(`  Slide ${ref.slideIndex}: ${ref.claimId} [${ref.role}] (${ref.match}/${ref.location})`)
+    if (artifact.staleReason) lines.push(`  Stale reason: ${artifact.staleReason}`)
     if (artifact.note) lines.push(`  Note: ${artifact.note}`)
   }
 
@@ -170,6 +241,32 @@ export function formatNarrativeMap(map: NarrativeMap): string {
   return lines.join("\n")
 }
 
+function relationLabel(relation: NarrativeMapClaimRelation): string {
+  return relation.inferred ? "unconfirmed_order" : relation.relation
+}
+
+function evidenceLine(evidence: NarrativeMapEvidence): string {
+  return [
+    evidence.source,
+    `strength: ${evidence.strength}`,
+    evidence.findingsFile ? `findings: ${evidence.findingsFile}` : "",
+    evidence.location ? `location: ${evidence.location}` : "",
+    evidence.quote ? `quote: ${evidence.quote}` : "",
+    evidence.unsupportedScope ? `unsupported scope: ${evidence.unsupportedScope}` : "",
+    evidence.caveat ? `caveat: ${evidence.caveat}` : "",
+  ].filter(Boolean).join(" | ")
+}
+
 function valueOrDash(value: string | undefined): string {
   return value?.trim() || "-"
+}
+
+function targetText(narrative: NarrativeStateV1, gap: NarrativeResearchGap): string | undefined {
+  if (!gap.targetId) return undefined
+  if (gap.targetType === "claim") return narrative.claims.find((claim) => claim.id === gap.targetId)?.text
+  if (gap.targetType === "objection") return narrative.objections.find((objection) => objection.id === gap.targetId)?.text
+  if (gap.targetType === "risk") return narrative.risks.find((risk) => risk.id === gap.targetId)?.text
+  if (gap.targetType === "decision") return narrative.decision.action
+  if (gap.targetType === "narrative") return narrative.thesis?.statement
+  return undefined
 }

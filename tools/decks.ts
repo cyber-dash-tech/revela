@@ -28,6 +28,8 @@ import {
   reviewNarrativeState,
 } from "../lib/narrative-state/readiness"
 import { compileDeckPlanFromNarrative } from "../lib/narrative-state/render-plan"
+import { backfillSlideClaimRefsFromCoverage } from "../lib/narrative-state/coverage"
+import { closeResearchGapInState, deriveResearchGapsFromReadiness, updateResearchGapInState, upsertResearchGapsInState } from "../lib/narrative-state/research-gaps"
 import { normalizeCanonicalNarrativeState, normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { narrativeToBrief } from "../lib/narrative-state/project-compat"
 import type { NarrativeStateV1 } from "../lib/narrative-state/types"
@@ -48,9 +50,11 @@ function mergeNarrativeInput(current: NarrativeStateV1, input: Partial<Narrative
     },
     thesis: input.thesis ? { ...current.thesis, ...input.thesis } as NarrativeStateV1["thesis"] : current.thesis,
     claims: input.claims ?? current.claims,
+    claimRelations: input.claimRelations ?? current.claimRelations,
     evidenceBindings: input.evidenceBindings ?? current.evidenceBindings,
     objections: input.objections ?? current.objections,
     risks: input.risks ?? current.risks,
+    researchGaps: input.researchGaps ?? current.researchGaps,
     approvals: current.approvals,
     updatedAt: new Date().toISOString(),
   }
@@ -63,7 +67,7 @@ export default tool({
     "It stores workspace narrative state, active deck specs, per-slide content/layout/components, and computes narrative or deck readiness.",
   args: {
     action: tool.schema
-      .enum(["read", "init", "upsertDeck", "upsertSlides", "upsertNarrative", "compileDeckPlan", "review", "reviewNarrative", "approveNarrative", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
+      .enum(["read", "init", "upsertDeck", "upsertSlides", "upsertNarrative", "compileDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
       .describe("Action to perform on DECKS.json."),
     summary: tool.schema.boolean().optional().describe("For read: return a compact summary instead of full state."),
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
@@ -113,6 +117,13 @@ export default tool({
         unsupportedScope: tool.schema.string().optional(),
         caveats: tool.schema.array(tool.schema.string()).optional(),
       })).optional(),
+      claimRelations: tool.schema.array(tool.schema.object({
+        id: tool.schema.string().optional(),
+        fromClaimId: tool.schema.string().describe("Canonical claim id the relation starts from."),
+        toClaimId: tool.schema.string().describe("Canonical claim id the relation points to."),
+        relation: tool.schema.enum(["leads_to", "supports", "depends_on", "contrasts_with", "constrains", "answers"]).optional(),
+        rationale: tool.schema.string().optional().describe("Short explanation of why this narrative relation exists."),
+      })).optional().describe("Canonical claim-to-claim narrative progression relationships. These affect narrative approval hash."),
       evidenceBindings: tool.schema.array(tool.schema.object({
         id: tool.schema.string().optional(),
         claimId: tool.schema.string().describe("Canonical claim id this evidence supports."),
@@ -140,6 +151,18 @@ export default tool({
         claimId: tool.schema.string().optional(),
         severity: tool.schema.enum(["high", "medium", "low"]).optional(),
         mitigation: tool.schema.string().optional(),
+      })).optional(),
+      researchGaps: tool.schema.array(tool.schema.object({
+        id: tool.schema.string().optional(),
+        targetType: tool.schema.enum(["claim", "objection", "risk", "decision", "narrative"]).optional(),
+        targetId: tool.schema.string().optional(),
+        question: tool.schema.string().describe("Research question or gap to resolve."),
+        status: tool.schema.enum(["open", "in_progress", "findings_saved", "attached", "evidence_bound", "closed"]).optional(),
+        priority: tool.schema.enum(["high", "medium", "low"]).optional(),
+        findingsFile: tool.schema.string().optional(),
+        evidenceBindingIds: tool.schema.array(tool.schema.string()).optional(),
+        createdFromIssueType: tool.schema.string().optional(),
+        notes: tool.schema.string().optional(),
       })).optional(),
     }).optional().describe("For upsertNarrative: canonical narrative state fields to merge into DECKS.json. Replaces provided arrays, preserves approvals."),
     design: tool.schema.string().optional().describe("For upsertDeck: active design name."),
@@ -190,6 +213,13 @@ export default tool({
       layout: tool.schema.string().describe("Design layout name."),
       qa: tool.schema.boolean().optional().describe("Whether the slide is marked QA-relevant deck metadata."),
       components: tool.schema.array(tool.schema.string()).describe("Design components used by this slide."),
+      claimIds: tool.schema.array(tool.schema.string()).optional().describe("Canonical narrative claim ids directly expressed by this slide."),
+      claimRefs: tool.schema.array(tool.schema.object({
+        claimId: tool.schema.string().describe("Canonical narrative claim id referenced by this slide."),
+        role: tool.schema.enum(["primary", "supporting", "evidence", "risk", "objection"]).describe("How the slide uses this claim."),
+        note: tool.schema.string().optional().describe("Optional short rationale for this claim-slide relationship."),
+      })).optional().describe("Structured canonical claim references for this slide; preferred over flat claimIds when available."),
+      evidenceBindingIds: tool.schema.array(tool.schema.string()).optional().describe("Canonical narrative evidence binding ids used by this slide."),
       content: tool.schema.object({
         headline: tool.schema.string().optional(),
         body: tool.schema.array(tool.schema.string()).optional(),
@@ -224,6 +254,22 @@ export default tool({
     approvalNote: tool.schema.string().optional().describe("For approveNarrative: optional note explaining the approval or override."),
     approvalBy: tool.schema.enum(["user", "override"]).optional().describe("For approveNarrative: use override only for explicit render overrides, not normal strategic approval."),
     approvalScope: tool.schema.enum(["narrative", "render_override"]).optional().describe("For approveNarrative: narrative approval or explicit render override scope."),
+    gapId: tool.schema.string().optional().describe("For updateResearchGap/closeResearchGap: canonical research gap id."),
+    researchGaps: tool.schema.array(tool.schema.object({
+      id: tool.schema.string().optional(),
+      targetType: tool.schema.enum(["claim", "objection", "risk", "decision", "narrative"]).optional(),
+      targetId: tool.schema.string().optional(),
+      question: tool.schema.string().describe("Research question or gap to resolve."),
+      status: tool.schema.enum(["open", "in_progress", "findings_saved", "attached", "evidence_bound", "closed"]).optional(),
+      priority: tool.schema.enum(["high", "medium", "low"]).optional(),
+      findingsFile: tool.schema.string().optional(),
+      evidenceBindingIds: tool.schema.array(tool.schema.string()).optional(),
+      createdFromIssueType: tool.schema.string().optional(),
+      notes: tool.schema.string().optional(),
+    })).optional().describe("For upsertResearchGaps: explicit canonical research gaps to create or update."),
+    gapStatus: tool.schema.enum(["open", "in_progress", "findings_saved", "attached", "evidence_bound", "closed"]).optional().describe("For updateResearchGap: lifecycle status."),
+    gapNotes: tool.schema.string().optional().describe("For updateResearchGap/closeResearchGap: notes or close reason."),
+    evidenceBindingIds: tool.schema.array(tool.schema.string()).optional().describe("For updateResearchGap: canonical narrative evidence binding ids associated with the gap."),
   },
   async execute(args, context) {
     try {
@@ -382,6 +428,12 @@ export default tool({
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: compiled.result, deck: compiled.state.activeDeck ? compiled.state.decks[compiled.state.activeDeck] : undefined, narrative: compiled.state.narrative }, null, 2)
       }
 
+      if (args.action === "backfillClaimRefs") {
+        const backfilled = backfillSlideClaimRefsFromCoverage(state)
+        writeDecksState(workspaceRoot, backfilled.state)
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: backfilled.result, deck: backfilled.state.activeDeck ? backfilled.state.decks[backfilled.state.activeDeck] : undefined, narrative: backfilled.state.narrative }, null, 2)
+      }
+
       if (args.action === "reviewNarrative") {
         const reviewed = reviewNarrativeState(state)
         recordNarrativeReviewAction(reviewed.state, reviewed.result)
@@ -398,6 +450,39 @@ export default tool({
         recordNarrativeApprovalAction(approved.state, approved.result)
         writeDecksState(workspaceRoot, approved.state)
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: approved.result, narrative: approved.state.narrative }, null, 2)
+      }
+
+      if (args.action === "deriveResearchGaps") {
+        const derived = deriveResearchGapsFromReadiness(state)
+        writeDecksState(workspaceRoot, derived.state)
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: derived.result, narrative: derived.state.narrative }, null, 2)
+      }
+
+      if (args.action === "upsertResearchGaps") {
+        if (!args.researchGaps?.length) return JSON.stringify({ ok: false, error: "researchGaps are required for upsertResearchGaps" })
+        const upserted = upsertResearchGapsInState(state, args.researchGaps as any[])
+        writeDecksState(workspaceRoot, upserted.state)
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: upserted.result, narrative: upserted.state.narrative }, null, 2)
+      }
+
+      if (args.action === "updateResearchGap") {
+        if (!args.gapId?.trim()) return JSON.stringify({ ok: false, error: "gapId is required for updateResearchGap" })
+        const updated = updateResearchGapInState(state, {
+          id: args.gapId,
+          status: args.gapStatus as any,
+          findingsFile: args.findingsFile,
+          evidenceBindingIds: args.evidenceBindingIds,
+          notes: args.gapNotes,
+        })
+        writeDecksState(workspaceRoot, updated.state)
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: updated.result, narrative: updated.state.narrative }, null, 2)
+      }
+
+      if (args.action === "closeResearchGap") {
+        if (!args.gapId?.trim()) return JSON.stringify({ ok: false, error: "gapId is required for closeResearchGap" })
+        const closed = closeResearchGapInState(state, args.gapId, args.gapNotes)
+        writeDecksState(workspaceRoot, closed.state)
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: closed.result, narrative: closed.state.narrative }, null, 2)
       }
 
       if (args.action === "applyEvidenceCandidates") {

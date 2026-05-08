@@ -187,7 +187,7 @@ function projection(): InspectionPromptProjection {
       confidence: "high",
       reason: "exact text match",
       slide: { index: 1, title: "Launch", purpose: "Show evidence", narrativeRole: "evidence" },
-      claim: { id: "slide-1-headline", text: "Conversion improved 18%", origin: "headline", evidenceSensitive: true, evidenceSupport: "supported" },
+      claim: { id: "slide-1-headline", text: "Conversion improved 18%", origin: "headline", evidenceSensitive: true, evidenceSupport: "supported", evidenceBindingIds: [], caveats: [] },
     },
     cards: {
       source: { evidence: [], missingSourceGaps: [], weakSourceGaps: [] },

@@ -50,10 +50,15 @@ export interface InspectionProjectionMatch {
   }
   claim?: {
     id: string
+    canonicalClaimId?: string
     origin: string
     text: string
     evidenceSensitive: boolean
     evidenceSupport: string
+    evidenceBindingIds: string[]
+    supportedScope?: string
+    unsupportedScope?: string
+    caveats: string[]
   }
 }
 
@@ -97,6 +102,8 @@ export interface InspectionAppendixProjection {
 
 export interface InspectionEvidenceProjectionTrace {
   source: string
+  evidenceBindingId?: string
+  claimId?: string
   sourcePath?: string
   findingsFile?: string
   location?: string
@@ -104,6 +111,9 @@ export interface InspectionEvidenceProjectionTrace {
   url?: string
   quote?: string
   caveat?: string
+  supportScope?: string
+  unsupportedScope?: string
+  strength?: string
   extractedTextPath?: string
   extractedManifestPath?: string
   hasDetail: boolean
@@ -163,10 +173,15 @@ export function projectInspectionMatch(
       claim: claim
         ? {
             id: claim.id,
+            canonicalClaimId: claim.canonicalClaimId,
             origin: claim.origin,
             text: truncate(claim.text, 500),
             evidenceSensitive: claim.evidenceSensitive,
             evidenceSupport: claim.evidenceSupport,
+            evidenceBindingIds: claim.evidenceBindingIds,
+            supportedScope: truncateOptional(claim.supportedScope, 280),
+            unsupportedScope: truncateOptional(claim.unsupportedScope, 280),
+            caveats: claim.caveats.map((item) => truncate(item, 280)).slice(0, 8),
           }
         : undefined,
     },
@@ -211,6 +226,8 @@ export function projectInspectionMatch(
 function projectEvidenceTrace(trace: InspectionEvidenceTrace): InspectionEvidenceProjectionTrace {
   return {
     source: truncate(trace.source, 180),
+    evidenceBindingId: truncateOptional(trace.evidenceBindingId, 160),
+    claimId: truncateOptional(trace.claimId, 160),
     sourcePath: truncateOptional(trace.sourcePath, 220),
     findingsFile: truncateOptional(trace.findingsFile, 220),
     location: truncateOptional(trace.location, 120),
@@ -218,6 +235,9 @@ function projectEvidenceTrace(trace: InspectionEvidenceTrace): InspectionEvidenc
     url: truncateOptional(trace.url, 240),
     quote: truncateOptional(trace.quote, 500),
     caveat: truncateOptional(trace.caveat, 280),
+    supportScope: truncateOptional(trace.supportScope, 280),
+    unsupportedScope: truncateOptional(trace.unsupportedScope, 280),
+    strength: trace.strength,
     extractedTextPath: truncateOptional(trace.extractedTextPath, 220),
     extractedManifestPath: truncateOptional(trace.extractedManifestPath, 220),
     hasDetail: trace.hasDetail,

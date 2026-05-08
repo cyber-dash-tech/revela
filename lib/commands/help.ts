@@ -28,7 +28,7 @@ export async function handleHelp(
     `\`/revela disable\`             — disable Revela mode\n` +
     `\`/revela init\`                — initialize or refresh workspace DECKS.json\n` +
     `\`/revela review\`              — review narrative readiness and approval state\n` +
-    `\`/revela narrative\`           — show read-only narrative map\n` +
+    `\`/revela narrative\`           — open read-only narrative workspace map\n` +
     `\`/revela deck\`                — start deck handoff from approved narrative\n` +
     `\`/revela deck --review\`       — review deck/artifact readiness before writing HTML\n` +
     `\`/revela refine\`              — open unified Edit/Inspect refinement workspace\n` +

@@ -7,6 +7,7 @@ import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { narrativeToBrief } from "../lib/narrative-state/project-compat"
 import { approveNarrativeState, reviewNarrativeState } from "../lib/narrative-state/readiness"
+import { closeResearchGapInState, deriveResearchGapsFromReadiness, updateResearchGapInState } from "../lib/narrative-state/research-gaps"
 import decksTool from "../tools/decks"
 
 describe("narrative state", () => {
@@ -125,6 +126,25 @@ describe("narrative state", () => {
       scope: "narrative",
     })
     state.decks["narrative-demo"].writeReadiness = { status: "ready", blockers: [], lastReviewedAt: "2099-01-01T00:00:00.000Z" }
+
+    expect(computeNarrativeHash(narrative)).toBe(before)
+  })
+
+  it("keeps narrative hash independent from research gap lifecycle", () => {
+    const state = legacyDecisionDeck()
+    const narrative = normalizeNarrativeState(state)
+    const before = computeNarrativeHash(narrative)
+
+    narrative.researchGaps = [{
+      id: "research-gap:market-proof",
+      targetType: "claim",
+      targetId: narrative.claims[0].id,
+      question: "Find additional market proof.",
+      status: "open",
+      priority: "high",
+      createdAt: "2026-05-07T00:00:00.000Z",
+      updatedAt: "2026-05-07T00:00:00.000Z",
+    }]
 
     expect(computeNarrativeHash(narrative)).toBe(before)
   })
@@ -308,10 +328,23 @@ describe("narrative state", () => {
         decision: { action: "Approve pilot expansion.", decisionType: "approve" },
         thesis: { statement: "Pilot expansion preserves upside while bounding execution risk.", confidence: "medium" },
         claims: [{
+          id: "claim:pilot-risk",
           text: "Pilot expansion lowers execution risk.",
           kind: "recommendation",
           importance: "central",
           evidenceRequired: true,
+        }, {
+          id: "claim:capacity-proof",
+          text: "Capacity evidence supports the pilot sequence.",
+          kind: "evidence",
+          importance: "supporting",
+          evidenceRequired: true,
+        }],
+        claimRelations: [{
+          fromClaimId: "claim:capacity-proof",
+          toClaimId: "claim:pilot-risk",
+          relation: "supports",
+          rationale: "Capacity proof supports the recommendation.",
         }],
         risks: [{ text: "Execution capacity remains constrained.", severity: "medium" }],
       },
@@ -325,9 +358,15 @@ describe("narrative state", () => {
       thesis: { statement: "Pilot expansion preserves upside while bounding execution risk." },
     })
     expect(reloaded.narrative?.claims).toContainEqual(expect.objectContaining({
-      id: expect.stringMatching(/^claim:/),
+      id: "claim:pilot-risk",
       text: "Pilot expansion lowers execution risk.",
       evidenceStatus: "missing",
+    }))
+    expect(reloaded.narrative?.claimRelations).toContainEqual(expect.objectContaining({
+      id: expect.stringMatching(/^claim-relation:/),
+      fromClaimId: "claim:capacity-proof",
+      toClaimId: "claim:pilot-risk",
+      relation: "supports",
     }))
     expect(reloaded.decks[reloaded.activeDeck!].narrativeBrief).toMatchObject({
       audienceBeliefBefore: "The board is unsure a pilot is safer.",
@@ -339,7 +378,65 @@ describe("narrative state", () => {
     expect(reloaded.actions).toContainEqual(expect.objectContaining({
       type: "narrative.upserted",
       actor: "revela-decks",
-      outputs: expect.objectContaining({ claimCount: 1, riskCount: 1 }),
+      outputs: expect.objectContaining({ claimCount: 2, riskCount: 1 }),
+    }))
+  })
+
+  it("treats claim relations as narrative meaning in the approval hash", () => {
+    const narrative = normalizeNarrativeState(legacyDecisionDeck())
+    narrative.claims.push({
+      id: "claim:execution-risk",
+      kind: "risk",
+      text: "Execution risk constrains expansion pace.",
+      importance: "supporting",
+      evidenceRequired: false,
+      evidenceStatus: "not_required",
+    })
+    const before = computeNarrativeHash(narrative)
+
+    narrative.claimRelations = [{
+      id: "relation:risk",
+      fromClaimId: narrative.claims[0].id,
+      toClaimId: "claim:execution-risk",
+      relation: "constrains",
+    }]
+
+    expect(computeNarrativeHash(narrative)).not.toBe(before)
+  })
+
+  it("warns when claim relations lack objective rationale or overextend evidence boundaries", () => {
+    const state = legacyDecisionDeck()
+    const narrative = normalizeNarrativeState(state)
+    const centralClaim = narrative.claims[0]
+    narrative.claims.push({
+      id: "claim:expansion-ask",
+      kind: "ask",
+      text: "Approve expansion beyond the pilot.",
+      importance: "central",
+      evidenceRequired: true,
+      evidenceStatus: "missing",
+    })
+    narrative.claimRelations = [{
+      id: "relation:overextended",
+      fromClaimId: centralClaim.id,
+      toClaimId: "claim:expansion-ask",
+      relation: "supports",
+    }]
+    state.narrative = narrative
+
+    const reviewed = reviewNarrativeState(state, { now: "2026-05-07T00:00:00.000Z" })
+
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "claim_chain_gap",
+      severity: "warning",
+      message: "Claim relation lacks objective causal rationale.",
+      claimText: "Approve expansion beyond the pilot.",
+    }))
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "claim_chain_gap",
+      severity: "warning",
+      message: "Claim relation may overextend the source claim's evidence boundary.",
+      claimText: "Approve expansion beyond the pilot.",
     }))
   })
 
@@ -357,6 +454,9 @@ describe("narrative state", () => {
     expect(deck.slides.map((slide) => slide.narrativeRole)).toEqual(["context", "recommendation", "evidence", "risk", "ask"])
     expect(deck.slides[1]).toMatchObject({
       title: "Demand supports phased expansion.",
+      claimIds: [expect.stringMatching(/^claim:/)],
+      claimRefs: [expect.objectContaining({ claimId: expect.stringMatching(/^claim:/), role: "primary" })],
+      evidenceBindingIds: [expect.stringMatching(/^evidence:/)],
       content: { headline: "Demand supports phased expansion." },
       evidence: [expect.objectContaining({ findingsFile: "researches/narrative-demo/market.md", quote: "Demand increased 25% from 2024 to 2025." })],
     })
@@ -370,11 +470,37 @@ describe("narrative state", () => {
     })
     expect(deck.writeReadiness.status).toBe("blocked")
     expect(deck.narrativeBrief?.decisionOrAction).toBe("Approve phased expansion.")
+    expect(reloaded.renderTargets).toContainEqual(expect.objectContaining({
+      type: "html_deck",
+      outputPath: "decks/narrative-demo.html",
+      data: expect.objectContaining({
+        narrativeHash: result.result.narrativeHash,
+        claimSlideRefs: expect.arrayContaining([expect.objectContaining({ claimId: expect.stringMatching(/^claim:/), slideIndex: 2, match: "metadata", role: "primary", location: "claimRefs:primary" })]),
+      }),
+    }))
     expect(reloaded.actions).toContainEqual(expect.objectContaining({
       type: "deck.plan_compiled",
       actor: "revela-decks",
       outputs: expect.objectContaining({ slideCount: 5, narrativeHash: expect.any(String) }),
     }))
+  })
+
+  it("backfills slide claimRefs through the decks tool without mutating HTML or narrative substance", async () => {
+    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-coverage-backfill-"))
+    const state = legacyDecisionDeck()
+    writeDecksState(workspaceRoot, state)
+    const beforeHash = computeNarrativeHash(readDecksState(workspaceRoot).narrative!)
+
+    const result = JSON.parse(await (decksTool as any).execute({ action: "backfillClaimRefs" }, { directory: workspaceRoot }))
+    const reloaded = readDecksState(workspaceRoot)
+    const deck = reloaded.decks[reloaded.activeDeck!]
+
+    expect(result.ok).toBe(true)
+    expect(result.result).toMatchObject({ updated: true, narrativeHash: beforeHash })
+    expect(result.result.addedCount).toBeGreaterThan(0)
+    expect(computeNarrativeHash(reloaded.narrative!)).toBe(beforeHash)
+    expect(deck.slides[0].claimRefs).toContainEqual(expect.objectContaining({ role: "primary" }))
+    expect(reloaded.actions).toContainEqual(expect.objectContaining({ type: "artifact.coverage_backfilled" }))
   })
 
   it("refuses to compile a deck plan before narrative approval or render override", async () => {
@@ -388,5 +514,72 @@ describe("narrative state", () => {
     expect(result.result).toMatchObject({ compiled: false, skipped: true })
     expect(result.result.reason).toContain("approved or explicitly overridden")
     expect(reloaded.actions.some((action) => action.type === "deck.plan_compiled")).toBe(false)
+  })
+
+  it("derives research gaps from missing central evidence without duplicating repeated derives", () => {
+    const state = legacyDecisionDeck()
+    state.decks["narrative-demo"].slides[0].evidence = []
+
+    const first = deriveResearchGapsFromReadiness(state, { now: "2026-05-07T00:00:00.000Z" })
+    const second = deriveResearchGapsFromReadiness(first.state, { now: "2026-05-07T00:01:00.000Z" })
+
+    const centralGap = first.result.created.find((gap) => gap.priority === "high")
+
+    expect(first.result.created).toHaveLength(2)
+    expect(centralGap).toMatchObject({
+      targetType: "claim",
+      status: "open",
+      priority: "high",
+      createdFromIssueType: "missing_evidence",
+    })
+    expect(second.state.narrative?.researchGaps).toHaveLength(2)
+    expect(second.state.actions).toContainEqual(expect.objectContaining({ type: "research.gap_created", actor: "revela-decks" }))
+    expect(second.state.actions).toContainEqual(expect.objectContaining({ type: "research.gap_updated", actor: "revela-decks" }))
+  })
+
+  it("moves research gaps through findings and evidence-bound lifecycle without binding proof automatically", () => {
+    const state = legacyDecisionDeck()
+    state.decks["narrative-demo"].slides[0].evidence = []
+    const derived = deriveResearchGapsFromReadiness(state, { now: "2026-05-07T00:00:00.000Z" })
+    const gapId = derived.result.created.find((gap) => gap.priority === "high")!.id
+
+    const withFindings = updateResearchGapInState(derived.state, {
+      id: gapId,
+      status: "findings_saved",
+      findingsFile: "researches/narrative-demo/supplier.md",
+      notes: "Findings saved but not yet bound.",
+    }, { now: "2026-05-07T00:02:00.000Z" })
+    const reviewed = reviewNarrativeState(withFindings.state, { now: "2026-05-07T00:03:00.000Z" })
+
+    expect(withFindings.result.updated[0]).toMatchObject({ status: "findings_saved", findingsFile: "researches/narrative-demo/supplier.md" })
+    expect(reviewed.result.status).toBe("needs_research")
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({ type: "missing_evidence", severity: "blocker" }))
+
+    const bound = updateResearchGapInState(withFindings.state, {
+      id: gapId,
+      status: "evidence_bound",
+      evidenceBindingIds: ["evidence:demo:supplier"],
+    }, { now: "2026-05-07T00:04:00.000Z" })
+    const closed = closeResearchGapInState(bound.state, gapId, "Evidence boundary resolved.", { now: "2026-05-07T00:05:00.000Z" })
+
+    expect(bound.result.updated[0]).toMatchObject({ status: "evidence_bound", evidenceBindingIds: ["evidence:demo:supplier"] })
+    expect(closed.result).toMatchObject({ closed: true, skipped: false, gap: expect.objectContaining({ status: "closed", closedAt: "2026-05-07T00:05:00.000Z" }) })
+    expect(closed.state.actions).toContainEqual(expect.objectContaining({ type: "research.gap_closed", actor: "revela-decks" }))
+  })
+
+  it("exposes research gap lifecycle through revela-decks", async () => {
+    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-research-gap-tool-"))
+    const state = legacyDecisionDeck()
+    state.decks["narrative-demo"].slides[0].evidence = []
+    writeDecksState(workspaceRoot, state)
+
+    const derived = JSON.parse(await (decksTool as any).execute({ action: "deriveResearchGaps" }, { directory: workspaceRoot }))
+    const gapId = derived.result.created[0].id
+    const updated = JSON.parse(await (decksTool as any).execute({ action: "updateResearchGap", gapId, gapStatus: "attached", findingsFile: "researches/narrative-demo/market.md" }, { directory: workspaceRoot }))
+    const closed = JSON.parse(await (decksTool as any).execute({ action: "closeResearchGap", gapId, gapNotes: "Resolved by bound evidence." }, { directory: workspaceRoot }))
+
+    expect(derived.ok).toBe(true)
+    expect(updated.result.updated[0]).toMatchObject({ status: "attached", findingsFile: "researches/narrative-demo/market.md" })
+    expect(closed.result.closed).toBe(true)
   })
 })

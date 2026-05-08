@@ -50,6 +50,7 @@ export type GraphNodeType =
   | "risk"
   | "slide"
   | "artifact"
+  | "researchGap"
 
 export interface GraphEdge {
   id: string
@@ -64,6 +65,10 @@ export type GraphEdgeType =
   | "extracted_as"
   | "produced"
   | "supports"
+  | "leads_to"
+  | "depends_on"
+  | "contrasts_with"
+  | "answers"
   | "appears_in"
   | "challenges"
   | "constrained_by"
@@ -88,8 +93,12 @@ export type WorkspaceActionType =
   | "source.extracted"
   | "research.findings_saved"
   | "research.findings_attached"
+  | "research.gap_created"
+  | "research.gap_updated"
+  | "research.gap_closed"
   | "narrative.upserted"
   | "deck.plan_compiled"
+  | "artifact.coverage_backfilled"
   | "evidence.candidate_generated"
   | "evidence.binding_applied"
   | "narrative.approved"

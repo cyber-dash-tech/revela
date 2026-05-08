@@ -1,4 +1,6 @@
 import { upsertDeck, upsertSlides, type DecksState, type EvidenceRef, type RequiredInputs, type SlideSpec } from "../decks-state"
+import { ensureActiveHtmlDeckRenderTarget } from "../workspace-state/render-targets"
+import { getClaimSlideRefs } from "./queries"
 import { computeNarrativeHash } from "./hash"
 import { normalizeNarrativeState } from "./normalize"
 import { narrativeToBrief } from "./project-compat"
@@ -64,6 +66,23 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
   })
   next = upsertSlides(next, slug, slides)
   next.narrative = { ...narrative, updatedAt: options.now ?? narrative.updatedAt }
+  const htmlTarget = ensureActiveHtmlDeckRenderTarget(next)
+  if (htmlTarget) {
+    htmlTarget.data = {
+      ...(htmlTarget.data ?? {}),
+      narrativeId: narrative.id,
+      narrativeHash,
+      claimSlideRefs: getClaimSlideRefs(next).map((ref) => ({
+        claimId: ref.claimId,
+        claimText: ref.claimText,
+        slideIndex: ref.slideIndex,
+        slideTitle: ref.slideTitle,
+        match: ref.match,
+        role: ref.role,
+        location: ref.location,
+      })),
+    }
+  }
 
   return {
     state: next,
@@ -110,6 +129,7 @@ function buildSlides(narrative: NarrativeStateV1): SlideSpec[] {
 
   for (const claim of centralClaims) slides.push(claimSlide(slides.length + 1, claim, evidenceByClaim.get(claim.id) ?? []))
   if (supportingClaims.length > 0) {
+    const supportingBindings = supportingClaims.flatMap((claim) => evidenceByClaim.get(claim.id) ?? [])
     slides.push({
       index: slides.length + 1,
       title: "Supporting Logic",
@@ -118,16 +138,24 @@ function buildSlides(narrative: NarrativeStateV1): SlideSpec[] {
       layout: "card-grid",
       qa: true,
       components: ["card"],
+      claimIds: supportingClaims.map((claim) => claim.id),
+      claimRefs: supportingClaims.map((claim) => ({ claimId: claim.id, role: "supporting" as const })),
+      evidenceBindingIds: supportingBindings.map((binding) => binding.id),
       content: {
         headline: "Supporting claims and boundaries",
         bullets: supportingClaims.slice(0, 5).map((claim) => claim.text),
       },
-      evidence: supportingClaims.flatMap((claim) => (evidenceByClaim.get(claim.id) ?? []).map(evidenceRefFromBinding)),
+      evidence: supportingBindings.map(evidenceRefFromBinding),
       status: "planned",
     })
   }
 
   if (narrative.risks.length > 0 || narrative.objections.length > 0) {
+    const challengedClaimRefs = [
+      ...narrative.risks.map((risk) => risk.claimId ? { claimId: risk.claimId, role: "risk" as const } : undefined).filter((ref): ref is { claimId: string; role: "risk" } => Boolean(ref)),
+      ...narrative.objections.map((objection) => objection.claimId ? { claimId: objection.claimId, role: "objection" as const } : undefined).filter((ref): ref is { claimId: string; role: "objection" } => Boolean(ref)),
+    ]
+    const challengedClaimIds = [...new Set(challengedClaimRefs.map((ref) => ref.claimId))]
     slides.push({
       index: slides.length + 1,
       title: "Risks And Objections",
@@ -136,6 +164,8 @@ function buildSlides(narrative: NarrativeStateV1): SlideSpec[] {
       layout: "two-col",
       qa: true,
       components: ["card"],
+      claimIds: challengedClaimIds,
+      claimRefs: dedupeClaimRefs(challengedClaimRefs),
       content: {
         headline: "What could break the recommendation",
         bullets: [
@@ -176,6 +206,9 @@ function claimSlide(index: number, claim: NarrativeClaim, bindings: NarrativeEvi
     layout: "two-col",
     qa: true,
     components: ["card"],
+    claimIds: [claim.id],
+    claimRefs: [{ claimId: claim.id, role: "primary" }],
+    evidenceBindingIds: bindings.map((binding) => binding.id),
     content: {
       headline: claim.text,
       bullets: [claim.supportedScope, claim.unsupportedScope ? `Unsupported scope: ${claim.unsupportedScope}` : undefined, ...(claim.caveats ?? [])].filter((item): item is string => Boolean(item)),
@@ -183,6 +216,16 @@ function claimSlide(index: number, claim: NarrativeClaim, bindings: NarrativeEvi
     evidence: bindings.map(evidenceRefFromBinding),
     status: "planned",
   }
+}
+
+function dedupeClaimRefs<T extends { claimId: string; role: "risk" | "objection" }>(refs: T[]): T[] {
+  const seen = new Set<string>()
+  return refs.filter((ref) => {
+    const key = `${ref.claimId}:${ref.role}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 function evidenceRefFromBinding(binding: NarrativeEvidenceBinding): EvidenceRef {

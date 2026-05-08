@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { createEmptyDecksState, upsertDeck, type DecksState } from "../lib/decks-state"
+import { createEmptyDecksState, upsertDeck, upsertSlides, type DecksState } from "../lib/decks-state"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import {
@@ -9,6 +9,7 @@ import {
   getSourceClaimIndex,
 } from "../lib/narrative-state/queries"
 import { recordArtifactRenderTarget } from "../lib/workspace-state/render-targets"
+import { backfillSlideClaimRefsFromCoverage } from "../lib/narrative-state/coverage"
 
 describe("narrative query services", () => {
   function queryState(): DecksState {
@@ -101,8 +102,37 @@ describe("narrative query services", () => {
       approvedBy: "user",
       scope: "narrative",
     })
+    state = upsertSlides(state, "query-demo", [
+      {
+        index: 1,
+        title: "Pilot Recommendation",
+        purpose: "Show why the phased pilot is safer.",
+        narrativeRole: "recommendation",
+        layout: "two-col",
+        components: ["card"],
+        claimIds: ["claim:supported"],
+        claimRefs: [{ claimId: "claim:supported", role: "primary" }],
+        evidenceBindingIds: ["evidence:supported:ops"],
+        content: { headline: "Phased pilot approval is the safer path.", bullets: ["Pilot scope only."] },
+        evidence: [{ source: "Operations study", findingsFile: "researches/query-demo/ops.md", quote: "Pilot scope fits current operating constraints." }],
+        status: "planned",
+      },
+      {
+        index: 2,
+        title: "Supporting Evidence",
+        purpose: "Show supporting claims.",
+        narrativeRole: "evidence",
+        layout: "card-grid",
+        components: ["card"],
+        claimIds: ["claim:partial"],
+        claimRefs: [{ claimId: "claim:partial", role: "supporting" }],
+        evidenceBindingIds: ["evidence:partial:line"],
+        content: { bullets: ["Current line data supports initial automation gains."] },
+        evidence: [{ source: "Line data", sourcePath: "sources/line-data.xlsx", quote: "Automation reduced manual interventions by 18%." }],
+        status: "planned",
+      },
+    ])
     recordArtifactRenderTarget(state, { sourceHtmlPath: "decks/query-demo.html", type: "pdf", outputPath: "decks/query-demo.pdf" })
-    state.renderTargets[0].sourceNodeIds.push("claim:supported")
     return state
   }
 
@@ -138,11 +168,80 @@ describe("narrative query services", () => {
     expect(index.risks).toContainEqual(expect.objectContaining({ text: "Supplier readiness may lag.", claimText: "Current line data supports initial automation gains." }))
   })
 
-  it("returns primitive artifact-to-claim refs without page-level coverage", () => {
+  it("returns artifact-to-claim refs with page-level slide coverage", () => {
     const refs = getArtifactClaimRefs(queryState())
 
-    expect(refs).toContainEqual(expect.objectContaining({ type: "html_deck", claimIds: ["claim:supported"] }))
-    expect(refs).toContainEqual(expect.objectContaining({ type: "pdf", note: "Claim-to-slide/page coverage is not computed yet; page-level artifact coverage belongs to Phase 4." }))
+    expect(refs).toContainEqual(expect.objectContaining({
+      type: "html_deck",
+      claimIds: expect.arrayContaining(["claim:supported", "claim:partial"]),
+      slideRefs: expect.arrayContaining([expect.objectContaining({ claimId: "claim:supported", slideIndex: 1, match: "metadata", role: "primary", location: "claimRefs:primary" })],),
+    }))
+    expect(refs).toContainEqual(expect.objectContaining({
+      type: "pdf",
+      claimIds: expect.arrayContaining(["claim:supported", "claim:partial"]),
+      note: undefined,
+    }))
+  })
+
+  it("marks artifact coverage stale when stored narrative hash differs", () => {
+    const state = queryState()
+    const html = state.renderTargets.find((target) => target.type === "html_deck")!
+    html.data = { ...(html.data ?? {}), narrativeHash: "old-hash" }
+
+    expect(getArtifactClaimRefs(state)).toContainEqual(expect.objectContaining({
+      type: "html_deck",
+      stale: true,
+      staleReason: "Narrative hash changed after this artifact coverage was recorded.",
+    }))
+  })
+
+  it("prefers explicit slide claim metadata over text inference", () => {
+    const state = queryState()
+    state.decks["query-demo"].slides[0].content = { headline: "A renamed artifact headline." }
+
+    expect(getArtifactClaimRefs(state)).toContainEqual(expect.objectContaining({
+      type: "html_deck",
+      slideRefs: expect.arrayContaining([expect.objectContaining({ claimId: "claim:supported", slideIndex: 1, match: "metadata", role: "primary", location: "claimRefs:primary" })]),
+    }))
+  })
+
+  it("falls back to flat claimIds and evidenceBindingIds with inferred roles", () => {
+    const state = queryState()
+    state.decks["query-demo"].slides[0].claimRefs = []
+    state.decks["query-demo"].slides[1].claimRefs = []
+    state.decks["query-demo"].slides[1].claimIds = []
+
+    expect(getArtifactClaimRefs(state)).toContainEqual(expect.objectContaining({
+      type: "html_deck",
+      slideRefs: expect.arrayContaining([
+        expect.objectContaining({ claimId: "claim:supported", slideIndex: 1, role: "primary", location: "claimIds" }),
+        expect.objectContaining({ claimId: "claim:partial", slideIndex: 2, role: "evidence", location: "evidenceBindingIds" }),
+      ]),
+    }))
+  })
+
+  it("backfills fallback coverage into explicit slide claimRefs without changing narrative hash", () => {
+    const state = queryState()
+    const beforeHash = computeNarrativeHash(state.narrative!)
+    state.decks["query-demo"].slides[0].claimRefs = []
+    state.decks["query-demo"].slides[1].claimRefs = []
+    state.decks["query-demo"].slides[1].claimIds = []
+
+    const backfilled = backfillSlideClaimRefsFromCoverage(state)
+    const deck = backfilled.state.decks["query-demo"]
+
+    expect(backfilled.result).toMatchObject({ updated: true, addedCount: 2 })
+    expect(computeNarrativeHash(backfilled.state.narrative!)).toBe(beforeHash)
+    expect(deck.slides[0].claimRefs).toContainEqual(expect.objectContaining({ claimId: "claim:supported", role: "primary" }))
+    expect(deck.slides[1].claimRefs).toContainEqual(expect.objectContaining({ claimId: "claim:partial", role: "evidence" }))
+    expect(backfilled.state.renderTargets.find((target) => target.type === "html_deck")?.data).toMatchObject({
+      narrativeHash: beforeHash,
+      claimSlideRefs: expect.arrayContaining([
+        expect.objectContaining({ claimId: "claim:supported", role: "primary", location: "claimRefs:primary" }),
+        expect.objectContaining({ claimId: "claim:partial", role: "evidence", location: "claimRefs:evidence" }),
+      ]),
+    })
+    expect(backfilled.state.actions).toContainEqual(expect.objectContaining({ type: "artifact.coverage_backfilled" }))
   })
 
 })

@@ -1,6 +1,6 @@
 import { createHash } from "crypto"
 import type { DeckSpec, DecksState, EvidenceRef, NarrativeBrief, ResearchAxis, SlideSpec, SourceMaterial } from "../decks-state"
-import type { NarrativeEvidenceBinding, NarrativeStateV1 } from "../narrative-state/types"
+import type { NarrativeClaimRelation, NarrativeEvidenceBinding, NarrativeResearchGap, NarrativeStateV1 } from "../narrative-state/types"
 import { renderTargetId } from "./render-targets"
 import type { GraphEdge, GraphEdgeType, GraphNode, GraphNodeType, RenderTarget, WorkspaceGraph } from "./types"
 
@@ -178,6 +178,8 @@ function addCanonicalNarrative(builder: GraphBuilder, narrative: NarrativeStateV
     }))
   }
 
+  for (const relation of narrative.claimRelations ?? []) addClaimRelation(builder, relation)
+
   for (const objection of narrative.objections) {
     addNode(builder, {
       id: objection.id,
@@ -200,6 +202,55 @@ function addCanonicalNarrative(builder: GraphBuilder, narrative: NarrativeStateV
     addEdge(builder, "constrained_by", risk.claimId || narrative.id, risk.id)
   }
 
+  for (const gap of narrative.researchGaps ?? []) addResearchGap(builder, narrative, gap)
+
+  return narrative.id
+}
+
+function addClaimRelation(builder: GraphBuilder, relation: NarrativeClaimRelation): void {
+  addEdge(builder, graphEdgeTypeForClaimRelation(relation.relation), relation.fromClaimId, relation.toClaimId, compactData({
+    relationId: relation.id,
+    relation: relation.relation,
+    rationale: relation.rationale,
+    source: "canonicalNarrative",
+  }))
+}
+
+function graphEdgeTypeForClaimRelation(relation: NarrativeClaimRelation["relation"]): GraphEdgeType {
+  if (relation === "constrains") return "constrained_by"
+  if (relation === "supports") return "supports"
+  return relation
+}
+
+function addResearchGap(builder: GraphBuilder, narrative: NarrativeStateV1, gap: NarrativeResearchGap): void {
+  addNode(builder, {
+    id: gap.id,
+    type: "researchGap",
+    label: gap.question,
+    data: compactData({
+      question: gap.question,
+      status: gap.status,
+      priority: gap.priority,
+      targetType: gap.targetType,
+      targetId: gap.targetId,
+      findingsFile: gap.findingsFile,
+      evidenceBindingIds: gap.evidenceBindingIds,
+      createdFromIssueType: gap.createdFromIssueType,
+      notes: gap.notes,
+    }),
+  })
+  addEdge(builder, "contains", narrative.id, gap.id)
+  addEdge(builder, "derived_from", gap.id, gapTargetNodeId(narrative, gap))
+  if (gap.findingsFile) addEdge(builder, "derived_from", gap.id, findingNodeId(gap.findingsFile), { status: gap.status })
+  for (const evidenceId of gap.evidenceBindingIds ?? []) {
+    const binding = narrative.evidenceBindings.find((item) => item.id === evidenceId)
+    if (binding) addEdge(builder, "derived_from", gap.id, binding.claimId, { evidenceBindingId: evidenceId })
+  }
+}
+
+function gapTargetNodeId(narrative: NarrativeStateV1, gap: NarrativeResearchGap): string {
+  if (gap.targetId) return gap.targetId
+  if (gap.targetType === "narrative" || gap.targetType === "decision") return narrative.id
   return narrative.id
 }
 
@@ -422,7 +473,8 @@ function hasCanonicalNarrative(narrative: NarrativeStateV1 | undefined): narrati
       narrative?.claims.length ||
       narrative?.evidenceBindings.length ||
       narrative?.objections.length ||
-      narrative?.risks.length,
+      narrative?.risks.length ||
+      narrative?.researchGaps?.length,
   )
 }
 
