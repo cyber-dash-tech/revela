@@ -4,6 +4,8 @@ import { tmpdir } from "os"
 import { join } from "path"
 import { createEmptyDecksState, upsertDeck, upsertSlides, workspaceDeckSlug, writeDecksState } from "../lib/decks-state"
 import { clearInspectRequestsForTests, getInspectRequest } from "../lib/inspect/requests"
+import { handleEdit } from "../lib/commands/edit"
+import { handleInspect } from "../lib/commands/inspect"
 import { openRefineDeck } from "../lib/refine/open"
 import { renderRefineShell, stopRefineServer } from "../lib/refine/server"
 
@@ -124,6 +126,46 @@ describe("openRefineDeck", () => {
       workspaceRoot: root,
       openBrowser: false,
     })).toThrow("Deck HTML contract validation failed")
+  })
+})
+
+describe("deprecated refine command shims", () => {
+  it("opens Refine Edit mode from /revela edit", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Market Map</h2></section></body></html>", "utf-8")
+    const messages: string[] = []
+
+    await handleEdit({
+      client: { session: { prompt: async () => undefined } },
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openBrowser: false,
+    }, async (message) => {
+      messages.push(message)
+    })
+
+    expect(messages[0]).toContain("`/revela edit` is deprecated")
+    expect(messages[0]).toContain("`/revela refine` in Edit mode")
+    expect(messages[0]).toContain("/refine?token=")
+  })
+
+  it("opens Refine Inspect mode from /revela inspect", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Market Map</h2></section></body></html>", "utf-8")
+    const messages: string[] = []
+
+    await handleInspect({
+      client: { session: { prompt: async () => undefined } },
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openBrowser: false,
+    }, async (message) => {
+      messages.push(message)
+    })
+
+    expect(messages[0]).toContain("`/revela inspect` is deprecated")
+    expect(messages[0]).toContain("`/revela refine` in Inspect mode")
+    expect(messages[0]).toContain("/refine?token=")
   })
 })
 

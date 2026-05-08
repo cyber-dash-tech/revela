@@ -221,7 +221,7 @@ describe("ensureEditableDeckState", () => {
 describe("openEditableDeck", () => {
   it("opens an edit session without launching a browser when disabled", () => {
     const root = workspace()
-    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\"><h2>Market Map</h2></section></body></html>", "utf-8")
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Market Map</h2></section></body></html>", "utf-8")
 
     const result = openEditableDeck("", {
       client: { session: { prompt: async () => undefined } },
@@ -238,7 +238,7 @@ describe("openEditableDeck", () => {
 
   it("tracks live editor sessions by workspace deck file", () => {
     const root = workspace()
-    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\"><h2>Market Map</h2></section></body></html>", "utf-8")
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Market Map</h2></section></body></html>", "utf-8")
 
     openEditableDeck("", {
       client: { session: { prompt: async () => undefined } },
@@ -453,7 +453,7 @@ describe("renderEditorShell", () => {
 describe("revela-edit tool", () => {
   it("returns editor details for an existing deck", async () => {
     const root = workspace()
-    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\"><h2>Market Map</h2></section></body></html>", "utf-8")
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Market Map</h2></section></body></html>", "utf-8")
     const editTool = createEditTool({
       client: { session: { prompt: async () => undefined } },
       workspaceRoot: root,
@@ -465,7 +465,10 @@ describe("revela-edit tool", () => {
     expect(result.ok).toBe(true)
     expect(result.deckKey).toBe(workspaceDeckSlug(root))
     expect(result.file).toBe("decks/market-map.html")
+    expect(result.mode).toBe("edit")
     expect(result.url).toStartWith("http://127.0.0.1:")
+    expect(result.url).toContain("/refine?token=")
+    expect(result.message).toContain("Opened Revela Refine in Edit mode")
     expect(result.message).toContain("Ctrl/Cmd")
   })
 

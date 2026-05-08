@@ -423,7 +423,7 @@ const server: Plugin = (async (pluginCtx) => {
       }
       if (sub === "edit") {
         if (param) {
-          await send("`/revela edit` no longer accepts a target. It opens the only HTML deck in `decks/`.")
+          await send("`/revela edit` is deprecated and does not accept a target. Use `/revela refine` for the unified refinement workspace.")
           throw new Error("__REVELA_EDIT_USAGE_HANDLED__")
         }
         await handleEdit({ client, sessionID, workspaceRoot }, send)
@@ -431,7 +431,7 @@ const server: Plugin = (async (pluginCtx) => {
       }
       if (sub === "inspect") {
         if (param) {
-          await send("`/revela inspect` does not accept a target. It opens the only HTML deck in `decks/`.")
+          await send("`/revela inspect` is deprecated and does not accept a target. Use `/revela refine` for the unified reading and refinement workspace.")
           throw new Error("__REVELA_INSPECT_USAGE_HANDLED__")
         }
         await handleInspect({ client, sessionID, workspaceRoot }, send)

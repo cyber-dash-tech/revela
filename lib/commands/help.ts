@@ -32,9 +32,9 @@ export async function handleHelp(
     `\`/revela brief [file.md]\`      — render executive brief from approved narrative\n` +
     `\`/revela deck\`                — start deck handoff from approved narrative\n` +
     `\`/revela deck --review\`       — review deck/artifact readiness before writing HTML\n` +
-    `\`/revela refine\`              — open unified Edit/Inspect refinement workspace\n` +
-    `\`/revela edit\`                — open visual editor for the only deck in decks/\n` +
-    `\`/revela inspect\`             — open Evidence Inspector for click-to-inspect review\n` +
+    `\`/revela refine\`              — open unified reading, inspection, and editing workspace\n` +
+    `\`/revela edit\`                — deprecated compatibility shim to /revela refine Edit\n` +
+    `\`/revela inspect\`             — deprecated compatibility shim to /revela refine Inspect\n` +
     `\`/revela remember <text>\`     — save an explicit preference to DECKS.json\n` +
     `\`/revela designs\`             — list installed designs\n` +
     `\`/revela designs <name>\`      — activate a design\n` +

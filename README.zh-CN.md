@@ -2,7 +2,7 @@
 
 [English](README.md) | **中文**
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-324%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-369%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
@@ -144,9 +144,9 @@ export { default } from "/absolute/path/to/revela/index.ts";
 /revela deck                     从已批准 narrative 开始 deck handoff
 /revela deck --review            写 HTML 前检查 deck/artifact readiness
 /revela remember <text>          保存明确的用户/工作流偏好
-/revela refine                   打开统一的 Edit/Inspect refinement workspace
-/revela edit                     打开 decks/ 下唯一 deck 的可视化编辑器
-/revela inspect                  打开 Cmd/Ctrl-click 式 Evidence Inspector
+/revela refine                   打开统一的阅读、检查和编辑 workspace
+/revela edit                     deprecated，兼容到 /revela refine Edit mode
+/revela inspect                  deprecated，兼容到 /revela refine Inspect mode
 
 /revela designs                  列出已安装 design
 /revela designs <name>           激活某个 design
@@ -165,7 +165,7 @@ export { default } from "/absolute/path/to/revela/index.ts";
 /revela pptx <file>              将 HTML deck 导出为同目录可编辑 PPTX
 ```
 
-大多数 `/revela` 命令都在本地执行，不消耗 LLM token。`/revela init`、`/revela review`、`/revela deck`、`/revela remember`、`/revela designs-new` 和 `/revela designs-edit` 会启动 AI 辅助流程，因为它们需要读取或更新项目状态。`/revela refine` 会打开一个本地浏览器 workspace，里面有 Edit 和 Inspect 两个 tab，并共享同一套 Cmd/Ctrl-click 元素引用。Edit 会把精准修改评论发回当前 OpenCode 会话；Inspect 会先渲染确定性 Source/Purpose 预处理结果，再 lazy 显示 LLM 生成的卡片。它没有聊天框，也不会修改 deck。
+大多数 `/revela` 命令都在本地执行，不消耗 LLM token。`/revela init`、`/revela review`、`/revela deck`、`/revela remember`、`/revela designs-new` 和 `/revela designs-edit` 会启动 AI 辅助流程，因为它们需要读取或更新项目状态。`/revela refine` 是统一的 post-artifact workspace，会打开一个本地浏览器 workspace，里面有 Edit 和 Inspect 两个 tab，并共享同一套 Cmd/Ctrl-click 元素引用。Edit 会把精准修改评论发回当前 OpenCode 会话；Inspect 会先渲染确定性 Source/Purpose 预处理结果，再 lazy 显示 LLM 生成的卡片。它没有聊天框，也不会修改 deck。`/revela edit` 和 `/revela inspect` 只作为 deprecated 兼容入口保留。
 
 ---
 
@@ -213,8 +213,8 @@ Deck 仍然是主要 authored artifact，但现在它是从同一份 workspace s
 5. 运行 `/revela deck`，把已批准 narrative 编译成 deck slide specs，并进入 deck-render mode。
 6. 只在 deck handoff 阶段选择或确认 design，然后通过 handoff workflow 或 `/revela deck --review` 运行 deck/artifact gate。
 7. 只有 artifact gate ready 后，才让 agent 把 HTML deck 写到 `decks/` 下。
-8. 用 `/revela refine` 对选中 deck 元素做可视化评论、精准修改，以及可选的 Source/Purpose 检查。
-9. 只有在需要旧的单一功能 shell 时，才单独使用 `/revela edit` 或 `/revela inspect`。
+8. 用 `/revela refine` 对选中 deck 元素做可视化评论、精准修改，以及只读 Source/Purpose 检查。
+9. 只有旧脚本或旧习惯需要时，才使用 `/revela edit` 或 `/revela inspect`；两者都会打开对应模式的 `/revela refine`。
 10. 用 `/revela pdf <file>` 或 `/revela pptx <file>` 导出。
 
 `/revela review` 检查的是 narrative readiness：受众不清、缺信念变化、缺 decision/action、thesis 弱、central claims 无证据、evidence 弱、unsupported scope、objection 未处理、缺风险/假设处理、approval stale 或缺 approval。它不检查 design/layout readiness，也不会写最终 deck。
@@ -556,19 +556,19 @@ Prompt 注入规则：
 /revela refine
 ```
 
-`/revela refine` 会打开 `decks/` 下唯一的 HTML deck，并提供两个 tab。使用 `Ctrl`/`Cmd` + click 先引用 deck 元素，然后在 Edit 里快速写自然语言修改评论，或在 Inspect 里做只读 Source 和 Purpose 检查。Inspect 不会修改 deck；真正的 mutation 仍然只走 Edit。
+`/revela refine` 会打开 active HTML deck，并提供两个 tab。使用 `Ctrl`/`Cmd` + click 先引用 deck 元素，然后在 Edit 里快速写自然语言修改评论，或在 Inspect 里做只读 Source 和 Purpose 检查。Inspect 不会修改 deck；真正的 mutation 仍然只走 Edit。这是 post-artifact 阅读、检查和编辑的推荐入口。
 
-打开 `decks/` 下唯一 HTML deck 的可视化编辑器：
+Deprecated 兼容命令：
 
 ```text
 /revela edit
 ```
 
-Revela 0.8 中 `/revela edit` 不接受 target。如果 `decks/` 下正好有一个 `.html` 文件，Revela 会打开它。如果 `decks/` 下没有 HTML 或有多个 HTML，Revela 会提示先生成 deck，或把多余 deck 移到独立 workspace。
+`/revela edit` 不再打开独立的 edit-only shell。它会打开 `/revela refine` 的 Edit mode，用于兼容旧脚本和旧使用习惯。
 
-旧的 edit-only shell 会在浏览器中打开。使用 `Ctrl`/`Cmd` + 点击 deck 元素来引用它们，写一段自然语言评论，然后发送回 OpenCode。Revela 会把 deck 文件、slide 上下文、选中元素 metadata 和你的评论整理成结构化 edit prompt。
+使用 `Ctrl`/`Cmd` + 点击 deck 元素来引用它们，在 Edit tab 写一段自然语言评论，然后发送回 OpenCode。Revela 会把 deck 文件、slide 上下文、选中元素 metadata 和你的评论整理成结构化 edit prompt。
 
-对应的 LLM tool：`revela-edit`，不需要 target。因此当你说“我要编辑这个 deck”时，agent 也可以主动打开同一个编辑器。
+对应的 LLM tool：`revela-edit`，不需要 target。这个 tool 也是兼容入口，当你说“我要编辑这个 deck”时，agent 会打开 Refine 的 Edit mode。
 
 对于已有 HTML deck，`/revela edit` 会自动准备必要的最小项目上下文，让后续精准修改仍然经过正常安全检查。
 
@@ -576,17 +576,17 @@ Revela 0.8 中 `/revela edit` 不接受 target。如果 `decks/` 下正好有一
 
 ## Evidence Inspector
 
-打开 `decks/` 下唯一 HTML deck 的 Evidence Inspector，或直接使用 `/revela refine` 里的 Inspect tab：
+用 `/revela refine` 做 evidence inspection 和 narrative reading。Deprecated 兼容命令：
 
 ```text
 /revela inspect
 ```
 
-Inspector 会在浏览器中打开，左侧是 deck，右侧是固定卡片：Source 和 Purpose。使用 `Ctrl`/`Cmd` + click 像 `/revela edit` 一样引用 deck 元素，然后点击 `Inspect Selection`。请求处理期间，deck 选择会被锁定。
+`/revela inspect` 不再打开独立 inspector shell。它会打开 `/revela refine` 的 Inspect mode。Inspect tab 会显示固定卡片：Source 和 Purpose。使用 `Ctrl`/`Cmd` + click 引用 deck 元素，然后点击 `Inspect Selection`。请求处理期间，deck 选择会被锁定。
 
 Inspector 不是聊天，也没有自由输入框。它不会修改 `DECKS.json` 或 deck HTML。它使用已记录的 slide spec、narrative state 和 slide-level evidence trace 作为 grounded context。确定性预处理会立即显示；LLM judgment 随后 lazy 更新 Source 和 Purpose 卡片，不会强行生成编辑动作。
 
-Inspect 和 refine 会使用 workspace state 中记录的 active HTML deck render target。Deck HTML 必须满足 Revela 的 slide identity contract：active artifact 中每个 `<section class="slide">` 都需要有正数、1-based 的 `data-slide-index`，并且要匹配当前 slide specs。无效的 active artifact 会在 inspect/refine/export 工作流信任它之前被拒绝或报告。
+Refine 会使用 workspace state 中记录的 active HTML deck render target。Deck HTML 必须满足 Revela 的 slide identity contract：active artifact 中每个 `<section class="slide">` 都需要有正数、1-based 的 `data-slide-index`，并且要匹配当前 slide specs。无效的 active artifact 会在 refine/export 工作流信任它之前被拒绝或报告。
 
 ---
 

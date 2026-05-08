@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-324%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-369%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
@@ -145,9 +145,9 @@ Disable presentation mode when done:
 /revela deck                     start deck handoff from approved narrative
 /revela deck --review            review deck/artifact readiness before writing HTML
 /revela remember <text>          save an explicit user/workflow preference
-/revela refine                   open unified Edit/Inspect refinement workspace
-/revela edit                     open visual editor for the only deck in decks/
-/revela inspect                  open Evidence Inspector for Cmd/Ctrl-click review
+/revela refine                   open unified reading, inspection, and editing workspace
+/revela edit                     deprecated shim to /revela refine Edit mode
+/revela inspect                  deprecated shim to /revela refine Inspect mode
 
 /revela designs                  list installed designs
 /revela designs <name>           activate a design
@@ -166,7 +166,7 @@ Disable presentation mode when done:
 /revela pptx <file>              export an HTML deck to editable PPTX in the same directory
 ```
 
-Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela review`, `/revela deck`, `/revela remember`, `/revela designs-new`, and `/revela designs-edit` start AI-assisted workflows because they need to read or update project files. `/revela refine` opens a local browser workspace with Edit and Inspect tabs that share the same Cmd/Ctrl-click element references. Edit sends targeted comments back into the current OpenCode session; Inspect renders deterministic Source/Purpose preprocessing first before lazy LLM-generated cards arrive, has no chat box, and does not edit the deck.
+Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela review`, `/revela deck`, `/revela remember`, `/revela designs-new`, and `/revela designs-edit` start AI-assisted workflows because they need to read or update project files. `/revela refine` is the unified post-artifact workspace. It opens a local browser workspace with Edit and Inspect tabs that share the same Cmd/Ctrl-click element references. Edit sends targeted comments back into the current OpenCode session; Inspect renders deterministic Source/Purpose preprocessing first before lazy LLM-generated cards arrive, has no chat box, and does not edit the deck. `/revela edit` and `/revela inspect` remain only as deprecated compatibility shims to Refine.
 
 ---
 
@@ -214,8 +214,8 @@ Use Revela as a narrative-first artifact workflow:
 5. Run `/revela deck` to compile the approved narrative into deck slide specs and enter deck-render mode.
 6. Choose or confirm design only during deck handoff, then run the deck/artifact gate with `/revela deck --review` or the handoff workflow.
 7. Let the agent write the HTML deck under `decks/` only after the artifact gate is ready.
-8. Use `/revela refine` for visual comments, targeted revisions, and optional Source/Purpose inspection of selected deck elements.
-9. Use `/revela edit` or `/revela inspect` directly only if you need the older single-purpose shells.
+8. Use `/revela refine` for visual comments, targeted revisions, and read-only Source/Purpose inspection of selected deck elements.
+9. Use `/revela edit` or `/revela inspect` only for old scripts or habits; both open `/revela refine` in the matching mode.
 10. Export with `/revela pdf <file>` or `/revela pptx <file>`.
 
 `/revela review` checks narrative readiness: unclear audience, missing belief shift, missing decision/action, weak thesis, unsupported central claims, weak evidence, unsupported scope, unhandled objections, missing risk/assumption handling, stale approval, or missing approval. It does not review design/layout readiness and does not write the final deck.
@@ -591,19 +591,19 @@ Use the unified refinement workspace for normal post-write review and revision:
 /revela refine
 ```
 
-`/revela refine` opens the only HTML deck in `decks/` with two tabs. Use `Ctrl`/`Cmd` + click once to reference deck elements, then choose Edit for fast natural-language change comments or Inspect for read-only Source and Purpose review. Inspect does not mutate the deck; Edit remains the mutation path.
+`/revela refine` opens the active HTML deck with two tabs. Use `Ctrl`/`Cmd` + click once to reference deck elements, then choose Edit for fast natural-language change comments or Inspect for read-only Source and Purpose review. Inspect does not mutate the deck; Edit remains the mutation path. This is the recommended entry for post-artifact reading, inspection, and editing.
 
-Open the visual editor for the only HTML deck in `decks/`:
+Deprecated compatibility command:
 
 ```text
 /revela edit
 ```
 
-`/revela edit` does not accept a target in Revela 0.8. If `decks/` contains exactly one `.html` file, Revela opens it. If `decks/` contains zero or multiple `.html` files, Revela asks you to generate a deck first or move extra decks to separate workspaces.
+`/revela edit` no longer opens a separate edit-only shell. It opens `/revela refine` in Edit mode for compatibility with old scripts and user habits.
 
-The older edit-only shell opens in your browser. Use `Ctrl`/`Cmd` + click to reference deck elements, write a natural-language comment, then send it back to OpenCode. Revela sends a structured edit prompt that includes the deck file, slide context, selected element metadata, and your comment.
+Use `Ctrl`/`Cmd` + click to reference deck elements, write a natural-language comment in the Edit tab, then send it back to OpenCode. Revela sends a structured edit prompt that includes the deck file, slide context, selected element metadata, and your comment.
 
-LLM tool equivalent: `revela-edit` with no target. This lets the agent open the same editor when you say things like “I want to edit the deck”.
+LLM tool equivalent: `revela-edit` with no target. The tool is also a compatibility shim and opens Refine in Edit mode when you say things like “I want to edit the deck”.
 
 For existing decks, `/revela edit` prepares whatever minimal project context is needed so targeted edits can still use the normal safety checks.
 
@@ -611,17 +611,17 @@ For existing decks, `/revela edit` prepares whatever minimal project context is 
 
 ## Evidence Inspector
 
-Open the Evidence Inspector for the only HTML deck in `decks/`, or use the Inspect tab in `/revela refine`:
+Use `/revela refine` for evidence inspection and narrative reading. Deprecated compatibility command:
 
 ```text
 /revela inspect
 ```
 
-The inspector opens in your browser with the deck on the left and fixed cards on the right: Source and Purpose. Use `Ctrl`/`Cmd` + click to reference deck elements exactly like `/revela edit`, then click `Inspect Selection`. Selection is locked while the request is being processed.
+`/revela inspect` no longer opens a separate inspector shell. It opens `/revela refine` in Inspect mode. The Inspect tab shows fixed Source and Purpose cards. Use `Ctrl`/`Cmd` + click to reference deck elements, then click `Inspect Selection`. Selection is locked while the request is being processed.
 
 The inspector is not chat and has no freeform prompt. It does not mutate `DECKS.json` or the deck HTML. It uses recorded slide specs, narrative state, and slide-level evidence trace as grounded context. Deterministic preprocessing appears immediately; lazy LLM judgment then refines the Source and Purpose cards without inventing edits.
 
-Inspection and refinement use the active HTML deck render target recorded in workspace state. The deck HTML must satisfy Revela's slide identity contract: every `<section class="slide">` in the active artifact needs a positive 1-based `data-slide-index` matching the current slide specs. Invalid active artifacts are refused or reported before inspect/refine/export workflows trust them.
+Refine uses the active HTML deck render target recorded in workspace state. The deck HTML must satisfy Revela's slide identity contract: every `<section class="slide">` in the active artifact needs a positive 1-based `data-slide-index` matching the current slide specs. Invalid active artifacts are refused or reported before refine/export workflows trust them.
 
 ---
 
