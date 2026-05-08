@@ -84,6 +84,10 @@ export interface ArtifactClaimRef {
   claimIds: string[]
   narrativeIds: string[]
   slideRefs: ClaimSlideRef[]
+  coverageStatus: "current" | "stale" | "partial" | "missing"
+  affectedClaimIds: string[]
+  missingClaimIds: string[]
+  staleReasons: string[]
   stale: boolean
   staleReason?: string
   note?: string
@@ -193,6 +197,9 @@ export function getArtifactClaimRefs(state: DecksState): ArtifactClaimRef[] {
   const slideClaimIds = [...new Set(slideRefs.map((ref) => ref.claimId))].sort()
   const rendersFromByArtifact = deck ? rendersFromIndex(projectWorkspaceGraph({ ...state, narrative }).edges) : new Map<string, string[]>()
   const claimIds = new Set(narrative.claims.map((claim) => claim.id))
+  const requiredClaimIds = narrative.claims
+    .filter((claim) => claim.importance === "central" || claim.evidenceRequired)
+    .map((claim) => claim.id)
   const narrativeIds = new Set([narrative.id])
   const htmlCoverageByPath = new Map<string, ClaimSlideRef[]>()
 
@@ -203,7 +210,8 @@ export function getArtifactClaimRefs(state: DecksState): ArtifactClaimRef[] {
       const targetSlideRefs = claimSlideRefsForTarget(target, slideRefs, htmlCoverageByPath)
       const artifactClaimIds = [...new Set([...target.sourceNodeIds, ...rendersFrom, ...targetSlideRefs.map((ref) => ref.claimId), ...slideClaimIds].filter((id) => claimIds.has(id)))].sort()
       const artifactNarrativeIds = [...new Set([...target.sourceNodeIds, ...rendersFrom].filter((id) => narrativeIds.has(id)))].sort()
-      const stale = staleState(target, narrativeHash)
+      const missingClaimIds = requiredClaimIds.filter((id) => !artifactClaimIds.includes(id)).sort()
+      const coverage = coverageState(target, narrativeHash, artifactClaimIds, missingClaimIds, artifactNarrativeIds)
       if (target.type === "html_deck" && target.outputPath) htmlCoverageByPath.set(target.outputPath, targetSlideRefs)
       return {
         artifactId,
@@ -214,9 +222,13 @@ export function getArtifactClaimRefs(state: DecksState): ArtifactClaimRef[] {
         claimIds: artifactClaimIds,
         narrativeIds: artifactNarrativeIds,
         slideRefs: targetSlideRefs,
-        stale: stale.stale,
-        staleReason: stale.reason,
-        note: artifactClaimIds.length === 0 ? "No claim-to-slide coverage is recorded or inferred for this artifact." : undefined,
+        coverageStatus: coverage.status,
+        affectedClaimIds: coverage.affectedClaimIds,
+        missingClaimIds,
+        staleReasons: coverage.reasons,
+        stale: coverage.status === "stale",
+        staleReason: coverage.reasons[0],
+        note: coverage.note,
       }
     })
     .sort((a, b) => artifactSortValue(a.type) - artifactSortValue(b.type) || (a.outputPath ?? a.artifactId).localeCompare(b.outputPath ?? b.artifactId))
@@ -365,10 +377,32 @@ function parseStoredClaimSlideRefs(target: RenderTarget): ClaimSlideRef[] {
   }).sort((a, b) => a.slideIndex - b.slideIndex || a.claimText.localeCompare(b.claimText))
 }
 
-function staleState(target: RenderTarget, narrativeHash: string): { stale: boolean; reason?: string } {
+function coverageState(
+  target: RenderTarget,
+  narrativeHash: string,
+  artifactClaimIds: string[],
+  missingClaimIds: string[],
+  artifactNarrativeIds: string[],
+): { status: ArtifactClaimRef["coverageStatus"]; reasons: string[]; affectedClaimIds: string[]; note?: string } {
   const targetHash = typeof target.data?.narrativeHash === "string" ? target.data.narrativeHash : undefined
-  if (targetHash && targetHash !== narrativeHash) return { stale: true, reason: "Narrative hash changed after this artifact coverage was recorded." }
-  return { stale: false }
+  const reasons: string[] = []
+  if (targetHash && targetHash !== narrativeHash) reasons.push("Narrative hash changed after this artifact coverage was recorded.")
+  if (!targetHash) reasons.push("Artifact does not record the narrative hash used for coverage.")
+  if (artifactClaimIds.length === 0) reasons.push("No claim-to-slide coverage is recorded or inferred for this artifact.")
+  if (missingClaimIds.length > 0) reasons.push(`Artifact does not cover ${missingClaimIds.length} central or evidence-required claim${missingClaimIds.length === 1 ? "" : "s"}.`)
+  if (artifactNarrativeIds.length === 0 && target.type !== "pdf" && target.type !== "pptx") reasons.push("Artifact is not linked to the current canonical narrative.")
+
+  if (targetHash && targetHash !== narrativeHash) {
+    return {
+      status: "stale",
+      reasons,
+      affectedClaimIds: artifactClaimIds.length > 0 ? artifactClaimIds : missingClaimIds,
+      note: undefined,
+    }
+  }
+  if (artifactClaimIds.length === 0) return { status: "missing", reasons, affectedClaimIds: [], note: reasons[0] }
+  if (!targetHash || missingClaimIds.length > 0) return { status: "partial", reasons, affectedClaimIds: missingClaimIds, note: reasons[0] }
+  return { status: "current", reasons: [], affectedClaimIds: [], note: undefined }
 }
 
 function rendersFromIndex(edges: GraphEdge[]): Map<string, string[]> {

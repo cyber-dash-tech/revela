@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { tmpdir } from "os"
 import { join } from "path"
 import { createEmptyDecksState, readDecksState, upsertDeck, upsertSlides, writeDecksState, type DecksState } from "../lib/decks-state"
+import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { applyEvidenceBindings, getEvidenceStatusForSelection } from "../lib/workspace-state/evidence-status"
 
 describe("workspace evidence status service", () => {
@@ -15,13 +16,23 @@ describe("workspace evidence status service", () => {
     expect(status.match).toMatchObject({
       confidence: "high",
       slideIndex: 1,
+      canonicalClaimId: "claim:conversion",
       claimText: "Conversion improved 18%",
       claimEvidenceSupport: "supported",
+      evidenceBindingIds: ["evidence:conversion:pilot"],
+      supportedScope: "Pilot conversion metric only.",
+      unsupportedScope: "Does not prove full-funnel growth.",
+      caveats: ["Single pilot window."],
     })
     expect(status.boundEvidence).toEqual([expect.objectContaining({
       source: "Pilot dashboard",
       sourcePath: "sources/pilot.csv",
       quote: "Conversion improved 18%",
+      evidenceBindingId: "evidence:conversion:pilot",
+      claimId: "claim:conversion",
+      strength: "strong",
+      supportScope: "Pilot conversion metric only.",
+      unsupportedScope: "Does not prove full-funnel growth.",
       hasDetail: true,
     })])
     expect(status.candidateEvidence).toEqual([])
@@ -91,6 +102,46 @@ describe("workspace evidence status service", () => {
 
 function supportedState(): DecksState {
   let state = baseState()
+  state.narrative = normalizeNarrativeState({
+    ...state,
+    narrative: {
+      version: 1,
+      id: "narrative:demo",
+      status: "ready_for_approval",
+      audience: {
+        primary: "Growth team",
+        beliefBefore: "The pilot impact is unclear.",
+        beliefAfter: "The pilot has a bounded conversion signal.",
+      },
+      decision: { action: "Approve launch expansion.", decisionType: "approve" },
+      thesis: { id: "thesis:conversion", statement: "Pilot conversion supports a bounded launch expansion.", confidence: "medium" },
+      claims: [{
+        id: "claim:conversion",
+        kind: "evidence",
+        text: "Conversion improved 18%",
+        importance: "central",
+        evidenceRequired: true,
+        evidenceStatus: "supported",
+        supportedScope: "Pilot conversion metric only.",
+        unsupportedScope: "Does not prove full-funnel growth.",
+        caveats: ["Single pilot window."],
+      }],
+      evidenceBindings: [{
+        id: "evidence:conversion:pilot",
+        claimId: "claim:conversion",
+        source: "Pilot dashboard",
+        sourcePath: "sources/pilot.csv",
+        quote: "Conversion improved 18%",
+        supportScope: "Pilot conversion metric only.",
+        unsupportedScope: "Does not prove full-funnel growth.",
+        strength: "strong",
+      }],
+      objections: [],
+      risks: [],
+      approvals: [],
+      updatedAt: "2026-05-07T00:00:00.000Z",
+    },
+  })
   state = upsertSlides(state, "demo", [{
     index: 1,
     title: "Launch",
@@ -98,6 +149,8 @@ function supportedState(): DecksState {
     narrativeRole: "evidence",
     layout: "two-col",
     components: ["card"],
+    claimRefs: [{ claimId: "claim:conversion", role: "primary" }],
+    evidenceBindingIds: ["evidence:conversion:pilot"],
     content: { headline: "Conversion improved 18%" },
     evidence: [{ source: "Pilot dashboard", sourcePath: "sources/pilot.csv", quote: "Conversion improved 18%" }],
     status: "ready",

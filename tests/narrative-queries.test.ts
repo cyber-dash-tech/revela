@@ -174,12 +174,16 @@ describe("narrative query services", () => {
     expect(refs).toContainEqual(expect.objectContaining({
       type: "html_deck",
       claimIds: expect.arrayContaining(["claim:supported", "claim:partial"]),
+      coverageStatus: "partial",
+      missingClaimIds: ["claim:missing"],
+      staleReasons: expect.arrayContaining(["Artifact does not cover 1 central or evidence-required claim."]),
       slideRefs: expect.arrayContaining([expect.objectContaining({ claimId: "claim:supported", slideIndex: 1, match: "metadata", role: "primary", location: "claimRefs:primary" })],),
     }))
     expect(refs).toContainEqual(expect.objectContaining({
       type: "pdf",
       claimIds: expect.arrayContaining(["claim:supported", "claim:partial"]),
-      note: undefined,
+      coverageStatus: "partial",
+      missingClaimIds: ["claim:missing"],
     }))
   })
 
@@ -191,7 +195,33 @@ describe("narrative query services", () => {
     expect(getArtifactClaimRefs(state)).toContainEqual(expect.objectContaining({
       type: "html_deck",
       stale: true,
+      coverageStatus: "stale",
+      affectedClaimIds: expect.arrayContaining(["claim:supported", "claim:partial"]),
       staleReason: "Narrative hash changed after this artifact coverage was recorded.",
+      staleReasons: expect.arrayContaining(["Narrative hash changed after this artifact coverage was recorded."]),
+    }))
+  })
+
+  it("marks artifacts with no claim coverage as missing", () => {
+    const state = queryState()
+    state.renderTargets = [{
+      id: "target:html_deck:decks/empty.html",
+      type: "html_deck",
+      outputPath: "decks/empty.html",
+      sourceNodeIds: [],
+      artifactVersion: "1",
+      contractStatus: "unknown",
+      data: { narrativeHash: computeNarrativeHash(state.narrative!) },
+    }]
+    state.decks["query-demo"].slides = []
+
+    expect(getArtifactClaimRefs(state)).toContainEqual(expect.objectContaining({
+      type: "html_deck",
+      coverageStatus: "missing",
+      claimIds: [],
+      missingClaimIds: ["claim:missing", "claim:partial", "claim:supported"],
+      note: "No claim-to-slide coverage is recorded or inferred for this artifact.",
+      staleReasons: expect.arrayContaining(["No claim-to-slide coverage is recorded or inferred for this artifact."]),
     }))
   })
 

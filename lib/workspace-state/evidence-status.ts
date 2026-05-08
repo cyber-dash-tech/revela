@@ -40,15 +40,25 @@ export interface EvidenceStatusMatch {
   slideIndex?: number
   slideTitle?: string
   claimId?: string
+  canonicalClaimId?: string
   claimText?: string
   claimEvidenceSensitive?: boolean
   claimEvidenceSupport?: string
+  evidenceBindingIds: string[]
+  supportedScope?: string
+  unsupportedScope?: string
+  caveats: string[]
 }
 
 export interface EvidenceStatusEvidence extends EvidenceRef {
   slideIndex: number
   slideTitle: string
   hasDetail: boolean
+  evidenceBindingId?: string
+  claimId?: string
+  supportScope?: string
+  unsupportedScope?: string
+  strength?: "strong" | "partial" | "weak"
 }
 
 export interface EvidenceStatusGap {
@@ -159,9 +169,14 @@ function projectMatch(match: InspectionElementMatch): EvidenceStatusMatch {
     slideIndex: match.slide?.index,
     slideTitle: match.slide?.title,
     claimId: match.claim?.id,
+    canonicalClaimId: match.claim?.canonicalClaimId,
     claimText: match.claim?.text,
     claimEvidenceSensitive: match.claim?.evidenceSensitive,
     claimEvidenceSupport: match.claim?.evidenceSupport,
+    evidenceBindingIds: match.claim?.evidenceBindingIds ?? [],
+    supportedScope: match.claim?.supportedScope,
+    unsupportedScope: match.claim?.unsupportedScope,
+    caveats: match.claim?.caveats ?? [],
   }
 }
 
@@ -235,7 +250,12 @@ function relevantSearchDiagnostics(issues: ReadinessIssue[], match: InspectionEl
 
 function actionTraceForMatch(actions: WorkspaceAction[], match: InspectionElementMatch): EvidenceStatusActionTrace[] {
   const slideNodeId = match.slide ? `slide:${match.slide.index}` : undefined
-  const evidenceKeys = new Set(match.evidence.flatMap((item) => [item.source, item.sourcePath, item.findingsFile].filter((value): value is string => Boolean(value))))
+  const evidenceKeys = new Set([
+    match.claim?.id,
+    match.claim?.canonicalClaimId,
+    ...(match.claim?.evidenceBindingIds ?? []),
+    ...match.evidence.flatMap((item) => [item.source, item.sourcePath, item.findingsFile, item.evidenceBindingId, item.claimId]),
+  ].filter((value): value is string => Boolean(value)))
   return actions
     .filter((action) => actionRelevantToMatch(action, slideNodeId, evidenceKeys))
     .slice(-12)

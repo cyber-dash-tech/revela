@@ -77,6 +77,10 @@ export interface NarrativeMapArtifact {
   claimIds: string[]
   narrativeIds: string[]
   slideRefs: ClaimSlideRef[]
+  coverageStatus: "current" | "stale" | "partial" | "missing"
+  affectedClaimIds: string[]
+  missingClaimIds: string[]
+  staleReasons: string[]
   stale: boolean
   staleReason?: string
   note?: string
@@ -118,6 +122,10 @@ export function buildNarrativeMap(state: DecksState): NarrativeMap {
       claimIds: artifact.claimIds,
       narrativeIds: artifact.narrativeIds,
       slideRefs: artifact.slideRefs,
+      coverageStatus: artifact.coverageStatus,
+      affectedClaimIds: artifact.affectedClaimIds,
+      missingClaimIds: artifact.missingClaimIds,
+      staleReasons: artifact.staleReasons,
       stale: artifact.stale,
       staleReason: artifact.staleReason,
       note: artifact.note,
@@ -227,11 +235,13 @@ export function formatNarrativeMap(map: NarrativeMap): string {
   lines.push("", "## Render Target Coverage")
   if (map.artifactCoverage.length === 0) lines.push("- No render targets recorded")
   for (const artifact of map.artifactCoverage) {
-    lines.push(`- ${artifact.type}: ${artifact.outputPath ?? artifact.id} [${artifact.contractStatus ?? "unknown"}${artifact.stale ? ", stale" : ""}]`)
+    lines.push(`- ${artifact.type}: ${artifact.outputPath ?? artifact.id} [${artifact.contractStatus ?? "unknown"}, coverage: ${artifact.coverageStatus}]`)
     if (artifact.narrativeIds.length > 0) lines.push(`  Narrative refs: ${artifact.narrativeIds.join(", ")}`)
     if (artifact.claimIds.length > 0) lines.push(`  Claim refs: ${artifact.claimIds.join(", ")}`)
+    if (artifact.missingClaimIds.length > 0) lines.push(`  Missing claim refs: ${artifact.missingClaimIds.join(", ")}`)
+    if (artifact.affectedClaimIds.length > 0) lines.push(`  Affected claim refs: ${artifact.affectedClaimIds.join(", ")}`)
     for (const ref of artifact.slideRefs) lines.push(`  Slide ${ref.slideIndex}: ${ref.claimId} [${ref.role}] (${ref.match}/${ref.location})`)
-    if (artifact.staleReason) lines.push(`  Stale reason: ${artifact.staleReason}`)
+    for (const reason of artifact.staleReasons) lines.push(`  Coverage note: ${reason}`)
     if (artifact.note) lines.push(`  Note: ${artifact.note}`)
   }
 

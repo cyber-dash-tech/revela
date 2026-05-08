@@ -20,6 +20,7 @@ export function renderNarrativeMapHtmlWithDisplay(map: NarrativeMap, display: Va
   const inferredCount = map.claimRelations.filter((relation) => relation.inferred).length
   const pageTitle = display.pageTitle ?? valueOrFallback(map.snapshot.thesis, map.snapshot.decisionAction || "Narrative claim flow")
   const summaryLine = display.summaryLine ?? "Claims are the main path. Evidence, risks, gaps, objections, and artifact coverage stay in the selected-claim panel."
+  const nonCurrentArtifacts = map.artifactCoverage.filter((artifact) => artifact.coverageStatus !== "current").length
   return `<!doctype html>
 <html lang="${escapeAttr(display.language)}">
 <head>
@@ -96,6 +97,7 @@ export function renderNarrativeMapHtmlWithDisplay(map: NarrativeMap, display: Va
         <span class="pill">${escapeHtml(display.labels.status)}: ${escapeHtml(localizeValue(map.snapshot.status, display))}</span>
         <span class="pill supported">${escapeHtml(systemTerm("claims", display))}: ${nodes.length}</span>
         <span class="pill ${inferredCount > 0 ? "open" : "current"}">${escapeHtml(systemTerm("relations", display))}: ${map.claimRelations.length}${inferredCount > 0 ? ` (${inferredCount} ${escapeHtml(systemTerm("inferred", display))})` : ""}</span>
+        <span class="pill ${nonCurrentArtifacts > 0 ? "partial" : "current"}">${escapeHtml(systemTerm("artifacts", display))}: ${map.artifactCoverage.length}${nonCurrentArtifacts > 0 ? ` (${nonCurrentArtifacts} ${escapeHtml(systemTerm("attention", display))})` : ""}</span>
       </div>
     </header>
     <div class="layout">
@@ -191,7 +193,8 @@ function claimDetail(claim: NarrativeMapClaim, map: NarrativeMap, display: Valid
   const objections = map.objections.filter((item) => item.claimId === claim.id)
   const risks = map.risks.filter((item) => item.claimId === claim.id)
   const gaps = map.researchGaps.filter((item) => item.targetType === "claim" && item.targetId === claim.id)
-  const slideRefs = map.artifactCoverage.flatMap((artifact) => artifact.slideRefs.filter((ref) => ref.claimId === claim.id).map((ref) => `${artifact.type} slide ${ref.slideIndex} (${ref.role}, ${ref.match}/${ref.location})`))
+  const slideRefs = map.artifactCoverage.flatMap((artifact) => artifact.slideRefs.filter((ref) => ref.claimId === claim.id).map((ref) => `${artifact.type} slide ${ref.slideIndex} (${ref.role}, ${ref.match}/${ref.location}, coverage:${artifact.coverageStatus})`))
+  const coverageGaps = map.artifactCoverage.filter((artifact) => artifact.missingClaimIds.includes(claim.id) || artifact.affectedClaimIds.includes(claim.id))
   const card = display.claimCards.get(claim.id)
   return detailCards([
     [display.labels.claim, claim.text],
@@ -209,6 +212,7 @@ function claimDetail(claim: NarrativeMapClaim, map: NarrativeMap, display: Valid
     ...(risks.length ? [[display.labels.risks, risks.map((item) => `${item.text}${item.mitigation ? ` -> ${item.mitigation}` : ""}`).join("<br>")] as [string, string]] : []),
     ...(gaps.length ? [[display.labels.researchGaps, gaps.map((item) => `${item.question} [${item.status}/${item.priority}]`).join("<br>")] as [string, string]] : []),
     ...(slideRefs.length ? [[display.labels.coveredSlides, slideRefs.map((ref) => localizeSlideRef(ref, display)).join("<br>")] as [string, string]] : []),
+    ...(coverageGaps.length ? [[systemTerm("artifactCoverage", display), coverageGaps.map((artifact) => `${artifact.type}: ${artifact.coverageStatus}${artifact.staleReasons.length ? ` - ${artifact.staleReasons.join("; ")}` : ""}`).join("<br>")] as [string, string]] : []),
   ])
 }
 
@@ -289,9 +293,9 @@ function sectionLabels(display: ValidatedNarrativeDisplayModel): Record<string, 
 }
 
 function systemTerm(term: string, display: ValidatedNarrativeDisplayModel): string {
-  const zh: Record<string, string> = { approval: "审批", claims: "主张", relations: "关系", inferred: "未确认", relation: "关系", from: "来自", to: "指向", rationale: "说明", strength: "强度", findingsFile: "研究文件", location: "位置", quote: "引用", caveat: "注意事项" }
-  const ja: Record<string, string> = { approval: "承認", claims: "クレーム", relations: "関係", inferred: "未確認", relation: "関係", from: "起点", to: "終点", rationale: "理由", strength: "強度", findingsFile: "調査ファイル", location: "場所", quote: "引用", caveat: "留意点" }
-  const en: Record<string, string> = { approval: "approval", claims: "claims", relations: "relations", inferred: "unconfirmed", relation: "relation", from: "from", to: "to", rationale: "rationale", strength: "strength", findingsFile: "findings file", location: "location", quote: "quote", caveat: "caveat" }
+  const zh: Record<string, string> = { approval: "审批", claims: "主张", relations: "关系", inferred: "未确认", relation: "关系", from: "来自", to: "指向", rationale: "说明", strength: "强度", findingsFile: "研究文件", location: "位置", quote: "引用", caveat: "注意事项", artifacts: "产物", attention: "需关注", artifactCoverage: "产物覆盖" }
+  const ja: Record<string, string> = { approval: "承認", claims: "クレーム", relations: "関係", inferred: "未確認", relation: "関係", from: "起点", to: "終点", rationale: "理由", strength: "強度", findingsFile: "調査ファイル", location: "場所", quote: "引用", caveat: "留意点", artifacts: "成果物", attention: "要確認", artifactCoverage: "成果物カバレッジ" }
+  const en: Record<string, string> = { approval: "approval", claims: "claims", relations: "relations", inferred: "unconfirmed", relation: "relation", from: "from", to: "to", rationale: "rationale", strength: "strength", findingsFile: "findings file", location: "location", quote: "quote", caveat: "caveat", artifacts: "artifacts", attention: "need attention", artifactCoverage: "Artifact coverage" }
   return (isChineseLanguage(display.language) ? zh : isJapaneseLanguage(display.language) ? ja : en)[term] ?? term
 }
 

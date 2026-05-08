@@ -166,6 +166,12 @@ describe("narrative map", () => {
     expect(map.risks).toContainEqual(expect.objectContaining({ text: "Supplier readiness may lag.", claimText: "Current line data supports initial automation gains." }))
     expect(map.researchGaps).toContainEqual(expect.objectContaining({ question: "Find supplier ecosystem readiness evidence.", targetText: "Supplier ecosystem readiness is proven." }))
     expect(map.artifactCoverage).toContainEqual(expect.objectContaining({ type: "html_deck", outputPath: "decks/map-demo.html" }))
+    expect(map.artifactCoverage).toContainEqual(expect.objectContaining({
+      type: "html_deck",
+      coverageStatus: "partial",
+      missingClaimIds: expect.arrayContaining(["claim:missing"]),
+      staleReasons: expect.arrayContaining(["Artifact does not cover 1 central or evidence-required claim."]),
+    }))
     expect(map.artifactCoverage).toContainEqual(expect.objectContaining({ type: "pdf", outputPath: "decks/map-demo.pdf" }))
     expect(map.artifactCoverage).toContainEqual(expect.objectContaining({ type: "pptx", outputPath: "decks/map-demo.pptx" }))
   })
@@ -188,6 +194,9 @@ describe("narrative map", () => {
     expect(text).toContain("Find supplier ecosystem readiness evidence. [open/high]")
     expect(text).toContain("## Render Target Coverage")
     expect(text).toContain("html_deck: decks/map-demo.html")
+    expect(text).toContain("coverage: partial")
+    expect(text).toContain("Missing claim refs: claim:missing")
+    expect(text).toContain("Coverage note: Artifact does not cover 1 central or evidence-required claim.")
     expect(text).toContain("Slide 1: claim:supported [primary]")
   })
 
@@ -226,6 +235,9 @@ describe("narrative map", () => {
     expect(html).toContain("Research gaps")
     expect(html).toContain("Phased pilot approval is the safer path.")
     expect(html).toContain("slide 1")
+    expect(html).toContain("coverage:partial")
+    expect(html).toContain("Artifact coverage")
+    expect(html).toContain("Artifact does not cover 1 central or evidence-required claim.")
     expect(html).toContain("claim:supported")
     expect(html).toContain("claim-card")
     expect(html).toContain("claim-section")
