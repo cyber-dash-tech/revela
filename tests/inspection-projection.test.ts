@@ -3,6 +3,7 @@ import { compileInspectionContext } from "../lib/inspection-context/compile"
 import { matchInspectionElement } from "../lib/inspection-context/match"
 import { projectInspectionMatch } from "../lib/inspection-context/project"
 import { createEmptyDecksState, upsertDeck, upsertSlides } from "../lib/decks-state"
+import { computeNarrativeHash } from "../lib/narrative-state/hash"
 
 describe("inspection prompt projection", () => {
   function context() {
@@ -135,6 +136,15 @@ describe("inspection prompt projection", () => {
       evidence: [],
       status: "ready",
     }])
+    state.renderTargets = [{
+      id: "target:html_deck:decks/canonical-projection-demo.html",
+      type: "html_deck",
+      outputPath: "decks/canonical-projection-demo.html",
+      sourceNodeIds: ["narrative:canonical-projection-demo", "claim:canonical-market"],
+      artifactVersion: computeNarrativeHash(state.narrative!),
+      contractStatus: "valid",
+      data: { narrativeHash: computeNarrativeHash(state.narrative!) },
+    }]
     const ctx = compileInspectionContext(state)
     const match = matchInspectionElement(ctx, { slideIndex: 1, text: "Market demand has grown 25% since 2024" })
     const projection = projectInspectionMatch(ctx, match, { slideIndex: 1, text: "Market demand has grown 25% since 2024" })
@@ -155,6 +165,16 @@ describe("inspection prompt projection", () => {
       supportScope: "Current demand growth.",
       unsupportedScope: "Long-term forecast.",
       strength: "partial",
+    })
+    expect(projection.cards.artifacts).toMatchObject({
+      selectedClaimId: "claim:canonical-market",
+      artifacts: [expect.objectContaining({
+        type: "html_deck",
+        outputPath: "decks/canonical-projection-demo.html",
+        coverageStatus: "current",
+        containsClaim: true,
+        locations: [expect.objectContaining({ slideIndex: 1, role: "primary", location: "claimRefs:primary" })],
+      })],
     })
   })
 

@@ -13,6 +13,7 @@ export interface InspectionPromptProjection {
     caveats: InspectionCaveatsProjection
     objective: InspectionObjectiveProjection
     appendix: InspectionAppendixProjection
+    artifacts: InspectionArtifactCoverageProjection
   }
 }
 
@@ -98,6 +99,32 @@ export interface InspectionAppendixProjection {
   }>
   relatedRisks: string[]
   relatedObjections: string[]
+}
+
+export interface InspectionArtifactCoverageProjection {
+  selectedClaimId?: string
+  artifacts: InspectionArtifactCoverageProjectionItem[]
+}
+
+export interface InspectionArtifactCoverageProjectionItem {
+  artifactId: string
+  type: string
+  outputPath?: string
+  coverageStatus: "current" | "stale" | "partial" | "missing"
+  containsClaim: boolean
+  stale: boolean
+  staleReason?: string
+  staleReasons: string[]
+  affectedClaimIds: string[]
+  missingClaimIds: string[]
+  note?: string
+  locations: Array<{
+    slideIndex: number
+    slideTitle: string
+    role: string
+    match: string
+    location: string
+  }>
 }
 
 export interface InspectionEvidenceProjectionTrace {
@@ -219,7 +246,43 @@ export function projectInspectionMatch(
         relatedRisks: relatedNarrativeText(context.riskContext, slide?.index),
         relatedObjections: relatedNarrativeText(context.objectionContext, slide?.index),
       },
+      artifacts: projectArtifactCoverage(context, claim?.canonicalClaimId ?? claim?.id),
     },
+  }
+}
+
+function projectArtifactCoverage(context: InspectionContext, selectedClaimId: string | undefined): InspectionArtifactCoverageProjection {
+  return {
+    selectedClaimId,
+    artifacts: context.artifactCoverage.map((artifact) => {
+      const locations = selectedClaimId
+        ? artifact.slideRefs
+          .filter((ref) => ref.claimId === selectedClaimId)
+          .slice(0, 8)
+          .map((ref) => ({
+            slideIndex: ref.slideIndex,
+            slideTitle: truncate(ref.slideTitle, 180),
+            role: ref.role,
+            match: ref.match,
+            location: truncate(ref.location, 120),
+          }))
+        : []
+      const containsClaim = Boolean(selectedClaimId && (artifact.claimIds.includes(selectedClaimId) || locations.length > 0))
+      return {
+        artifactId: truncate(artifact.artifactId, 180),
+        type: artifact.type,
+        outputPath: truncateOptional(artifact.outputPath, 220),
+        coverageStatus: artifact.coverageStatus,
+        containsClaim,
+        stale: artifact.stale,
+        staleReason: truncateOptional(artifact.staleReason, 240),
+        staleReasons: artifact.staleReasons.map((item) => truncate(item, 240)).slice(0, 5),
+        affectedClaimIds: artifact.affectedClaimIds.map((item) => truncate(item, 160)).slice(0, 8),
+        missingClaimIds: artifact.missingClaimIds.map((item) => truncate(item, 160)).slice(0, 8),
+        note: truncateOptional(artifact.note, 240),
+        locations,
+      }
+    }).slice(0, 8),
   }
 }
 

@@ -195,6 +195,7 @@ function projection(): InspectionPromptProjection {
       caveats: { caveats: [] },
       objective: { slidePurpose: "Show evidence", narrativeRole: "evidence", deckGoal: "Approve launch" },
       appendix: { candidates: [], relatedRisks: [], relatedObjections: [] },
+      artifacts: { selectedClaimId: "slide-1-headline", artifacts: [] },
     },
   }
 }

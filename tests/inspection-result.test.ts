@@ -4,6 +4,7 @@ import { matchInspectionElement } from "../lib/inspection-context/match"
 import { projectInspectionMatch } from "../lib/inspection-context/project"
 import { buildDeterministicInspectionResult } from "../lib/inspection-context/result"
 import { createEmptyDecksState, upsertDeck, upsertSlides } from "../lib/decks-state"
+import { computeNarrativeHash } from "../lib/narrative-state/hash"
 
 describe("inspection result contract", () => {
   function context(kind: "supported" | "weak" | "missing") {
@@ -66,6 +67,125 @@ describe("inspection result contract", () => {
     })
     expect(inspection.cards.source.sources[0]).toMatchObject({ sourcePath: "sources/market.pdf", location: "page 4" })
     expect(inspection.cards.source.caveats).toContain("Base case only.")
+    expect(inspection.cards.reading).toMatchObject({
+      status: "matched",
+      claimText: "Market demand has grown 25% since 2024",
+      evidenceStatus: "supported",
+    })
+  })
+
+  it("preserves canonical narrative reading context", () => {
+    let state = createEmptyDecksState()
+    state = upsertDeck(state, {
+      slug: "canonical-reading-demo",
+      goal: "Approve phased expansion.",
+      audience: "Investment committee",
+      outputPath: "decks/canonical-reading-demo.html",
+    })
+    state.narrative = {
+      version: 1,
+      id: "narrative:canonical-reading-demo",
+      status: "approved",
+      audience: { primary: "Investment committee", beliefBefore: "Unsure", beliefAfter: "Ready" },
+      decision: { action: "Approve phased expansion." },
+      claims: [{
+        id: "claim:market-growth",
+        kind: "evidence",
+        text: "Market demand has grown 25% since 2024",
+        importance: "central",
+        evidenceRequired: true,
+        evidenceStatus: "partial",
+        supportedScope: "Current demand growth.",
+        unsupportedScope: "Long-term forecast.",
+        caveats: ["Forecast excludes downside scenario."],
+      }],
+      evidenceBindings: [{
+        id: "evidence:market-growth",
+        claimId: "claim:market-growth",
+        source: "Market report",
+        sourcePath: "sources/market.pdf",
+        quote: "Demand increased 25% from 2024 to 2025.",
+        location: "page 4",
+        supportScope: "Current demand growth.",
+        unsupportedScope: "Long-term forecast.",
+        strength: "partial",
+      }],
+      objections: [{ id: "objection:forecast", text: "Forecast quality may be weak.", claimId: "claim:market-growth", priority: "high" }],
+      risks: [{ id: "risk:execution", text: "Execution risk remains material.", claimId: "claim:market-growth", severity: "medium" }],
+      approvals: [],
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    }
+    state = upsertSlides(state, "canonical-reading-demo", [{
+      index: 1,
+      title: "Market Context",
+      purpose: "Frame the investment decision",
+      narrativeRole: "evidence",
+      layout: "two-col",
+      components: ["card"],
+      claimRefs: [{ claimId: "claim:market-growth", role: "primary" }],
+      evidenceBindingIds: ["evidence:market-growth"],
+      content: { headline: "Market demand has grown 25% since 2024" },
+      evidence: [],
+      status: "ready",
+    }])
+    state.renderTargets = [
+      {
+        id: "target:html_deck:decks/canonical-reading-demo.html",
+        type: "html_deck",
+        outputPath: "decks/canonical-reading-demo.html",
+        sourceNodeIds: ["narrative:canonical-reading-demo", "claim:market-growth"],
+        artifactVersion: computeNarrativeHash(state.narrative!),
+        contractStatus: "valid",
+        data: { narrativeHash: computeNarrativeHash(state.narrative!) },
+      },
+      {
+        id: "target:executive_brief:briefs/canonical-reading-demo.md",
+        type: "executive_brief",
+        outputPath: "briefs/canonical-reading-demo.md",
+        sourceNodeIds: ["narrative:canonical-reading-demo", "claim:market-growth"],
+        artifactVersion: computeNarrativeHash(state.narrative!),
+        contractStatus: "unknown",
+        data: { narrativeHash: computeNarrativeHash(state.narrative!) },
+      },
+    ]
+
+    const ctx = compileInspectionContext(state)
+    const snapshot = { slideIndex: 1, text: "Market demand has grown 25% since 2024" }
+    const match = matchInspectionElement(ctx, snapshot)
+    const projection = projectInspectionMatch(ctx, match, snapshot)
+    const inspection = buildDeterministicInspectionResult(projection)
+
+    expect(inspection.cards.reading).toMatchObject({
+      status: "matched",
+      claimId: "claim:market-growth",
+      canonicalClaimId: "claim:market-growth",
+      claimText: "Market demand has grown 25% since 2024",
+      evidenceStatus: "weak",
+      evidenceBindingIds: ["evidence:market-growth"],
+      supportedScope: "Current demand growth.",
+      unsupportedScope: "Long-term forecast.",
+      caveats: expect.arrayContaining(["Forecast excludes downside scenario."]),
+      relatedObjections: ["Forecast quality may be weak."],
+      relatedRisks: ["Execution risk remains material."],
+    })
+    expect(inspection.cards.reading?.artifactCoverage).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "html_deck",
+        outputPath: "decks/canonical-reading-demo.html",
+        coverageStatus: "current",
+        containsClaim: true,
+        stale: false,
+        locations: ["Slide 1: Market Context (primary, metadata:claimRefs:primary)"],
+      }),
+      expect.objectContaining({
+        type: "executive_brief",
+        outputPath: "briefs/canonical-reading-demo.md",
+        coverageStatus: "current",
+        containsClaim: true,
+        stale: false,
+        locations: [],
+      }),
+    ]))
   })
 
   it("labels source-only evidence as weak", () => {

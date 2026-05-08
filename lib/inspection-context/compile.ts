@@ -1,4 +1,5 @@
 import type { DeckSpec, DecksState, EvidenceRef, NarrativeBrief, NarrativeRole, SlideSpec, SourceMaterial } from "../decks-state"
+import { getArtifactClaimRefs, type ArtifactClaimRef, type ClaimSlideRef } from "../narrative-state/queries"
 import type { NarrativeClaim, NarrativeEvidenceBinding, NarrativeStateV1 } from "../narrative-state/types"
 
 export type InspectionClaimOrigin = "narrative" | "title" | "headline" | "body" | "bullet" | "purpose"
@@ -20,6 +21,7 @@ export interface InspectionContext {
   appendixCandidates: InspectionAppendixCandidate[]
   objectionContext: InspectionNarrativeContext[]
   riskContext: InspectionNarrativeContext[]
+  artifactCoverage: InspectionArtifactCoverage[]
 }
 
 export interface InspectionNarrativeStateContext {
@@ -98,9 +100,33 @@ export interface InspectionAppendixCandidate {
 
 export interface InspectionNarrativeContext {
   text: string
-  source: "narrativeBrief" | "slide"
+  source: "narrative" | "narrativeBrief" | "slide"
   slideIndex?: number
   slideTitle?: string
+}
+
+export interface InspectionArtifactCoverage {
+  artifactId: string
+  type: ArtifactClaimRef["type"]
+  outputPath?: string
+  coverageStatus: ArtifactClaimRef["coverageStatus"]
+  claimIds: string[]
+  affectedClaimIds: string[]
+  missingClaimIds: string[]
+  stale: boolean
+  staleReason?: string
+  staleReasons: string[]
+  note?: string
+  slideRefs: InspectionArtifactSlideRef[]
+}
+
+export interface InspectionArtifactSlideRef {
+  claimId: string
+  slideIndex: number
+  slideTitle: string
+  role: ClaimSlideRef["role"]
+  match: ClaimSlideRef["match"]
+  location: string
 }
 
 export function compileInspectionContext(state: DecksState, slug?: string): InspectionContext {
@@ -127,9 +153,34 @@ export function compileInspectionContext(state: DecksState, slug?: string): Insp
     slides,
     gaps,
     appendixCandidates: compileAppendixCandidates(slides),
-    objectionContext: compileNarrativeList(deck, "objections"),
-    riskContext: compileNarrativeList(deck, "risks"),
+    objectionContext: compileNarrativeList(deck, "objections", narrative),
+    riskContext: compileNarrativeList(deck, "risks", narrative),
+    artifactCoverage: compileArtifactCoverage(state),
   }
+}
+
+function compileArtifactCoverage(state: DecksState): InspectionArtifactCoverage[] {
+  return getArtifactClaimRefs(state).map((artifact) => ({
+    artifactId: artifact.artifactId,
+    type: artifact.type,
+    outputPath: artifact.outputPath,
+    coverageStatus: artifact.coverageStatus,
+    claimIds: artifact.claimIds,
+    affectedClaimIds: artifact.affectedClaimIds,
+    missingClaimIds: artifact.missingClaimIds,
+    stale: artifact.stale,
+    staleReason: artifact.staleReason,
+    staleReasons: artifact.staleReasons,
+    note: artifact.note,
+    slideRefs: artifact.slideRefs.map((ref) => ({
+      claimId: ref.claimId,
+      slideIndex: ref.slideIndex,
+      slideTitle: ref.slideTitle,
+      role: ref.role,
+      match: ref.match,
+      location: ref.location,
+    })),
+  }))
 }
 
 function activeDeck(state: DecksState, slug?: string): DeckSpec {
@@ -389,7 +440,10 @@ function appendixReason(slide: InspectionSlideContext): string {
   return "Slide has recorded evidence that may be useful for source excerpts or backup detail."
 }
 
-function compileNarrativeList(deck: DeckSpec, key: "objections" | "risks"): InspectionNarrativeContext[] {
+function compileNarrativeList(deck: DeckSpec, key: "objections" | "risks", narrative: NarrativeStateV1 | undefined): InspectionNarrativeContext[] {
+  const fromNarrative = key === "objections"
+    ? (narrative?.objections ?? []).map((item) => ({ text: item.text, source: "narrative" as const }))
+    : (narrative?.risks ?? []).map((item) => ({ text: item.text, source: "narrative" as const }))
   const fromBrief = (deck.narrativeBrief?.[key] ?? []).map((text) => ({ text, source: "narrativeBrief" as const }))
   const role = key === "risks" ? "risk" : undefined
   const fromSlides = deck.slides
@@ -400,7 +454,19 @@ function compileNarrativeList(deck: DeckSpec, key: "objections" | "risks"): Insp
       slideIndex: slide.index,
       slideTitle: slide.title,
     })))
-  return [...fromBrief, ...fromSlides]
+  return dedupeNarrativeContext([...fromNarrative, ...fromBrief, ...fromSlides])
+}
+
+function dedupeNarrativeContext(values: InspectionNarrativeContext[]): InspectionNarrativeContext[] {
+  const seen = new Set<string>()
+  const result: InspectionNarrativeContext[] = []
+  for (const value of values) {
+    const key = `${normalizeText(value.text)}:${value.slideIndex ?? "global"}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(value)
+  }
+  return result
 }
 
 function slideTextList(slide: SlideSpec): string[] {

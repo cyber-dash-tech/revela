@@ -6,6 +6,7 @@ import { createEmptyDecksState, upsertDeck, upsertSlides, workspaceDeckSlug, wri
 import { clearInspectRequestsForTests, getInspectRequest } from "../lib/inspect/requests"
 import { handleEdit } from "../lib/commands/edit"
 import { handleInspect } from "../lib/commands/inspect"
+import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { openRefineDeck } from "../lib/refine/open"
 import { renderRefineShell, stopRefineServer } from "../lib/refine/server"
 
@@ -25,7 +26,7 @@ function workspace(): string {
 }
 
 describe("renderRefineShell", () => {
-  it("combines edit comments and inspect Source/Purpose cards behind tabs", () => {
+  it("combines edit comments and narrative reading inspect cards behind tabs", () => {
     const html = renderRefineShell("test-token")
 
     expect(html).toContain("Revela Refine")
@@ -39,7 +40,9 @@ describe("renderRefineShell", () => {
     expect(html).toContain("Preprocessed")
     expect(html).toContain("Generated")
     expect(html).toContain("collectReferenceSnapshot")
-    expect(html).toContain("Source/Purpose")
+    expect(html).toContain("Narrative Reading, Source, and Purpose")
+    expect(html).toContain("renderReading")
+    expect(html).toContain("Artifact Coverage")
     expect(html).toContain("Cmd/Ctrl-click slide elements once")
     expect(html).not.toContain("Ask anything")
   })
@@ -181,6 +184,33 @@ describe("refine HTTP inspect lifecycle", () => {
       audience: "Executive team",
       outputPath: "decks/demo.html",
     })
+    state.narrative = {
+      version: 1,
+      id: "narrative:demo",
+      status: "approved",
+      audience: { primary: "Executive team", beliefBefore: "Unsure", beliefAfter: "Ready to approve" },
+      decision: { action: "Approve launch" },
+      claims: [{
+        id: "claim:conversion",
+        kind: "evidence",
+        text: "Conversion improved 18%",
+        importance: "central",
+        evidenceRequired: true,
+        evidenceStatus: "supported",
+      }],
+      evidenceBindings: [{
+        id: "evidence:conversion",
+        claimId: "claim:conversion",
+        source: "Pilot dashboard",
+        sourcePath: "sources/pilot.csv",
+        quote: "Conversion improved 18%",
+        strength: "strong",
+      }],
+      objections: [],
+      risks: [],
+      approvals: [],
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    }
     state = upsertSlides(state, slug, [{
       index: 1,
       title: "Launch",
@@ -188,10 +218,21 @@ describe("refine HTTP inspect lifecycle", () => {
       narrativeRole: "evidence",
       layout: "two-col",
       components: ["card"],
+      claimRefs: [{ claimId: "claim:conversion", role: "primary" }],
+      evidenceBindingIds: ["evidence:conversion"],
       content: { headline: "Conversion improved 18%" },
       evidence: [{ source: "Pilot dashboard", sourcePath: "sources/pilot.csv", quote: "Conversion improved 18%" }],
       status: "ready",
     }])
+    state.renderTargets = [{
+      id: "target:html_deck:decks/demo.html",
+      type: "html_deck",
+      outputPath: "decks/demo.html",
+      sourceNodeIds: ["narrative:demo", "claim:conversion"],
+      artifactVersion: computeNarrativeHash(state.narrative!),
+      contractStatus: "valid",
+      data: { narrativeHash: computeNarrativeHash(state.narrative!) },
+    }]
     writeDecksState(root, state)
 
     let promptCalled = false
@@ -219,6 +260,14 @@ describe("refine HTTP inspect lifecycle", () => {
     expect(data.status).toBe("pending")
     expect(data.preprocess.cards.purpose.status).toBe("clear")
     expect(data.preprocess.cards.source.status).toBe("supported")
+    expect(data.preprocess.cards.reading.status).toBe("matched")
+    expect(data.preprocess.cards.reading.claimText).toBe("Conversion improved 18%")
+    expect(data.preprocess.cards.reading.artifactCoverage).toContainEqual(expect.objectContaining({
+      type: "html_deck",
+      outputPath: "decks/demo.html",
+      coverageStatus: "current",
+      containsClaim: true,
+    }))
     expect(getInspectRequest(data.requestId)?.status).toBe("pending")
   })
 })

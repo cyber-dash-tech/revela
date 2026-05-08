@@ -352,6 +352,7 @@ function pushSlideRef(refs: ClaimSlideRef[], seen: Set<string>, claim: Narrative
 function claimSlideRefsForTarget(target: RenderTarget, currentHtmlRefs: ClaimSlideRef[], htmlCoverageByPath: Map<string, ClaimSlideRef[]>): ClaimSlideRef[] {
   const stored = parseStoredClaimSlideRefs(target)
   if (stored.length > 0) return stored
+  if (target.type === "brief" || target.type === "executive_brief") return []
   if (target.type === "html_deck") return currentHtmlRefs
   const sourceOutputPath = typeof target.data?.sourceOutputPath === "string" ? target.data.sourceOutputPath : undefined
   if (sourceOutputPath) return htmlCoverageByPath.get(sourceOutputPath) ?? currentHtmlRefs

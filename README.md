@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-369%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-370%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
@@ -166,7 +166,7 @@ Disable presentation mode when done:
 /revela pptx <file>              export an HTML deck to editable PPTX in the same directory
 ```
 
-Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela review`, `/revela deck`, `/revela remember`, `/revela designs-new`, and `/revela designs-edit` start AI-assisted workflows because they need to read or update project files. `/revela refine` is the unified post-artifact workspace. It opens a local browser workspace with Edit and Inspect tabs that share the same Cmd/Ctrl-click element references. Edit sends targeted comments back into the current OpenCode session; Inspect renders deterministic Source/Purpose preprocessing first before lazy LLM-generated cards arrive, has no chat box, and does not edit the deck. `/revela edit` and `/revela inspect` remain only as deprecated compatibility shims to Refine.
+Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela review`, `/revela deck`, `/revela remember`, `/revela designs-new`, and `/revela designs-edit` start AI-assisted workflows because they need to read or update project files. `/revela refine` is the unified post-artifact workspace. It opens a local browser workspace with Edit and Inspect tabs that share the same Cmd/Ctrl-click element references. Edit sends targeted comments back into the current OpenCode session; Inspect renders deterministic Narrative Reading, Source, and Purpose preprocessing first before lazy LLM-generated cards arrive, has no chat box, and does not edit the deck. Narrative Reading also shows artifact coverage for the selected canonical claim, including whether each recorded artifact contains the claim and whether coverage is current, stale, partial, or missing. `/revela edit` and `/revela inspect` remain only as deprecated compatibility shims to Refine.
 
 ---
 
@@ -214,7 +214,7 @@ Use Revela as a narrative-first artifact workflow:
 5. Run `/revela deck` to compile the approved narrative into deck slide specs and enter deck-render mode.
 6. Choose or confirm design only during deck handoff, then run the deck/artifact gate with `/revela deck --review` or the handoff workflow.
 7. Let the agent write the HTML deck under `decks/` only after the artifact gate is ready.
-8. Use `/revela refine` for visual comments, targeted revisions, and read-only Source/Purpose inspection of selected deck elements.
+8. Use `/revela refine` for visual comments, targeted revisions, read-only Narrative Reading, Source, and Purpose inspection, and claim-to-artifact coverage for selected deck elements.
 9. Use `/revela edit` or `/revela inspect` only for old scripts or habits; both open `/revela refine` in the matching mode.
 10. Export with `/revela pdf <file>` or `/revela pptx <file>`.
 
@@ -591,7 +591,7 @@ Use the unified refinement workspace for normal post-write review and revision:
 /revela refine
 ```
 
-`/revela refine` opens the active HTML deck with two tabs. Use `Ctrl`/`Cmd` + click once to reference deck elements, then choose Edit for fast natural-language change comments or Inspect for read-only Source and Purpose review. Inspect does not mutate the deck; Edit remains the mutation path. This is the recommended entry for post-artifact reading, inspection, and editing.
+`/revela refine` opens the active HTML deck with two tabs. Use `Ctrl`/`Cmd` + click once to reference deck elements, then choose Edit for fast natural-language change comments or Inspect for read-only Narrative Reading, Source, Purpose, and artifact coverage review. Inspect does not mutate the deck; Edit remains the mutation path. This is the recommended entry for post-artifact reading, inspection, and editing.
 
 Deprecated compatibility command:
 
@@ -617,7 +617,7 @@ Use `/revela refine` for evidence inspection and narrative reading. Deprecated c
 /revela inspect
 ```
 
-`/revela inspect` no longer opens a separate inspector shell. It opens `/revela refine` in Inspect mode. The Inspect tab shows fixed Source and Purpose cards. Use `Ctrl`/`Cmd` + click to reference deck elements, then click `Inspect Selection`. Selection is locked while the request is being processed.
+`/revela inspect` no longer opens a separate inspector shell. It opens `/revela refine` in Inspect mode. The Inspect tab shows a Narrative Reading card alongside the fixed Source and Purpose cards. Narrative Reading preserves canonical claim ids, evidence binding ids, supported scope, unsupported scope, caveats, objections, risks, and artifact coverage when the selected element maps to canonical narrative state. Coverage shows whether the selected claim appears in recorded deck/brief/export artifacts and whether those artifacts are current, stale, partial, or missing against the current narrative hash. Use `Ctrl`/`Cmd` + click to reference deck elements, then click `Inspect Selection`. Selection is locked while the request is being processed.
 
 The inspector is not chat and has no freeform prompt. It does not mutate `DECKS.json` or the deck HTML. It uses recorded slide specs, narrative state, and slide-level evidence trace as grounded context. Deterministic preprocessing appears immediately; lazy LLM judgment then refines the Source and Purpose cards without inventing edits.
 

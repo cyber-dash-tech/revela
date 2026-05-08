@@ -681,7 +681,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     <aside>
       <div>
         <h1><span class="wordmark">REVELA</span> Refine</h1>
-        <p class="hint">Cmd/Ctrl-click slide elements once, then use Edit for fast changes or Inspect for Source/Purpose review.</p>
+        <p class="hint">Cmd/Ctrl-click slide elements once, then use Edit for fast changes or Inspect for Narrative Reading, Source, and Purpose review.</p>
       </div>
       <div id="selectionSummary" class="selection-summary"><strong>Selection</strong><span>No references selected.</span><div id="selectionChips" class="selection-chips"></div></div>
       <div class="tabs" role="tablist" aria-label="Refine mode">
@@ -701,7 +701,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           <button id="inspectButton" disabled>Inspect Selection</button>
           <div id="inspectStale"></div>
         </div>
-        <div id="inspectCards" class="inspect-cards"><div class="inspect-empty">Select one or more deck elements, then inspect them for Source and Purpose. This does not edit the deck.</div></div>
+        <div id="inspectCards" class="inspect-cards"><div class="inspect-empty">Select one or more deck elements, then inspect them for Narrative Reading, Source, and Purpose. This does not edit the deck.</div></div>
       </div>
       <div id="status" class="status"></div>
     </aside>
@@ -1075,7 +1075,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         renderReferenceOutlines();
         updateSendState();
         renderSelectionSummary();
-        resetInspectCards('References ready. Open Inspect and click Inspect Selection when you want Source/Purpose review.');
+        resetInspectCards('References ready. Open Inspect and click Inspect Selection when you want Narrative Reading, Source, and Purpose review.');
         setStatus('Inserted @' + label + '. ' + state.references.length + ' reference' + (state.references.length === 1 ? '' : 's') + ' will be sent.');
       }
 
@@ -1286,7 +1286,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         updateSendState();
         setMode('inspect');
         els.inspectStale.innerHTML = '';
-        els.inspectCards.innerHTML = '<div class="inspect-loading"><b>Preparing inspection...</b><br>Deterministic Source/Purpose appears first; generated cards update lazily.</div>';
+        els.inspectCards.innerHTML = '<div class="inspect-loading"><b>Preparing inspection...</b><br>Deterministic Narrative Reading, Source, and Purpose cards appear first; generated cards update lazily.</div>';
         try {
           const res = await fetch('/api/inspect?token=' + encodeURIComponent(token), {
             method: 'POST',
@@ -1351,6 +1351,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         else els.inspectStale.innerHTML = '';
         els.inspectCards.innerHTML = [
           '<div class="status">' + escapeHtml(phase || 'Inspection') + '</div>',
+          result.cards.reading ? renderInspectCard('Narrative Reading', result.cards.reading.status, result.cards.reading.rationale, renderReading(result.cards.reading)) : '',
           renderInspectCard('Purpose', result.cards.purpose.status, result.cards.purpose.rationale, renderPurpose(result.cards.purpose)),
           renderInspectCard('Source', result.cards.source.status, result.cards.source.rationale, renderSource(result.cards.source)),
         ].join('');
@@ -1362,6 +1363,36 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
       function renderPurpose(card) {
         return '<div class="inspect-item">' + field('Role', card.role) + field('Why it matters', card.whyItMatters) + '</div>';
+      }
+
+      function renderReading(card) {
+        return '<div class="inspect-item">'
+          + field('Claim ID', card.claimId)
+          + field('Canonical claim ID', card.canonicalClaimId)
+          + field('Claim', card.claimText)
+          + field('Evidence status', card.evidenceStatus)
+          + field('Evidence bindings', card.evidenceBindingIds && card.evidenceBindingIds.length ? card.evidenceBindingIds.join(', ') : '')
+          + field('Supported scope', card.supportedScope)
+          + field('Unsupported scope', card.unsupportedScope)
+          + '</div>'
+          + renderSectionList('Caveats', card.caveats)
+          + renderSectionList('Objections', card.relatedObjections)
+          + renderSectionList('Risks', card.relatedRisks)
+          + renderArtifactCoverage(card.artifactCoverage);
+      }
+
+      function renderArtifactCoverage(items) {
+        if (!items || !items.length) return '';
+        return '<div class="label">Artifact Coverage</div>' + items.map((item) => {
+          const title = (item.type || 'artifact') + (item.outputPath ? ' · ' + item.outputPath : '');
+          const status = (item.coverageStatus || 'unknown') + (item.containsClaim ? ' · contains claim' : ' · claim not rendered');
+          return '<div class="inspect-item"><b>' + escapeHtml(title) + '</b>'
+            + field('Coverage', status)
+            + field('Stale', item.stale ? (item.staleReason || 'stale') : '')
+            + field('Note', item.note)
+            + renderSectionList('Locations', item.locations)
+            + '</div>';
+        }).join('');
       }
 
       function renderSource(card) {
@@ -1422,7 +1453,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         state.references = [];
         if (removeChips) els.comment.querySelectorAll('.ref-chip').forEach((chip) => chip.remove());
         renderSelectionSummary();
-        resetInspectCards('Select one or more deck elements, then inspect them for Source and Purpose. This does not edit the deck.');
+        resetInspectCards('Select one or more deck elements, then inspect them for Narrative Reading, Source, and Purpose. This does not edit the deck.');
       }
 
       function getCommentText() {
