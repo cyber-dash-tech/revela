@@ -403,9 +403,11 @@ function renderTargetsForDeck(state: DecksState, deck: DeckSpec): RenderTarget[]
   const deckOutputPath = normalizePath(deck.outputPath)
   const htmlTargetId = renderTargetId("html_deck", deckOutputPath)
   const htmlArtifactId = artifactNodeId(deckOutputPath)
+  const narrativeId = state.narrative?.id
   const targets = (state.renderTargets ?? []).filter((target) => {
     if (target.id === htmlTargetId) return true
     if (target.type === "html_deck") return normalizePath(target.outputPath ?? "") === deckOutputPath
+    if (narrativeId && target.sourceNodeIds.includes(narrativeId)) return true
     const data = target.data ?? {}
     return data.sourceTargetId === htmlTargetId ||
       data.sourceOutputPath === deckOutputPath ||

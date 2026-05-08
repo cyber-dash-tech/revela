@@ -59,6 +59,7 @@ import {
   buildDesignsEditPrompt,
 } from "./lib/commands/designs-new"
 import { buildInitPrompt } from "./lib/commands/init"
+import { handleBrief, parseBriefArgs } from "./lib/commands/brief"
 import { buildNarrativeViewPrompt, handleNarrative, parseNarrativeArgs } from "./lib/commands/narrative"
 import { parseRememberArgs, buildRememberPrompt } from "./lib/commands/remember"
 import { buildDeckPrompt, buildDeckReviewPrompt, buildReviewPrompt } from "./lib/commands/review"
@@ -380,6 +381,15 @@ const server: Plugin = (async (pluginCtx) => {
           text: buildNarrativeViewPrompt({ workspaceRoot, language: parsed.args.language }),
         } as any)
         return
+      }
+      if (sub === "brief") {
+        const parsed = parseBriefArgs(param)
+        if (!parsed.ok) {
+          await send(parsed.error)
+          throw new Error("__REVELA_BRIEF_USAGE_HANDLED__")
+        }
+        await handleBrief({ workspaceRoot, outputPath: parsed.args.outputPath }, send)
+        throw new Error("__REVELA_BRIEF_HANDLED__")
       }
       if (sub === "deck") {
         if (param && param !== "--review") {

@@ -424,6 +424,7 @@ function artifactSortValue(type: RenderTarget["type"]): number {
   if (type === "html_deck") return 0
   if (type === "pdf") return 1
   if (type === "pptx") return 2
+  if (type === "executive_brief" || type === "brief") return 3
   return 3
 }
 

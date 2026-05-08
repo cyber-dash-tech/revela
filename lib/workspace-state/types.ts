@@ -107,7 +107,7 @@ export type WorkspaceActionType =
 
 export interface RenderTarget {
   id: string
-  type: "html_deck" | "pdf" | "pptx" | "brief" | "appendix" | "qa_view" | "interactive_page"
+  type: "html_deck" | "pdf" | "pptx" | "brief" | "executive_brief" | "appendix" | "qa_view" | "interactive_page"
   outputPath?: string
   sourceNodeIds: string[]
   artifactVersion?: string

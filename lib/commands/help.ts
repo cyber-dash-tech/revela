@@ -29,6 +29,7 @@ export async function handleHelp(
     `\`/revela init\`                — initialize or refresh workspace DECKS.json\n` +
     `\`/revela review\`              — review narrative readiness and approval state\n` +
     `\`/revela narrative\`           — open read-only narrative workspace map\n` +
+    `\`/revela brief [file.md]\`      — render executive brief from approved narrative\n` +
     `\`/revela deck\`                — start deck handoff from approved narrative\n` +
     `\`/revela deck --review\`       — review deck/artifact readiness before writing HTML\n` +
     `\`/revela refine\`              — open unified Edit/Inspect refinement workspace\n` +
