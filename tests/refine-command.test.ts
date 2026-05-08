@@ -40,8 +40,10 @@ describe("renderRefineShell", () => {
     expect(html).toContain("Preprocessed")
     expect(html).toContain("Generated")
     expect(html).toContain("collectReferenceSnapshot")
-    expect(html).toContain("Narrative Reading, Source, and Purpose")
+    expect(html).toContain("Narrative Reading, Exploratory Reading, Source, and Purpose")
     expect(html).toContain("renderReading")
+    expect(html).toContain("renderExploratory")
+    expect(html).toContain("Non-official reading aid")
     expect(html).toContain("Artifact Coverage")
     expect(html).toContain("Cmd/Ctrl-click slide elements once")
     expect(html).not.toContain("Ask anything")
@@ -268,6 +270,12 @@ describe("refine HTTP inspect lifecycle", () => {
       coverageStatus: "current",
       containsClaim: true,
     }))
+    expect(data.preprocess.cards.exploratory).toMatchObject({
+      status: "available",
+      official: false,
+      audience: "Executive team",
+      claimFocus: "Conversion improved 18%",
+    })
     expect(getInspectRequest(data.requestId)?.status).toBe("pending")
   })
 })

@@ -165,7 +165,7 @@ export { default } from "/absolute/path/to/revela/index.ts";
 /revela pptx <file>              将 HTML deck 导出为同目录可编辑 PPTX
 ```
 
-大多数 `/revela` 命令都在本地执行，不消耗 LLM token。`/revela init`、`/revela review`、`/revela deck`、`/revela remember`、`/revela designs-new` 和 `/revela designs-edit` 会启动 AI 辅助流程，因为它们需要读取或更新项目状态。`/revela refine` 是统一的 post-artifact workspace，会打开一个本地浏览器 workspace，里面有 Edit 和 Inspect 两个 tab，并共享同一套 Cmd/Ctrl-click 元素引用。Edit 会把精准修改评论发回当前 OpenCode 会话；Inspect 会先渲染确定性 Narrative Reading、Source、Purpose 预处理结果，再 lazy 显示 LLM 生成的卡片。Narrative Reading 还会显示所选 canonical claim 的 artifact coverage，包括每个已记录 artifact 是否包含该 claim，以及 coverage 是 current、stale、partial 还是 missing。它没有聊天框，也不会修改 deck。`/revela edit` 和 `/revela inspect` 只作为 deprecated 兼容入口保留。
+大多数 `/revela` 命令都在本地执行，不消耗 LLM token。`/revela init`、`/revela review`、`/revela deck`、`/revela remember`、`/revela designs-new` 和 `/revela designs-edit` 会启动 AI 辅助流程，因为它们需要读取或更新项目状态。`/revela refine` 是统一的 post-artifact workspace，会打开一个本地浏览器 workspace，里面有 Edit 和 Inspect 两个 tab，并共享同一套 Cmd/Ctrl-click 元素引用。Edit 会把精准修改评论发回当前 OpenCode 会话；Inspect 会先渲染确定性 Narrative Reading、Exploratory Reading、Source、Purpose 预处理结果，再 lazy 显示 LLM 生成的卡片。Narrative Reading 还会显示所选 canonical claim 的 artifact coverage，包括每个已记录 artifact 是否包含该 claim，以及 coverage 是 current、stale、partial 还是 missing。Exploratory Reading 明确是非官方阅读辅助，只能基于已记录 claim、evidence、caveat、objection、risk 和 artifact coverage。它没有聊天框，也不会修改 deck。`/revela edit` 和 `/revela inspect` 只作为 deprecated 兼容入口保留。
 
 ---
 
@@ -213,7 +213,7 @@ Deck 仍然是主要 authored artifact，但现在它是从同一份 workspace s
 5. 运行 `/revela deck`，把已批准 narrative 编译成 deck slide specs，并进入 deck-render mode。
 6. 只在 deck handoff 阶段选择或确认 design，然后通过 handoff workflow 或 `/revela deck --review` 运行 deck/artifact gate。
 7. 只有 artifact gate ready 后，才让 agent 把 HTML deck 写到 `decks/` 下。
-8. 用 `/revela refine` 对选中 deck 元素做可视化评论、精准修改、只读 Narrative Reading、Source、Purpose 检查，以及 claim-to-artifact coverage 查看。
+8. 用 `/revela refine` 对选中 deck 元素做可视化评论、精准修改、只读 Narrative Reading、有边界的 Exploratory Reading、Source、Purpose 检查，以及 claim-to-artifact coverage 查看。
 9. 只有旧脚本或旧习惯需要时，才使用 `/revela edit` 或 `/revela inspect`；两者都会打开对应模式的 `/revela refine`。
 10. 用 `/revela pdf <file>` 或 `/revela pptx <file>` 导出。
 
@@ -556,7 +556,7 @@ Prompt 注入规则：
 /revela refine
 ```
 
-`/revela refine` 会打开 active HTML deck，并提供两个 tab。使用 `Ctrl`/`Cmd` + click 先引用 deck 元素，然后在 Edit 里快速写自然语言修改评论，或在 Inspect 里做只读 Narrative Reading、Source、Purpose 和 artifact coverage 检查。Inspect 不会修改 deck；真正的 mutation 仍然只走 Edit。这是 post-artifact 阅读、检查和编辑的推荐入口。
+`/revela refine` 会打开 active HTML deck，并提供两个 tab。使用 `Ctrl`/`Cmd` + click 先引用 deck 元素，然后在 Edit 里快速写自然语言修改评论，或在 Inspect 里做只读 Narrative Reading、有边界的 Exploratory Reading、Source、Purpose 和 artifact coverage 检查。Inspect 不会修改 deck；真正的 mutation 仍然只走 Edit。这是 post-artifact 阅读、检查和编辑的推荐入口。
 
 Deprecated 兼容命令：
 
@@ -582,9 +582,9 @@ Deprecated 兼容命令：
 /revela inspect
 ```
 
-`/revela inspect` 不再打开独立 inspector shell。它会打开 `/revela refine` 的 Inspect mode。Inspect tab 会在固定 Source 和 Purpose 卡片之外显示 Narrative Reading 卡片。当选中元素能映射到 canonical narrative state 时，Narrative Reading 会保留 canonical claim id、evidence binding id、supported scope、unsupported scope、caveat、objection、risk 和 artifact coverage。Coverage 会显示所选 claim 是否出现在已记录的 deck/brief/export artifact 中，以及这些 artifact 相对当前 narrative hash 是 current、stale、partial 还是 missing。使用 `Ctrl`/`Cmd` + click 引用 deck 元素，然后点击 `Inspect Selection`。请求处理期间，deck 选择会被锁定。
+`/revela inspect` 不再打开独立 inspector shell。它会打开 `/revela refine` 的 Inspect mode。Inspect tab 会在固定 Source 和 Purpose 卡片之外显示 Narrative Reading 和 Exploratory Reading 卡片。当选中元素能映射到 canonical narrative state 时，Narrative Reading 会保留 canonical claim id、evidence binding id、supported scope、unsupported scope、caveat、objection、risk 和 artifact coverage。Coverage 会显示所选 claim 是否出现在已记录的 deck/brief/export artifact 中，以及这些 artifact 相对当前 narrative hash 是 current、stale、partial 还是 missing。Exploratory Reading 提供非官方的 objection prep、audience reframing 边界、appendix leads 和 meeting-prep cues，并且只能使用同一份已记录 context。使用 `Ctrl`/`Cmd` + click 引用 deck 元素，然后点击 `Inspect Selection`。请求处理期间，deck 选择会被锁定。
 
-Inspector 不是聊天，也没有自由输入框。它不会修改 `DECKS.json` 或 deck HTML。它使用已记录的 slide spec、narrative state 和 slide-level evidence trace 作为 grounded context。确定性预处理会立即显示；LLM judgment 随后 lazy 更新 Narrative Reading、Source 和 Purpose 卡片，不会强行生成编辑动作。
+Inspector 不是聊天，也没有自由输入框。它不会修改 `DECKS.json` 或 deck HTML。它使用已记录的 slide spec、narrative state 和 slide-level evidence trace 作为 grounded context。确定性预处理会立即显示；LLM judgment 随后 lazy 更新 Narrative Reading、Exploratory Reading、Source 和 Purpose 卡片，不会强行生成编辑动作。
 
 Refine 会使用 workspace state 中记录的 active HTML deck render target。Deck HTML 必须满足 Revela 的 slide identity contract：active artifact 中每个 `<section class="slide">` 都需要有正数、1-based 的 `data-slide-index`，并且要匹配当前 slide specs。无效的 active artifact 会在 refine/export 工作流信任它之前被拒绝或报告。
 

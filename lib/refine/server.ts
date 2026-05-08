@@ -681,7 +681,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     <aside>
       <div>
         <h1><span class="wordmark">REVELA</span> Refine</h1>
-        <p class="hint">Cmd/Ctrl-click slide elements once, then use Edit for fast changes or Inspect for Narrative Reading, Source, and Purpose review.</p>
+        <p class="hint">Cmd/Ctrl-click slide elements once, then use Edit for fast changes or Inspect for Narrative Reading, Exploratory Reading, Source, and Purpose review.</p>
       </div>
       <div id="selectionSummary" class="selection-summary"><strong>Selection</strong><span>No references selected.</span><div id="selectionChips" class="selection-chips"></div></div>
       <div class="tabs" role="tablist" aria-label="Refine mode">
@@ -701,7 +701,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           <button id="inspectButton" disabled>Inspect Selection</button>
           <div id="inspectStale"></div>
         </div>
-        <div id="inspectCards" class="inspect-cards"><div class="inspect-empty">Select one or more deck elements, then inspect them for Narrative Reading, Source, and Purpose. This does not edit the deck.</div></div>
+        <div id="inspectCards" class="inspect-cards"><div class="inspect-empty">Select one or more deck elements, then inspect them for Narrative Reading, Exploratory Reading, Source, and Purpose. This does not edit the deck.</div></div>
       </div>
       <div id="status" class="status"></div>
     </aside>
@@ -1075,7 +1075,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         renderReferenceOutlines();
         updateSendState();
         renderSelectionSummary();
-        resetInspectCards('References ready. Open Inspect and click Inspect Selection when you want Narrative Reading, Source, and Purpose review.');
+        resetInspectCards('References ready. Open Inspect and click Inspect Selection when you want Narrative Reading, Exploratory Reading, Source, and Purpose review.');
         setStatus('Inserted @' + label + '. ' + state.references.length + ' reference' + (state.references.length === 1 ? '' : 's') + ' will be sent.');
       }
 
@@ -1286,7 +1286,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         updateSendState();
         setMode('inspect');
         els.inspectStale.innerHTML = '';
-        els.inspectCards.innerHTML = '<div class="inspect-loading"><b>Preparing inspection...</b><br>Deterministic Narrative Reading, Source, and Purpose cards appear first; generated cards update lazily.</div>';
+        els.inspectCards.innerHTML = '<div class="inspect-loading"><b>Preparing inspection...</b><br>Deterministic Narrative Reading, Exploratory Reading, Source, and Purpose cards appear first; generated cards update lazily.</div>';
         try {
           const res = await fetch('/api/inspect?token=' + encodeURIComponent(token), {
             method: 'POST',
@@ -1352,6 +1352,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         els.inspectCards.innerHTML = [
           '<div class="status">' + escapeHtml(phase || 'Inspection') + '</div>',
           result.cards.reading ? renderInspectCard('Narrative Reading', result.cards.reading.status, result.cards.reading.rationale, renderReading(result.cards.reading)) : '',
+          result.cards.exploratory ? renderInspectCard('Exploratory Reading', result.cards.exploratory.status, result.cards.exploratory.rationale, renderExploratory(result.cards.exploratory)) : '',
           renderInspectCard('Purpose', result.cards.purpose.status, result.cards.purpose.rationale, renderPurpose(result.cards.purpose)),
           renderInspectCard('Source', result.cards.source.status, result.cards.source.rationale, renderSource(result.cards.source)),
         ].join('');
@@ -1393,6 +1394,19 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             + renderSectionList('Locations', item.locations)
             + '</div>';
         }).join('');
+      }
+
+      function renderExploratory(card) {
+        return '<div class="inspect-item"><b>Non-official reading aid</b>'
+          + field('Official artifact content', card.official === false ? 'No' : '')
+          + field('Audience', card.audience)
+          + field('Claim focus', card.claimFocus)
+          + field('Audience reframe boundary', card.audienceReframe)
+          + '</div>'
+          + renderSectionList('Objection Prep', card.objectionPrompts)
+          + renderSectionList('Appendix Leads', card.appendixLeads)
+          + renderSectionList('Meeting Prep', card.meetingPrep)
+          + renderSectionList('Boundaries', card.boundaries);
       }
 
       function renderSource(card) {
@@ -1453,7 +1467,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         state.references = [];
         if (removeChips) els.comment.querySelectorAll('.ref-chip').forEach((chip) => chip.remove());
         renderSelectionSummary();
-        resetInspectCards('Select one or more deck elements, then inspect them for Narrative Reading, Source, and Purpose. This does not edit the deck.');
+        resetInspectCards('Select one or more deck elements, then inspect them for Narrative Reading, Exploratory Reading, Source, and Purpose. This does not edit the deck.');
       }
 
       function getCommentText() {

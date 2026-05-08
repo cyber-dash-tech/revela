@@ -5,6 +5,7 @@ export type InspectionResultStatus = "success" | "no_match"
 export type InspectionPurposeStatus = "clear" | "weak" | "misplaced" | "unknown"
 export type InspectionSourceStatus = "supported" | "weak" | "unsupported" | "not_needed" | "unknown"
 export type NarrativeReadingStatus = "matched" | "no_match"
+export type ExploratoryReadingStatus = "available" | "limited" | "unavailable"
 
 export interface InspectionResult {
   version: 1
@@ -18,6 +19,7 @@ export interface InspectionResult {
   matchConfidence: InspectionMatchConfidence
   cards: {
     reading?: NarrativeReadingCard
+    exploratory?: ExploratoryReadingCard
     purpose: PurposeCard
     source: SourceCard
   }
@@ -83,6 +85,19 @@ export interface NarrativeReadingArtifactCoverage {
   note?: string
 }
 
+export interface ExploratoryReadingCard {
+  status: ExploratoryReadingStatus
+  official: false
+  audience?: string
+  claimFocus?: string
+  objectionPrompts: string[]
+  audienceReframe: string
+  appendixLeads: string[]
+  meetingPrep: string[]
+  boundaries: string[]
+  rationale: string
+}
+
 export function buildDeterministicInspectionResult(
   projection: InspectionPromptProjection,
   options: { requestId?: string; staleReason?: string } = {},
@@ -103,6 +118,7 @@ export function buildDeterministicInspectionResult(
     matchConfidence: projection.match.confidence,
     cards: {
       reading: narrativeReadingCard(projection, noMatch),
+      exploratory: exploratoryReadingCard(projection, noMatch),
       purpose: {
         status: purposeStatus(projection, noMatch),
         role: projection.cards.objective.narrativeRole,
@@ -130,6 +146,81 @@ export function buildDeterministicInspectionResult(
     },
     stale: options.staleReason ? { stale: true, reason: options.staleReason } : undefined,
   }
+}
+
+function exploratoryReadingCard(projection: InspectionPromptProjection, noMatch: boolean): ExploratoryReadingCard {
+  const claimText = projection.match.claim?.text ?? projection.cards.evidence.matchedClaim
+  const caveats = projection.cards.caveats.caveats
+  const unsupportedScope = projection.match.claim?.unsupportedScope ?? firstPresent(projection.cards.evidence.traces.map((item) => item.unsupportedScope))
+  const objectionPrompts = exploratoryObjections(projection, unsupportedScope)
+  const appendixLeads = exploratoryAppendixLeads(projection)
+  const meetingPrep = exploratoryMeetingPrep(projection, unsupportedScope)
+  return {
+    status: noMatch ? "unavailable" : claimText ? "available" : "limited",
+    official: false,
+    audience: projection.cards.objective.audience,
+    claimFocus: claimText,
+    objectionPrompts,
+    audienceReframe: exploratoryAudienceFrame(projection, claimText),
+    appendixLeads,
+    meetingPrep,
+    boundaries: exploratoryBoundaries(projection, noMatch),
+    rationale: exploratoryRationale(projection, noMatch, objectionPrompts.length + appendixLeads.length + meetingPrep.length),
+  }
+}
+
+function exploratoryObjections(projection: InspectionPromptProjection, unsupportedScope: string | undefined): string[] {
+  const items = projection.cards.appendix.relatedObjections.map((item) => `Prepare for this objection using recorded support only: ${item}`)
+  if (unsupportedScope) items.push(`Expect questions about unsupported scope: ${unsupportedScope}`)
+  for (const gap of projection.cards.evidence.gaps) items.push(`Treat this as an evidence gap, not as support: ${gap.message}`)
+  return dedupe(items).slice(0, 4)
+}
+
+function exploratoryAudienceFrame(projection: InspectionPromptProjection, claimText: string | undefined): string {
+  const audience = projection.cards.objective.audience
+  const beliefAfter = projection.cards.objective.audienceBeliefAfter
+  const decision = projection.cards.objective.decisionOrAction
+  if (!claimText) return "No specific claim is matched, so audience reframing is limited to the selected slide context."
+  if (audience && beliefAfter) return `For ${audience}, frame this claim as support for the desired belief: ${beliefAfter}`
+  if (audience && decision) return `For ${audience}, connect this claim to the recorded decision or action: ${decision}`
+  if (audience) return `For ${audience}, keep the wording inside the recorded claim boundary: ${claimText}`
+  return "Audience-specific reframing is limited because no audience is recorded in the projection."
+}
+
+function exploratoryAppendixLeads(projection: InspectionPromptProjection): string[] {
+  const sourceLeads = projection.cards.evidence.traces.map((trace) => {
+    const where = trace.location || trace.page || trace.url || trace.sourcePath || trace.findingsFile
+    return where ? `${trace.source}: ${where}` : trace.source
+  })
+  const appendixCandidates = projection.cards.appendix.candidates.map((candidate) => `Slide ${candidate.slideIndex}: ${candidate.slideTitle} (${candidate.reason})`)
+  return dedupe([...sourceLeads, ...appendixCandidates]).slice(0, 5)
+}
+
+function exploratoryMeetingPrep(projection: InspectionPromptProjection, unsupportedScope: string | undefined): string[] {
+  const items: string[] = []
+  for (const risk of projection.cards.appendix.relatedRisks) items.push(`Risk to be ready for: ${risk}`)
+  for (const caveat of projection.cards.caveats.caveats) items.push(`Caveat to say plainly: ${caveat}`)
+  if (unsupportedScope) items.push(`Do not overstate beyond: ${unsupportedScope}`)
+  for (const warning of projection.cards.source.weakSourceGaps) items.push(`Source trace is weak: ${warning.message}`)
+  for (const gap of projection.cards.source.missingSourceGaps) items.push(`Missing support: ${gap.message}`)
+  return dedupe(items).slice(0, 5)
+}
+
+function exploratoryBoundaries(projection: InspectionPromptProjection, noMatch: boolean): string[] {
+  const boundaries = [
+    "Exploratory reading is non-official and does not change canonical narrative state or artifact content.",
+    "Use only recorded claims, evidence, caveats, risks, objections, and artifact coverage from this inspection projection.",
+  ]
+  if (noMatch) boundaries.push("No matched slide or claim is available, so exploratory reading cannot infer support.")
+  if (projection.cards.evidence.gaps.length > 0) boundaries.push("Evidence gaps must remain visible and cannot be filled by generated reading text.")
+  return boundaries
+}
+
+function exploratoryRationale(projection: InspectionPromptProjection, noMatch: boolean, signalCount: number): string {
+  if (noMatch) return "Exploratory reading is unavailable because the selection did not match a slide or claim."
+  if (signalCount > 0) return "This bounded reading layer derives objection, audience, appendix, and meeting-prep cues from recorded inspection context only."
+  if (projection.match.claim) return "A matched claim exists, but little supporting exploratory context is recorded beyond the claim itself."
+  return "Exploratory reading is limited because the selection maps to slide context but not to a specific claim."
 }
 
 function narrativeReadingCard(projection: InspectionPromptProjection, noMatch: boolean): NarrativeReadingCard {

@@ -72,6 +72,13 @@ describe("inspection result contract", () => {
       claimText: "Market demand has grown 25% since 2024",
       evidenceStatus: "supported",
     })
+    expect(inspection.cards.exploratory).toMatchObject({
+      status: "available",
+      official: false,
+      claimFocus: "Market demand has grown 25% since 2024",
+    })
+    expect(inspection.cards.exploratory?.appendixLeads).toContain("Market report: page 4")
+    expect(inspection.cards.exploratory?.boundaries[0]).toContain("non-official")
   })
 
   it("preserves canonical narrative reading context", () => {
@@ -186,6 +193,21 @@ describe("inspection result contract", () => {
         locations: [],
       }),
     ]))
+    expect(inspection.cards.exploratory).toMatchObject({
+      status: "available",
+      official: false,
+      audience: "Investment committee",
+      claimFocus: "Market demand has grown 25% since 2024",
+    })
+    expect(inspection.cards.exploratory?.objectionPrompts).toEqual(expect.arrayContaining([
+      "Prepare for this objection using recorded support only: Forecast quality may be weak.",
+      "Expect questions about unsupported scope: Long-term forecast.",
+    ]))
+    expect(inspection.cards.exploratory?.meetingPrep).toEqual(expect.arrayContaining([
+      "Risk to be ready for: Execution risk remains material.",
+      "Caveat to say plainly: Forecast excludes downside scenario.",
+      "Do not overstate beyond: Long-term forecast.",
+    ]))
   })
 
   it("labels source-only evidence as weak", () => {
@@ -232,6 +254,7 @@ describe("inspection result contract", () => {
 
     expect(inspection.cards.purpose.status).toBe("clear")
     expect(inspection.cards.source.status).toBe("not_needed")
+    expect(inspection.cards.exploratory?.status).toBe("available")
   })
 
   it("returns no_match cards for unmatched selections", () => {
@@ -243,6 +266,7 @@ describe("inspection result contract", () => {
     expect(inspection.status).toBe("no_match")
     expect(inspection.cards.purpose.status).toBe("unknown")
     expect(inspection.cards.source.status).toBe("unknown")
+    expect(inspection.cards.exploratory?.status).toBe("unavailable")
     expect(inspection.stale).toEqual({ stale: true, reason: "Deck changed after request." })
   })
 })

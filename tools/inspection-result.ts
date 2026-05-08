@@ -54,6 +54,18 @@ export default tool({
           })).optional(),
           rationale: tool.schema.string(),
         }).optional(),
+        exploratory: tool.schema.object({
+          status: tool.schema.enum(["available", "limited", "unavailable"]),
+          official: tool.schema.boolean().describe("Must be false; exploratory reading is not official artifact content."),
+          audience: tool.schema.string().optional(),
+          claimFocus: tool.schema.string().optional(),
+          objectionPrompts: tool.schema.array(tool.schema.string()),
+          audienceReframe: tool.schema.string(),
+          appendixLeads: tool.schema.array(tool.schema.string()),
+          meetingPrep: tool.schema.array(tool.schema.string()),
+          boundaries: tool.schema.array(tool.schema.string()),
+          rationale: tool.schema.string(),
+        }).optional(),
         purpose: tool.schema.object({
           status: tool.schema.enum(["clear", "weak", "misplaced", "unknown"]),
           role: tool.schema.string().optional(),
