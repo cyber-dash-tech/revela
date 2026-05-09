@@ -60,6 +60,7 @@ import {
   buildDesignsEditPrompt,
 } from "./lib/commands/designs-new"
 import { buildInitPrompt } from "./lib/commands/init"
+import { buildResearchPrompt } from "./lib/commands/research"
 import { handleBrief, parseBriefArgs } from "./lib/commands/brief"
 import { buildNarrativeViewPrompt, handleNarrative, parseNarrativeArgs } from "./lib/commands/narrative"
 import { parseRememberArgs, buildRememberPrompt } from "./lib/commands/remember"
@@ -261,7 +262,7 @@ const server: Plugin = (async (pluginCtx) => {
       opencodeConfig.command ??= {}
       opencodeConfig.command["revela"] = {
         template: "",
-        description: "Revela — AI slide deck generator (enable/disable, manage designs & domains)",
+        description: "Revela — narrative artifact workspace (init, research, story, make, refine, design)",
       }
 
       // Register the research subagent.
@@ -367,17 +368,34 @@ const server: Plugin = (async (pluginCtx) => {
           await send(parsed.error)
           throw new Error("__REVELA_REMEMBER_USAGE_HANDLED__")
         }
-        buildPrompt({ mode: "narrative" })
-        output.parts.length = 0
-        output.parts.push({
-          type: "text",
-          text: buildRememberPrompt({ memory: parsed.memory, exists: hasDecksState(workspaceRoot) }),
-        } as any)
+        queueWorkflowCommand({
+          sessionID,
+          name: "remember",
+          mode: "narrative",
+          visibleText: "Remember Revela workspace preference.",
+          hiddenPrompt: buildRememberPrompt({ memory: parsed.memory, exists: hasDecksState(workspaceRoot) }),
+          output,
+        })
+        return
+      }
+      if (sub === "research") {
+        if (param) {
+          await send("`/revela research` does not accept arguments yet. Add the research question in normal chat, or run it to work from open story gaps.")
+          throw new Error("__REVELA_RESEARCH_USAGE_HANDLED__")
+        }
+        queueWorkflowCommand({
+          sessionID,
+          name: "research",
+          mode: "narrative",
+          visibleText: "Research Revela story gaps.",
+          hiddenPrompt: buildResearchPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
+          output,
+        })
         return
       }
       if (sub === "review") {
         if (param) {
-          await send("`/revela review` no longer accepts a deck name. It is a compatibility alias for `/revela story`. Use `/revela deck --review` for deck/artifact readiness.")
+          await send("`/revela review` no longer accepts a deck name. It is a compatibility alias for `/revela story`. Use `/revela make deck --review` for deck/artifact readiness.")
           throw new Error("__REVELA_REVIEW_USAGE_HANDLED__")
         }
         queueWorkflowCommand({
@@ -406,6 +424,17 @@ const server: Plugin = (async (pluginCtx) => {
         return
       }
       if (sub === "narrative") {
+        if (!param) {
+          queueWorkflowCommand({
+            sessionID,
+            name: "narrative",
+            mode: "narrative",
+            visibleText: "Review Revela story readiness.",
+            hiddenPrompt: buildReviewPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
+            output,
+          })
+          return
+        }
         const parsed = parseNarrativeArgs(param)
         if (!parsed.ok) {
           await send(parsed.error)
@@ -415,12 +444,14 @@ const server: Plugin = (async (pluginCtx) => {
           await handleNarrative({ workspaceRoot, openBrowser: true, language: parsed.args.language }, send)
           throw new Error("__REVELA_NARRATIVE_HANDLED__")
         }
-        buildPrompt({ mode: "narrative" })
-        output.parts.length = 0
-        output.parts.push({
-          type: "text",
-          text: buildNarrativeViewPrompt({ workspaceRoot, language: parsed.args.language }),
-        } as any)
+        queueWorkflowCommand({
+          sessionID,
+          name: "narrative view",
+          mode: "narrative",
+          visibleText: "Open read-only Revela narrative map.",
+          hiddenPrompt: buildNarrativeViewPrompt({ workspaceRoot, language: parsed.args.language }),
+          output,
+        })
         return
       }
       if (sub === "brief") {
@@ -534,17 +565,94 @@ const server: Plugin = (async (pluginCtx) => {
         await handleDesignsAdd(param, send)
         throw new Error("__REVELA_DESIGNS_ADD_HANDLED__")
       }
+      if (sub === "design") {
+        const designAction = args[1]?.toLowerCase() ?? "list"
+        const designParam = args.slice(2).join(" ")
+        if (designAction === "list") {
+          if (designParam) {
+            await send("Usage: `/revela design list`.")
+            throw new Error("__REVELA_DESIGN_LIST_USAGE_HANDLED__")
+          }
+          await handleDesignsList(send)
+          throw new Error("__REVELA_DESIGN_LIST_HANDLED__")
+        }
+        if (designAction === "use") {
+          if (!designParam) {
+            await send("Usage: `/revela design use <name>`.")
+            throw new Error("__REVELA_DESIGN_USE_USAGE_HANDLED__")
+          }
+          await handleDesignsActivate(designParam, send)
+          throw new Error("__REVELA_DESIGN_USE_HANDLED__")
+        }
+        if (designAction === "add") {
+          if (!designParam) {
+            await send("Usage: `/revela design add <url|github:user/repo|local-path>`.")
+            throw new Error("__REVELA_DESIGN_ADD_USAGE_HANDLED__")
+          }
+          await handleDesignsAdd(designParam, send)
+          throw new Error("__REVELA_DESIGN_ADD_HANDLED__")
+        }
+        if (designAction === "rm" || designAction === "remove") {
+          if (!designParam) {
+            await send("Usage: `/revela design rm <name>`.")
+            throw new Error("__REVELA_DESIGN_RM_USAGE_HANDLED__")
+          }
+          await handleDesignsRemove(designParam, send)
+          throw new Error("__REVELA_DESIGN_RM_HANDLED__")
+        }
+        if (designAction === "preview") {
+          await handleDesignsPreview(designParam, send)
+          throw new Error("__REVELA_DESIGN_PREVIEW_HANDLED__")
+        }
+        if (designAction === "new") {
+          const parsed = parseDesignsNewArgs(designParam)
+          if (!parsed.ok) {
+            await send(parsed.error.replaceAll("/revela designs-new", "/revela design new"))
+            throw new Error("__REVELA_DESIGN_NEW_USAGE_HANDLED__")
+          }
+          queueWorkflowCommand({
+            sessionID,
+            name: `design new ${parsed.name}`,
+            mode: "deck-render",
+            visibleText: `Create Revela design ${parsed.name}.`,
+            hiddenPrompt: buildDesignsNewPrompt({ name: parsed.name, base: parsed.base }),
+            output,
+          })
+          return
+        }
+        if (designAction === "edit") {
+          const parsed = parseDesignsEditArgs(designParam)
+          if (!parsed.ok) {
+            await send(parsed.error.replaceAll("/revela designs-edit", "/revela design edit"))
+            throw new Error("__REVELA_DESIGN_EDIT_USAGE_HANDLED__")
+          }
+          queueWorkflowCommand({
+            sessionID,
+            name: `design edit ${parsed.name}`,
+            mode: "deck-render",
+            visibleText: `Edit Revela design ${parsed.name}.`,
+            hiddenPrompt: buildDesignsEditPrompt({ name: parsed.name }),
+            output,
+          })
+          return
+        }
+        await send("Usage: `/revela design [list|use <name>|new <name>|edit <name>|preview [name]|add <source>|rm <name>]`.")
+        throw new Error("__REVELA_DESIGN_USAGE_HANDLED__")
+      }
       if (sub === "designs-new") {
         const parsed = parseDesignsNewArgs(param)
         if (!parsed.ok) {
           await send(parsed.error)
           throw new Error("__REVELA_DESIGNS_NEW_USAGE_HANDLED__")
         }
-        output.parts.length = 0
-        output.parts.push({
-          type: "text",
-          text: buildDesignsNewPrompt({ name: parsed.name, base: parsed.base }),
-        } as any)
+        queueWorkflowCommand({
+          sessionID,
+          name: `designs-new ${parsed.name}`,
+          mode: "deck-render",
+          visibleText: `Create Revela design ${parsed.name}.`,
+          hiddenPrompt: buildDesignsNewPrompt({ name: parsed.name, base: parsed.base }),
+          output,
+        })
         return
       }
       if (sub === "designs-edit") {
@@ -553,11 +661,14 @@ const server: Plugin = (async (pluginCtx) => {
           await send(parsed.error)
           throw new Error("__REVELA_DESIGNS_EDIT_USAGE_HANDLED__")
         }
-        output.parts.length = 0
-        output.parts.push({
-          type: "text",
-          text: buildDesignsEditPrompt({ name: parsed.name }),
-        } as any)
+        queueWorkflowCommand({
+          sessionID,
+          name: `designs-edit ${parsed.name}`,
+          mode: "deck-render",
+          visibleText: `Edit Revela design ${parsed.name}.`,
+          hiddenPrompt: buildDesignsEditPrompt({ name: parsed.name }),
+          output,
+        })
         return
       }
       if (sub === "designs-preview") {
@@ -585,8 +696,14 @@ const server: Plugin = (async (pluginCtx) => {
         if (args.notes) {
           try {
             const deck = resolvePptxDeck(workspaceRoot, args.filePath)
-            output.parts.length = 0
-            output.parts.push({ type: "text", text: buildPptxNotesPrompt(deck) } as any)
+            queueWorkflowCommand({
+              sessionID,
+              name: "pptx --notes",
+              mode: "deck-render",
+              visibleText: "Export Revela deck to PPTX with speaker notes.",
+              hiddenPrompt: buildPptxNotesPrompt(deck),
+              output,
+            })
             return
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e)

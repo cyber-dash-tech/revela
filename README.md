@@ -2,14 +2,14 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-375%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-379%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
 </p>
 
 Revela is an [OpenCode](https://opencode.ai) plugin for building trusted narrative artifacts from workspace sources, research, evidence, and user intent.
-Its first render target is still the HTML slide deck: enable Revela for the current session, assign a presentation task, and the agent can research, structure, write, QA, inspect, refine, and export a deck.
+Its first render target is still the HTML slide deck: start a Revela workflow command, assign a presentation task, and the agent can research, structure, write, QA, inspect, refine, and export a deck.
 
 **[Live Demo — The AI Power Shift](https://cyber-dash-tech.github.io/revela/assets/html/ai-power-shift.html)**
 
@@ -17,8 +17,8 @@ Its first render target is still the HTML slide deck: enable Revela for the curr
 
 ## What It Does
 
-- injects a narrative-first system prompt into your current agent with `/revela enable`
-- switches into deck-render prompt mode only when you explicitly start `/revela deck`
+- injects one-shot workflow instructions for explicit commands such as `/revela init`, `/revela story`, and `/revela make deck`
+- switches into deck-render prompt mode only when you explicitly start `/revela make deck`
 - supports workspace document discovery, transparent text extraction for `.pdf`, `.docx`, `.pptx`, and `.xlsx`, and cached embedded-material extraction for those formats
 - keeps `DECKS.json` as the current workspace state engine for sources, research actions, findings, claims, evidence, narrative intent, render targets, and readiness
 - reviews narrative readiness before artifact rendering, then separately gates deck HTML writes through deck/artifact readiness
@@ -85,12 +85,6 @@ If you use the local wrapper route, remove any `@cyber-dash-tech/revela` entry f
 
 ## Quick Start
 
-Enable Revela in the current session:
-
-```text
-/revela enable
-```
-
 Prepare the workspace when starting a new deck project:
 
 ```text
@@ -100,22 +94,23 @@ Prepare the workspace when starting a new deck project:
 Optionally switch design or domain:
 
 ```text
-/revela designs
-/revela designs summit
+/revela design
+/revela design use summit
 /revela domains deeptech-investment
 ```
 
-Then shape or review the narrative. When the narrative is ready and approved, start deck handoff:
+Then shape, research, or review the story. When the narrative is ready and approved, make the deck:
 
 ```text
-/revela review
-/revela deck
+/revela story
+/revela research
+/revela make deck
 ```
 
 If you need to check only the deck/artifact gate before HTML writing, use:
 
 ```text
-/revela deck --review
+/revela make deck --review
 ```
 
 Export when needed, either manually or by asking the agent to export:
@@ -125,7 +120,13 @@ Export when needed, either manually or by asking the agent to export:
 /revela pptx decks/humanoid-robotics.html
 ```
 
-Disable presentation mode when done:
+If you want normal chat messages to stay in Revela narrative mode between explicit commands, enable optional ambient mode:
+
+```text
+/revela enable
+```
+
+Disable ambient mode when done:
 
 ```text
 /revela disable
@@ -137,18 +138,32 @@ Disable presentation mode when done:
 
 ```text
 /revela                          show status and help
-/revela enable                   enable narrative/artifact mode for this session
-/revela disable                  disable Revela mode
+/revela enable                   optional ambient narrative mode for normal chat
+/revela disable                  disable ambient Revela mode
 
 /revela init                     initialize or refresh narrative workspace state
-/revela review                   review narrative readiness and approval state
-/revela deck                     start deck handoff from approved narrative
-/revela deck --review            review deck/artifact readiness before writing HTML
+/revela research                 research open story gaps and unsupported claims
+/revela story                    review story readiness, evidence gaps, and approval state
+/revela make deck                make a deck from approved story state
+/revela make deck --review       review deck/artifact readiness before writing HTML
+/revela make brief [file.md]     render executive brief from approved story
 /revela remember <text>          save an explicit user/workflow preference
 /revela refine                   open unified reading, inspection, and editing workspace
 /revela edit                     deprecated shim to /revela refine Edit mode
 /revela inspect                  deprecated shim to /revela refine Inspect mode
 
+/revela review                   compatibility alias for /revela story
+/revela narrative                compatibility alias for /revela story
+/revela deck                     compatibility alias for /revela make deck
+/revela brief [file.md]          compatibility alias for /revela make brief
+
+/revela design                   list installed designs
+/revela design use <name>        activate a design
+/revela design new <name>        create a custom design with AI
+/revela design edit <name>       refine an existing custom design with AI
+/revela design preview [name]    open a design preview in the browser
+/revela design add <source>      install a design from URL, local path, or github:user/repo
+/revela design rm <name>         remove an installed design
 /revela designs                  list installed designs
 /revela designs <name>           activate a design
 /revela designs-new <name>       create a custom design with AI
@@ -166,15 +181,15 @@ Disable presentation mode when done:
 /revela pptx <file>              export an HTML deck to editable PPTX in the same directory
 ```
 
-Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela review`, `/revela deck`, `/revela remember`, `/revela designs-new`, and `/revela designs-edit` start AI-assisted workflows because they need to read or update project files. `/revela refine` is the unified post-artifact workspace. It opens a local browser workspace with Edit and Inspect tabs that share the same Cmd/Ctrl-click element references. Edit sends targeted comments back into the current OpenCode session; Inspect sends grounded selection context to the current OpenCode session and renders localized Narrative Reading, Exploratory Reading, Source, and Purpose cards, has no chat box, and does not edit the deck. Deterministic preprocessing is kept as fallback context rather than the normal first UI. If a generated result omits newer reading cards, Refine keeps the deterministic Narrative Reading and Exploratory Reading cards instead of dropping context. Narrative Reading also shows artifact coverage for the selected canonical claim, including whether each recorded artifact contains the claim and whether coverage is current, stale, partial, or missing. Exploratory Reading is explicitly non-official and bounded to recorded claims, evidence, caveats, objections, risks, and artifact coverage. `/revela edit` and `/revela inspect` remain only as deprecated compatibility shims to Refine.
+Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela research`, `/revela story`, `/revela make deck`, `/revela remember`, `/revela design new`, `/revela design edit`, and compatibility aliases such as `/revela review` start AI-assisted workflows because they need to read or update project files. These workflow commands keep the visible chat message short and inject their detailed instructions through a one-shot system-prompt command intent. `/revela refine` is the unified post-artifact workspace. It opens a local browser workspace with Edit and Inspect tabs that share the same Cmd/Ctrl-click element references. Edit sends targeted comments back into the current OpenCode session; Inspect sends grounded selection context to the current OpenCode session and renders localized Narrative Reading, Exploratory Reading, Source, and Purpose cards, has no chat box, and does not edit the deck. Deterministic preprocessing is kept as fallback context rather than the normal first UI. If a generated result omits newer reading cards, Refine keeps the deterministic Narrative Reading and Exploratory Reading cards instead of dropping context. Narrative Reading also shows artifact coverage for the selected canonical claim, including whether each recorded artifact contains the claim and whether coverage is current, stale, partial, or missing. Exploratory Reading is explicitly non-official and bounded to recorded claims, evidence, caveats, objections, risks, and artifact coverage. `/revela edit` and `/revela inspect` remain only as deprecated compatibility shims to Refine.
 
 ---
 
 ## How It Works
 
-When Revela is enabled, it appends a generated prompt to the current agent's system prompt.
+Explicit Revela workflow commands append one-shot command instructions to the current agent's system prompt. `/revela enable` is optional ambient mode for keeping normal chat in Revela narrative mode between explicit commands.
 
-The default prompt is narrative-first: it focuses on audience belief shift, decision/action, thesis, claims, evidence boundaries, objections, risks, and approval. Active design CSS, layout catalogs, component indexes, chart rules, and deck HTML skeletons are intentionally omitted until `/revela deck` switches the session into deck-render mode.
+The default prompt is narrative-first: it follows `Init -> Research -> Story -> Make -> Refine` and focuses on audience belief shift, decision/action, thesis, claims, evidence boundaries, objections, risks, research gaps, and approval. Active design CSS, layout catalogs, component indexes, chart rules, and deck HTML skeletons are intentionally omitted until `/revela make deck` switches the session into deck-render mode or `/revela design` starts explicit design work.
 
 Deck-render mode is built from 3 layers:
 
@@ -183,7 +198,7 @@ Deck-render mode is built from 3 layers:
 3. active design - visual system, layouts, components, and chart rules
 
 Persistent preferences live in `~/.config/revela/config.json`.
-The enabled or disabled state is session-level only.
+The ambient enabled or disabled state is session-level only.
 
 ### Workspace State
 
@@ -197,7 +212,7 @@ The state records:
 - render targets such as the active HTML deck plus derived PDF and PPTX artifacts
 - review snapshots with input hashes so old readiness results become stale after meaningful state changes
 
-Existing root `DECKS.json` workspaces remain compatible. Running `/revela init` or `/revela review` on an older project can normalize canonical narrative state and refresh projection fields without requiring a manual migration, moving files, or replacing `DECKS.json` with a database. `writeReadiness.status: "ready"` is deck/artifact readiness only; it is never narrative approval.
+Existing root `DECKS.json` workspaces remain compatible. Running `/revela init` or `/revela story` on an older project can normalize canonical narrative state and refresh projection fields without requiring a manual migration, moving files, or replacing `DECKS.json` with a database. `writeReadiness.status: "ready"` is deck/artifact readiness only; it is never narrative approval.
 
 Decks remain the primary authored artifact, but they are now treated as render targets from the same workspace state that can later support briefs, appendix material, Evidence Inspector views, Q&A, and interactive reading layers without duplicating source/evidence logic.
 
@@ -207,20 +222,22 @@ Decks remain the primary authored artifact, but they are now treated as render t
 
 Use Revela as a narrative-first artifact workflow:
 
-1. Enable Revela with `/revela enable`.
-2. Run `/revela init` when starting in a new project or when the workspace has changed significantly.
-3. Use `/revela review` to check narrative readiness: audience, belief shift, decision/action, thesis, central claims, evidence, objections, risks, and approval state.
+1. Run `/revela init` when starting in a new project or when the workspace has changed significantly.
+2. Use `/revela research` when story gaps or unsupported central claims need external evidence.
+3. Use `/revela story` to check narrative readiness: audience, belief shift, decision/action, thesis, central claims, evidence, objections, risks, research gaps, and approval state.
 4. Approve the narrative or request revisions. If you intentionally render before full strategic approval, record an explicit render override.
-5. Run `/revela deck` to compile the approved narrative into deck slide specs and enter deck-render mode.
-6. Choose or confirm design only during deck handoff, then run the deck/artifact gate with `/revela deck --review` or the handoff workflow.
+5. Run `/revela make deck` to compile the approved narrative into deck slide specs and enter deck-render mode, or `/revela make brief` to render an executive brief.
+6. Choose or confirm design only during deck handoff, then run the deck/artifact gate with `/revela make deck --review` or the handoff workflow.
 7. Let the agent write the HTML deck under `decks/` only after the artifact gate is ready.
 8. Use `/revela refine` for visual comments, targeted revisions, read-only Narrative Reading, bounded Exploratory Reading, Source, and Purpose inspection, and claim-to-artifact coverage for selected deck elements.
 9. Use `/revela edit` or `/revela inspect` only for old scripts or habits; both open `/revela refine` in the matching mode.
 10. Export with `/revela pdf <file>` or `/revela pptx <file>`.
 
-`/revela review` checks narrative readiness: unclear audience, missing belief shift, missing decision/action, weak thesis, unsupported central claims, weak evidence, unsupported scope, unhandled objections, missing risk/assumption handling, stale approval, or missing approval. It does not review design/layout readiness and does not write the final deck.
+Use `/revela enable` only when you want ordinary chat messages, not just explicit `/revela ...` commands, to stay in Revela narrative mode.
 
-If Revela blocks a deck write, ask the agent to run `/revela deck --review`, resolve the reported artifact gaps, and try again. This protects the deck file from being overwritten before the slide specs, evidence projection, design/layout readiness, review snapshot, and deck HTML contract are ready.
+`/revela story` checks narrative readiness: unclear audience, missing belief shift, missing decision/action, weak thesis, unsupported central claims, weak evidence, unsupported scope, unhandled objections, missing risk/assumption handling, stale approval, or missing approval. It does not review design/layout readiness and does not write the final deck. `/revela review` remains a compatibility alias.
+
+If Revela blocks a deck write, ask the agent to run `/revela make deck --review`, resolve the reported artifact gaps, and try again. This protects the deck file from being overwritten before the slide specs, evidence projection, design/layout readiness, review snapshot, and deck HTML contract are ready.
 
 To remember long-term preferences, use:
 
@@ -234,7 +251,7 @@ Do not use `remember` for temporary checklist state; use it only for durable use
 
 ## Research And File Ingestion
 
-When Revela is enabled, the agent can use:
+During Revela workflows, the agent can use:
 
 - `revela-workspace-scan` to discover PDFs, Office files, CSVs, Markdown, and text files in the workspace
 - the `revela-research` subagent for targeted web research
@@ -246,7 +263,7 @@ When Revela is enabled, the agent can use:
 Supported document extraction paths:
 
 - `@` reference or pasted file in chat
-- `read` tool access while Revela is enabled
+- `read` tool access during Revela workflows or ambient mode
 
 Supported extracted file types:
 
@@ -313,7 +330,7 @@ You can also run QA manually with the `revela-qa` tool.
 
 ## Designs And Domains
 
-Use `/revela designs` and `/revela domains` to inspect what is installed in your environment.
+Use `/revela design` and `/revela domains` to inspect what is installed in your environment. Older `/revela designs*` commands remain compatibility aliases.
 
 Bundled domains in this repository:
 
@@ -341,6 +358,7 @@ You can ask Revela to create a new local design interactively:
 
 ```text
 /revela designs-new my-design
+/revela design new my-design
 ```
 
 The agent will interview you for visual references, summarize a design brief for confirmation, then save `DESIGN.md` and `preview.html` into your local Revela designs directory. For AI-authored designs, `preview.html` is required: it must include cover and closing slides, and it must showcase every `@component:*` before `revela-designs-author` will accept the package. The default structural base is an internal neutral `starter` design, which is hidden from the normal design list. Use `--base summit` or `--base monet` only when you want to derive from those specific styles.
@@ -349,6 +367,7 @@ Refine an existing local design:
 
 ```text
 /revela designs-edit my-design
+/revela design edit my-design
 ```
 
 The agent will ask what to change, inspect the current design, confirm an edit brief, then overwrite the local design package through the controlled authoring tool.
@@ -357,6 +376,7 @@ Open a design preview in your browser:
 
 ```text
 /revela designs-preview my-design
+/revela design preview my-design
 ```
 
 Omit the name to preview the active design. If a design has no `preview.html`, Revela will report that no preview is available.
@@ -374,7 +394,7 @@ my-design/
 ```yaml
 ---
 name: my-design
-description: Short description shown in /revela designs
+description: Short description shown in /revela design
 author: you
 version: 1.0.0
 ---
@@ -564,9 +584,9 @@ If a design has no markers, Revela falls back to injecting the full `DESIGN.md` 
 Install a custom design:
 
 ```text
-/revela designs-add github:your-org/your-design
-/revela designs-add https://example.com/my-design.zip
-/revela designs-add ./path/to/local/design-folder
+/revela design add github:your-org/your-design
+/revela design add https://example.com/my-design.zip
+/revela design add ./path/to/local/design-folder
 ```
 
 ---

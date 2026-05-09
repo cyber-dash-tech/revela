@@ -18,7 +18,7 @@ Goal:
 - Treat this as a narrative readiness review, not a deck HTML write-readiness review.
 - Do not write, patch, or directly edit ${DECKS_STATE_FILE}. Use the \`revela-decks\` tool for all state changes.
 - Call \`revela-decks\` action \`reviewNarrative\` as the authoritative deterministic readiness engine.
-- Do not call \`revela-decks\` action \`review\` here. That action is the deck/artifact gate and belongs to \`/revela deck --review\`.
+- Do not call \`revela-decks\` action \`review\` here. That action is the deck/artifact gate and belongs to \`/revela make deck --review\`.
 - Do not treat legacy \`writeReadiness.status\`, old review snapshots, or an existing HTML deck as narrative approval.
 - Do not write or overwrite \`decks/*.html\` during narrative review.
 - If the narrative is \`ready_for_approval\`, ask whether the user wants to approve it or revise it. Do not approve automatically.
@@ -50,7 +50,7 @@ Report format:
 - If warnings exist, list them after blockers as residual risks.
 - If approval is missing, ask whether the user wants to approve the narrative or revise it.
 - If approval is stale, say the prior approval no longer matches the current narrative hash.
-- Keep deck/artifact readiness separate. If the user wants to review slide-writing readiness, tell them to run \`/revela deck --review\`.
+- Keep deck/artifact readiness separate. If the user wants to review slide-writing readiness, tell them to run \`/revela make deck --review\`.
 
 Rules:
 - Do not write or overwrite \`decks/*.html\` during narrative review.
@@ -128,7 +128,7 @@ export function buildDeckReviewPrompt({
 
 Goal:
 - Use ${DECKS_STATE_FILE} as the source of truth for whether the current workspace deck is ready to be written to \`decks/*.html\`.
-- Treat this as an artifact gate for deck rendering, not strategic narrative approval. Narrative readiness is reviewed by \`/revela review\`.
+- Treat this as an artifact gate for deck rendering, not strategic narrative approval. Narrative readiness is reviewed by \`/revela story\`.
 - Preserve the deck spec for future sessions: every slide's content, layout, components, evidence, visuals, production status, and the 0.9 narrative compiler brief when available.
 - Do not write, patch, or directly edit ${DECKS_STATE_FILE}. Use the \`revela-decks\` tool for all state changes.
 - Let \`revela-decks\` action \`review\` compute writeReadiness; do not manually set readiness to ready.

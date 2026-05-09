@@ -34,7 +34,7 @@ export async function handleBrief(
     await send(
       `**Executive brief not rendered**\n\n${result.reason}\n\n` +
       (result.narrativeHash ? `Narrative hash: \`${result.narrativeHash}\`\n\n` : "") +
-      "Run `/revela review` and approve the current narrative, or record an explicit render override before retrying."
+      "Run `/revela story` and approve the current narrative, or record an explicit render override before retrying."
     )
     return
   }

@@ -374,7 +374,7 @@ After the user confirms the slide plan, update `DECKS.json` through `revela-deck
 3. Call `revela-designs` tool with `action: "read"` and `component` set to ALL component
    names you plan to use (comma-separated, e.g. `component: "card,stat-card,evidence-list"`).
 4. Use `revela-decks` action `upsertDeck` to mark `requiredInputs.designLayoutsFetched` complete.
-5. Run `/revela review` or call `revela-decks` action `review` yourself. The tool must compute readiness from `DECKS.json`.
+5. Run `/revela make deck --review` or call `revela-decks` action `review` yourself. The tool must compute readiness from `DECKS.json`.
 6. Use `revela-decks` action `read` and confirm `writeReadiness.status` is `ready` with no blockers.
 7. Generate HTML that **exactly matches** the fetched examples — copy the HTML structure verbatim.
 

@@ -24,12 +24,13 @@ export async function handleHelp(
     `🟠 **Domain:** \`${domain}\`\n\n` +
     `---\n\n` +
     `**Commands**\n\n` +
-    `\`/revela enable\`              — enable Revela narrative/artifact mode\n` +
-    `\`/revela disable\`             — disable Revela mode\n` +
+    `\`/revela enable\`              — optional ambient narrative mode for normal chat\n` +
+    `\`/revela disable\`             — disable ambient Revela mode\n` +
     `\`/revela init\`                — initialize or refresh workspace DECKS.json\n` +
+    `\`/revela research\`            — research open story gaps and unsupported claims\n` +
     `\`/revela story\`               — review story readiness, evidence gaps, and approval state\n` +
     `\`/revela review\`              — compatibility alias for /revela story\n` +
-    `\`/revela narrative\`           — open read-only narrative workspace map\n` +
+    `\`/revela narrative\`           — compatibility alias for /revela story\n` +
     `\`/revela make deck\`           — make a deck from approved story state\n` +
     `\`/revela make deck --review\`  — review deck/artifact readiness before writing HTML\n` +
     `\`/revela make brief [file.md]\` — render executive brief from approved story\n` +
@@ -39,6 +40,11 @@ export async function handleHelp(
     `\`/revela edit\`                — deprecated compatibility shim to /revela refine Edit\n` +
     `\`/revela inspect\`             — deprecated compatibility shim to /revela refine Inspect\n` +
     `\`/revela remember <text>\`     — save an explicit preference to DECKS.json\n` +
+    `\`/revela design\`              — list installed designs\n` +
+    `\`/revela design use <name>\`   — activate a design\n` +
+    `\`/revela design new <name>\`   — create a custom design with AI\n` +
+    `\`/revela design edit <name>\`  — refine an existing custom design with AI\n` +
+    `\`/revela design preview [name]\` — open a design preview in browser\n` +
     `\`/revela designs\`             — list installed designs\n` +
     `\`/revela designs <name>\`      — activate a design\n` +
     `\`/revela designs-new <name>\`  — create a new custom design with AI\n` +

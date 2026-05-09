@@ -1,7 +1,7 @@
 /**
  * lib/commands/enable.ts
  *
- * Handler for `/revela enable` — activates Revela narrative/artifact mode.
+ * Handler for `/revela enable` — activates Revela ambient narrative mode.
  */
 
 import { existsSync } from "fs"
@@ -19,7 +19,7 @@ export async function handleEnable(
   const design = activeDesign()
   const domain = activeDomain()
 
-  // Always rebuild narrative mode on enable. A prior `/revela deck` handoff may
+  // Always rebuild narrative mode on enable. A prior `/revela make deck` handoff may
   // have intentionally switched the active prompt to deck-render mode.
   if (!existsSync(ACTIVE_PROMPT_FILE)) {
     log.warn("active prompt file missing on enable — rebuilding", { promptFile: ACTIVE_PROMPT_FILE })
@@ -30,7 +30,7 @@ export async function handleEnable(
   } catch (e) {
     log.error("prompt rebuild failed on enable", { error: e instanceof Error ? e.message : String(e) })
     await send(
-      `**Revela enabled (with warnings).** Narrative/artifact mode is active, ` +
+      `**Revela ambient mode enabled (with warnings).** Narrative mode is active for normal chat, ` +
       `but the prompt file could not be built. ` +
       `Try \`/revela disable\` then \`/revela enable\` again, or check that the package is correctly installed.\n\n` +
       `Design: \`${design}\` · Domain: \`${domain}\``
@@ -40,9 +40,9 @@ export async function handleEnable(
 
   log.info("revela enabled", { design, domain })
   await send(
-    `**Revela enabled.** Narrative/artifact mode is now active.\n` +
+    `**Revela ambient mode enabled.** Normal chat will stay in Revela narrative mode.\n` +
     `Design: \`${design}\` · Domain: \`${domain}\`\n\n` +
-    `The narrative-first prompt will be injected into every message. ` +
-    `Use \`/revela deck\` when you are ready to enter deck-render mode.`
+    `Explicit workflow commands like \`/revela init\`, \`/revela story\`, and \`/revela make deck\` work without enabling first. ` +
+    `Use \`/revela disable\` to return normal chat to plain OpenCode mode.`
   )
 }

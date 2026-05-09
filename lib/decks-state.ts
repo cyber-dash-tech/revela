@@ -564,7 +564,7 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
       type: "missing_slide_spec",
       severity: "blocker",
       message,
-      suggestedAction: "Run /revela review and resolve all readiness blockers before writing deck HTML.",
+      suggestedAction: "Run /revela make deck --review and resolve all readiness blockers before writing deck HTML.",
     })
   }
   if (deck.writeReadiness.blockers.length > 0) {
@@ -574,7 +574,7 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
       type: "missing_slide_spec",
       severity: "blocker",
       message,
-      suggestedAction: "Resolve the stored writeReadiness blockers and rerun /revela review.",
+      suggestedAction: "Resolve the stored writeReadiness blockers and rerun /revela make deck --review.",
     })
   }
   if (normalized.reviews.length > 0) {
@@ -587,7 +587,7 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
         type: "missing_slide_spec",
         severity: "blocker",
         message,
-        suggestedAction: "Run /revela review so readiness is recorded against the current active render target.",
+        suggestedAction: "Run /revela make deck --review so readiness is recorded against the current active render target.",
       })
     } else if (!isReviewSnapshotCurrent(normalized, snapshot, deck.slug)) {
       const message = "Latest review snapshot is stale for the current deck, sources, evidence, narrative state, or render target"
@@ -596,7 +596,7 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
         type: "missing_slide_spec",
         severity: "blocker",
         message,
-        suggestedAction: "Run /revela review again after the latest state changes before writing deck HTML.",
+        suggestedAction: "Run /revela make deck --review again after the latest state changes before writing deck HTML.",
       })
     } else if (snapshot.status !== "ready") {
       const message = `Latest review snapshot is ${snapshot.status}, not ready`
@@ -605,7 +605,7 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
         type: "missing_slide_spec",
         severity: "blocker",
         message,
-        suggestedAction: "Resolve review blockers and rerun /revela review before writing deck HTML.",
+        suggestedAction: "Resolve review blockers and rerun /revela make deck --review before writing deck HTML.",
       })
     }
   }
