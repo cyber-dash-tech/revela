@@ -200,4 +200,86 @@ describe("inspection prompt projection", () => {
     expect(projection.selectedElement.text?.length).toBeLessThanOrEqual(700)
     expect(projection.cards.source.evidence[0].quote?.length).toBeLessThanOrEqual(500)
   })
+
+  it("projects selected DOM context and canonical candidate claims for child selections", () => {
+    let state = createEmptyDecksState()
+    state = upsertDeck(state, {
+      slug: "candidate-projection-demo",
+      goal: "Recommend whether to approve phased expansion.",
+      audience: "Investment committee",
+      outputPath: "decks/candidate-projection-demo.html",
+    })
+    state.narrative = {
+      version: 1,
+      id: "narrative:candidate-projection-demo",
+      status: "approved",
+      audience: { primary: "Investment committee", beliefBefore: "Unsure", beliefAfter: "Ready" },
+      decision: { action: "Approve phased expansion." },
+      claims: [
+        {
+          id: "claim:market",
+          kind: "evidence",
+          text: "Market demand has grown 25% since 2024",
+          importance: "central",
+          evidenceRequired: true,
+          evidenceStatus: "supported",
+          supportedScope: "Current demand growth.",
+        },
+        {
+          id: "claim:capacity",
+          kind: "risk",
+          text: "Hiring capacity is the main constraint",
+          importance: "central",
+          evidenceRequired: true,
+          evidenceStatus: "partial",
+          unsupportedScope: "Automation relief timing.",
+        },
+      ],
+      evidenceBindings: [],
+      objections: [],
+      risks: [],
+      approvals: [],
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    }
+    state = upsertSlides(state, "candidate-projection-demo", [{
+      index: 1,
+      title: "Decision Drivers",
+      purpose: "Show supporting and risk drivers",
+      narrativeRole: "evidence",
+      layout: "two-col",
+      components: ["card"],
+      claimRefs: [
+        { claimId: "claim:market", role: "primary" },
+        { claimId: "claim:capacity", role: "risk" },
+      ],
+      content: { headline: "Decision drivers", bullets: ["Demand", "Capacity"] },
+      evidence: [],
+      status: "ready",
+    }])
+
+    const ctx = compileInspectionContext(state)
+    const snapshot = {
+      slideIndex: 1,
+      text: "detail label",
+      tagName: "div",
+      classList: ["flow-body"],
+      nearbyText: "Decision driver detail label inside the capability flow.",
+      outerHTMLExcerpt: '<div class="flow-body">detail label</div>',
+    }
+    const match = matchInspectionElement(ctx, snapshot)
+    const projection = projectInspectionMatch(ctx, match, snapshot)
+
+    expect(projection.match.claim).toBeUndefined()
+    expect(projection.match.candidateClaims?.map((claim) => claim.canonicalClaimId)).toEqual(["claim:market", "claim:capacity"])
+    expect(projection.match.candidateClaims?.[0]).toMatchObject({
+      text: "Market demand has grown 25% since 2024",
+      supportedScope: "Current demand growth.",
+    })
+    expect(projection.match.candidateClaims?.[1]).toMatchObject({
+      text: "Hiring capacity is the main constraint",
+      unsupportedScope: "Automation relief timing.",
+    })
+    expect(projection.selectedElement.nearbyText).toContain("capability flow")
+    expect(projection.selectedElement.outerHTMLExcerpt).toContain("flow-body")
+  })
 })

@@ -37,8 +37,13 @@ describe("renderRefineShell", () => {
     expect(html).toContain("/api/comment")
     expect(html).toContain("/api/inspect")
     expect(html).toContain("/api/inspect-result")
-    expect(html).toContain("Preprocessed")
     expect(html).toContain("Generated")
+    expect(html).toContain("Reading selection...")
+    expect(html).toContain("Deterministic fallback")
+    expect(html).toContain("id=\"inspectLanguage\"")
+    expect(html).toContain("简体中文")
+    expect(html).toContain("Português")
+    expect(html).toContain("language: state.inspectLanguage")
     expect(html).toContain("collectReferenceSnapshot")
     expect(html).toContain("Narrative Reading, Exploratory Reading, Source, and Purpose")
     expect(html).toContain("renderReading")
@@ -253,13 +258,14 @@ describe("refine HTTP inspect lifecycle", () => {
     const response = await withTimeout(fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ snapshot: { slideIndex: 1, text: "Conversion improved 18%", tagName: "H2", classList: [] } }),
+      body: JSON.stringify({ snapshot: { slideIndex: 1, text: "Conversion improved 18%", tagName: "H2", classList: [] }, language: "简体中文" }),
     }), 100)
     const data = await response.json() as any
 
     expect(promptCalled).toBe(true)
     expect(data.ok).toBe(true)
     expect(data.status).toBe("pending")
+    expect(data.language).toBe("简体中文")
     expect(data.preprocess.cards.purpose.status).toBe("clear")
     expect(data.preprocess.cards.source.status).toBe("supported")
     expect(data.preprocess.cards.reading.status).toBe("matched")

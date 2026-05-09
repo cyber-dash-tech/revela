@@ -1,5 +1,5 @@
 import type { InspectionPromptProjection } from "../inspection-context/project"
-import type { InspectionResult } from "../inspection-context/result"
+import { buildDeterministicInspectionResult, type InspectionResult } from "../inspection-context/result"
 
 export type InspectRequestStatus = "pending" | "completed" | "failed" | "expired"
 
@@ -53,9 +53,28 @@ export function completeInspectRequest(requestId: string, result: InspectionResu
   if (!request) throw new Error(`Unknown inspection request: ${requestId}`)
   if (request.status !== "pending") throw new Error(`Inspection request is not pending: ${request.status}`)
   request.status = "completed"
-  request.result = { ...result, requestId }
+  request.result = normalizeInspectionResult(request.projection, result, requestId)
   request.updatedAt = Date.now()
   return request
+}
+
+function normalizeInspectionResult(
+  projection: InspectionPromptProjection,
+  result: InspectionResult,
+  requestId: string,
+): InspectionResult {
+  const deterministic = buildDeterministicInspectionResult(projection, { requestId })
+  return {
+    ...result,
+    requestId,
+    cards: {
+      reading: result.cards.reading ?? deterministic.cards.reading,
+      exploratory: result.cards.exploratory ?? deterministic.cards.exploratory,
+      purpose: result.cards.purpose,
+      source: result.cards.source,
+    },
+    stale: result.stale ?? deterministic.stale,
+  }
 }
 
 export function failInspectRequest(requestId: string, error: string): PendingInspectRequest | undefined {

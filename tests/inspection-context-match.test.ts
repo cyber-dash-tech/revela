@@ -99,6 +99,61 @@ describe("inspection element matching", () => {
     return compileInspectionContext(state)
   }
 
+  function multiCanonicalContext() {
+    let state = createEmptyDecksState()
+    state = upsertDeck(state, {
+      slug: "multi-canonical-match-demo",
+      goal: "Recommend whether to approve expansion.",
+      outputPath: "decks/multi-canonical-match-demo.html",
+    })
+    state.narrative = {
+      version: 1,
+      id: "narrative:multi-canonical-match-demo",
+      status: "approved",
+      audience: { primary: "Investment committee", beliefBefore: "Unsure", beliefAfter: "Ready" },
+      decision: { action: "Approve phased expansion." },
+      claims: [
+        {
+          id: "claim:market",
+          kind: "evidence",
+          text: "Market demand has grown 25% since 2024",
+          importance: "central",
+          evidenceRequired: true,
+          evidenceStatus: "supported",
+        },
+        {
+          id: "claim:capacity",
+          kind: "risk",
+          text: "Hiring capacity is the main constraint",
+          importance: "central",
+          evidenceRequired: true,
+          evidenceStatus: "partial",
+        },
+      ],
+      evidenceBindings: [],
+      objections: [],
+      risks: [],
+      approvals: [],
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    }
+    state = upsertSlides(state, "multi-canonical-match-demo", [{
+      index: 1,
+      title: "Decision Drivers",
+      purpose: "Show supporting and risk drivers",
+      narrativeRole: "evidence",
+      layout: "two-col",
+      components: ["card"],
+      claimRefs: [
+        { claimId: "claim:market", role: "primary" },
+        { claimId: "claim:capacity", role: "risk" },
+      ],
+      content: { headline: "Decision drivers", bullets: ["Demand", "Capacity"] },
+      evidence: [],
+      status: "ready",
+    }])
+    return compileInspectionContext(state)
+  }
+
   it("matches selected headline text to a claim with high confidence", () => {
     const result = matchInspectionElement(context(), {
       slideIndex: 1,
@@ -160,6 +215,47 @@ describe("inspection element matching", () => {
     expect(result.claim).toBeUndefined()
     expect(result.evidence).toEqual(expect.arrayContaining([expect.objectContaining({ source: "Operations notes" })]))
     expect(result.gaps).toContainEqual(expect.objectContaining({ type: "weak_evidence" }))
+  })
+
+  it("maps a child selection to the single canonical slide claim without text guessing", () => {
+    const result = matchInspectionElement(canonicalContext(), {
+      slideIndex: 1,
+      text: "detail label",
+      tagName: "div",
+      classList: ["flow-body"],
+    })
+
+    expect(result.confidence).toBe("medium")
+    expect(result.reason).toBe("Selected element matched the slide; the slide has one canonical narrative claim candidate.")
+    expect(result.claim?.canonicalClaimId).toBe("claim:canonical-market")
+    expect(result.candidateClaims?.map((claim) => claim.canonicalClaimId)).toEqual(["claim:canonical-market"])
+  })
+
+  it("keeps multiple canonical slide claims as candidates instead of guessing one", () => {
+    const result = matchInspectionElement(multiCanonicalContext(), {
+      slideIndex: 1,
+      text: "detail label",
+      tagName: "div",
+      classList: ["flow-body"],
+    })
+
+    expect(result.confidence).toBe("medium")
+    expect(result.claim).toBeUndefined()
+    expect(result.reason).toBe("Matched slide only; multiple canonical claim candidates are available, so no claim id was chosen by semantic guess.")
+    expect(result.candidateClaims?.map((claim) => claim.canonicalClaimId)).toEqual(["claim:market", "claim:capacity"])
+  })
+
+  it("matches explicit DOM claim anchors before text matching", () => {
+    const result = matchInspectionElement(multiCanonicalContext(), {
+      slideIndex: 1,
+      text: "detail label",
+      selector: '.slide[data-slide-index="1"] > div[data-claim-id="claim:capacity"]',
+      outerHTMLExcerpt: '<div data-claim-id="claim:capacity">detail label</div>',
+    })
+
+    expect(result.confidence).toBe("high")
+    expect(result.reason).toBe("Matched explicit claim anchor from selection snapshot.")
+    expect(result.claim?.canonicalClaimId).toBe("claim:capacity")
   })
 
   it("does not treat source materials as evidence when no claim matches", () => {

@@ -459,6 +459,7 @@ async function handleInspect(req: Request, session: EditSession): Promise<Respon
   }
 
   const snapshot = normalizeSnapshot(body?.snapshot ?? body)
+  const language = normalizeInspectLanguage(body?.language)
   const requestId = typeof body?.requestId === "string" && body.requestId.trim() ? body.requestId.trim() : randomBytes(10).toString("base64url")
   const version = readDeckVersion(session).version
   const staleReason = typeof body?.deckVersion === "string" && body.deckVersion !== version
@@ -480,6 +481,7 @@ async function handleInspect(req: Request, session: EditSession): Promise<Respon
           text: buildInspectionPrompt({
             requestId,
             file: session.file,
+            language,
             projection: staleReason
               ? { ...projection, stale: { stale: true, reason: staleReason } } as any
               : projection,
@@ -491,7 +493,7 @@ async function handleInspect(req: Request, session: EditSession): Promise<Respon
       failInspectRequest(requestId, message)
     })
 
-    return jsonResponse({ ok: true, requestId, deckVersion: version, status: "pending", preprocess })
+    return jsonResponse({ ok: true, requestId, deckVersion: version, status: "pending", language, preprocess })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     failInspectRequest(requestId, message)
@@ -508,6 +510,11 @@ function handleInspectResult(requestId: string | null, session: EditSession): Re
   if (request.status === "completed") return jsonResponse({ ok: true, requestId, status: request.status, deckVersion: request.deckVersion, result: request.result })
   if (request.status === "failed" || request.status === "expired") return jsonResponse({ ok: true, requestId, status: request.status, deckVersion: request.deckVersion, error: request.error || "Inspection failed" })
   return jsonResponse({ ok: true, requestId, status: request.status, deckVersion: request.deckVersion })
+}
+
+function normalizeInspectLanguage(input: unknown): string {
+  const value = typeof input === "string" ? input.trim() : ""
+  return value || "Auto"
 }
 
 function normalizeSnapshot(input: any): InspectionElementSnapshot {
@@ -657,6 +664,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .comment-bubble.stale .comment-bubble-state { color: #a16207; }
     .comment-bubble.failed .comment-bubble-state { color: #b91c1c; }
     .inspect-actions { display: flex; flex-direction: column; gap: 8px; }
+    .inspect-options { display: flex; flex-direction: column; gap: 5px; }
+    .inspect-options label { color: #64748b; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+    .inspect-select { width: 100%; padding: 10px 11px; border: 1px solid #d7e0ea; border-radius: 12px; background: #fff; color: #0f172a; font-weight: 700; }
     .inspect-cards { display: flex; flex-direction: column; gap: 12px; }
     .inspect-card { border: 1px solid #d7e0ea; border-radius: 16px; background: #fff; padding: 13px; box-shadow: 0 10px 24px rgba(15,23,42,.05); }
     .inspect-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
@@ -698,6 +708,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       </div>
       <div id="inspectPanel" class="tab-panel">
         <div class="inspect-actions">
+          <div class="inspect-options"><label for="inspectLanguage">Display Language</label><select id="inspectLanguage" class="inspect-select"><option>Auto</option><option>English</option><option>简体中文</option><option>繁體中文</option><option>日本語</option><option>Deutsch</option><option>Français</option><option>Español</option><option>Português</option><option>Arabic</option></select></div>
           <button id="inspectButton" disabled>Inspect Selection</button>
           <div id="inspectStale"></div>
         </div>
@@ -744,6 +755,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         mode: defaultMode === 'inspect' ? 'inspect' : 'edit',
         inspecting: false,
         activeInspectRequestId: '',
+        inspectLanguage: 'Auto',
+        inspectFallback: null,
       };
       const els = {
         frame: null,
@@ -759,6 +772,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         commentThread: null,
         send: null,
         inspectButton: null,
+        inspectLanguage: null,
         inspectCards: null,
         inspectStale: null,
         status: null,
@@ -792,7 +806,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           els.inspectStale = document.getElementById('inspectStale');
           els.status = document.getElementById('status');
 
-          if (!els.frame || !els.hitbox || !els.resizeHandle || !els.selectionSummary || !els.selectionChips || !els.editTab || !els.inspectTab || !els.editPanel || !els.inspectPanel || !els.comment || !els.commentThread || !els.send || !els.inspectButton || !els.inspectCards || !els.inspectStale || !els.status) {
+          els.inspectLanguage = document.getElementById('inspectLanguage');
+
+          if (!els.frame || !els.hitbox || !els.resizeHandle || !els.selectionSummary || !els.selectionChips || !els.editTab || !els.inspectTab || !els.editPanel || !els.inspectPanel || !els.comment || !els.commentThread || !els.send || !els.inspectButton || !els.inspectLanguage || !els.inspectCards || !els.inspectStale || !els.status) {
             throw new Error('Editor boot failed: required DOM nodes are missing.');
           }
 
@@ -840,6 +856,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         els.resizeHandle.addEventListener('dblclick', resetEditorWidth);
         els.send.addEventListener('click', sendComment);
         els.inspectButton.addEventListener('click', inspectCurrentSelection);
+        els.inspectLanguage.addEventListener('change', () => {
+          state.inspectLanguage = els.inspectLanguage.value || 'Auto';
+        });
         els.editTab.addEventListener('click', () => setMode('edit'));
         els.inspectTab.addEventListener('click', () => setMode('inspect'));
       }
@@ -1286,22 +1305,28 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         updateSendState();
         setMode('inspect');
         els.inspectStale.innerHTML = '';
-        els.inspectCards.innerHTML = '<div class="inspect-loading"><b>Preparing inspection...</b><br>Deterministic Narrative Reading, Exploratory Reading, Source, and Purpose cards appear first; generated cards update lazily.</div>';
+        state.inspectFallback = null;
+        els.inspectCards.innerHTML = '<div class="inspect-loading"><b>Reading selection...</b><br>Sending grounded selection context to OpenCode. Deterministic context is kept as fallback if generation fails.</div>';
         try {
           const res = await fetch('/api/inspect?token=' + encodeURIComponent(token), {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ snapshot, deckVersion: state.deckVersion }),
+            body: JSON.stringify({ snapshot, deckVersion: state.deckVersion, language: state.inspectLanguage }),
           });
           const body = await res.json().catch(() => ({}));
           if (!res.ok || !body.ok) throw new Error(body.error || 'Inspection failed');
           state.deckVersion = body.deckVersion || state.deckVersion;
           state.activeInspectRequestId = body.requestId;
-          if (body.preprocess) renderInspectResult(body.preprocess, 'Preprocessed');
-          els.inspectCards.insertAdjacentHTML('beforeend', '<div class="inspect-loading"><b>Generating lazy inspection...</b><br>Waiting for structured result from OpenCode.</div>');
+          state.inspectFallback = body.preprocess || null;
+          els.inspectCards.innerHTML = '<div class="inspect-loading"><b>Reading selection...</b><br>Waiting for localized structured reading cards.</div>';
           await pollInspectResult(body.requestId);
         } catch (error) {
-          resetInspectCards(error && error.message ? error.message : String(error));
+          if (state.inspectFallback) {
+            renderInspectResult(state.inspectFallback, 'Deterministic fallback');
+            els.inspectCards.insertAdjacentHTML('afterbegin', '<div class="inspect-warning">Generated inspection failed or timed out. Showing deterministic fallback context only.</div>');
+          } else {
+            resetInspectCards(error && error.message ? error.message : String(error));
+          }
         } finally {
           state.inspecting = false;
           updateSendState();
@@ -1309,7 +1334,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       async function pollInspectResult(requestId) {
-        for (;;) {
+        for (let attempt = 0; attempt < 80; attempt++) {
           await delay(900);
           const res = await fetch('/api/inspect-result?token=' + encodeURIComponent(token) + '&requestId=' + encodeURIComponent(requestId));
           const body = await res.json().catch(() => ({}));
@@ -1321,6 +1346,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           }
           if (body.status === 'failed' || body.status === 'expired') throw new Error(body.error || 'Inspection failed');
         }
+        throw new Error('Inspection timed out while waiting for OpenCode result');
       }
 
       function collectReferenceSnapshot() {
@@ -1570,10 +1596,17 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function findSlide(node) {
-        return node.closest('.slide, [slide-qa], .slide-canvas, .page');
+        if (!node || !node.closest) return null;
+        return node.closest('.slide[data-slide-index]')
+          || node.closest('.slide')
+          || node.closest('[slide-qa]')
+          || node.closest('.slide-canvas')
+          || node.closest('.page');
       }
 
       function getSlides(doc) {
+        const canonicalSlides = Array.from(doc.querySelectorAll('.slide[data-slide-index]'));
+        if (canonicalSlides.length) return canonicalSlides;
         const slides = Array.from(doc.querySelectorAll('.slide'));
         if (slides.length) return slides;
         const qaSlides = Array.from(doc.querySelectorAll('[slide-qa]'));

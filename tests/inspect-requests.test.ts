@@ -30,6 +30,39 @@ describe("inspect pending request store", () => {
     expect(completed.status).toBe("completed")
     expect(completed.result?.requestId).toBe("inspect-1")
     expect(getInspectRequest("inspect-1")?.result?.cards.source.status).toBe("supported")
+    expect(getInspectRequest("inspect-1")?.result?.cards.reading).toMatchObject({
+      status: "matched",
+      claimText: "Conversion improved 18%",
+    })
+    expect(getInspectRequest("inspect-1")?.result?.cards.exploratory).toMatchObject({
+      status: "available",
+      official: false,
+    })
+  })
+
+  it("preserves generated reading cards when supplied", () => {
+    createInspectRequest({ requestId: "inspect-generated", projection: projection(), deckVersion: "v1" })
+
+    const completed = completeInspectRequest("inspect-generated", {
+      ...result("inspect-generated"),
+      cards: {
+        ...result("inspect-generated").cards,
+        reading: {
+          status: "matched",
+          claimId: "generated-claim",
+          claimText: "Generated claim reading",
+          evidenceBindingIds: [],
+          caveats: [],
+          relatedObjections: [],
+          relatedRisks: [],
+          artifactCoverage: [],
+          rationale: "Generated narrative reading should not be replaced.",
+        },
+      },
+    })
+
+    expect(completed.result?.cards.reading?.claimId).toBe("generated-claim")
+    expect(completed.result?.cards.exploratory?.official).toBe(false)
   })
 
   it("rejects unknown or already completed requests", () => {

@@ -1,5 +1,5 @@
 import type { NarrativeBrief, NarrativeRole } from "../decks-state"
-import type { InspectionContext, InspectionEvidenceTrace, InspectionGap } from "./compile"
+import type { InspectionClaimCandidate, InspectionContext, InspectionEvidenceTrace, InspectionGap } from "./compile"
 import type { InspectionElementMatch, InspectionElementSnapshot, InspectionMatchConfidence } from "./match"
 
 export interface InspectionPromptProjection {
@@ -29,11 +29,15 @@ export interface InspectionProjectionElement {
   scope?: "element" | "selection" | "slide"
   slideIndex?: number
   text?: string
+  nearbyText?: string
+  outerHTMLExcerpt?: string
   elements?: Array<{
     text?: string
     tagName?: string
     classList: string[]
     role?: string
+    nearbyText?: string
+    outerHTMLExcerpt?: string
   }>
   tagName?: string
   classList: string[]
@@ -61,6 +65,20 @@ export interface InspectionProjectionMatch {
     unsupportedScope?: string
     caveats: string[]
   }
+  candidateClaims?: InspectionProjectionClaimCandidate[]
+}
+
+export interface InspectionProjectionClaimCandidate {
+  id: string
+  canonicalClaimId?: string
+  origin: string
+  text: string
+  evidenceSensitive: boolean
+  evidenceSupport: string
+  evidenceBindingIds: string[]
+  supportedScope?: string
+  unsupportedScope?: string
+  caveats: string[]
 }
 
 export interface InspectionSourceProjection {
@@ -159,6 +177,7 @@ export function projectInspectionMatch(
 ): InspectionPromptProjection {
   const slide = match.slide
   const claim = match.claim
+  const candidateClaims = dedupeClaims(match.candidateClaims ?? [])
   const traces = match.evidence.map(projectEvidenceTrace)
   const gaps = match.gaps.map(projectGap)
   const narrativeBrief = context.narrativeBrief
@@ -176,11 +195,15 @@ export function projectInspectionMatch(
       slideIndex: snapshot.slideIndex,
       scope: snapshot.scope,
       text: truncateOptional(snapshot.selectedText || snapshot.text, 700),
+      nearbyText: truncateOptional(snapshot.nearbyText, 900),
+      outerHTMLExcerpt: truncateOptional(snapshot.outerHTMLExcerpt, 900),
       elements: snapshot.elements?.slice(0, 12).map((item) => ({
         text: truncateOptional(item.text, 320),
         tagName: truncateOptional(item.tagName, 40),
         classList: (item.classList ?? []).slice(0, 8).map((className) => truncate(className, 80)),
         role: truncateOptional(item.role, 80),
+        nearbyText: truncateOptional(item.nearbyText, 420),
+        outerHTMLExcerpt: truncateOptional(item.outerHTMLExcerpt, 420),
       })),
       tagName: truncateOptional(snapshot.tagName, 40),
       classList: (snapshot.classList ?? []).slice(0, 12).map((item) => truncate(item, 80)),
@@ -198,19 +221,9 @@ export function projectInspectionMatch(
           }
         : undefined,
       claim: claim
-        ? {
-            id: claim.id,
-            canonicalClaimId: claim.canonicalClaimId,
-            origin: claim.origin,
-            text: truncate(claim.text, 500),
-            evidenceSensitive: claim.evidenceSensitive,
-            evidenceSupport: claim.evidenceSupport,
-            evidenceBindingIds: claim.evidenceBindingIds,
-            supportedScope: truncateOptional(claim.supportedScope, 280),
-            unsupportedScope: truncateOptional(claim.unsupportedScope, 280),
-            caveats: claim.caveats.map((item) => truncate(item, 280)).slice(0, 8),
-          }
+        ? projectClaimCandidate(claim)
         : undefined,
+      candidateClaims: candidateClaims.map(projectClaimCandidate).slice(0, 8),
     },
     cards: {
       source: {
@@ -249,6 +262,33 @@ export function projectInspectionMatch(
       artifacts: projectArtifactCoverage(context, claim?.canonicalClaimId ?? claim?.id),
     },
   }
+}
+
+function projectClaimCandidate(claim: InspectionClaimCandidate): InspectionProjectionClaimCandidate {
+  return {
+    id: claim.id,
+    canonicalClaimId: claim.canonicalClaimId,
+    origin: claim.origin,
+    text: truncate(claim.text, 500),
+    evidenceSensitive: claim.evidenceSensitive,
+    evidenceSupport: claim.evidenceSupport,
+    evidenceBindingIds: claim.evidenceBindingIds,
+    supportedScope: truncateOptional(claim.supportedScope, 280),
+    unsupportedScope: truncateOptional(claim.unsupportedScope, 280),
+    caveats: claim.caveats.map((item) => truncate(item, 280)).slice(0, 8),
+  }
+}
+
+function dedupeClaims(claims: InspectionClaimCandidate[]): InspectionClaimCandidate[] {
+  const seen = new Set<string>()
+  const result: InspectionClaimCandidate[] = []
+  for (const claim of claims) {
+    const key = claim.canonicalClaimId || claim.id
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(claim)
+  }
+  return result
 }
 
 function projectArtifactCoverage(context: InspectionContext, selectedClaimId: string | undefined): InspectionArtifactCoverageProjection {

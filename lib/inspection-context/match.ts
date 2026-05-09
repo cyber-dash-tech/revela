@@ -45,6 +45,7 @@ export interface InspectionElementSnapshot {
 export interface InspectionElementMatch {
   slide?: InspectionSlideContext
   claim?: InspectionClaimCandidate
+  candidateClaims?: InspectionClaimCandidate[]
   evidence: InspectionEvidenceTrace[]
   gaps: InspectionGap[]
   caveats: string[]
@@ -55,7 +56,11 @@ export interface InspectionElementMatch {
 
 export function matchInspectionElement(context: InspectionContext, snapshot: InspectionElementSnapshot): InspectionElementMatch {
   const selectedText = normalizeText(snapshot.text)
+  const surroundingText = normalizeText(snapshot.nearbyText || snapshot.outerHTMLExcerpt)
   const candidateSlides = candidateSlidesForSnapshot(context, snapshot)
+
+  const anchoredClaim = findAnchoredClaimMatch(candidateSlides, snapshot)
+  if (anchoredClaim) return claimMatch(context, anchoredClaim.slide, anchoredClaim.claim, "high", "Matched explicit claim anchor from selection snapshot.")
 
   if (selectedText) {
     const exactClaim = findClaimMatch(candidateSlides, selectedText, "exact")
@@ -77,8 +82,27 @@ export function matchInspectionElement(context: InspectionContext, snapshot: Ins
     }
   }
 
+  if (surroundingText && surroundingText !== selectedText) {
+    const contextualClaim = findClaimMatch(candidateSlides, surroundingText, "contains")
+    if (contextualClaim) return claimMatch(context, contextualClaim.slide, contextualClaim.claim, "medium", "Matched claim using surrounding slide context.")
+  }
+
   const slide = candidateSlides[0]
-  if (slide) return slideMatch(context, slide, snapshot.slideIndex ? "medium" : "low", snapshot.slideIndex ? "Matched by slideIndex only." : "No claim text matched; returning first candidate slide.")
+  if (slide) {
+    const canonicalClaims = slide.claims.filter((claim) => claim.canonicalClaimId || claim.origin === "narrative")
+    if (canonicalClaims.length === 1) {
+      return claimMatch(context, slide, canonicalClaims[0], "medium", "Selected element matched the slide; the slide has one canonical narrative claim candidate.", canonicalClaims)
+    }
+    return slideMatch(
+      context,
+      slide,
+      snapshot.slideIndex ? "medium" : "low",
+      canonicalClaims.length > 1
+        ? "Matched slide only; multiple canonical claim candidates are available, so no claim id was chosen by semantic guess."
+        : snapshot.slideIndex ? "Matched by slideIndex only." : "No claim text matched; returning first candidate slide.",
+      canonicalClaims,
+    )
+  }
 
   return {
     evidence: [],
@@ -114,6 +138,37 @@ function findClaimMatch(
   return undefined
 }
 
+function findAnchoredClaimMatch(
+  slides: InspectionSlideContext[],
+  snapshot: InspectionElementSnapshot,
+): { slide: InspectionSlideContext; claim: InspectionClaimCandidate } | undefined {
+  const claimIds = explicitClaimIds(snapshot)
+  if (claimIds.length === 0) return undefined
+  for (const slide of slides) {
+    for (const claim of slide.claims) {
+      const ids = [claim.id, claim.canonicalClaimId].filter((item): item is string => Boolean(item))
+      if (ids.some((id) => claimIds.includes(id))) return { slide, claim }
+    }
+  }
+  return undefined
+}
+
+function explicitClaimIds(snapshot: InspectionElementSnapshot): string[] {
+  const values = [
+    snapshot.selector,
+    snapshot.domPath,
+    snapshot.outerHTMLExcerpt,
+    ...(snapshot.elements ?? []).flatMap((item) => [item.selector, item.domPath, item.outerHTMLExcerpt]),
+  ]
+  const ids: string[] = []
+  for (const value of values) {
+    if (!value) continue
+    for (const match of value.matchAll(/data-claim-id\s*=\s*["']([^"']+)["']/gi)) ids.push(match[1])
+    for (const match of value.matchAll(/data-claim-id=([^\]\s>"']+)/gi)) ids.push(match[1])
+  }
+  return dedupe(ids.map((item) => item.trim()).filter(Boolean))
+}
+
 function conservativeContains(claimText: string, selectedText: string): boolean {
   if (selectedText.length < 12 && claimText.length < 12) return false
   return claimText.includes(selectedText) || selectedText.includes(claimText)
@@ -125,10 +180,12 @@ function claimMatch(
   claim: InspectionClaimCandidate,
   confidence: InspectionMatchConfidence,
   reason: string,
+  candidateClaims: InspectionClaimCandidate[] = [],
 ): InspectionElementMatch {
   return {
     slide,
     claim,
+    candidateClaims: candidateClaims.length ? candidateClaims : [claim],
     evidence: claim.evidence,
     gaps: claim.gaps,
     caveats: slide.caveats,
@@ -143,9 +200,11 @@ function slideMatch(
   slide: InspectionSlideContext,
   confidence: InspectionMatchConfidence,
   reason: string,
+  candidateClaims: InspectionClaimCandidate[] = [],
 ): InspectionElementMatch {
   return {
     slide,
+    candidateClaims,
     evidence: slide.evidence,
     gaps: slide.claims.flatMap((claim) => claim.gaps),
     caveats: slide.caveats,
@@ -166,4 +225,15 @@ function normalizeText(text: string | undefined): string {
     .replace(/[‘’]/g, "'")
     .trim()
     .toLowerCase()
+}
+
+function dedupe(values: string[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const value of values) {
+    if (seen.has(value)) continue
+    seen.add(value)
+    result.push(value)
+  }
+  return result
 }
