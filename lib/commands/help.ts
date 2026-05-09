@@ -27,11 +27,14 @@ export async function handleHelp(
     `\`/revela enable\`              — enable Revela narrative/artifact mode\n` +
     `\`/revela disable\`             — disable Revela mode\n` +
     `\`/revela init\`                — initialize or refresh workspace DECKS.json\n` +
-    `\`/revela review\`              — review narrative readiness and approval state\n` +
+    `\`/revela story\`               — review story readiness, evidence gaps, and approval state\n` +
+    `\`/revela review\`              — compatibility alias for /revela story\n` +
     `\`/revela narrative\`           — open read-only narrative workspace map\n` +
-    `\`/revela brief [file.md]\`      — render executive brief from approved narrative\n` +
-    `\`/revela deck\`                — start deck handoff from approved narrative\n` +
-    `\`/revela deck --review\`       — review deck/artifact readiness before writing HTML\n` +
+    `\`/revela make deck\`           — make a deck from approved story state\n` +
+    `\`/revela make deck --review\`  — review deck/artifact readiness before writing HTML\n` +
+    `\`/revela make brief [file.md]\` — render executive brief from approved story\n` +
+    `\`/revela deck\`                — compatibility alias for /revela make deck\n` +
+    `\`/revela brief [file.md]\`      — compatibility alias for /revela make brief\n` +
     `\`/revela refine\`              — open unified reading, inspection, and editing workspace\n` +
     `\`/revela edit\`                — deprecated compatibility shim to /revela refine Edit\n` +
     `\`/revela inspect\`             — deprecated compatibility shim to /revela refine Inspect\n` +

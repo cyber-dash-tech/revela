@@ -23,6 +23,7 @@ import { seedBuiltinDomains } from "./lib/domain/domains"
 import { buildPrompt } from "./lib/prompt-builder"
 import { ACTIVE_PROMPT_FILE } from "./lib/config"
 import { ctx } from "./lib/ctx"
+import { formatCommandIntentSystemBlock, setPendingCommandIntent, takePendingCommandIntent } from "./lib/command-intent"
 import { preRead } from "./lib/read-hooks"
 import { postRead } from "./lib/read-hooks"
 import { extractPdfText } from "./lib/read-hooks/extractors/pdf"
@@ -206,6 +207,27 @@ const server: Plugin = (async (pluginCtx) => {
     return input?.sessionID ?? input?.session?.id ?? input?.context?.sessionID ?? ""
   }
 
+  function queueWorkflowCommand(input: {
+    sessionID: string
+    name: string
+    mode: "narrative" | "deck-render"
+    visibleText: string
+    hiddenPrompt: string
+    output: any
+  }): void {
+    ctx.enabled = true
+    buildPrompt({ mode: input.mode })
+    setPendingCommandIntent({
+      sessionID: input.sessionID,
+      name: input.name,
+      mode: input.mode,
+      visibleText: input.visibleText,
+      hiddenPrompt: input.hiddenPrompt,
+    })
+    input.output.parts.length = 0
+    input.output.parts.push({ type: "text", text: input.visibleText } as any)
+  }
+
   function ensureEditorOpenAfterDeckChange(filePath: string, sessionID: string): void {
     if (!isDeckHtmlPath(filePath) || !sessionID) return
 
@@ -329,12 +351,14 @@ const server: Plugin = (async (pluginCtx) => {
         throw new Error("__REVELA_DISABLE_HANDLED__")
       }
       if (sub === "init") {
-        buildPrompt({ mode: "narrative" })
-        output.parts.length = 0
-        output.parts.push({
-          type: "text",
-          text: buildInitPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
-        } as any)
+        queueWorkflowCommand({
+          sessionID,
+          name: "init",
+          mode: "narrative",
+          visibleText: "Initialize Revela workspace.",
+          hiddenPrompt: buildInitPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
+          output,
+        })
         return
       }
       if (sub === "remember") {
@@ -353,15 +377,32 @@ const server: Plugin = (async (pluginCtx) => {
       }
       if (sub === "review") {
         if (param) {
-          await send("`/revela review` no longer accepts a deck name. It reviews the current workspace narrative. Use `/revela deck --review` for deck/artifact readiness.")
+          await send("`/revela review` no longer accepts a deck name. It is a compatibility alias for `/revela story`. Use `/revela deck --review` for deck/artifact readiness.")
           throw new Error("__REVELA_REVIEW_USAGE_HANDLED__")
         }
-        buildPrompt({ mode: "narrative" })
-        output.parts.length = 0
-        output.parts.push({
-          type: "text",
-          text: buildReviewPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
-        } as any)
+        queueWorkflowCommand({
+          sessionID,
+          name: "review",
+          mode: "narrative",
+          visibleText: "Review Revela story readiness.",
+          hiddenPrompt: buildReviewPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
+          output,
+        })
+        return
+      }
+      if (sub === "story") {
+        if (param) {
+          await send("`/revela story` does not accept arguments yet. It reviews the current workspace story, evidence, gaps, and approval state.")
+          throw new Error("__REVELA_STORY_USAGE_HANDLED__")
+        }
+        queueWorkflowCommand({
+          sessionID,
+          name: "story",
+          mode: "narrative",
+          visibleText: "Review Revela story readiness.",
+          hiddenPrompt: buildReviewPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
+          output,
+        })
         return
       }
       if (sub === "narrative") {
@@ -391,26 +432,62 @@ const server: Plugin = (async (pluginCtx) => {
         await handleBrief({ workspaceRoot, outputPath: parsed.args.outputPath }, send)
         throw new Error("__REVELA_BRIEF_HANDLED__")
       }
+      if (sub === "make") {
+        const target = args[1]?.toLowerCase() ?? ""
+        const makeParam = args.slice(2).join(" ")
+        if (target === "deck") {
+          if (makeParam && makeParam !== "--review") {
+            await send("Usage: `/revela make deck` starts approved-narrative deck handoff; `/revela make deck --review` reviews deck/artifact readiness.")
+            throw new Error("__REVELA_MAKE_DECK_USAGE_HANDLED__")
+          }
+          queueWorkflowCommand({
+            sessionID,
+            name: makeParam ? "make deck --review" : "make deck",
+            mode: "deck-render",
+            visibleText: makeParam ? "Review Revela deck artifact readiness." : "Make Revela deck from approved story.",
+            hiddenPrompt: makeParam
+              ? buildDeckReviewPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot })
+              : buildDeckPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
+            output,
+          })
+          return
+        }
+        if (target === "brief") {
+          const parsed = parseBriefArgs(makeParam)
+          if (!parsed.ok) {
+            await send(parsed.error.replace("/revela brief", "/revela make brief"))
+            throw new Error("__REVELA_MAKE_BRIEF_USAGE_HANDLED__")
+          }
+          await handleBrief({ workspaceRoot, outputPath: parsed.args.outputPath }, send)
+          throw new Error("__REVELA_MAKE_BRIEF_HANDLED__")
+        }
+        await send("Usage: `/revela make deck [--review]` or `/revela make brief [workspace-relative-output.md]`.")
+        throw new Error("__REVELA_MAKE_USAGE_HANDLED__")
+      }
       if (sub === "deck") {
         if (param && param !== "--review") {
-          await send("Usage: `/revela deck` starts approved-narrative deck handoff; `/revela deck --review` reviews deck/artifact readiness.")
+          await send("Usage: `/revela deck` starts approved-narrative deck handoff; `/revela deck --review` reviews deck/artifact readiness. These are compatibility aliases for `/revela make deck`.")
           throw new Error("__REVELA_DECK_USAGE_HANDLED__")
         }
         if (!param) {
-          buildPrompt({ mode: "deck-render" })
-          output.parts.length = 0
-          output.parts.push({
-            type: "text",
-            text: buildDeckPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
-          } as any)
+          queueWorkflowCommand({
+            sessionID,
+            name: "deck",
+            mode: "deck-render",
+            visibleText: "Make Revela deck from approved story.",
+            hiddenPrompt: buildDeckPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
+            output,
+          })
           return
         }
-        buildPrompt({ mode: "deck-render" })
-        output.parts.length = 0
-        output.parts.push({
-          type: "text",
-          text: buildDeckReviewPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
-        } as any)
+        queueWorkflowCommand({
+          sessionID,
+          name: "deck --review",
+          mode: "deck-render",
+          visibleText: "Review Revela deck artifact readiness.",
+          hiddenPrompt: buildDeckReviewPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
+          output,
+        })
         return
       }
       if (sub === "refine") {
@@ -632,6 +709,11 @@ const server: Plugin = (async (pluginCtx) => {
           childLog("decks-state").warn("failed to load DECKS.json state", {
             error: e instanceof Error ? e.message : String(e),
           })
+        }
+        const sessionID = extractSessionID(input)
+        const commandIntent = takePendingCommandIntent(sessionID)
+        if (commandIntent) {
+          prompt += "\n\n" + formatCommandIntentSystemBlock(commandIntent)
         }
         if (output.system.length > 0) {
           output.system[output.system.length - 1] += "\n\n" + prompt

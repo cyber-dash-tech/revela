@@ -12,6 +12,7 @@ researches
 slides
 decks
 DECKS.json
+docs
 # Python
 __pycache__/
 *.py[cod]
