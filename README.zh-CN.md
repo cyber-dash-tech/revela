@@ -2,7 +2,7 @@
 
 [English](README.md) | **中文**
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-379%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-380%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
@@ -141,8 +141,8 @@ export { default } from "/absolute/path/to/revela/index.ts";
 /revela disable                  关闭 ambient Revela mode
 
 /revela init                     初始化或刷新 narrative workspace state
-/revela research                 调研 open story gaps 和 unsupported claims
-/revela story                    检查 story readiness、evidence gaps 和 approval state
+/revela research                 调研、绑定证据，并减少 story gaps/caveats
+/revela story                    打开只读 story workspace UI
 /revela make deck                从已批准 story 生成 deck
 /revela make deck --review       写 HTML 前检查 deck/artifact readiness
 /revela make brief [file.md]     从已批准 story 渲染 executive brief
@@ -151,7 +151,7 @@ export { default } from "/absolute/path/to/revela/index.ts";
 /revela edit                     deprecated，兼容到 /revela refine Edit mode
 /revela inspect                  deprecated，兼容到 /revela refine Inspect mode
 
-/revela review                   兼容别名，等同 /revela story
+/revela review                   legacy story readiness report
 /revela narrative                兼容别名，等同 /revela story
 /revela deck                     兼容别名，等同 /revela make deck
 /revela brief [file.md]          兼容别名，等同 /revela make brief
@@ -180,7 +180,7 @@ export { default } from "/absolute/path/to/revela/index.ts";
 /revela pptx <file>              将 HTML deck 导出为同目录可编辑 PPTX
 ```
 
-大多数 `/revela` 命令都在本地执行，不消耗 LLM token。`/revela init`、`/revela research`、`/revela story`、`/revela make deck`、`/revela remember`、`/revela design new`、`/revela design edit` 以及 `/revela review` 等兼容别名会启动 AI 辅助流程，因为它们需要读取或更新项目状态。这些 workflow command 只在可见聊天里显示短意图，详细内部说明通过一次性的 system-prompt command intent 注入。`/revela refine` 是统一的 post-artifact workspace，会打开一个本地浏览器 workspace，里面有 Edit 和 Inspect 两个 tab，并共享同一套 Cmd/Ctrl-click 元素引用。Edit 会把精准修改评论发回当前 OpenCode 会话；Inspect 会把 grounded selection context 发给当前 OpenCode 会话，并渲染本地化的 Narrative Reading、Exploratory Reading、Source、Purpose 卡片。确定性预处理保留为 fallback context，而不是默认先展示的 UI。如果生成结果缺少较新的 reading 卡片，Refine 会保留确定性 Narrative Reading 和 Exploratory Reading，而不是丢掉这些上下文。Narrative Reading 还会显示所选 canonical claim 的 artifact coverage，包括每个已记录 artifact 是否包含该 claim，以及 coverage 是 current、stale、partial 还是 missing。Exploratory Reading 明确是非官方阅读辅助，只能基于已记录 claim、evidence、caveat、objection、risk 和 artifact coverage。它没有聊天框，也不会修改 deck。`/revela edit` 和 `/revela inspect` 只作为 deprecated 兼容入口保留。
+大多数 `/revela` 命令都在本地执行，不消耗 LLM token。`/revela init`、`/revela research`、`/revela story`、`/revela review`、`/revela make deck`、`/revela remember`、`/revela design new` 和 `/revela design edit` 会启动 AI 辅助流程，因为它们需要读取或更新项目状态。这些 workflow command 只在可见聊天里显示短意图，详细内部说明通过一次性的 system-prompt command intent 注入。`/revela refine` 是统一的 post-artifact workspace，会打开一个本地浏览器 workspace，里面有 Edit 和 Inspect 两个 tab，并共享同一套 Cmd/Ctrl-click 元素引用。Edit 会把精准修改评论发回当前 OpenCode 会话；Inspect 会把 grounded selection context 发给当前 OpenCode 会话，并渲染本地化的 Narrative Reading、Exploratory Reading、Source、Purpose 卡片。确定性预处理保留为 fallback context，而不是默认先展示的 UI。如果生成结果缺少较新的 reading 卡片，Refine 会保留确定性 Narrative Reading 和 Exploratory Reading，而不是丢掉这些上下文。Narrative Reading 还会显示所选 canonical claim 的 artifact coverage，包括每个已记录 artifact 是否包含该 claim，以及 coverage 是 current、stale、partial 还是 missing。Exploratory Reading 明确是非官方阅读辅助，只能基于已记录 claim、evidence、caveat、objection、risk 和 artifact coverage。它没有聊天框，也不会修改 deck。`/revela edit` 和 `/revela inspect` 只作为 deprecated 兼容入口保留。
 
 ---
 
@@ -211,7 +211,7 @@ ambient enable/disable 状态只在当前会话生效。
 - active HTML deck 以及派生 PDF、PPTX 等 render targets
 - 带 input hash 的 review snapshots，使重要状态变化后旧的 readiness 自动变 stale
 
-已有的根目录 `DECKS.json` 工作区继续兼容。对旧项目运行 `/revela init` 或 `/revela story` 时，可以安全 normalize canonical narrative state 并刷新 projection 字段；用户不需要手动迁移、不需要移动文件，也不需要把 `DECKS.json` 换成数据库。`writeReadiness.status: "ready"` 只代表 deck/artifact readiness，永远不等于 narrative approval。
+已有的根目录 `DECKS.json` 工作区继续兼容。对旧项目运行 `/revela init` 或 `/revela review` 时，可以安全 normalize canonical narrative state 并刷新 projection 字段；用户不需要手动迁移、不需要移动文件，也不需要把 `DECKS.json` 换成数据库。`writeReadiness.status: "ready"` 只代表 deck/artifact readiness，永远不等于 narrative approval。
 
 Deck 仍然是主要 authored artifact，但现在它是从同一份 workspace state 渲染出来的目标之一。后续 briefs、appendix material、Evidence Inspector views、Q&A 和 interactive reading layers 都可以复用同一套来源/证据逻辑，而不是各自生成孤立内容。
 
@@ -222,8 +222,8 @@ Deck 仍然是主要 authored artifact，但现在它是从同一份 workspace s
 把 Revela 当成 narrative-first artifact workflow：
 
 1. 新项目或工作区明显变化时，运行 `/revela init`。
-2. 如果 story gaps 或 unsupported central claims 需要外部证据，用 `/revela research` 定向调研。
-3. 用 `/revela story` 检查 narrative readiness：受众、信念变化、decision/action、thesis、central claims、证据、objections、risks、research gaps 和 approval state。
+2. 如果 story gaps 或 unsupported central claims 需要外部证据，用 `/revela research` 定向调研；它应循环执行 research、证据绑定、claim/relation 收窄和 re-review，直到公开调研无法继续改善状态。
+3. 用 `/revela story` 打开 story workspace UI，查看 claim flow、证据、caveats、research gaps、approval state 和 artifact coverage。
 4. 批准 narrative 或要求修改。如果需要在完整战略批准前渲染，必须记录 explicit render override。
 5. 运行 `/revela make deck`，把已批准 narrative 编译成 deck slide specs 并进入 deck-render mode，或运行 `/revela make brief` 渲染 executive brief。
 6. 只在 deck handoff 阶段选择或确认 design，然后通过 handoff workflow 或 `/revela make deck --review` 运行 deck/artifact gate。
@@ -234,7 +234,7 @@ Deck 仍然是主要 authored artifact，但现在它是从同一份 workspace s
 
 只有当你希望普通聊天消息，而不只是显式 `/revela ...` 命令，也保持 Revela narrative mode 时，才需要使用 `/revela enable`。
 
-`/revela story` 检查的是 narrative readiness：受众不清、缺信念变化、缺 decision/action、thesis 弱、central claims 无证据、evidence 弱、unsupported scope、objection 未处理、缺风险/假设处理、approval stale 或缺 approval。它不检查 design/layout readiness，也不会写最终 deck。`/revela review` 仍作为兼容别名保留。
+`/revela story` 打开只读 story workspace UI。`/revela review` 生成 legacy readiness report，用于检查受众不清、缺信念变化、缺 decision/action、thesis 弱、central claims 无证据、evidence 弱、unsupported scope、objection 未处理、缺风险/假设处理、approval stale 或缺 approval。两者都不检查 design/layout readiness，也不会写最终 deck。
 
 如果 Revela 阻止写入 deck，直接让 agent 运行 `/revela make deck --review`，根据报告补齐 artifact 缺口后再写。这样可以避免在 slide specs、evidence projection、design/layout readiness、review snapshot 和 deck HTML contract 还不完整时覆盖真实 deck 文件。
 

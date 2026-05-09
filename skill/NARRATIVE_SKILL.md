@@ -17,8 +17,8 @@ Default mode is narrative-first. Do not generate HTML slides, choose layouts, fe
 Use the same phase semantics whether the user invokes a slash command or asks in normal chat:
 
 - `Init` discovers local workspace materials, captures intent, initializes or refreshes `DECKS.json`, and creates conservative narrative state only from explicit user statements or source traces.
-- `Research` fills open story gaps, unsupported central claims, objections, risks, and decision questions. Saved research is not canonical evidence until attached or evidence-bound.
-- `Story` inspects and advances narrative readiness: audience, belief shift, decision/action, thesis, claim flow, evidence strength, unsupported scope, caveats, objections, risks, research gaps, approval state, and affected artifacts.
+- `Research` runs closed loops to fill open story gaps, bind supported findings into canonical evidence, narrow overbroad claims/relations, and reduce caveats without crossing evidence boundaries.
+- `Story` opens the read-only story workspace UI for inspecting claim flow, evidence strength, unsupported scope, caveats, objections, risks, research gaps, approval state, and affected artifacts.
 - `Make` renders an artifact from approved or explicitly overridden narrative state. Supported 0.15 targets are deck and executive brief.
 - `Refine` is the post-artifact workspace for reading, inspection, and targeted editing. Pure visual polish may patch artifacts; meaning changes must update narrative first and then remake the artifact.
 
@@ -34,7 +34,7 @@ Public command surface:
 
 Compatibility aliases:
 
-- `/revela review` means `/revela story`
+- `/revela review` means a legacy story readiness report
 - `/revela narrative` means `/revela story`
 - `/revela deck` means `/revela make deck`
 - `/revela brief` means `/revela make brief`
@@ -73,16 +73,21 @@ During init:
 During research:
 
 - start from open research gaps, unsupported central claims, objections, risks, and decision questions
+- run multiple review/search/bind/narrow/re-review loops when useful, stopping when no public evidence can improve the state or after the workflow limit
 - avoid generic internet research when workspace evidence already supports the claim
 - delegate external web search to the `revela-research` subagent
 - save findings through `revela-research-save`
-- attach findings or bind evidence explicitly through `revela-decks` only when warranted
+- treat `/revela research` as permission to attach findings and bind clearly supported evidence without item-by-item user confirmation
+- use `applyEvidenceCandidates` or `upsertNarrative` to create canonical evidence bindings when claim id, quote/snippet, source, support scope, unsupported scope, caveat, and strength are explicit
+- narrow overbroad claim scope or relation rationale when the narrower wording preserves strategic meaning and better matches the evidence
 - preserve source path, URL, location/page/sheet/slide, quote/snippet, support scope, unsupported scope, and caveat
-- keep missing or partial evidence visible instead of filling it with model assumptions
+- keep missing or partial evidence visible instead of filling it with model assumptions; classify remaining caveats as internal-data-needed, not-publicly-researchable, source-quality-limit, or still-open
 
 ## Story Rules
 
-When reviewing story readiness, call `revela-decks` action `reviewNarrative` and report the tool result as authoritative.
+When the user invokes `/revela story`, open the read-only story workspace UI. Do not turn that command into a blocking readiness report.
+
+When the user invokes `/revela review` or explicitly asks for a readiness report, call `revela-decks` action `reviewNarrative` and report the tool result as authoritative.
 
 Use this report shape:
 
@@ -110,7 +115,7 @@ For `/revela make deck` and compatible deck handoff:
 
 For `/revela make brief`, render the executive brief from canonical narrative state and graph-backed claim/evidence relationships, not from a deck summary.
 
-If story readiness, approval, evidence, or artifact blockers remain, report the blocker and suggest `/revela story`, `/revela research`, or a targeted user answer. Do not bypass with invented state.
+If story readiness, approval, evidence, or artifact blockers remain, report the blocker and suggest `/revela review`, `/revela research`, or a targeted user answer. Do not bypass with invented state.
 
 ## Refine Rules
 

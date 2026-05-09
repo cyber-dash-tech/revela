@@ -410,15 +410,15 @@ const server: Plugin = (async (pluginCtx) => {
       }
       if (sub === "story") {
         if (param) {
-          await send("`/revela story` does not accept arguments yet. It reviews the current workspace story, evidence, gaps, and approval state.")
+          await send("`/revela story` does not accept arguments yet. It opens the current workspace story UI. Use `/revela review` for a readiness report.")
           throw new Error("__REVELA_STORY_USAGE_HANDLED__")
         }
         queueWorkflowCommand({
           sessionID,
           name: "story",
           mode: "narrative",
-          visibleText: "Review Revela story readiness.",
-          hiddenPrompt: buildReviewPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
+          visibleText: "Open Revela story workspace.",
+          hiddenPrompt: buildNarrativeViewPrompt({ workspaceRoot, language: "en" }),
           output,
         })
         return
@@ -429,8 +429,8 @@ const server: Plugin = (async (pluginCtx) => {
             sessionID,
             name: "narrative",
             mode: "narrative",
-            visibleText: "Review Revela story readiness.",
-            hiddenPrompt: buildReviewPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
+            visibleText: "Open Revela story workspace.",
+            hiddenPrompt: buildNarrativeViewPrompt({ workspaceRoot, language: "en" }),
             output,
           })
           return

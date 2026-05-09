@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-379%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-380%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
@@ -142,8 +142,8 @@ Disable ambient mode when done:
 /revela disable                  disable ambient Revela mode
 
 /revela init                     initialize or refresh narrative workspace state
-/revela research                 research open story gaps and unsupported claims
-/revela story                    review story readiness, evidence gaps, and approval state
+/revela research                 research, bind evidence, and reduce story gaps/caveats
+/revela story                    open the read-only story workspace UI
 /revela make deck                make a deck from approved story state
 /revela make deck --review       review deck/artifact readiness before writing HTML
 /revela make brief [file.md]     render executive brief from approved story
@@ -152,7 +152,7 @@ Disable ambient mode when done:
 /revela edit                     deprecated shim to /revela refine Edit mode
 /revela inspect                  deprecated shim to /revela refine Inspect mode
 
-/revela review                   compatibility alias for /revela story
+/revela review                   legacy readiness report for story state
 /revela narrative                compatibility alias for /revela story
 /revela deck                     compatibility alias for /revela make deck
 /revela brief [file.md]          compatibility alias for /revela make brief
@@ -181,7 +181,7 @@ Disable ambient mode when done:
 /revela pptx <file>              export an HTML deck to editable PPTX in the same directory
 ```
 
-Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela research`, `/revela story`, `/revela make deck`, `/revela remember`, `/revela design new`, `/revela design edit`, and compatibility aliases such as `/revela review` start AI-assisted workflows because they need to read or update project files. These workflow commands keep the visible chat message short and inject their detailed instructions through a one-shot system-prompt command intent. `/revela refine` is the unified post-artifact workspace. It opens a local browser workspace with Edit and Inspect tabs that share the same Cmd/Ctrl-click element references. Edit sends targeted comments back into the current OpenCode session; Inspect sends grounded selection context to the current OpenCode session and renders localized Narrative Reading, Exploratory Reading, Source, and Purpose cards, has no chat box, and does not edit the deck. Deterministic preprocessing is kept as fallback context rather than the normal first UI. If a generated result omits newer reading cards, Refine keeps the deterministic Narrative Reading and Exploratory Reading cards instead of dropping context. Narrative Reading also shows artifact coverage for the selected canonical claim, including whether each recorded artifact contains the claim and whether coverage is current, stale, partial, or missing. Exploratory Reading is explicitly non-official and bounded to recorded claims, evidence, caveats, objections, risks, and artifact coverage. `/revela edit` and `/revela inspect` remain only as deprecated compatibility shims to Refine.
+Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela research`, `/revela story`, `/revela review`, `/revela make deck`, `/revela remember`, `/revela design new`, and `/revela design edit` start AI-assisted workflows because they need to read or update project files. These workflow commands keep the visible chat message short and inject their detailed instructions through a one-shot system-prompt command intent. `/revela refine` is the unified post-artifact workspace. It opens a local browser workspace with Edit and Inspect tabs that share the same Cmd/Ctrl-click element references. Edit sends targeted comments back into the current OpenCode session; Inspect sends grounded selection context to the current OpenCode session and renders localized Narrative Reading, Exploratory Reading, Source, and Purpose cards, has no chat box, and does not edit the deck. Deterministic preprocessing is kept as fallback context rather than the normal first UI. If a generated result omits newer reading cards, Refine keeps the deterministic Narrative Reading and Exploratory Reading cards instead of dropping context. Narrative Reading also shows artifact coverage for the selected canonical claim, including whether each recorded artifact contains the claim and whether coverage is current, stale, partial, or missing. Exploratory Reading is explicitly non-official and bounded to recorded claims, evidence, caveats, objections, risks, and artifact coverage. `/revela edit` and `/revela inspect` remain only as deprecated compatibility shims to Refine.
 
 ---
 
@@ -212,7 +212,7 @@ The state records:
 - render targets such as the active HTML deck plus derived PDF and PPTX artifacts
 - review snapshots with input hashes so old readiness results become stale after meaningful state changes
 
-Existing root `DECKS.json` workspaces remain compatible. Running `/revela init` or `/revela story` on an older project can normalize canonical narrative state and refresh projection fields without requiring a manual migration, moving files, or replacing `DECKS.json` with a database. `writeReadiness.status: "ready"` is deck/artifact readiness only; it is never narrative approval.
+Existing root `DECKS.json` workspaces remain compatible. Running `/revela init` or `/revela review` on an older project can normalize canonical narrative state and refresh projection fields without requiring a manual migration, moving files, or replacing `DECKS.json` with a database. `writeReadiness.status: "ready"` is deck/artifact readiness only; it is never narrative approval.
 
 Decks remain the primary authored artifact, but they are now treated as render targets from the same workspace state that can later support briefs, appendix material, Evidence Inspector views, Q&A, and interactive reading layers without duplicating source/evidence logic.
 
@@ -223,8 +223,8 @@ Decks remain the primary authored artifact, but they are now treated as render t
 Use Revela as a narrative-first artifact workflow:
 
 1. Run `/revela init` when starting in a new project or when the workspace has changed significantly.
-2. Use `/revela research` when story gaps or unsupported central claims need external evidence.
-3. Use `/revela story` to check narrative readiness: audience, belief shift, decision/action, thesis, central claims, evidence, objections, risks, research gaps, and approval state.
+2. Use `/revela research` when story gaps or unsupported central claims need external evidence; it should loop through research, evidence binding, claim/relation narrowing, and re-review until public research stops improving the state.
+3. Use `/revela story` to open the story workspace UI and inspect claim flow, evidence, caveats, research gaps, approval state, and artifact coverage.
 4. Approve the narrative or request revisions. If you intentionally render before full strategic approval, record an explicit render override.
 5. Run `/revela make deck` to compile the approved narrative into deck slide specs and enter deck-render mode, or `/revela make brief` to render an executive brief.
 6. Choose or confirm design only during deck handoff, then run the deck/artifact gate with `/revela make deck --review` or the handoff workflow.
@@ -235,7 +235,7 @@ Use Revela as a narrative-first artifact workflow:
 
 Use `/revela enable` only when you want ordinary chat messages, not just explicit `/revela ...` commands, to stay in Revela narrative mode.
 
-`/revela story` checks narrative readiness: unclear audience, missing belief shift, missing decision/action, weak thesis, unsupported central claims, weak evidence, unsupported scope, unhandled objections, missing risk/assumption handling, stale approval, or missing approval. It does not review design/layout readiness and does not write the final deck. `/revela review` remains a compatibility alias.
+`/revela story` opens the read-only story workspace UI. `/revela review` produces the legacy readiness report for unclear audience, missing belief shift, missing decision/action, weak thesis, unsupported central claims, weak evidence, unsupported scope, unhandled objections, missing risk/assumption handling, stale approval, or missing approval. Neither command reviews design/layout readiness or writes the final deck.
 
 If Revela blocks a deck write, ask the agent to run `/revela make deck --review`, resolve the reported artifact gaps, and try again. This protects the deck file from being overwritten before the slide specs, evidence projection, design/layout readiness, review snapshot, and deck HTML contract are ready.
 

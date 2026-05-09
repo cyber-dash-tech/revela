@@ -128,7 +128,7 @@ export function buildDeckReviewPrompt({
 
 Goal:
 - Use ${DECKS_STATE_FILE} as the source of truth for whether the current workspace deck is ready to be written to \`decks/*.html\`.
-- Treat this as an artifact gate for deck rendering, not strategic narrative approval. Narrative readiness is reviewed by \`/revela story\`.
+- Treat this as an artifact gate for deck rendering, not strategic narrative approval. Narrative readiness reports are reviewed by \`/revela review\`.
 - Preserve the deck spec for future sessions: every slide's content, layout, components, evidence, visuals, production status, and the 0.9 narrative compiler brief when available.
 - Do not write, patch, or directly edit ${DECKS_STATE_FILE}. Use the \`revela-decks\` tool for all state changes.
 - Let \`revela-decks\` action \`review\` compute writeReadiness; do not manually set readiness to ready.

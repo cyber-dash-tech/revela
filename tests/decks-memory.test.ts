@@ -11,6 +11,7 @@ import {
 import { buildInitPrompt } from "../lib/commands/init"
 import { buildRememberPrompt, parseRememberArgs } from "../lib/commands/remember"
 import { buildDeckPrompt, buildDeckReviewPrompt, buildReviewPrompt } from "../lib/commands/review"
+import { buildResearchPrompt } from "../lib/commands/research"
 import {
   createDeckSpec,
   createEmptyDecksState,
@@ -131,7 +132,7 @@ describe("review command", () => {
     const prompt = buildDeckReviewPrompt({ exists: true })
     expect(prompt).toContain("Review Revela deck/artifact write readiness")
     expect(prompt).toContain("artifact gate")
-    expect(prompt).toContain("Narrative readiness is reviewed by `/revela story`")
+    expect(prompt).toContain("Narrative readiness reports are reviewed by `/revela review`")
     expect(prompt).toContain("writeReadiness")
     expect(prompt).toContain("evidence and Narrative Compiler readiness review")
     expect(prompt).toContain("unsupported numbers")
@@ -200,6 +201,20 @@ describe("review command", () => {
     expect(prompt).toContain("evidenceCandidateSearch")
     expect(prompt).toContain("near misses")
     expect(prompt).toContain("Do not invent quotes, page references, locations, URLs, caveats, or extraction paths")
+  })
+})
+
+describe("research command", () => {
+  it("builds a closed-loop research and binding prompt", () => {
+    const prompt = buildResearchPrompt({ exists: true, workspaceRoot: "/workspace/project" })
+    expect(prompt).toContain("Run Revela closed-loop research")
+    expect(prompt).toContain("up to 3 research loops")
+    expect(prompt).toContain("Automatically bind evidence")
+    expect(prompt).toContain("Binding criteria")
+    expect(prompt).toContain("evidence_bound")
+    expect(prompt).toContain("Re-run `reviewNarrative` after each loop")
+    expect(prompt).toContain("internal_data_needed")
+    expect(prompt).toContain("Current workspace root: `/workspace/project`")
   })
 })
 
