@@ -11,6 +11,7 @@ const MIME_TO_EXT: Record<string, string> = {
 }
 
 const ALLOWED_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".ico"])
+const DEFAULT_DOWNLOAD_TIMEOUT_MS = 10_000
 
 function normalizeExtension(ext: string): string {
   const value = ext.toLowerCase()
@@ -33,6 +34,7 @@ export function inferImageExtension(contentType: string | null, sourceName = "")
 
 export async function downloadImageFromUrl(
   url: string,
+  options: { timeoutMs?: number } = {},
 ): Promise<{ buffer: Buffer; contentType: string | null; extension: string }> {
   let parsed: URL
   try {
@@ -45,16 +47,36 @@ export async function downloadImageFromUrl(
     throw new Error("INVALID_URL")
   }
 
-  const response = await fetch(parsed, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-        "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-    },
-  })
+  const controller = new AbortController()
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, Math.max(1, options.timeoutMs ?? DEFAULT_DOWNLOAD_TIMEOUT_MS))
 
-  if (!response.ok) {
-    throw new Error(`DOWNLOAD_FAILED:${response.status}`)
+  let response: Response
+  let buffer: Buffer
+  try {
+    response = await fetch(parsed, {
+      headers: {
+        Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
+          "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+      },
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      throw new Error(`DOWNLOAD_FAILED:${response.status}`)
+    }
+
+    buffer = Buffer.from(await response.arrayBuffer())
+  } catch (error) {
+    if (timedOut) throw new Error("DOWNLOAD_TIMEOUT")
+    throw error
+  } finally {
+    clearTimeout(timer)
   }
 
   const contentType = response.headers.get("content-type")
@@ -64,7 +86,7 @@ export async function downloadImageFromUrl(
   }
 
   return {
-    buffer: Buffer.from(await response.arrayBuffer()),
+    buffer,
     contentType,
     extension,
   }

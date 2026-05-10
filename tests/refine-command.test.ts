@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test"
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "fs"
+import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "fs"
 import { tmpdir } from "os"
 import { join } from "path"
 import { createEmptyDecksState, upsertDeck, upsertSlides, workspaceDeckSlug, writeDecksState } from "../lib/decks-state"
@@ -30,24 +30,54 @@ describe("renderRefineShell", () => {
     const html = renderRefineShell("test-token")
 
     expect(html).toContain("Revela Refine")
+    expect(html).toContain("Select refs, describe the change, then send.")
+    expect(html).toContain("background: linear-gradient(180deg, #fbfaf7 0%, #f2eee6 100%)")
+    expect(html).toContain("border-left: 1px solid #d8d2c6")
+    expect(html).toContain("background: linear-gradient(135deg, #111827 0%, #1f2937 100%)")
+    expect(html).toContain("border-color: #a9793f")
+    expect(html).toContain("rgba(169,121,63,.14)")
+    expect(html).not.toContain("#2563eb")
+    expect(html).not.toContain("37,99,235")
+    expect(html).not.toContain("#1d4ed8")
+    expect(html).not.toContain("#4338ca")
     expect(html).toContain("id=\"editTab\"")
     expect(html).toContain("id=\"inspectTab\"")
-    expect(html).toContain("id=\"assetsTab\"")
+    expect(html).not.toContain("id=\"assetsTab\"")
+    expect(html).not.toContain("id=\"assetsPanel\"")
     expect(html).toContain("Search Assets")
     expect(html).toContain("aria-label=\"Edit assets\"")
-    expect(html).toContain("<div class=\"label\">Workspace Assets</div>")
+    expect(html).toContain("<div class=\"label\">Local Assets</div>")
     expect(html).toContain("id=\"editSavedAssets\"")
-    expect(html).toContain("id=\"librarySavedAssets\"")
-    expect(html).toContain("Search image candidates, then click + to save one to the workspace.")
-    expect(html).toContain("No saved assets yet. Search in Assets.")
+    expect(html).not.toContain("id=\"librarySavedAssets\"")
+    expect(html).toContain("id=\"assetSearchToggle\"")
+    expect(html).toContain("aria-controls=\"assetSearchView\"")
+    expect(html).toContain("id=\"assetSearchView\"")
+    expect(html).toContain("class=\"asset-search-view\"")
+    expect(html).toContain("id=\"assetSearchBack\"")
+    expect(html).toContain("← Back")
+    expect(html).toContain("Save images to Local Assets, then use them from Edit.")
+    expect(html).toContain("toggleAssetSearchPanel")
+    expect(html).toContain("closeAssetSearchPanel")
+    expect(html).toContain("setAssetSearchOpen")
+    expect(html).toContain("<option value=\"logo\" selected>logo</option>")
+    expect(html).toContain("<option value=\"illustration\">photo</option>")
+    expect(html).toContain("Search image candidates, then save one to the workspace.")
+    expect(html).toContain("No local assets yet. Click + to search assets.")
     expect(html).toContain("id=\"assetShuffleButton\"")
-    expect(html).toContain("换一批")
+    expect(html).toContain("Refresh")
     expect(html).toContain("searchAssets(true)")
     expect(html).toContain("assetSearchPage")
-    expect(html).toContain("No displayable images found")
+    expect(html).toContain("No displayable images found. Try Refresh or another purpose.")
+    expect(html).toContain("No assets found. Try another query or purpose.")
     expect(html).toContain("grid-template-columns: repeat(4, minmax(0, 1fr))")
+    expect(html).toContain(".asset-card.saved { width: 64px; height: 64px")
+    expect(html).toContain(".edit-assets .asset-grid { grid-template-columns: repeat(auto-fill, 64px)")
+    expect(html).toContain(".edit-assets .asset-thumb { width: 64px; height: 64px; }")
+    expect(html).toContain("card.className = saved ? 'asset-card saved' : 'asset-card'")
     expect(html).toContain("Save to workspace")
-    expect(html).toContain("Add to comment")
+    expect(html).toContain("asset-save")
+    expect(html).not.toContain("asset-add")
+    expect(html).not.toContain("Add to comment")
     expect(html).toContain("addAssetToComment")
     expect(html).toContain("selectedAsset")
     expect(html).toContain("asset-ref-chip")
@@ -62,7 +92,33 @@ describe("renderRefineShell", () => {
     expect(html).toContain("/api/assets/list")
     expect(html).toContain("sendAssetPlacement")
     expect(html).toContain("Send Edit")
-    expect(html).toContain("Inspect Selection")
+    expect(html).toContain("class=\"primary-action\"")
+    expect(html).toContain("class=\"send-icon\"")
+    expect(html).toContain("Activity")
+    expect(html).toContain("id=\"selectionSummary\" class=\"selection-summary sr-only\"")
+    expect(html.indexOf("id=\"send\"")).toBeLessThan(html.indexOf("id=\"commentThread\""))
+    expect(html).toContain("Inspect Reference")
+    expect(html).not.toContain("id=\"inspectRefSummary\"")
+    expect(html).not.toContain("id=\"inspectQuestion\"")
+    expect(html).toContain("id=\"inspectComment\"")
+    expect(html).toContain("class=\"comment-editor\" contenteditable=\"true\"")
+    expect(html).toContain("Inspect comment")
+    expect(html).toContain("Cmd/Ctrl-click slide elements to add @refs, then ask about purpose or source.")
+    expect(html).toContain("Select a deck element to create an @ref, optionally ask a question, then Inspect.")
+    expect(html).toContain("state.sendingEdit")
+    expect(html).toContain("assetSavingIndex")
+    expect(html).toContain("Saving to workspace")
+    expect(html).toContain("setButtonLoading")
+    expect(html).toContain("renderInspectLoading")
+    expect(html).toContain("const comment = getInspectComment()")
+    expect(html).toContain("syncReferencesFromComment(false, els.inspectComment)")
+    expect(html).toContain("getCommentText(els.inspectComment)")
+    expect(html).toContain("language: state.inspectLanguage, comment")
+    expect(html).toContain("Inspecting...")
+    expect(html).toContain("Searching...")
+    expect(html).toContain("Sending...")
+    expect(html).toContain("class=\"spinner\"")
+    expect(html).toContain("skeleton-card")
     expect(html).toContain("/api/comment")
     expect(html).toContain("/api/inspect")
     expect(html).toContain("/api/inspect-result")
@@ -83,12 +139,11 @@ describe("renderRefineShell", () => {
     expect(html).toContain("Português")
     expect(html).toContain("language: state.inspectLanguage")
     expect(html).toContain("collectReferenceSnapshot")
-    expect(html).toContain("Narrative Reading, Exploratory Reading, Source, and Purpose")
-    expect(html).toContain("renderReading")
-    expect(html).toContain("renderExploratory")
-    expect(html).toContain("Non-official reading aid")
-    expect(html).toContain("Artifact Coverage")
-    expect(html).toContain("Cmd/Ctrl-click slide elements once")
+    expect(html).toContain("Purpose")
+    expect(html).toContain("Source")
+    expect(html).toContain("renderPurpose")
+    expect(html).toContain("renderSource")
+    expect(html).toContain("Cmd/Ctrl-click slide elements to add @refs")
     expect(html).not.toContain("Ask anything")
   })
 
@@ -96,7 +151,7 @@ describe("renderRefineShell", () => {
     const html = renderRefineShell("test-token", "inspect")
 
     expect(html).toContain("const defaultMode = \"inspect\"")
-    expect(html).toContain("state.mode = mode === 'inspect' || mode === 'assets' ? mode : 'edit'")
+    expect(html).toContain("state.mode = mode === 'inspect' ? 'inspect' : 'edit'")
   })
 })
 
@@ -357,6 +412,54 @@ describe("refine HTTP inspect lifecycle", () => {
 })
 
 describe("refine asset APIs", () => {
+  it("rejects failed remote asset downloads instead of reporting saved", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><h1>Launch</h1></section>', "utf-8")
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (url: URL | RequestInfo, init?: RequestInit) => {
+        const value = String(url)
+        if (value.includes("/api/assets/save")) return originalFetch(url, init)
+        return new Response("blocked", { status: 403, headers: { "content-type": "text/html" } })
+      },
+      { preconnect: originalFetch.preconnect.bind(originalFetch) },
+    ) as typeof fetch
+
+    try {
+      const opened = openRefineDeck("", {
+        client: { session: { prompt: async () => undefined } },
+        sessionID: "session-asset-save-failure",
+        workspaceRoot: root,
+        openBrowser: false,
+      })
+      const url = new URL(opened.url)
+      url.pathname = "/api/assets/save"
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          candidate: {
+            candidateId: "simple-icons-claude",
+            provider: "simple-icons",
+            title: "claude logo",
+            thumbnailUrl: "https://cdn.simpleicons.org/claude",
+            imageUrl: "https://cdn.simpleicons.org/claude",
+            purpose: "logo",
+          },
+          purpose: "logo",
+        }),
+      })
+      const data = await response.json() as any
+
+      expect(response.status).toBe(400)
+      expect(data.ok).toBe(false)
+      expect(data.error).toBe("Failed to save asset: cannot-download")
+      expect(existsSync(join(root, "assets", workspaceDeckSlug(root), "media", "simple-icons-claude.svg"))).toBe(false)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
   it("lists saved workspace assets with preview and deck-relative paths", async () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><h1>Launch</h1></section>', "utf-8")

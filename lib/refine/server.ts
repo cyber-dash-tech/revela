@@ -263,7 +263,12 @@ async function handleAssetSave(req: Request, session: EditSession): Promise<Resp
   session.lastActiveAt = Date.now()
   scheduleIdleStop()
   if (!result.ok) return jsonResponse({ ok: false, error: result.error }, 400)
-  return jsonResponse({ ok: true, asset: savedAssetForResult(session, result.assetId), result })
+  if (result.status !== "success" || !result.path) {
+    return jsonResponse({ ok: false, error: `Failed to save asset: ${result.status}` }, 400)
+  }
+  const asset = savedAssetForResult(session, result.assetId)
+  if (!asset) return jsonResponse({ ok: false, error: "Saved asset was not found in workspace assets." }, 500)
+  return jsonResponse({ ok: true, asset, result })
 }
 
 function handleAssetList(session: EditSession): Response {
@@ -597,6 +602,7 @@ async function handleInspect(req: Request, session: EditSession): Promise<Respon
 
   const snapshot = normalizeSnapshot(body?.snapshot ?? body)
   const language = normalizeInspectLanguage(body?.language)
+  const comment = typeof body?.comment === "string" ? body.comment.trim().slice(0, 2000) : ""
   const requestId = typeof body?.requestId === "string" && body.requestId.trim() ? body.requestId.trim() : randomBytes(10).toString("base64url")
   const version = readDeckVersion(session).version
   const staleReason = typeof body?.deckVersion === "string" && body.deckVersion !== version
@@ -619,6 +625,7 @@ async function handleInspect(req: Request, session: EditSession): Promise<Respon
             requestId,
             file: session.file,
             language,
+            comment,
             projection: staleReason
               ? { ...projection, stale: { stale: true, reason: staleReason } } as any
               : projection,
@@ -761,11 +768,11 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
   <style>
     :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     * { box-sizing: border-box; }
-    body { margin: 0; background: #f6f8fb; color: #172033; height: 100vh; overflow: hidden; }
+    body { margin: 0; background: #eee8dc; color: #1f2933; height: 100vh; overflow: hidden; }
     body.resizing { cursor: col-resize; user-select: none; }
     body.resizing iframe, body.resizing .hitbox { pointer-events: none; }
     .app { --editor-width: 376px; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) var(--editor-width); height: 100vh; }
-    .preview { position: relative; min-width: 0; background: #eef3f8; }
+    .preview { position: relative; min-width: 0; background: #e7dfd1; }
     .resize-handle { position: absolute; top: 0; bottom: 0; right: calc(var(--editor-width) - 7px); width: 14px; z-index: 5; cursor: col-resize; background: transparent; }
     .resize-handle::before { content: ""; position: absolute; left: 50%; top: 50%; width: 4px; height: 44px; border-radius: 999px; transform: translate(-50%, -50%); background: rgba(148,163,184,.34); box-shadow: 0 1px 2px rgba(15,23,42,.06); transition: background .16s ease, height .16s ease, box-shadow .16s ease; }
     .resize-handle:hover::before, body.resizing .resize-handle::before { height: 52px; background: #94a3b8; box-shadow: 0 0 0 4px rgba(148,163,184,.16); }
@@ -776,67 +783,99 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .deck-nav button:hover:not(:disabled) { background: rgba(255,255,255,.22); }
     .deck-nav button:disabled { opacity: .38; }
     .deck-nav-status { min-width: 76px; color: #e2e8f0; font-size: 12px; font-weight: 900; text-align: center; font-variant-numeric: tabular-nums; }
-    aside { display: flex; flex-direction: column; gap: 16px; padding: 20px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); overflow: auto; }
+    aside { position: relative; display: flex; flex-direction: column; gap: 16px; padding: 20px; background: linear-gradient(180deg, #fbfaf7 0%, #f2eee6 100%); overflow: auto; border-left: 1px solid #d8d2c6; }
     h1 { margin: 0; font-size: 18px; line-height: 1.2; letter-spacing: -.01em; color: #0f172a; }
     .wordmark { font-family: Garamond, "Iowan Old Style", Georgia, serif; font-size: 21px; letter-spacing: .08em; font-weight: 600; }
-    .hint { margin: 0; color: #64748b; font-size: 13px; line-height: 1.5; }
+    .hint { margin: 0; color: #756f66; font-size: 13px; line-height: 1.5; }
     .panel { display: flex; flex-direction: column; gap: 10px; }
-    .tabs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; padding: 4px; border: 1px solid #dbe4ee; border-radius: 14px; background: #f1f5f9; }
-    .tab { padding: 9px 10px; border: 0; border-radius: 10px; background: transparent; color: #475569; box-shadow: none; font-weight: 900; }
-    .tab.active { background: #ffffff; color: #0f172a; box-shadow: 0 6px 18px rgba(15,23,42,.08); }
+    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border: 1px solid #d8d2c6; border-radius: 14px; background: #ebe4d8; }
+    .tab { padding: 9px 10px; border: 0; border-radius: 10px; background: transparent; color: #5f594f; box-shadow: none; font-weight: 900; }
+    .tab.active { background: #fbfaf7; color: #111827; box-shadow: 0 6px 16px rgba(31,41,51,.1); }
     .tab-panel { display: none; flex-direction: column; gap: 12px; }
     .tab-panel.active { display: flex; }
-    .selection-summary { padding: 10px 12px; border: 1px solid #d7e0ea; border-radius: 14px; background: #fff; color: #334155; font-size: 13px; line-height: 1.45; box-shadow: 0 8px 24px rgba(15,23,42,.05); }
-    .selection-summary strong { display: block; margin-bottom: 7px; color: #64748b; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; }
+    .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
+    .selection-summary { padding: 10px 12px; border: 1px solid #d8d2c6; border-radius: 14px; background: #fbfaf7; color: #3f3a33; font-size: 13px; line-height: 1.45; box-shadow: 0 8px 22px rgba(31,41,51,.05); }
+    .selection-summary strong { display: block; margin-bottom: 7px; color: #756f66; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; }
     .selection-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-    .label { color: #64748b; font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
-    .comment-editor { width: 100%; min-height: 164px; max-height: 42vh; overflow: auto; padding: 13px 14px; border: 1px solid #d7e0ea; border-radius: 14px; background: #ffffff; color: #0f172a; font: inherit; line-height: 1.5; outline: none; white-space: pre-wrap; box-shadow: 0 10px 28px rgba(15,23,42,.06); }
-    .comment-editor:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12), 0 10px 28px rgba(15,23,42,.06); }
-    .comment-editor:empty::before { content: attr(data-placeholder); color: #94a3b8; pointer-events: none; }
+    .label { color: #756f66; font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+    .comment-editor { width: 100%; min-height: 164px; max-height: 42vh; overflow: auto; padding: 13px 14px; border: 1px solid #d8d2c6; border-radius: 14px; background: #fffdf8; color: #111827; font: inherit; line-height: 1.5; outline: none; white-space: pre-wrap; box-shadow: 0 10px 24px rgba(31,41,51,.06); }
+    .comment-editor:focus { border-color: #a9793f; box-shadow: 0 0 0 3px rgba(169,121,63,.14), 0 10px 24px rgba(31,41,51,.07); }
+    .comment-editor:empty::before { content: attr(data-placeholder); color: #a79d8e; pointer-events: none; }
     .ref-chip { display: inline-flex; align-items: center; margin: 0 2px; padding: 1px 7px; border-radius: 999px; background: var(--ref-bg, #e0f2fe); color: var(--ref-text, #075985); border: 1px solid var(--ref-border, #7dd3fc); font-weight: 800; white-space: nowrap; }
-    .comment-thread { display: flex; flex-direction: column; gap: 10px; max-height: 30vh; overflow: auto; }
-    .comment-bubble { border: 1px solid #dbe4ee; border-radius: 14px; padding: 10px 12px; background: #ffffff; color: #334155; font-size: 13px; line-height: 1.45; box-shadow: 0 8px 24px rgba(15,23,42,.05); }
-    .comment-bubble.sending { border-color: #93c5fd; background: #eff6ff; }
-    .comment-bubble.updated { border-color: #86efac; background: #f0fdf4; }
-    .comment-bubble.stale { border-color: #facc15; background: #fefce8; }
-    .comment-bubble.failed { border-color: #fca5a5; background: #fef2f2; }
+    .activity-panel { display: flex; flex-direction: column; gap: 8px; padding-top: 2px; }
+    .comment-thread { display: flex; flex-direction: column; gap: 8px; max-height: 24vh; overflow: auto; }
+    .comment-thread:empty { display: none; }
+    .comment-bubble { border: 1px solid #d8d2c6; border-radius: 14px; padding: 10px 12px; background: #fffdf8; color: #3f3a33; font-size: 13px; line-height: 1.45; box-shadow: 0 8px 22px rgba(31,41,51,.05); }
+    .comment-bubble.sending { border-color: #c8b88f; background: #f7f0df; }
+    .comment-bubble.updated { border-color: #9dac8a; background: #f0f2e8; }
+    .comment-bubble.stale { border-color: #c6a96a; background: #f8efd7; }
+    .comment-bubble.failed { border-color: #c58f82; background: #f7eae5; }
     .comment-bubble-text { white-space: pre-wrap; overflow-wrap: anywhere; }
-    .comment-bubble-state { margin-top: 8px; color: #2563eb; font-size: 12px; font-weight: 800; }
-    .comment-bubble.updated .comment-bubble-state { color: #15803d; }
-    .comment-bubble.stale .comment-bubble-state { color: #a16207; }
-    .comment-bubble.failed .comment-bubble-state { color: #b91c1c; }
+    .comment-bubble-state { margin-top: 8px; color: #8a6231; font-size: 12px; font-weight: 800; }
+    .comment-bubble.updated .comment-bubble-state { color: #556b3f; }
+    .comment-bubble.stale .comment-bubble-state { color: #8a6231; }
+    .comment-bubble.failed .comment-bubble-state { color: #8f4638; }
     .inspect-actions { display: flex; flex-direction: column; gap: 8px; }
     .inspect-options { display: flex; flex-direction: column; gap: 5px; }
-    .inspect-options label { color: #64748b; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
-    .inspect-select { width: 100%; padding: 10px 11px; border: 1px solid #d7e0ea; border-radius: 12px; background: #fff; color: #0f172a; font-weight: 700; }
+    .inspect-options label { color: #756f66; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+    .inspect-select { width: 100%; padding: 10px 11px; border: 1px solid #d8d2c6; border-radius: 12px; background: #fffdf8; color: #111827; font-weight: 700; }
     .inspect-cards { display: flex; flex-direction: column; gap: 12px; }
-    .inspect-card { border: 1px solid #d7e0ea; border-radius: 16px; background: #fff; padding: 13px; box-shadow: 0 10px 24px rgba(15,23,42,.05); }
+    .inspect-card { border: 1px solid #d8d2c6; border-radius: 16px; background: #fffdf8; padding: 13px; box-shadow: 0 10px 22px rgba(31,41,51,.05); }
     .inspect-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
     .inspect-card h2 { margin: 0; font-size: 13px; color: #0f172a; }
-    .badge { border-radius: 999px; padding: 3px 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; background: #e2e8f0; color: #475569; }
-    .badge.supported, .badge.found, .badge.present, .badge.known, .badge.suggested { background: #dcfce7; color: #166534; }
-    .badge.weak, .badge.missing { background: #fef3c7; color: #92400e; }
-    .badge.unsupported { background: #fee2e2; color: #991b1b; }
-    .inspect-card p, .inspect-empty, .inspect-loading { margin: 0; color: #475569; font-size: 12px; line-height: 1.5; }
-    .inspect-item { margin-top: 7px; padding: 8px; border-radius: 10px; background: #f8fafc; color: #334155; font-size: 12px; line-height: 1.45; }
+    .badge { border-radius: 999px; padding: 3px 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; background: #e8e1d4; color: #5f594f; }
+    .badge.supported, .badge.found, .badge.present, .badge.known, .badge.suggested { background: #e7ecdc; color: #4d6138; }
+    .badge.weak, .badge.missing { background: #f1e5c8; color: #765326; }
+    .badge.unsupported { background: #f0d9d1; color: #7f3d31; }
+    .inspect-card p, .inspect-empty, .inspect-loading { margin: 0; color: #5f594f; font-size: 12px; line-height: 1.5; }
+    .inspect-item { margin-top: 7px; padding: 8px; border-radius: 10px; background: #f7f3ea; color: #3f3a33; font-size: 12px; line-height: 1.45; }
     .inspect-warning, .inspect-stale { margin-top: 8px; padding: 8px; border-radius: 10px; background: #fff7ed; color: #9a3412; font-size: 12px; line-height: 1.45; }
+    .loading-row { display: inline-flex; align-items: center; gap: 8px; }
+    .spinner { width: 16px; height: 16px; border: 2px solid rgba(169,121,63,.22); border-top-color: currentColor; border-radius: 999px; animation: spin .8s linear infinite; }
+    button .spinner { width: 15px; height: 15px; border-color: rgba(255,255,255,.36); border-top-color: #fff; }
+    .skeleton-card { border: 1px solid #d8d2c6; border-radius: 16px; background: #fffdf8; padding: 13px; box-shadow: 0 10px 22px rgba(31,41,51,.05); }
+    .skeleton-line { height: 10px; margin: 8px 0; border-radius: 999px; background: linear-gradient(90deg, #ded5c6 0%, #fbfaf7 48%, #ded5c6 100%); background-size: 200% 100%; animation: shimmer 1.2s ease-in-out infinite; }
+    .skeleton-line.short { width: 42%; }
+    .skeleton-line.medium { width: 68%; }
+    .skeleton-line.long { width: 92%; }
+    .asset-card.is-saving::after { content: ""; position: absolute; inset: 0; background: rgba(15,23,42,.32); }
+    .asset-card.is-saving .asset-save { z-index: 1; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
     .asset-search { display: grid; grid-template-columns: minmax(0, 1fr) 118px; gap: 8px; }
-    .asset-search input, .asset-search select { min-width: 0; padding: 10px 11px; border: 1px solid #d7e0ea; border-radius: 12px; background: #fff; color: #0f172a; font: inherit; font-size: 12px; font-weight: 700; }
+    .asset-search input, .asset-search select { min-width: 0; padding: 10px 11px; border: 1px solid #d8d2c6; border-radius: 12px; background: #fffdf8; color: #111827; font: inherit; font-size: 12px; font-weight: 700; outline: none; }
+    .asset-search input:focus, .asset-search select:focus { border-color: #a9793f; box-shadow: 0 0 0 3px rgba(169,121,63,.14); }
     .asset-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
     .asset-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-    .asset-card { position: relative; min-width: 0; aspect-ratio: 1 / 1; overflow: hidden; border: 1px solid #d7e0ea; border-radius: 14px; background: #fff; box-shadow: 0 8px 20px rgba(15,23,42,.05); }
+    .asset-card { position: relative; min-width: 0; aspect-ratio: 1 / 1; overflow: hidden; border: 1px solid #d8d2c6; border-radius: 14px; background: #fffdf8; box-shadow: 0 8px 18px rgba(31,41,51,.05); }
+    .asset-card.saved { width: 64px; height: 64px; aspect-ratio: auto; border-radius: 12px; }
     .asset-card[draggable="true"] { cursor: grab; }
     .asset-card[draggable="true"]:active { cursor: grabbing; }
-    .asset-thumb { width: 100%; height: 100%; display: block; background: #eef2f7; object-fit: contain; }
-    .asset-add { position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; padding: 0; border-radius: 999px; font-size: 17px; line-height: 1; box-shadow: 0 8px 16px rgba(15,23,42,.18); }
-    .asset-empty { grid-column: 1 / -1; margin: 0; color: #64748b; font-size: 12px; line-height: 1.45; }
-    .edit-assets { padding: 10px; border: 1px solid #d7e0ea; border-radius: 16px; background: #f8fafc; }
+    .asset-thumb { width: 100%; height: 100%; display: block; background: #eee8dc; object-fit: contain; }
+    .asset-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .asset-search-toggle { width: auto; min-width: 32px; height: 28px; padding: 0 9px; border-radius: 999px; box-shadow: 0 6px 14px rgba(31,41,51,.08); font-size: 16px; line-height: 1; }
+    .asset-search-view { position: absolute; inset: 0; z-index: 12; display: flex; flex-direction: column; gap: 14px; padding: 20px; background: linear-gradient(180deg, #fbfaf7 0%, #f2eee6 100%); overflow: auto; transform: translateX(105%); transition: transform .2s ease; box-shadow: -18px 0 44px rgba(31,41,51,.16); }
+    .asset-search-view.open { transform: translateX(0); }
+    .asset-search-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .asset-search-title { display: flex; flex-direction: column; gap: 2px; }
+    .asset-search-title h2 { margin: 0; color: #0f172a; font-size: 16px; letter-spacing: -.01em; }
+    .asset-search-title span { color: #756f66; font-size: 12px; line-height: 1.35; }
+    .asset-back { width: auto; padding: 9px 11px; border-radius: 999px; background: #ebe4d8; color: #111827; box-shadow: none; }
+    .asset-save { position: absolute; left: 7px; right: 7px; bottom: 7px; width: auto; padding: 7px 8px; border-radius: 10px; font-size: 11px; background: rgba(17,24,39,.9); color: #fbfaf7; box-shadow: 0 8px 16px rgba(31,41,51,.2); opacity: .96; }
+    .asset-empty { grid-column: 1 / -1; margin: 0; color: #756f66; font-size: 12px; line-height: 1.45; }
+    .edit-assets { padding: 10px; border: 1px solid #d8d2c6; border-radius: 16px; background: #f7f3ea; }
     .edit-assets .panel { gap: 8px; }
-    .edit-assets .asset-grid { max-height: 176px; overflow: auto; }
-    .drop-active .hitbox { background: rgba(37,99,235,.08); outline: 2px dashed rgba(37,99,235,.45); outline-offset: -10px; }
-    button { width: 100%; padding: 12px 14px; border: 0; border-radius: 12px; background: #2563eb; color: #ffffff; font-weight: 800; cursor: pointer; box-shadow: 0 10px 24px rgba(37,99,235,.22); }
+    .edit-assets .asset-grid { grid-template-columns: repeat(auto-fill, 64px); align-items: start; max-height: 176px; overflow: auto; }
+    .edit-assets .asset-thumb { width: 64px; height: 64px; }
+    .drop-active .hitbox { background: rgba(169,121,63,.1); outline: 2px dashed rgba(169,121,63,.48); outline-offset: -10px; }
+    button { width: 100%; padding: 12px 14px; border: 1px solid #d8d2c6; border-radius: 12px; background: #ebe4d8; color: #111827; font-weight: 800; cursor: pointer; box-shadow: 0 8px 16px rgba(31,41,51,.08); }
+    button:hover:not(:disabled) { background: #e3dacb; }
     button:disabled { cursor: not-allowed; opacity: .5; }
-    .status { min-height: 20px; color: #475569; font-size: 13px; line-height: 1.45; }
+    .primary-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; border-radius: 14px; border-color: #111827; background: linear-gradient(135deg, #111827 0%, #1f2937 100%); color: #fbfaf7; font-size: 14px; letter-spacing: .01em; box-shadow: 0 12px 24px rgba(31,41,51,.24); transition: transform .14s ease, box-shadow .14s ease, filter .14s ease; }
+    .primary-action:hover:not(:disabled) { background: linear-gradient(135deg, #0f1720 0%, #283241 100%); transform: translateY(-1px); box-shadow: 0 16px 30px rgba(31,41,51,.28); filter: saturate(1.02); }
+    .primary-action:active:not(:disabled) { transform: translateY(0); box-shadow: 0 9px 20px rgba(31,41,51,.22); }
+    .send-icon { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+    .status { min-height: 20px; color: #5f594f; font-size: 13px; line-height: 1.45; }
     @media (max-width: 900px) { .app { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; } .resize-handle { display: none; } aside { max-height: 48vh; } .deck-nav { bottom: 10px; } }
   </style>
 </head>
@@ -847,46 +886,48 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     <aside>
       <div>
         <h1><span class="wordmark">REVELA</span> Refine</h1>
-        <p class="hint">Cmd/Ctrl-click slide elements once, then use Edit for fast changes or Inspect for Narrative Reading, Exploratory Reading, Source, and Purpose review.</p>
+        <p class="hint">Select refs, describe the change, then send. Use Inspect only when you need source or purpose context.</p>
       </div>
-      <div id="selectionSummary" class="selection-summary"><strong>Selection</strong><span>No references selected.</span><div id="selectionChips" class="selection-chips"></div></div>
+      <div id="selectionSummary" class="selection-summary sr-only" aria-live="polite"><strong>Selection</strong><span>No references selected.</span><div id="selectionChips" class="selection-chips"></div></div>
       <div class="tabs" role="tablist" aria-label="Refine mode">
         <button id="editTab" class="tab" type="button" role="tab">Edit</button>
         <button id="inspectTab" class="tab" type="button" role="tab">Inspect</button>
-        <button id="assetsTab" class="tab" type="button" role="tab">Assets</button>
       </div>
       <div id="editPanel" class="tab-panel">
         <div class="panel">
-          <div class="label">Comment</div>
-          <div id="comment" class="comment-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Example: Cmd/Ctrl-click to ref the chart title, then ask to make it shorter and align it with the KPI row."></div>
+          <div class="label">Describe the change</div>
+          <div id="comment" class="comment-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Cmd/Ctrl-click slide elements to add @refs, then describe the exact edit."></div>
         </div>
         <div class="edit-assets" aria-label="Edit assets">
           <div class="panel">
-            <div class="label">Workspace Assets</div>
-            <div id="editSavedAssets" class="asset-grid"><p class="asset-empty">No saved assets yet. Search in Assets.</p></div>
+            <div class="asset-tools"><div class="label">Local Assets</div><button id="assetSearchToggle" class="asset-search-toggle" type="button" aria-expanded="false" aria-controls="assetSearchView" title="Search assets">+</button></div>
+            <div id="editSavedAssets" class="asset-grid"><p class="asset-empty">No local assets yet. Click + to search assets.</p></div>
           </div>
         </div>
-        <div id="commentThread" class="comment-thread" aria-live="polite"></div>
-        <button id="send" disabled>Send Edit</button>
+        <button id="send" class="primary-action" disabled><svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 12-8.5 8.5a2.12 2.12 0 0 1-3-3L12 9"/><path d="m17.64 15 3.24-3.24a2 2 0 0 0 0-2.83l-5.66-5.66a2 2 0 0 0-2.83 0L9.15 6.5"/><path d="m14 7 3 3"/><path d="M5 19l3-3"/></svg><span>Send Edit</span></button>
+        <div class="activity-panel"><div class="label">Activity</div><div id="commentThread" class="comment-thread" aria-live="polite"></div></div>
       </div>
       <div id="inspectPanel" class="tab-panel">
+        <div class="panel">
+          <label class="label" for="inspectComment">Inspect comment</label>
+          <div id="inspectComment" class="comment-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Cmd/Ctrl-click slide elements to add @refs, then ask about purpose or source."></div>
+        </div>
         <div class="inspect-actions">
           <div class="inspect-options"><label for="inspectLanguage">Display Language</label><select id="inspectLanguage" class="inspect-select"><option>Auto</option><option>English</option><option>简体中文</option><option>繁體中文</option><option>日本語</option><option>Deutsch</option><option>Français</option><option>Español</option><option>Português</option><option>Arabic</option></select></div>
-          <button id="inspectButton" disabled>Inspect Selection</button>
+          <button id="inspectButton" disabled>Inspect Reference</button>
           <div id="inspectStale"></div>
         </div>
-        <div id="inspectCards" class="inspect-cards"><div class="inspect-empty">Select one or more deck elements, then inspect them for Narrative Reading, Exploratory Reading, Source, and Purpose. This does not edit the deck.</div></div>
+        <div id="inspectCards" class="inspect-cards"><div class="inspect-empty">Select a deck element to create an @ref, optionally ask a question, then Inspect. This does not edit the deck.</div></div>
       </div>
-      <div id="assetsPanel" class="tab-panel">
-        <div class="panel">
-          <div class="label">Search Web</div>
-          <div class="asset-search"><input id="assetQuery" type="search" placeholder="Company logo, product photo, portrait..." /><select id="assetPurpose"><option value="logo">logo</option><option value="illustration">photo/illustration</option><option value="portrait">portrait</option><option value="screenshot">screenshot</option><option value="hero">hero</option></select></div>
-          <div class="asset-actions"><button id="assetSearchButton" type="button">Search Assets</button><button id="assetShuffleButton" type="button" disabled>换一批</button></div>
-          <div id="assetResults" class="asset-grid"><p class="asset-empty">Search image candidates, then click + to save one to the workspace.</p></div>
+      <div id="assetSearchView" class="asset-search-view" aria-hidden="true">
+        <div class="asset-search-head">
+          <button id="assetSearchBack" class="asset-back" type="button">← Back</button>
+          <div class="asset-search-title"><h2>Search Assets</h2><span>Save images to Local Assets, then use them from Edit.</span></div>
         </div>
         <div class="panel">
-          <div class="label">Workspace Assets</div>
-          <div id="librarySavedAssets" class="asset-grid"><p class="asset-empty">No saved assets yet.</p></div>
+          <div class="asset-search"><input id="assetQuery" type="search" placeholder="Company logo, product photo, portrait..." /><select id="assetPurpose"><option value="logo" selected>logo</option><option value="illustration">photo</option><option value="hero">hero</option><option value="portrait">portrait</option><option value="screenshot">screenshot</option></select></div>
+          <div class="asset-actions"><button id="assetSearchButton" type="button">Search Assets</button><button id="assetShuffleButton" type="button" disabled>Refresh</button></div>
+          <div id="assetResults" class="asset-grid"><p class="asset-empty">Search image candidates, then save one to the workspace.</p></div>
         </div>
       </div>
       <div id="status" class="status"></div>
@@ -934,6 +975,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         activeInspectRequestId: '',
         inspectLanguage: 'Auto',
         inspectFallback: null,
+        sendingEdit: false,
         assetCandidates: [],
         savedAssets: [],
         selectedAsset: null,
@@ -941,6 +983,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         assetDropTarget: null,
         assetDropOutline: null,
         assetSearchBusy: false,
+        assetSavingIndex: -1,
         assetSearchPage: 1,
         assetSearchKey: '',
         assetVisibleCount: 0,
@@ -957,24 +1000,25 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         selectionChips: null,
         editTab: null,
         inspectTab: null,
-        assetsTab: null,
         editPanel: null,
         inspectPanel: null,
-        assetsPanel: null,
         comment: null,
         commentThread: null,
         send: null,
+        inspectComment: null,
         inspectButton: null,
         inspectLanguage: null,
         inspectCards: null,
         inspectStale: null,
+        assetSearchToggle: null,
+        assetSearchBack: null,
+        assetSearchView: null,
         assetQuery: null,
         assetPurpose: null,
         assetSearchButton: null,
         assetShuffleButton: null,
         assetResults: null,
         editSavedAssets: null,
-        librarySavedAssets: null,
         status: null,
       };
 
@@ -999,28 +1043,29 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           els.selectionChips = document.getElementById('selectionChips');
           els.editTab = document.getElementById('editTab');
           els.inspectTab = document.getElementById('inspectTab');
-          els.assetsTab = document.getElementById('assetsTab');
           els.editPanel = document.getElementById('editPanel');
           els.inspectPanel = document.getElementById('inspectPanel');
-          els.assetsPanel = document.getElementById('assetsPanel');
           els.comment = document.getElementById('comment');
           els.commentThread = document.getElementById('commentThread');
           els.send = document.getElementById('send');
+          els.inspectComment = document.getElementById('inspectComment');
           els.inspectButton = document.getElementById('inspectButton');
           els.inspectCards = document.getElementById('inspectCards');
           els.inspectStale = document.getElementById('inspectStale');
+          els.assetSearchToggle = document.getElementById('assetSearchToggle');
+          els.assetSearchBack = document.getElementById('assetSearchBack');
+          els.assetSearchView = document.getElementById('assetSearchView');
           els.assetQuery = document.getElementById('assetQuery');
           els.assetPurpose = document.getElementById('assetPurpose');
           els.assetSearchButton = document.getElementById('assetSearchButton');
           els.assetShuffleButton = document.getElementById('assetShuffleButton');
           els.assetResults = document.getElementById('assetResults');
           els.editSavedAssets = document.getElementById('editSavedAssets');
-          els.librarySavedAssets = document.getElementById('librarySavedAssets');
           els.status = document.getElementById('status');
 
           els.inspectLanguage = document.getElementById('inspectLanguage');
 
-          if (!els.frame || !els.hitbox || !els.resizeHandle || !els.deckPrev || !els.deckNext || !els.deckCounter || !els.selectionSummary || !els.selectionChips || !els.editTab || !els.inspectTab || !els.assetsTab || !els.editPanel || !els.inspectPanel || !els.assetsPanel || !els.comment || !els.commentThread || !els.send || !els.inspectButton || !els.inspectLanguage || !els.inspectCards || !els.inspectStale || !els.assetQuery || !els.assetPurpose || !els.assetSearchButton || !els.assetShuffleButton || !els.assetResults || !els.editSavedAssets || !els.librarySavedAssets || !els.status) {
+          if (!els.frame || !els.hitbox || !els.resizeHandle || !els.deckPrev || !els.deckNext || !els.deckCounter || !els.selectionSummary || !els.selectionChips || !els.editTab || !els.inspectTab || !els.editPanel || !els.inspectPanel || !els.comment || !els.commentThread || !els.send || !els.inspectComment || !els.inspectButton || !els.inspectLanguage || !els.inspectCards || !els.inspectStale || !els.assetSearchToggle || !els.assetSearchBack || !els.assetSearchView || !els.assetQuery || !els.assetPurpose || !els.assetSearchButton || !els.assetShuffleButton || !els.assetResults || !els.editSavedAssets || !els.status) {
             throw new Error('Editor boot failed: required DOM nodes are missing.');
           }
 
@@ -1056,12 +1101,19 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         });
         els.comment.addEventListener('input', () => {
           saveCommentRange();
-          syncReferencesFromComment(false);
+          syncReferencesFromComment(false, els.comment);
           syncSelectedAssetFromComment();
           updateSendState();
         });
         els.comment.addEventListener('keyup', saveCommentRange);
         els.comment.addEventListener('mouseup', saveCommentRange);
+        els.inspectComment.addEventListener('input', () => {
+          saveCommentRange();
+          syncReferencesFromComment(false, els.inspectComment);
+          updateSendState();
+        });
+        els.inspectComment.addEventListener('keyup', saveCommentRange);
+        els.inspectComment.addEventListener('mouseup', saveCommentRange);
         document.addEventListener('selectionchange', saveCommentRange);
         els.hitbox.addEventListener('pointermove', onHover);
         els.hitbox.addEventListener('pointerdown', onPointerDown);
@@ -1083,6 +1135,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         els.deckNext.addEventListener('click', nextDeckSlide);
         els.send.addEventListener('click', sendComment);
         els.inspectButton.addEventListener('click', inspectCurrentSelection);
+        els.assetSearchToggle.addEventListener('click', toggleAssetSearchPanel);
+        els.assetSearchBack.addEventListener('click', closeAssetSearchPanel);
         els.assetSearchButton.addEventListener('click', () => searchAssets(false));
         els.assetShuffleButton.addEventListener('click', () => searchAssets(true));
         els.assetQuery.addEventListener('keydown', (event) => {
@@ -1097,21 +1151,40 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         });
         els.editTab.addEventListener('click', () => setMode('edit'));
         els.inspectTab.addEventListener('click', () => setMode('inspect'));
-        els.assetsTab.addEventListener('click', () => setMode('assets'));
         els.hitbox.addEventListener('dragover', onAssetDragOver);
         els.hitbox.addEventListener('dragleave', onAssetDragLeave);
         els.hitbox.addEventListener('drop', onAssetDrop);
       }
 
       function setMode(mode) {
-        state.mode = mode === 'inspect' || mode === 'assets' ? mode : 'edit';
+        state.mode = mode === 'inspect' ? 'inspect' : 'edit';
         els.editTab.classList.toggle('active', state.mode === 'edit');
         els.inspectTab.classList.toggle('active', state.mode === 'inspect');
-        els.assetsTab.classList.toggle('active', state.mode === 'assets');
         els.editPanel.classList.toggle('active', state.mode === 'edit');
         els.inspectPanel.classList.toggle('active', state.mode === 'inspect');
-        els.assetsPanel.classList.toggle('active', state.mode === 'assets');
+        saveCommentRange();
         updateSendState();
+      }
+
+      function activeCommentEditor() {
+        return state.mode === 'inspect' ? els.inspectComment : els.comment;
+      }
+
+      function toggleAssetSearchPanel() {
+        const open = !els.assetSearchView.classList.contains('open');
+        setAssetSearchOpen(open);
+      }
+
+      function closeAssetSearchPanel() {
+        setAssetSearchOpen(false);
+      }
+
+      function setAssetSearchOpen(open) {
+        els.assetSearchView.classList.toggle('open', open);
+        els.assetSearchView.setAttribute('aria-hidden', open ? 'false' : 'true');
+        els.assetSearchToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        els.assetSearchToggle.textContent = '+';
+        if (open) els.assetQuery.focus();
       }
 
       function restoreEditorWidth() {
@@ -1177,7 +1250,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           state.hoverEl = null;
           state.hoverOutline = createOutline(doc, '#38bdf8', 'rgba(56,189,248,.12)');
           state.assetDropTarget = null;
-          state.assetDropOutline = createOutline(doc, '#2563eb', 'rgba(37,99,235,.16)');
+          state.assetDropOutline = createOutline(doc, '#a9793f', 'rgba(169,121,63,.16)');
           state.referenceOutlines = [];
           doc.addEventListener('scroll', () => {
             renderHoverOutline(state.hoverEl);
@@ -1381,7 +1454,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       async function sendComment() {
-        syncReferencesFromComment(false);
+        syncReferencesFromComment(false, els.comment);
         syncSelectedAssetFromComment();
         const text = getCommentText().trim();
         if (!text) return;
@@ -1392,7 +1465,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         state.selectedAsset = null;
         els.comment.textContent = '';
         renderReferenceOutlines();
-        els.send.disabled = true;
+        state.sendingEdit = true;
+        updateSendState();
         setStatus('Sending...');
         try {
           const res = await fetch('/api/comment?token=' + encodeURIComponent(token), {
@@ -1404,9 +1478,11 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to send comment');
           updatePendingCommentStatus(commentId, 'sent', { baseDeckVersion: body.deckVersion || state.deckVersion });
           if (pendingCommentStatus(commentId) !== 'updated') setStatus('Comment sent. Waiting for deck update...');
+          state.sendingEdit = false;
           updateSendState();
         } catch (error) {
           updatePendingCommentStatus(commentId, 'failed');
+          state.sendingEdit = false;
           reportError(error);
           updateSendState();
         }
@@ -1425,7 +1501,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         state.assetSearchBusy = true;
         els.assetSearchButton.disabled = true;
         els.assetShuffleButton.disabled = true;
-        els.assetResults.innerHTML = '<p class="asset-empty">' + (nextBatch ? 'Searching another batch...' : 'Searching remote image sources...') + '</p>';
+        renderAssetSearchLoading(nextBatch ? 'Searching another batch...' : 'Searching remote image sources...');
+        setButtonLoading(els.assetSearchButton, true, 'Searching...');
         setStatus(nextBatch ? 'Searching another asset batch...' : 'Searching assets...');
         try {
           const params = new URLSearchParams({ query, purpose: els.assetPurpose.value || 'illustration', limit: '24', page: String(state.assetSearchPage) });
@@ -1434,16 +1511,21 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           if (!res.ok || !body.ok) throw new Error(body.error || 'Asset search failed');
           state.assetCandidates = Array.isArray(body.candidates) ? body.candidates : [];
           renderAssetCandidates();
-          setStatus(state.assetCandidates.length ? 'Asset search complete. Click + to save an asset to the workspace.' : (nextBatch ? 'No more assets found. Try another query.' : 'No assets found for this query.'));
+          setStatus(state.assetCandidates.length ? 'Asset search complete. Click + to save an asset to the workspace.' : (nextBatch ? 'No more assets found. Try another query or purpose.' : 'No assets found. Try another query or purpose.'));
         } catch (error) {
           if (nextBatch) state.assetSearchPage = Math.max(1, state.assetSearchPage - 1);
           els.assetResults.innerHTML = '<p class="asset-empty">' + escapeHtml(error && error.message ? error.message : String(error)) + '</p>';
           reportError(error);
         } finally {
           state.assetSearchBusy = false;
-          els.assetSearchButton.disabled = false;
+          setButtonLoading(els.assetSearchButton, false, 'Search Assets');
           updateAssetShuffleState();
         }
+      }
+
+      function renderAssetSearchLoading(message) {
+        els.assetResults.innerHTML = '<p class="asset-empty"><span class="loading-row"><span class="spinner" aria-hidden="true"></span>' + escapeHtml(message) + '</span></p>'
+          + Array.from({ length: 8 }, () => '<div class="skeleton-card asset-skeleton"><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div>').join('');
       }
 
       function resetAssetSearchBatch() {
@@ -1461,12 +1543,17 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         state.assetVisibleCount = 0;
         state.assetPendingCount = state.assetCandidates.length;
         if (!state.assetCandidates.length) {
-          els.assetResults.innerHTML = '<p class="asset-empty">No remote candidates found.</p>';
+          els.assetResults.innerHTML = '<p class="asset-empty">No assets found. Try another query or purpose.</p>';
           return;
         }
         state.assetCandidates.forEach((candidate, index) => {
-          const card = assetCard(candidate, false);
-          appendAssetAddButton(card, 'Save to workspace', () => saveCandidate(index));
+          const card = assetCard(candidate, false, index);
+          if (state.assetSavingIndex === index) {
+            card.classList.add('is-saving');
+            appendAssetSaveButton(card, 'Saving...', 'Saving to workspace', () => {}, true);
+          } else {
+            appendAssetSaveButton(card, 'Save', 'Save to workspace', () => saveCandidate(index));
+          }
           els.assetResults.appendChild(card);
         });
         updateAssetShuffleState();
@@ -1475,6 +1562,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       async function saveCandidate(index) {
         const candidate = state.assetCandidates[index];
         if (!candidate) return;
+        state.assetSavingIndex = index;
+        renderAssetCandidates();
         setStatus('Saving asset to workspace...');
         try {
           const res = await fetch('/api/assets/save?token=' + encodeURIComponent(token), {
@@ -1485,9 +1574,13 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           const body = await res.json().catch(() => ({}));
           if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to save asset');
           await loadSavedAssets();
-          setStatus('Asset saved. Use it from Edit workspace assets.');
+          const path = body.asset && (body.asset.path || body.asset.deckPath);
+          setStatus(path ? 'Saved to ' + path + '. Use it from Local Assets.' : 'Asset saved. Use it from Local Assets.');
         } catch (error) {
           reportError(error);
+        } finally {
+          state.assetSavingIndex = -1;
+          renderAssetCandidates();
         }
       }
 
@@ -1501,51 +1594,44 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         } catch (error) {
           const message = '<p class="asset-empty">' + escapeHtml(error && error.message ? error.message : String(error)) + '</p>';
           els.editSavedAssets.innerHTML = message;
-          els.librarySavedAssets.innerHTML = message;
         }
       }
 
       function renderSavedAssets() {
-        renderSavedAssetGrid(els.editSavedAssets, true, 'No saved assets yet. Search in Assets.');
-        renderSavedAssetGrid(els.librarySavedAssets, false, 'No saved assets yet.');
+        renderSavedAssetGrid(els.editSavedAssets, 'No local assets yet. Click + to search assets.');
       }
 
-      function renderSavedAssetGrid(container, editable, emptyMessage) {
+      function renderSavedAssetGrid(container, emptyMessage) {
         container.textContent = '';
         if (!state.savedAssets.length) {
           container.innerHTML = '<p class="asset-empty">' + escapeHtml(emptyMessage) + '</p>';
           return;
         }
         state.savedAssets.forEach((asset) => {
-          const card = assetCard(asset, true);
-          if (editable) {
-            card.draggable = true;
-            card.addEventListener('click', () => addAssetToComment(asset));
-            card.addEventListener('dragstart', (event) => {
-              state.draggingAsset = asset;
-              event.dataTransfer?.setData('application/revela-asset-id', asset.id || '');
-              event.dataTransfer?.setData('text/plain', asset.path || asset.id || '');
-              if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
-            });
-            card.addEventListener('dragend', () => {
-              state.draggingAsset = null;
-              document.body.classList.remove('drop-active');
-            });
-            appendAssetAddButton(card, 'Add to comment', (event) => {
-              event.stopPropagation();
-              addAssetToComment(asset);
-            });
-          }
+          const card = assetCard(asset, true, 0);
+          card.draggable = true;
+          card.addEventListener('click', () => addAssetToComment(asset));
+          card.addEventListener('dragstart', (event) => {
+            state.draggingAsset = asset;
+            event.dataTransfer?.setData('application/revela-asset-id', asset.id || '');
+            event.dataTransfer?.setData('text/plain', asset.path || asset.id || '');
+            if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
+          });
+          card.addEventListener('dragend', () => {
+            state.draggingAsset = null;
+            document.body.classList.remove('drop-active');
+          });
           container.appendChild(card);
         });
       }
 
-      function assetCard(asset, saved) {
+      function assetCard(asset, saved, index) {
         const card = document.createElement('div');
-        card.className = 'asset-card';
+        card.className = saved ? 'asset-card saved' : 'asset-card';
         const image = document.createElement('img');
         image.className = 'asset-thumb';
-        image.loading = 'lazy';
+        image.loading = !saved && index < 8 ? 'eager' : 'lazy';
+        image.decoding = 'async';
         image.alt = asset.alt || asset.title || asset.id || 'Image asset';
         if (!saved) {
           image.addEventListener('load', () => markAssetImageLoaded());
@@ -1566,15 +1652,16 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         card.remove();
         state.assetPendingCount = Math.max(0, state.assetPendingCount - 1);
         if (!state.assetVisibleCount && !state.assetPendingCount) {
-          els.assetResults.innerHTML = '<p class="asset-empty">No displayable images found. Try 换一批 or another query.</p>';
+          els.assetResults.innerHTML = '<p class="asset-empty">No displayable images found. Try Refresh or another purpose.</p>';
         }
       }
 
-      function appendAssetAddButton(card, label, onClick) {
+      function appendAssetSaveButton(card, text, label, onClick, loading) {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'asset-add';
-        button.textContent = '+';
+        button.className = 'asset-save';
+        button.innerHTML = loading ? '<span class="spinner" aria-hidden="true"></span><span>' + escapeHtml(text) + '</span>' : escapeHtml(text);
+        button.disabled = !!loading;
         button.setAttribute('aria-label', label);
         button.title = label;
         button.addEventListener('click', onClick);
@@ -1742,7 +1829,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         renderReferenceOutlines();
         updateSendState();
         renderSelectionSummary();
-        resetInspectCards('References ready. Open Inspect and click Inspect Selection when you want Narrative Reading, Exploratory Reading, Source, and Purpose review.');
+        resetInspectCards('References ready. Open Inspect and click Inspect Reference for concise Purpose and Source context.');
         setStatus('Inserted @' + label + '. ' + state.references.length + ' reference' + (state.references.length === 1 ? '' : 's') + ' will be sent.');
       }
 
@@ -1764,8 +1851,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         updateSendState();
       }
 
-      function syncReferencesFromComment(showStatus) {
-        const activeIds = new Set(Array.from(els.comment.querySelectorAll('.ref-chip[data-ref-id]')).map((chip) => chip.getAttribute('data-ref-id')));
+      function syncReferencesFromComment(showStatus, editor) {
+        const source = editor || activeCommentEditor();
+        const activeIds = new Set(Array.from(source.querySelectorAll('.ref-chip[data-ref-id]')).map((chip) => chip.getAttribute('data-ref-id')));
         const before = state.references.length;
         state.references = state.references.filter((reference) => activeIds.has(reference.id));
         if (state.references.length !== before) {
@@ -1924,8 +2012,18 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function updateSendState() {
-        els.send.disabled = !getCommentText().trim();
+        if (state.sendingEdit) setButtonLoading(els.send, true, 'Sending...');
+        else setButtonLoading(els.send, false, '<svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 12-8.5 8.5a2.12 2.12 0 0 1-3-3L12 9"/><path d="m17.64 15 3.24-3.24a2 2 0 0 0 0-2.83l-5.66-5.66a2 2 0 0 0-2.83 0L9.15 6.5"/><path d="m14 7 3 3"/><path d="M5 19l3-3"/></svg><span>Send Edit</span>', true);
+        els.send.disabled = state.sendingEdit || !getCommentText().trim();
+        if (state.inspecting) setButtonLoading(els.inspectButton, true, 'Inspecting...');
+        else setButtonLoading(els.inspectButton, false, 'Inspect Reference');
         els.inspectButton.disabled = state.inspecting || state.references.length === 0;
+      }
+
+      function setButtonLoading(button, loading, label, html) {
+        if (!button) return;
+        button.innerHTML = loading ? '<span class="spinner" aria-hidden="true"></span><span>' + escapeHtml(label) + '</span>' : (html ? label : escapeHtml(label));
+        button.disabled = !!loading;
       }
 
       function renderSelectionSummary() {
@@ -1951,27 +2049,39 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         els.inspectCards.innerHTML = '<div class="inspect-empty">' + escapeHtml(message) + '</div>';
       }
 
+      function renderInspectLoading(message) {
+        els.inspectCards.innerHTML = '<div class="inspect-loading"><span class="loading-row"><span class="spinner" aria-hidden="true"></span><b>' + escapeHtml(message) + '</b></span><br>Preparing concise Purpose and Source context.</div>'
+          + '<div class="skeleton-card"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div>'
+          + '<div class="skeleton-card"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div>';
+      }
+
+      function getInspectComment() {
+        syncReferencesFromComment(false, els.inspectComment);
+        return getCommentText(els.inspectComment).trim().slice(0, 2000);
+      }
+
       async function inspectCurrentSelection() {
         if (!state.references.length || state.inspecting) return;
         const snapshot = collectReferenceSnapshot();
+        const comment = getInspectComment();
         state.inspecting = true;
         updateSendState();
         setMode('inspect');
         els.inspectStale.innerHTML = '';
         state.inspectFallback = null;
-        els.inspectCards.innerHTML = '<div class="inspect-loading"><b>Reading selection...</b><br>Sending grounded selection context to OpenCode. Deterministic context is kept as fallback if generation fails.</div>';
+        renderInspectLoading('Reading selection...');
         try {
           const res = await fetch('/api/inspect?token=' + encodeURIComponent(token), {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ snapshot, deckVersion: state.deckVersion, language: state.inspectLanguage }),
+            body: JSON.stringify({ snapshot, deckVersion: state.deckVersion, language: state.inspectLanguage, comment }),
           });
           const body = await res.json().catch(() => ({}));
           if (!res.ok || !body.ok) throw new Error(body.error || 'Inspection failed');
           state.deckVersion = body.deckVersion || state.deckVersion;
           state.activeInspectRequestId = body.requestId;
           state.inspectFallback = body.preprocess || null;
-          els.inspectCards.innerHTML = '<div class="inspect-loading"><b>Reading selection...</b><br>Waiting for localized structured reading cards.</div>';
+          renderInspectLoading('Waiting for Purpose and Source...');
           await pollInspectResult(body.requestId);
         } catch (error) {
           if (state.inspectFallback) {
@@ -2030,8 +2140,6 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         else els.inspectStale.innerHTML = '';
         els.inspectCards.innerHTML = [
           '<div class="status">' + escapeHtml(phase || 'Inspection') + '</div>',
-          result.cards.reading ? renderInspectCard('Narrative Reading', result.cards.reading.status, result.cards.reading.rationale, renderReading(result.cards.reading)) : '',
-          result.cards.exploratory ? renderInspectCard('Exploratory Reading', result.cards.exploratory.status, result.cards.exploratory.rationale, renderExploratory(result.cards.exploratory)) : '',
           renderInspectCard('Purpose', result.cards.purpose.status, result.cards.purpose.rationale, renderPurpose(result.cards.purpose)),
           renderInspectCard('Source', result.cards.source.status, result.cards.source.rationale, renderSource(result.cards.source)),
         ].join('');
@@ -2109,6 +2217,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function insertReferenceChip(reference) {
+        const editor = activeCommentEditor();
         const chip = document.createElement('span');
         chip.className = 'ref-chip';
         chip.contentEditable = 'false';
@@ -2126,12 +2235,12 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           range.collapse(true);
           applyCommentRange(range);
         } else {
-          if (els.comment.textContent && !/\\s$/.test(els.comment.textContent)) els.comment.appendChild(document.createTextNode(' '));
-          els.comment.appendChild(chip);
-          els.comment.appendChild(trailingSpace);
+          if (editor.textContent && !/\\s$/.test(editor.textContent)) editor.appendChild(document.createTextNode(' '));
+          editor.appendChild(chip);
+          editor.appendChild(trailingSpace);
           placeCaretAfter(trailingSpace);
         }
-        els.comment.focus();
+        editor.focus();
       }
 
       function insertAssetChip(asset) {
@@ -2179,7 +2288,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function removeReferenceChip(id) {
-        const chip = els.comment.querySelector('.ref-chip[data-ref-id="' + cssEscape(id) + '"]');
+        const chip = activeCommentEditor().querySelector('.ref-chip[data-ref-id="' + cssEscape(id) + '"]');
         if (!chip) return;
         const next = chip.nextSibling;
         chip.remove();
@@ -2189,16 +2298,17 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function clearReferences(removeChips) {
         state.references = [];
         if (removeChips) {
-          els.comment.querySelectorAll('.ref-chip[data-ref-id]').forEach((chip) => chip.remove());
+          activeCommentEditor().querySelectorAll('.ref-chip[data-ref-id]').forEach((chip) => chip.remove());
           state.selectedAsset = null;
           removeAssetChip();
         }
         renderSelectionSummary();
-        resetInspectCards('Select one or more deck elements, then inspect them for Narrative Reading, Exploratory Reading, Source, and Purpose. This does not edit the deck.');
+        resetInspectCards('Select a deck element to create an @ref, optionally ask a question, then Inspect. This does not edit the deck.');
       }
 
-      function getCommentText() {
-        return (els.comment.innerText || els.comment.textContent || '').replace(/\\u00a0/g, ' ');
+      function getCommentText(editor) {
+        const source = editor || els.comment;
+        return (source.innerText || source.textContent || '').replace(/\\u00a0/g, ' ');
       }
 
       function placeCaretAfter(node) {
@@ -2211,18 +2321,20 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function saveCommentRange() {
         const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0) return;
-        if (!els.comment || !els.comment.contains(selection.anchorNode)) return;
+        const editor = activeCommentEditor();
+        if (!editor || !editor.contains(selection.anchorNode)) return;
         state.commentRange = selection.getRangeAt(0).cloneRange();
       }
 
       function getCommentInsertRange() {
+        const editor = activeCommentEditor();
         const selection = window.getSelection();
-        if (selection && selection.rangeCount > 0 && els.comment.contains(selection.anchorNode)) {
+        if (selection && selection.rangeCount > 0 && editor.contains(selection.anchorNode)) {
           const range = selection.getRangeAt(0).cloneRange();
           range.deleteContents();
           return range;
         }
-        if (state.commentRange && els.comment.contains(state.commentRange.commonAncestorContainer)) {
+        if (state.commentRange && editor.contains(state.commentRange.commonAncestorContainer)) {
           const range = state.commentRange.cloneRange();
           range.deleteContents();
           return range;

@@ -20,11 +20,19 @@ export interface ImageSearchInput {
   purpose?: MediaPurpose
   limit?: number
   page?: number
+  signal?: AbortSignal
+  providerTimeoutMs?: number
 }
 
 export interface ImageSearchProvider {
   name: string
   search(input: ImageSearchInput): Promise<ImageCandidate[]>
+}
+
+const PROVIDER_TIMEOUT_MS: Record<string, number> = {
+  "website-metadata": 3000,
+  unsplash: 6000,
+  "wikimedia-commons": 7000,
 }
 
 function slugify(value: string): string {
@@ -114,6 +122,24 @@ function htmlIconLinks(html: string): string[] {
   })
 }
 
+function queryForPurpose(query: string, purpose: MediaPurpose | undefined): string {
+  const value = query.trim()
+  if (!value) return value
+  if (purpose === "hero") return `${value} hero background professional photography`
+  if (purpose === "portrait") return `${value} portrait headshot`
+  if (purpose === "screenshot") return `${value} screenshot interface product`
+  if (purpose === "illustration") return `${value} professional photo concept visual`
+  return value
+}
+
+function wikimediaQueryForPurpose(query: string, purpose: MediaPurpose | undefined): string {
+  const value = query.trim()
+  if (!value) return value
+  if (purpose === "portrait") return `${value} portrait`
+  if (purpose === "screenshot") return `${value} screenshot`
+  return value
+}
+
 export const clearbitLogoProvider: ImageSearchProvider = {
   name: "clearbit-logo",
   async search(input) {
@@ -143,12 +169,13 @@ export const simpleIconsProvider: ImageSearchProvider = {
     const brand = compactBrandName(input.query)
     if (!brand) return []
     const title = `${brand} logo`
-    const imageUrl = `https://cdn.simpleicons.org/${encodeURIComponent(brand)}`
+    const cdnUrl = `https://cdn.simpleicons.org/${encodeURIComponent(brand)}`
+    const imageUrl = `https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/${encodeURIComponent(brand)}.svg`
     return [{
       candidateId: `simple-icons-${slugify(brand)}`,
       provider: this.name,
       title,
-      thumbnailUrl: imageUrl,
+      thumbnailUrl: cdnUrl,
       imageUrl,
       sourcePageUrl: `https://simpleicons.org/?q=${encodeURIComponent(brand)}`,
       alt: title,
@@ -168,16 +195,19 @@ export const websiteMetadataProvider: ImageSearchProvider = {
     const homepage = `https://${domain}`
     const response = await fetch(homepage, {
       headers: { "user-agent": "Revela/0.15 asset search" },
+      signal: input.signal,
     })
     if (!response.ok) throw new Error(`Website metadata fetch failed: ${response.status}`)
     const html = await response.text()
     const title = htmlMetaContent(html, "og:site_name") || html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || domain
-    const urls = uniqueValues([
-      htmlMetaContent(html, "og:image"),
-      htmlMetaContent(html, "twitter:image"),
-      ...htmlIconLinks(html),
-      "/favicon.ico",
-    ].map((value) => value ? absoluteUrl(value, homepage) : undefined))
+    const socialImages = [htmlMetaContent(html, "og:image"), htmlMetaContent(html, "twitter:image")]
+    const icons = [...htmlIconLinks(html), "/favicon.ico"]
+    const sourceUrls = input.purpose === "logo"
+      ? icons
+      : input.purpose === "screenshot"
+        ? socialImages
+        : socialImages
+    const urls = uniqueValues(sourceUrls.map((value) => value ? absoluteUrl(value, homepage) : undefined))
     return urls.slice(0, normalizeLimit(input.limit)).map((imageUrl, index) => ({
       candidateId: `website-${slugify(domain)}-${index + 1}`,
       provider: this.name,
@@ -210,6 +240,7 @@ export const unsplashProvider: ImageSearchProvider = {
         "accept-version": "v1",
         "user-agent": "Revela/0.15 asset search",
       },
+      signal: input.signal,
     })
     if (!response.ok) throw new Error(`Unsplash search failed: ${response.status}`)
     const body = await response.json() as any
@@ -252,11 +283,13 @@ export const wikimediaProvider: ImageSearchProvider = {
     url.searchParams.set("gsroffset", String((page - 1) * limit))
     url.searchParams.set("gsrsearch", input.query)
     url.searchParams.set("prop", "imageinfo|info")
-    url.searchParams.set("iiprop", "url|mime|size|extmetadata")
+    url.searchParams.set("iiprop", "url|thumburl|mime|size|extmetadata")
+    url.searchParams.set("iiurlwidth", "320")
     url.searchParams.set("inprop", "url")
 
     const response = await fetch(url, {
       headers: { "user-agent": "Revela/0.15 asset search" },
+      signal: input.signal,
     })
     if (!response.ok) throw new Error(`Wikimedia search failed: ${response.status}`)
     const body = await response.json() as any
@@ -267,13 +300,14 @@ export const wikimediaProvider: ImageSearchProvider = {
       if (!mime.startsWith("image/")) return []
       const imageUrl = typeof info?.url === "string" ? info.url : ""
       if (!imageUrl) return []
+      const thumbnailUrl = typeof info?.thumburl === "string" ? info.thumburl : imageUrl
       const metadata = info?.extmetadata ?? {}
       const title = String(page.title || "Wikimedia image").replace(/^File:/, "")
       return [{
         candidateId: `wikimedia-${slugify(title).slice(0, 80)}`,
         provider: this.name,
         title,
-        thumbnailUrl: imageUrl,
+        thumbnailUrl,
         imageUrl,
         sourcePageUrl: typeof page.fullurl === "string" ? page.fullurl : undefined,
         width: typeof info.width === "number" ? info.width : undefined,
@@ -292,10 +326,25 @@ export async function searchRemoteImages(input: ImageSearchInput): Promise<Image
   if (!query) return []
   const limit = normalizeLimit(input.limit)
   const page = normalizePage(input.page)
-  const providers = input.purpose === "logo"
-    ? [clearbitLogoProvider, simpleIconsProvider, websiteMetadataProvider, wikimediaProvider]
-    : [unsplashProvider, websiteMetadataProvider, wikimediaProvider]
-  const batches = await Promise.allSettled(providers.map((provider) => provider.search({ ...input, query, limit, page })))
+  const mediaQuery = queryForPurpose(query, input.purpose)
+  const wikimediaQuery = wikimediaQueryForPurpose(query, input.purpose)
+  const searches: Array<Promise<ImageCandidate[]>> = input.purpose === "logo"
+    ? [
+      runProvider(clearbitLogoProvider, { ...input, query, limit, page }),
+      runProvider(simpleIconsProvider, { ...input, query, limit, page }),
+      runProvider(websiteMetadataProvider, { ...input, query, limit, page }),
+    ]
+    : input.purpose === "screenshot"
+      ? [
+        runProvider(websiteMetadataProvider, { ...input, query, limit, page }),
+        runProvider(wikimediaProvider, { ...input, query: wikimediaQuery, limit, page }),
+      ]
+      : [
+        runProvider(websiteMetadataProvider, { ...input, query, limit, page }),
+        runProvider(unsplashProvider, { ...input, query: mediaQuery, limit, page }),
+        runProvider(wikimediaProvider, { ...input, query: wikimediaQuery, limit, page }),
+      ]
+  const batches = await Promise.allSettled(searches)
   const candidates = batches.flatMap((result) => result.status === "fulfilled" ? result.value : [])
   const seen = new Set<string>()
   return candidates.filter((candidate) => {
@@ -304,4 +353,33 @@ export async function searchRemoteImages(input: ImageSearchInput): Promise<Image
     seen.add(key)
     return true
   }).slice(0, limit)
+}
+
+async function runProvider(provider: ImageSearchProvider, input: ImageSearchInput): Promise<ImageCandidate[]> {
+  const timeoutMs = input.providerTimeoutMs ?? PROVIDER_TIMEOUT_MS[provider.name]
+  if (!timeoutMs) return provider.search(input).catch(() => [])
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  const signal = input.signal ? anySignal([input.signal, controller.signal]) : controller.signal
+  try {
+    return await provider.search({ ...input, signal })
+  } catch {
+    return []
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function anySignal(signals: AbortSignal[]): AbortSignal {
+  const controller = new AbortController()
+  const abort = () => controller.abort()
+  for (const signal of signals) {
+    if (signal.aborted) {
+      controller.abort()
+      break
+    }
+    signal.addEventListener("abort", abort, { once: true })
+  }
+  return controller.signal
 }
