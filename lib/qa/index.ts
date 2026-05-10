@@ -8,8 +8,10 @@
 
 import { measureSlides } from "./measure"
 import { runChecks, formatReport } from "./checks"
-import type { QAReport } from "./checks"
+import type { LayoutIssue, QAReport } from "./checks"
 import type { DesignClassVocabulary } from "../design/designs"
+import { existsSync, readFileSync } from "fs"
+import { dirname, resolve } from "path"
 
 export type { QAReport, SlideReport, LayoutIssue, IssueSeverity } from "./checks"
 export type { RunChecksOptions } from "./checks"
@@ -34,7 +36,76 @@ export async function runQA(
   _vocabulary?: DesignClassVocabulary,
 ): Promise<QAReport> {
   const result = await measureSlides(htmlFilePath)
-  return runChecks(htmlFilePath, result.slides)
+  const report = runChecks(htmlFilePath, result.slides)
+  return withAssetChecks(report, htmlFilePath)
+}
+
+function withAssetChecks(report: QAReport, htmlFilePath: string): QAReport {
+  const issues = scanAssetRefs(htmlFilePath)
+  if (!issues.length) return report
+  const slides = [...report.slides]
+  const first = slides[0] ?? { index: 1, title: "Deck", issues: [] }
+  slides[0] = { ...first, issues: [...first.issues, ...issues] }
+  const errorCount = report.errorCount + issues.filter((issue) => issue.severity === "error").length
+  const warningCount = report.warningCount + issues.filter((issue) => issue.severity === "warning").length
+  return {
+    ...report,
+    slides,
+    totalIssues: report.totalIssues + issues.length,
+    errorCount,
+    warningCount,
+    summary: errorCount === 0
+      ? `QA passed with ${warningCount} warning${warningCount === 1 ? "" : "s"}.`
+      : `QA failed with ${errorCount} error${errorCount === 1 ? "" : "s"} and ${warningCount} warning${warningCount === 1 ? "" : "s"}.`,
+  }
+}
+
+function scanAssetRefs(htmlFilePath: string): LayoutIssue[] {
+  let html = ""
+  try {
+    html = readFileSync(htmlFilePath, "utf-8")
+  } catch {
+    return []
+  }
+  const refs = new Set<string>()
+  const attrPattern = /\b(?:src|href|poster)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi
+  let match: RegExpExecArray | null
+  while ((match = attrPattern.exec(html))) refs.add(match[1] ?? match[2] ?? match[3] ?? "")
+  const cssPattern = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^\s)]+))\s*\)/gi
+  while ((match = cssPattern.exec(html))) refs.add(match[1] ?? match[2] ?? match[3] ?? "")
+
+  const issues: LayoutIssue[] = []
+  for (const raw of refs) {
+    const ref = raw.trim()
+    if (!ref || ref.startsWith("data:") || ref.startsWith("#") || ref.startsWith("mailto:") || ref.startsWith("tel:")) continue
+    if (/^https?:\/\//i.test(ref) || ref.startsWith("//")) {
+      issues.push({ type: "asset", sub: "remote_url", severity: "error", detail: `Deck HTML references remote asset URL \`${ref}\`. Save network images to workspace assets and reference the local file instead.` })
+      continue
+    }
+    if (ref.includes("/__revela_asset")) {
+      issues.push({ type: "asset", sub: "refine_proxy", severity: "error", detail: `Deck HTML references Refine proxy URL \`${ref}\`. Use the saved workspace asset path instead.` })
+      continue
+    }
+    if (!looksLikeImageRef(ref)) continue
+    const pathOnly = safeDecode(ref.split(/[?#]/)[0])
+    const resolved = resolve(dirname(htmlFilePath), pathOnly)
+    if (!existsSync(resolved)) {
+      issues.push({ type: "asset", sub: "missing_file", severity: "error", detail: `Deck HTML references missing image asset \`${ref}\`. Use a path relative to the deck HTML file or save the asset into workspace assets first.` })
+    }
+  }
+  return issues
+}
+
+function looksLikeImageRef(ref: string): boolean {
+  return /\.(?:png|jpe?g|webp|gif|svg)(?:[?#].*)?$/i.test(ref)
+}
+
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
 }
 
 /**

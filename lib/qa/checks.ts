@@ -23,13 +23,14 @@ import { CANVAS_W, CANVAS_H } from "./measure"
 export type IssueSeverity = "error" | "warning" | "info"
 
 export interface LayoutIssue {
-  type: "canvas" | "scrollbar" | "overflow" | "text_overflow" | "density" | "balance" | "symmetry" | "rhythm" | "compliance"
+  type: "canvas" | "scrollbar" | "overflow" | "text_overflow" | "density" | "balance" | "symmetry" | "rhythm" | "compliance" | "asset"
   /** Sub-category within the dimension */
   sub?: "size_mismatch" | "page_scroll" | "text_clipped" | "thin_content"
       | "centroid_offset" | "bottom_gap" | "sparse"
       | "height_mismatch" | "density_mismatch"
       | "gap_variance"
       | "unknown_class" | "novel_css_rule"
+      | "remote_url" | "refine_proxy" | "missing_file"
   severity: IssueSeverity
   /** Human-readable description for the LLM to act on */
   detail: string

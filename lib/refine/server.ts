@@ -1,13 +1,16 @@
 import { randomBytes } from "crypto"
 import { existsSync, readFileSync, statSync } from "fs"
 import { fileURLToPath } from "url"
-import { dirname, extname, isAbsolute, resolve, sep } from "path"
+import { dirname, extname, isAbsolute, relative, resolve, sep } from "path"
 import type { EditableDeck } from "../edit/resolve-deck"
 import { buildEditPrompt, type EditCommentPayload } from "../edit/prompt"
 import type { InspectionElementSnapshot } from "../inspection-context/match"
 import { buildInspectionPrompt } from "../inspect/prompt"
 import { projectWorkspaceElement } from "../inspect/request"
 import { createInspectRequest, failInspectRequest, getInspectRequest } from "../inspect/requests"
+import { saveMediaAsset } from "../media/save"
+import { searchRemoteImages, type ImageCandidate } from "../media/search"
+import type { MediaAssetRecord, MediaPurpose } from "../media/types"
 
 const TOKEN_BYTES = 24
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000
@@ -190,7 +193,141 @@ async function handleRequest(req: Request): Promise<Response> {
     return handleDeckVersion(session.value)
   }
 
+  if (url.pathname === "/api/assets/search" && req.method === "GET") {
+    const session = validateSession(url.searchParams.get("token"))
+    if (!session.ok) return session.response
+    return handleAssetSearch(url, session.value)
+  }
+
+  if (url.pathname === "/api/assets/save" && req.method === "POST") {
+    const session = validateSession(url.searchParams.get("token"))
+    if (!session.ok) return session.response
+    return handleAssetSave(req, session.value)
+  }
+
+  if (url.pathname === "/api/assets/list" && req.method === "GET") {
+    const session = validateSession(url.searchParams.get("token"))
+    if (!session.ok) return session.response
+    return handleAssetList(session.value)
+  }
+
   return textResponse("Not found", 404)
+}
+
+async function handleAssetSearch(url: URL, session: EditSession): Promise<Response> {
+  const query = (url.searchParams.get("query") || "").trim()
+  if (!query) return jsonResponse({ ok: false, error: "query is required" }, 400)
+  const purpose = normalizeMediaPurpose(url.searchParams.get("purpose"))
+  const limit = Number(url.searchParams.get("limit") || 12)
+  const page = Number(url.searchParams.get("page") || 1)
+  try {
+    const candidates = await searchRemoteImages({ query, purpose, limit, page })
+    session.lastActiveAt = Date.now()
+    scheduleIdleStop()
+    return jsonResponse({ ok: true, candidates })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return jsonResponse({ ok: false, error: message }, 502)
+  }
+}
+
+async function handleAssetSave(req: Request, session: EditSession): Promise<Response> {
+  let body: any
+  try {
+    body = await req.json()
+  } catch {
+    return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400)
+  }
+
+  const candidate = normalizeImageCandidate(body?.candidate ?? body)
+  if (!candidate) return jsonResponse({ ok: false, error: "Valid image candidate is required" }, 400)
+  const purpose = normalizeMediaPurpose(body?.purpose) || candidate.purpose || "illustration"
+  const result = await saveMediaAsset({
+    topic: session.deck,
+    id: body?.id || candidate.candidateId,
+    type: "image",
+    purpose,
+    brief: body?.brief || `Saved from ${candidate.provider} for Refine asset placement.`,
+    status: "success",
+    sourceUrl: candidate.imageUrl,
+    alt: body?.alt || candidate.alt || candidate.title,
+    notes: body?.notes,
+    provider: candidate.provider,
+    sourcePageUrl: candidate.sourcePageUrl,
+    license: candidate.license,
+    attribution: candidate.attribution,
+    width: candidate.width,
+    height: candidate.height,
+  }, session.workspaceRoot)
+
+  session.lastActiveAt = Date.now()
+  scheduleIdleStop()
+  if (!result.ok) return jsonResponse({ ok: false, error: result.error }, 400)
+  return jsonResponse({ ok: true, asset: savedAssetForResult(session, result.assetId), result })
+}
+
+function handleAssetList(session: EditSession): Response {
+  session.lastActiveAt = Date.now()
+  scheduleIdleStop()
+  return jsonResponse({ ok: true, assets: listSavedAssets(session) })
+}
+
+function savedAssetForResult(session: EditSession, assetId: string): (MediaAssetRecord & { previewUrl?: string; deckPath?: string }) | null {
+  return listSavedAssets(session).find((asset) => asset.id === assetId) ?? null
+}
+
+function listSavedAssets(session: EditSession): Array<MediaAssetRecord & { previewUrl?: string; deckPath?: string }> {
+  const manifestPath = resolve(session.workspaceRoot, "assets", slugify(session.deck), "media-manifest.json")
+  if (!existsSync(manifestPath)) return []
+  try {
+    const parsed = JSON.parse(readFileSync(manifestPath, "utf-8")) as { assets?: MediaAssetRecord[] }
+    return (Array.isArray(parsed.assets) ? parsed.assets : [])
+      .filter((asset) => asset.status === "success" && asset.path)
+      .map((asset) => ({
+        ...asset,
+        previewUrl: asset.path ? assetUrlForRef(asset.path, session, session.workspaceRoot) ?? undefined : undefined,
+        deckPath: asset.path ? relative(dirname(session.absoluteFile), resolve(session.workspaceRoot, asset.path)).replace(/\\/g, "/") : undefined,
+      }))
+  } catch {
+    return []
+  }
+}
+
+function normalizeImageCandidate(input: any): ImageCandidate | null {
+  if (!input || typeof input !== "object") return null
+  const candidateId = typeof input.candidateId === "string" ? input.candidateId.trim() : ""
+  const provider = typeof input.provider === "string" ? input.provider.trim() : ""
+  const title = typeof input.title === "string" ? input.title.trim() : ""
+  const imageUrl = typeof input.imageUrl === "string" ? input.imageUrl.trim() : ""
+  const thumbnailUrl = typeof input.thumbnailUrl === "string" ? input.thumbnailUrl.trim() : imageUrl
+  if (!candidateId || !provider || !title || !imageUrl) return null
+  return {
+    candidateId,
+    provider,
+    title,
+    thumbnailUrl,
+    imageUrl,
+    sourcePageUrl: typeof input.sourcePageUrl === "string" ? input.sourcePageUrl : undefined,
+    width: typeof input.width === "number" ? input.width : undefined,
+    height: typeof input.height === "number" ? input.height : undefined,
+    alt: typeof input.alt === "string" ? input.alt : undefined,
+    license: typeof input.license === "string" ? input.license : undefined,
+    attribution: typeof input.attribution === "string" ? input.attribution : undefined,
+    purpose: normalizeMediaPurpose(input.purpose),
+  }
+}
+
+function normalizeMediaPurpose(input: unknown): MediaPurpose | undefined {
+  return input === "hero" || input === "illustration" || input === "portrait" || input === "logo" || input === "screenshot"
+    ? input
+    : undefined
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
 }
 
 function handleDeck(session: EditSession): Response {
@@ -644,7 +781,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .wordmark { font-family: Garamond, "Iowan Old Style", Georgia, serif; font-size: 21px; letter-spacing: .08em; font-weight: 600; }
     .hint { margin: 0; color: #64748b; font-size: 13px; line-height: 1.5; }
     .panel { display: flex; flex-direction: column; gap: 10px; }
-    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border: 1px solid #dbe4ee; border-radius: 14px; background: #f1f5f9; }
+    .tabs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; padding: 4px; border: 1px solid #dbe4ee; border-radius: 14px; background: #f1f5f9; }
     .tab { padding: 9px 10px; border: 0; border-radius: 10px; background: transparent; color: #475569; box-shadow: none; font-weight: 900; }
     .tab.active { background: #ffffff; color: #0f172a; box-shadow: 0 6px 18px rgba(15,23,42,.08); }
     .tab-panel { display: none; flex-direction: column; gap: 12px; }
@@ -683,6 +820,20 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .inspect-card p, .inspect-empty, .inspect-loading { margin: 0; color: #475569; font-size: 12px; line-height: 1.5; }
     .inspect-item { margin-top: 7px; padding: 8px; border-radius: 10px; background: #f8fafc; color: #334155; font-size: 12px; line-height: 1.45; }
     .inspect-warning, .inspect-stale { margin-top: 8px; padding: 8px; border-radius: 10px; background: #fff7ed; color: #9a3412; font-size: 12px; line-height: 1.45; }
+    .asset-search { display: grid; grid-template-columns: minmax(0, 1fr) 118px; gap: 8px; }
+    .asset-search input, .asset-search select { min-width: 0; padding: 10px 11px; border: 1px solid #d7e0ea; border-radius: 12px; background: #fff; color: #0f172a; font: inherit; font-size: 12px; font-weight: 700; }
+    .asset-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+    .asset-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    .asset-card { position: relative; min-width: 0; aspect-ratio: 1 / 1; overflow: hidden; border: 1px solid #d7e0ea; border-radius: 14px; background: #fff; box-shadow: 0 8px 20px rgba(15,23,42,.05); }
+    .asset-card[draggable="true"] { cursor: grab; }
+    .asset-card[draggable="true"]:active { cursor: grabbing; }
+    .asset-thumb { width: 100%; height: 100%; display: block; background: #eef2f7; object-fit: contain; }
+    .asset-add { position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; padding: 0; border-radius: 999px; font-size: 17px; line-height: 1; box-shadow: 0 8px 16px rgba(15,23,42,.18); }
+    .asset-empty { grid-column: 1 / -1; margin: 0; color: #64748b; font-size: 12px; line-height: 1.45; }
+    .edit-assets { padding: 10px; border: 1px solid #d7e0ea; border-radius: 16px; background: #f8fafc; }
+    .edit-assets .panel { gap: 8px; }
+    .edit-assets .asset-grid { max-height: 176px; overflow: auto; }
+    .drop-active .hitbox { background: rgba(37,99,235,.08); outline: 2px dashed rgba(37,99,235,.45); outline-offset: -10px; }
     button { width: 100%; padding: 12px 14px; border: 0; border-radius: 12px; background: #2563eb; color: #ffffff; font-weight: 800; cursor: pointer; box-shadow: 0 10px 24px rgba(37,99,235,.22); }
     button:disabled { cursor: not-allowed; opacity: .5; }
     .status { min-height: 20px; color: #475569; font-size: 13px; line-height: 1.45; }
@@ -702,11 +853,18 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       <div class="tabs" role="tablist" aria-label="Refine mode">
         <button id="editTab" class="tab" type="button" role="tab">Edit</button>
         <button id="inspectTab" class="tab" type="button" role="tab">Inspect</button>
+        <button id="assetsTab" class="tab" type="button" role="tab">Assets</button>
       </div>
       <div id="editPanel" class="tab-panel">
         <div class="panel">
           <div class="label">Comment</div>
           <div id="comment" class="comment-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Example: Cmd/Ctrl-click to ref the chart title, then ask to make it shorter and align it with the KPI row."></div>
+        </div>
+        <div class="edit-assets" aria-label="Edit assets">
+          <div class="panel">
+            <div class="label">Workspace Assets</div>
+            <div id="editSavedAssets" class="asset-grid"><p class="asset-empty">No saved assets yet. Search in Assets.</p></div>
+          </div>
         </div>
         <div id="commentThread" class="comment-thread" aria-live="polite"></div>
         <button id="send" disabled>Send Edit</button>
@@ -718,6 +876,18 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           <div id="inspectStale"></div>
         </div>
         <div id="inspectCards" class="inspect-cards"><div class="inspect-empty">Select one or more deck elements, then inspect them for Narrative Reading, Exploratory Reading, Source, and Purpose. This does not edit the deck.</div></div>
+      </div>
+      <div id="assetsPanel" class="tab-panel">
+        <div class="panel">
+          <div class="label">Search Web</div>
+          <div class="asset-search"><input id="assetQuery" type="search" placeholder="Company logo, product photo, portrait..." /><select id="assetPurpose"><option value="logo">logo</option><option value="illustration">photo/illustration</option><option value="portrait">portrait</option><option value="screenshot">screenshot</option><option value="hero">hero</option></select></div>
+          <div class="asset-actions"><button id="assetSearchButton" type="button">Search Assets</button><button id="assetShuffleButton" type="button" disabled>换一批</button></div>
+          <div id="assetResults" class="asset-grid"><p class="asset-empty">Search image candidates, then click + to save one to the workspace.</p></div>
+        </div>
+        <div class="panel">
+          <div class="label">Workspace Assets</div>
+          <div id="librarySavedAssets" class="asset-grid"><p class="asset-empty">No saved assets yet.</p></div>
+        </div>
       </div>
       <div id="status" class="status"></div>
     </aside>
@@ -764,6 +934,17 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         activeInspectRequestId: '',
         inspectLanguage: 'Auto',
         inspectFallback: null,
+        assetCandidates: [],
+        savedAssets: [],
+        selectedAsset: null,
+        draggingAsset: null,
+        assetDropTarget: null,
+        assetDropOutline: null,
+        assetSearchBusy: false,
+        assetSearchPage: 1,
+        assetSearchKey: '',
+        assetVisibleCount: 0,
+        assetPendingCount: 0,
       };
       const els = {
         frame: null,
@@ -776,8 +957,10 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         selectionChips: null,
         editTab: null,
         inspectTab: null,
+        assetsTab: null,
         editPanel: null,
         inspectPanel: null,
+        assetsPanel: null,
         comment: null,
         commentThread: null,
         send: null,
@@ -785,6 +968,13 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         inspectLanguage: null,
         inspectCards: null,
         inspectStale: null,
+        assetQuery: null,
+        assetPurpose: null,
+        assetSearchButton: null,
+        assetShuffleButton: null,
+        assetResults: null,
+        editSavedAssets: null,
+        librarySavedAssets: null,
         status: null,
       };
 
@@ -809,19 +999,28 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           els.selectionChips = document.getElementById('selectionChips');
           els.editTab = document.getElementById('editTab');
           els.inspectTab = document.getElementById('inspectTab');
+          els.assetsTab = document.getElementById('assetsTab');
           els.editPanel = document.getElementById('editPanel');
           els.inspectPanel = document.getElementById('inspectPanel');
+          els.assetsPanel = document.getElementById('assetsPanel');
           els.comment = document.getElementById('comment');
           els.commentThread = document.getElementById('commentThread');
           els.send = document.getElementById('send');
           els.inspectButton = document.getElementById('inspectButton');
           els.inspectCards = document.getElementById('inspectCards');
           els.inspectStale = document.getElementById('inspectStale');
+          els.assetQuery = document.getElementById('assetQuery');
+          els.assetPurpose = document.getElementById('assetPurpose');
+          els.assetSearchButton = document.getElementById('assetSearchButton');
+          els.assetShuffleButton = document.getElementById('assetShuffleButton');
+          els.assetResults = document.getElementById('assetResults');
+          els.editSavedAssets = document.getElementById('editSavedAssets');
+          els.librarySavedAssets = document.getElementById('librarySavedAssets');
           els.status = document.getElementById('status');
 
           els.inspectLanguage = document.getElementById('inspectLanguage');
 
-          if (!els.frame || !els.hitbox || !els.resizeHandle || !els.deckPrev || !els.deckNext || !els.deckCounter || !els.selectionSummary || !els.selectionChips || !els.editTab || !els.inspectTab || !els.editPanel || !els.inspectPanel || !els.comment || !els.commentThread || !els.send || !els.inspectButton || !els.inspectLanguage || !els.inspectCards || !els.inspectStale || !els.status) {
+          if (!els.frame || !els.hitbox || !els.resizeHandle || !els.deckPrev || !els.deckNext || !els.deckCounter || !els.selectionSummary || !els.selectionChips || !els.editTab || !els.inspectTab || !els.assetsTab || !els.editPanel || !els.inspectPanel || !els.assetsPanel || !els.comment || !els.commentThread || !els.send || !els.inspectButton || !els.inspectLanguage || !els.inspectCards || !els.inspectStale || !els.assetQuery || !els.assetPurpose || !els.assetSearchButton || !els.assetShuffleButton || !els.assetResults || !els.editSavedAssets || !els.librarySavedAssets || !els.status) {
             throw new Error('Editor boot failed: required DOM nodes are missing.');
           }
 
@@ -830,6 +1029,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           setMode(state.mode);
           setStatus('Editor ready. Ctrl/Cmd + click deck elements to reference them.');
           initFrame();
+          loadSavedAssets();
           startDeckVersionPolling();
         } catch (error) {
           reportError(error);
@@ -857,6 +1057,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         els.comment.addEventListener('input', () => {
           saveCommentRange();
           syncReferencesFromComment(false);
+          syncSelectedAssetFromComment();
           updateSendState();
         });
         els.comment.addEventListener('keyup', saveCommentRange);
@@ -882,19 +1083,34 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         els.deckNext.addEventListener('click', nextDeckSlide);
         els.send.addEventListener('click', sendComment);
         els.inspectButton.addEventListener('click', inspectCurrentSelection);
+        els.assetSearchButton.addEventListener('click', () => searchAssets(false));
+        els.assetShuffleButton.addEventListener('click', () => searchAssets(true));
+        els.assetQuery.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            searchAssets(false);
+          }
+        });
+        els.assetPurpose.addEventListener('change', () => resetAssetSearchBatch());
         els.inspectLanguage.addEventListener('change', () => {
           state.inspectLanguage = els.inspectLanguage.value || 'Auto';
         });
         els.editTab.addEventListener('click', () => setMode('edit'));
         els.inspectTab.addEventListener('click', () => setMode('inspect'));
+        els.assetsTab.addEventListener('click', () => setMode('assets'));
+        els.hitbox.addEventListener('dragover', onAssetDragOver);
+        els.hitbox.addEventListener('dragleave', onAssetDragLeave);
+        els.hitbox.addEventListener('drop', onAssetDrop);
       }
 
       function setMode(mode) {
-        state.mode = mode === 'inspect' ? 'inspect' : 'edit';
+        state.mode = mode === 'inspect' || mode === 'assets' ? mode : 'edit';
         els.editTab.classList.toggle('active', state.mode === 'edit');
         els.inspectTab.classList.toggle('active', state.mode === 'inspect');
+        els.assetsTab.classList.toggle('active', state.mode === 'assets');
         els.editPanel.classList.toggle('active', state.mode === 'edit');
         els.inspectPanel.classList.toggle('active', state.mode === 'inspect');
+        els.assetsPanel.classList.toggle('active', state.mode === 'assets');
         updateSendState();
       }
 
@@ -960,6 +1176,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           clearReferences(false);
           state.hoverEl = null;
           state.hoverOutline = createOutline(doc, '#38bdf8', 'rgba(56,189,248,.12)');
+          state.assetDropTarget = null;
+          state.assetDropOutline = createOutline(doc, '#2563eb', 'rgba(37,99,235,.16)');
           state.referenceOutlines = [];
           doc.addEventListener('scroll', () => {
             renderHoverOutline(state.hoverEl);
@@ -1110,6 +1328,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         clearReferences(true);
         state.hoverEl = null;
         if (state.hoverOutline) state.hoverOutline.style.display = 'none';
+        state.assetDropTarget = null;
+        if (state.assetDropOutline) state.assetDropOutline.style.display = 'none';
         state.referenceOutlines.forEach((outline) => outline.style.display = 'none');
         state.referenceOutlines = [];
         updateSendState();
@@ -1162,11 +1382,14 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
       async function sendComment() {
         syncReferencesFromComment(false);
+        syncSelectedAssetFromComment();
         const text = getCommentText().trim();
         if (!text) return;
         const elements = state.references.map((reference) => reference.payload);
+        const asset = state.selectedAsset || undefined;
         const commentId = addPendingComment(text, elements, 'sending');
         clearReferences(false);
+        state.selectedAsset = null;
         els.comment.textContent = '';
         renderReferenceOutlines();
         els.send.disabled = true;
@@ -1175,7 +1398,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           const res = await fetch('/api/comment?token=' + encodeURIComponent(token), {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ comment: text, elements }),
+            body: JSON.stringify({ comment: text, elements, asset }),
           });
           const body = await res.json().catch(() => ({}));
           if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to send comment');
@@ -1186,6 +1409,308 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           updatePendingCommentStatus(commentId, 'failed');
           reportError(error);
           updateSendState();
+        }
+      }
+
+      async function searchAssets(nextBatch) {
+        const query = (els.assetQuery.value || '').trim();
+        if (!query || state.assetSearchBusy) return;
+        const key = query + '\u0000' + (els.assetPurpose.value || 'illustration');
+        if (!nextBatch || state.assetSearchKey !== key) {
+          state.assetSearchPage = 1;
+          state.assetSearchKey = key;
+        } else {
+          state.assetSearchPage += 1;
+        }
+        state.assetSearchBusy = true;
+        els.assetSearchButton.disabled = true;
+        els.assetShuffleButton.disabled = true;
+        els.assetResults.innerHTML = '<p class="asset-empty">' + (nextBatch ? 'Searching another batch...' : 'Searching remote image sources...') + '</p>';
+        setStatus(nextBatch ? 'Searching another asset batch...' : 'Searching assets...');
+        try {
+          const params = new URLSearchParams({ query, purpose: els.assetPurpose.value || 'illustration', limit: '24', page: String(state.assetSearchPage) });
+          const res = await fetch('/api/assets/search?token=' + encodeURIComponent(token) + '&' + params.toString(), { cache: 'no-store' });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok || !body.ok) throw new Error(body.error || 'Asset search failed');
+          state.assetCandidates = Array.isArray(body.candidates) ? body.candidates : [];
+          renderAssetCandidates();
+          setStatus(state.assetCandidates.length ? 'Asset search complete. Click + to save an asset to the workspace.' : (nextBatch ? 'No more assets found. Try another query.' : 'No assets found for this query.'));
+        } catch (error) {
+          if (nextBatch) state.assetSearchPage = Math.max(1, state.assetSearchPage - 1);
+          els.assetResults.innerHTML = '<p class="asset-empty">' + escapeHtml(error && error.message ? error.message : String(error)) + '</p>';
+          reportError(error);
+        } finally {
+          state.assetSearchBusy = false;
+          els.assetSearchButton.disabled = false;
+          updateAssetShuffleState();
+        }
+      }
+
+      function resetAssetSearchBatch() {
+        state.assetSearchPage = 1;
+        state.assetSearchKey = '';
+        updateAssetShuffleState();
+      }
+
+      function updateAssetShuffleState() {
+        els.assetShuffleButton.disabled = state.assetSearchBusy || !state.assetCandidates.length;
+      }
+
+      function renderAssetCandidates() {
+        els.assetResults.textContent = '';
+        state.assetVisibleCount = 0;
+        state.assetPendingCount = state.assetCandidates.length;
+        if (!state.assetCandidates.length) {
+          els.assetResults.innerHTML = '<p class="asset-empty">No remote candidates found.</p>';
+          return;
+        }
+        state.assetCandidates.forEach((candidate, index) => {
+          const card = assetCard(candidate, false);
+          appendAssetAddButton(card, 'Save to workspace', () => saveCandidate(index));
+          els.assetResults.appendChild(card);
+        });
+        updateAssetShuffleState();
+      }
+
+      async function saveCandidate(index) {
+        const candidate = state.assetCandidates[index];
+        if (!candidate) return;
+        setStatus('Saving asset to workspace...');
+        try {
+          const res = await fetch('/api/assets/save?token=' + encodeURIComponent(token), {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ candidate, purpose: els.assetPurpose.value || candidate.purpose || 'illustration' }),
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to save asset');
+          await loadSavedAssets();
+          setStatus('Asset saved. Use it from Edit workspace assets.');
+        } catch (error) {
+          reportError(error);
+        }
+      }
+
+      async function loadSavedAssets() {
+        try {
+          const res = await fetch('/api/assets/list?token=' + encodeURIComponent(token), { cache: 'no-store' });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to list assets');
+          state.savedAssets = Array.isArray(body.assets) ? body.assets : [];
+          renderSavedAssets();
+        } catch (error) {
+          const message = '<p class="asset-empty">' + escapeHtml(error && error.message ? error.message : String(error)) + '</p>';
+          els.editSavedAssets.innerHTML = message;
+          els.librarySavedAssets.innerHTML = message;
+        }
+      }
+
+      function renderSavedAssets() {
+        renderSavedAssetGrid(els.editSavedAssets, true, 'No saved assets yet. Search in Assets.');
+        renderSavedAssetGrid(els.librarySavedAssets, false, 'No saved assets yet.');
+      }
+
+      function renderSavedAssetGrid(container, editable, emptyMessage) {
+        container.textContent = '';
+        if (!state.savedAssets.length) {
+          container.innerHTML = '<p class="asset-empty">' + escapeHtml(emptyMessage) + '</p>';
+          return;
+        }
+        state.savedAssets.forEach((asset) => {
+          const card = assetCard(asset, true);
+          if (editable) {
+            card.draggable = true;
+            card.addEventListener('click', () => addAssetToComment(asset));
+            card.addEventListener('dragstart', (event) => {
+              state.draggingAsset = asset;
+              event.dataTransfer?.setData('application/revela-asset-id', asset.id || '');
+              event.dataTransfer?.setData('text/plain', asset.path || asset.id || '');
+              if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
+            });
+            card.addEventListener('dragend', () => {
+              state.draggingAsset = null;
+              document.body.classList.remove('drop-active');
+            });
+            appendAssetAddButton(card, 'Add to comment', (event) => {
+              event.stopPropagation();
+              addAssetToComment(asset);
+            });
+          }
+          container.appendChild(card);
+        });
+      }
+
+      function assetCard(asset, saved) {
+        const card = document.createElement('div');
+        card.className = 'asset-card';
+        const image = document.createElement('img');
+        image.className = 'asset-thumb';
+        image.loading = 'lazy';
+        image.alt = asset.alt || asset.title || asset.id || 'Image asset';
+        if (!saved) {
+          image.addEventListener('load', () => markAssetImageLoaded());
+          image.addEventListener('error', () => hideBrokenAssetCard(card));
+        }
+        image.src = saved ? (asset.previewUrl || '') : (asset.thumbnailUrl || asset.imageUrl || '');
+        card.title = asset.title || asset.id || asset.alt || 'Image asset';
+        card.appendChild(image);
+        return card;
+      }
+
+      function markAssetImageLoaded() {
+        state.assetVisibleCount += 1;
+        state.assetPendingCount = Math.max(0, state.assetPendingCount - 1);
+      }
+
+      function hideBrokenAssetCard(card) {
+        card.remove();
+        state.assetPendingCount = Math.max(0, state.assetPendingCount - 1);
+        if (!state.assetVisibleCount && !state.assetPendingCount) {
+          els.assetResults.innerHTML = '<p class="asset-empty">No displayable images found. Try 换一批 or another query.</p>';
+        }
+      }
+
+      function appendAssetAddButton(card, label, onClick) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'asset-add';
+        button.textContent = '+';
+        button.setAttribute('aria-label', label);
+        button.title = label;
+        button.addEventListener('click', onClick);
+        card.appendChild(button);
+      }
+
+      function addAssetToComment(asset) {
+        if (!asset) return;
+        state.selectedAsset = asset;
+        removeAssetChip();
+        const intro = els.comment.textContent && !/\s$/.test(els.comment.textContent) ? ' Use asset ' : 'Use asset ';
+        insertPlainText(intro);
+        insertAssetChip(asset);
+        insertPlainText(' ');
+        setMode('edit');
+        updateSendState();
+        setStatus('Asset added to the Edit comment. Describe where or how to use it, then Send Edit.');
+      }
+
+      function onAssetDragOver(event) {
+        if (!state.draggingAsset) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+        document.body.classList.add('drop-active');
+        const placement = collectAssetPlacement(event, state.draggingAsset);
+        renderAssetDropTarget(placement);
+      }
+
+      function onAssetDragLeave() {
+        document.body.classList.remove('drop-active');
+        renderAssetDropTarget(null);
+      }
+
+      async function onAssetDrop(event) {
+        const asset = state.draggingAsset || findSavedAsset(event.dataTransfer?.getData('application/revela-asset-id'));
+        if (!asset) return;
+        event.preventDefault();
+        document.body.classList.remove('drop-active');
+        renderAssetDropTarget(null);
+        const placement = collectAssetPlacement(event, asset);
+        if (!placement) {
+          setStatus('Drop the asset onto a deck slide.');
+          return;
+        }
+        await sendAssetPlacement(asset, placement);
+      }
+
+      function findSavedAsset(id) {
+        return state.savedAssets.find((asset) => asset.id === id) || null;
+      }
+
+      function collectAssetPlacement(event, asset) {
+        initFrame();
+        const doc = els.frame.contentDocument;
+        const win = els.frame.contentWindow;
+        if (!doc || !win) return null;
+        const frameRect = els.frame.getBoundingClientRect();
+        const frameX = event.clientX - frameRect.left;
+        const frameY = event.clientY - frameRect.top;
+        const rawTarget = doc.elementFromPoint(frameX, frameY);
+        const target = selectable(rawTarget);
+        const slide = findSlide(target) || findSlide(rawTarget);
+        if (!slide) return null;
+        const slides = getSlides(doc);
+        const explicitSlideIndex = Number(slide.getAttribute('data-slide-index'));
+        const slideIndex = Number.isFinite(explicitSlideIndex) && explicitSlideIndex > 0 ? explicitSlideIndex : slides.indexOf(slide) + 1;
+        const slideRect = slide.getBoundingClientRect();
+        const x = slideRect.width ? Math.max(0, Math.min(1, (frameX - slideRect.left) / slideRect.width)) : 0;
+        const y = slideRect.height ? Math.max(0, Math.min(1, (frameY - slideRect.top) / slideRect.height)) : 0;
+        const targetPayload = target && target !== slide ? collectPayload(target) : null;
+        const targetMode = targetPayload
+          ? (target && target.tagName && target.tagName.toLowerCase() === 'img' ? 'replace' : 'insert-into')
+          : 'add';
+        return {
+          slideIndex,
+          x,
+          y,
+          viewport: { width: win.innerWidth, height: win.innerHeight },
+          nearbyText: (slide.innerText || slide.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 1000),
+          targetMode,
+          target: targetPayload,
+          targetLabel: targetMode === 'replace' ? 'Replace image' : targetMode === 'insert-into' ? 'Insert into this element' : 'Add near here',
+          targetTagName: target?.tagName?.toLowerCase(),
+        };
+      }
+
+      function renderAssetDropTarget(placement) {
+        if (!state.assetDropOutline) return;
+        const target = placement?.target ? elementFromPayload(placement.target) : null;
+        state.assetDropTarget = target;
+        renderBox(state.assetDropOutline, target);
+        if (placement?.targetLabel) setStatus(placement.targetLabel + '. Drop to send an asset placement comment.');
+      }
+
+      function elementFromPayload(payload) {
+        const doc = els.frame.contentDocument;
+        if (!doc || !payload) return null;
+        const slides = getSlides(doc);
+        const slide = slides.find((item, index) => {
+          const explicit = Number(item.getAttribute('data-slide-index'));
+          const slideIndex = Number.isFinite(explicit) && explicit > 0 ? explicit : index + 1;
+          return slideIndex === payload.slideIndex;
+        });
+        if (!slide) return null;
+        if (payload.selector) {
+          try {
+            const selected = slide.querySelector(payload.selector);
+            if (selected) return selected;
+          } catch {}
+        }
+        return slide;
+      }
+
+      async function sendAssetPlacement(asset, placement) {
+        const modeText = placement.targetMode === 'replace'
+          ? 'replace the image at the drop target'
+          : placement.targetMode === 'insert-into'
+            ? 'insert it into the target element'
+            : 'add it near the drop point';
+        const comment = 'Place workspace asset ' + asset.path + ' on slide ' + placement.slideIndex + ' as a ' + (asset.purpose || 'visual asset') + '; ' + modeText + '. Preserve the current layout and do not cover existing text, charts, tables, or evidence.';
+        const elements = placement.target ? [placement.target] : [];
+        const commentId = addPendingComment(comment, elements, 'sending');
+        setStatus('Sending asset placement comment...');
+        try {
+          const res = await fetch('/api/comment?token=' + encodeURIComponent(token), {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ comment, elements, asset, drop: placement }),
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to send asset placement');
+          updatePendingCommentStatus(commentId, 'sent', { baseDeckVersion: body.deckVersion || state.deckVersion });
+          if (pendingCommentStatus(commentId) !== 'updated') setStatus('Asset placement sent. Waiting for deck update...');
+        } catch (error) {
+          updatePendingCommentStatus(commentId, 'failed');
+          reportError(error);
         }
       }
 
@@ -1248,6 +1773,11 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           renderSelectionSummary();
           if (showStatus) setStatus('References synced with comment text.');
         }
+      }
+
+      function syncSelectedAssetFromComment() {
+        if (els.comment.querySelector('.asset-ref-chip[data-asset-id]')) return;
+        state.selectedAsset = null;
       }
 
       function addPendingComment(text, elements, status) {
@@ -1604,6 +2134,50 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         els.comment.focus();
       }
 
+      function insertAssetChip(asset) {
+        const chip = document.createElement('span');
+        chip.className = 'ref-chip asset-ref-chip';
+        chip.contentEditable = 'false';
+        chip.dataset.assetId = asset.id || '';
+        chip.style.setProperty('--ref-bg', '#dcfce7');
+        chip.style.setProperty('--ref-border', '#86efac');
+        chip.style.setProperty('--ref-text', '#166534');
+        chip.textContent = '@Asset ' + (asset.id || asset.deckPath || asset.path || 'image');
+        const range = getCommentInsertRange();
+        if (range) {
+          range.insertNode(chip);
+          range.setStartAfter(chip);
+          range.collapse(true);
+          applyCommentRange(range);
+        } else {
+          els.comment.appendChild(chip);
+          placeCaretAfter(chip);
+        }
+        els.comment.focus();
+      }
+
+      function insertPlainText(text) {
+        const node = document.createTextNode(text);
+        const range = getCommentInsertRange();
+        if (range) {
+          range.insertNode(node);
+          range.setStartAfter(node);
+          range.collapse(true);
+          applyCommentRange(range);
+        } else {
+          els.comment.appendChild(node);
+          placeCaretAfter(node);
+        }
+      }
+
+      function removeAssetChip() {
+        els.comment.querySelectorAll('.asset-ref-chip').forEach((chip) => {
+          const next = chip.nextSibling;
+          chip.remove();
+          if (next && next.nodeType === Node.TEXT_NODE && next.textContent === ' ') next.remove();
+        });
+      }
+
       function removeReferenceChip(id) {
         const chip = els.comment.querySelector('.ref-chip[data-ref-id="' + cssEscape(id) + '"]');
         if (!chip) return;
@@ -1614,7 +2188,11 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
       function clearReferences(removeChips) {
         state.references = [];
-        if (removeChips) els.comment.querySelectorAll('.ref-chip').forEach((chip) => chip.remove());
+        if (removeChips) {
+          els.comment.querySelectorAll('.ref-chip[data-ref-id]').forEach((chip) => chip.remove());
+          state.selectedAsset = null;
+          removeAssetChip();
+        }
         renderSelectionSummary();
         resetInspectCards('Select one or more deck elements, then inspect them for Narrative Reading, Exploratory Reading, Source, and Purpose. This does not edit the deck.');
       }

@@ -15,6 +15,12 @@ export interface MediaSaveInput {
   alt?: string
   notes?: string
   failureReason?: string
+  provider?: string
+  sourcePageUrl?: string
+  license?: string
+  attribution?: string
+  width?: number
+  height?: number
 }
 
 export interface MediaAssetRecord {
@@ -30,6 +36,12 @@ export interface MediaAssetRecord {
   alt?: string
   notes?: string
   failureReason?: string
+  provider?: string
+  sourcePageUrl?: string
+  license?: string
+  attribution?: string
+  width?: number
+  height?: number
   savedAt: string
 }
 

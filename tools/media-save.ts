@@ -28,6 +28,12 @@ export default tool({
       .describe("Optional remote image URL to download when sourcePath is not provided."),
     alt: tool.schema.string().optional().describe("Optional alt text for the image."),
     notes: tool.schema.string().optional().describe("Optional usage notes for future slide generation."),
+    provider: tool.schema.string().optional().describe("Optional source provider, e.g. wikimedia or clearbit-logo."),
+    sourcePageUrl: tool.schema.string().optional().describe("Optional source page URL distinct from the downloadable image URL."),
+    license: tool.schema.string().optional().describe("Optional source license label when known. Do not invent."),
+    attribution: tool.schema.string().optional().describe("Optional attribution text when known. Do not invent."),
+    width: tool.schema.number().optional().describe("Optional source image width in pixels."),
+    height: tool.schema.number().optional().describe("Optional source image height in pixels."),
     failureReason: tool.schema
       .string()
       .optional()

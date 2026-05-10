@@ -3,11 +3,14 @@ import { extname } from "path"
 const MIME_TO_EXT: Record<string, string> = {
   "image/png": ".png",
   "image/jpeg": ".jpg",
+  "image/svg+xml": ".svg",
   "image/webp": ".webp",
   "image/gif": ".gif",
+  "image/x-icon": ".ico",
+  "image/vnd.microsoft.icon": ".ico",
 }
 
-const ALLOWED_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"])
+const ALLOWED_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".ico"])
 
 function normalizeExtension(ext: string): string {
   const value = ext.toLowerCase()

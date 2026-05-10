@@ -69,6 +69,12 @@ function buildFailureRecord(
     alt: input.alt,
     notes: input.notes,
     failureReason,
+    provider: input.provider,
+    sourcePageUrl: input.sourcePageUrl,
+    license: input.license,
+    attribution: input.attribution,
+    width: input.width,
+    height: input.height,
     savedAt: nowIso(),
   }
 }
@@ -112,6 +118,12 @@ function saveFailureResult(
       sourcePath: sourcePath ?? existing.sourcePath,
       alt: input.alt ?? existing.alt,
       notes: input.notes ?? existing.notes,
+      provider: input.provider ?? existing.provider,
+      sourcePageUrl: input.sourcePageUrl ?? existing.sourcePageUrl,
+      license: input.license ?? existing.license,
+      attribution: input.attribution ?? existing.attribution,
+      width: input.width ?? existing.width,
+      height: input.height ?? existing.height,
       failureReason,
     }
     : buildFailureRecord(input, topic, status, failureReason, sourcePath)
@@ -196,6 +208,12 @@ export async function saveMediaAsset(input: MediaSaveInput, workspaceDir: string
         intendedSection: input.intendedSection,
         alt: input.alt,
         notes: input.notes,
+        provider: input.provider,
+        sourcePageUrl: input.sourcePageUrl,
+        license: input.license,
+        attribution: input.attribution,
+        width: input.width,
+        height: input.height,
         savedAt: nowIso(),
       }
       const { manifest: nextManifest } = upsertAsset(manifest, record)
@@ -248,6 +266,12 @@ export async function saveMediaAsset(input: MediaSaveInput, workspaceDir: string
       intendedSection: input.intendedSection,
       alt: input.alt,
       notes: input.notes,
+      provider: input.provider,
+      sourcePageUrl: input.sourcePageUrl,
+      license: input.license,
+      attribution: input.attribution,
+      width: input.width,
+      height: input.height,
       savedAt: nowIso(),
     }
     const { manifest: nextManifest } = upsertAsset(manifest, record)

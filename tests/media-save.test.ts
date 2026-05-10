@@ -93,6 +93,52 @@ describe("saveMediaAsset", () => {
     expect(existsSync(join(workspaceDir, "assets/ev-market/media/hero-01.png"))).toBe(true)
   })
 
+  it("persists remote asset source metadata in the manifest", async () => {
+    globalThis.fetch = mockFetchWith(() => new Response("png-bytes", {
+      status: 200,
+      headers: { "content-type": "image/png" },
+    }))
+
+    const result = await saveMediaAsset({
+      topic: "EV Market",
+      id: "Acme Logo",
+      type: "image",
+      purpose: "logo",
+      brief: "Acme logo for competitive landscape",
+      status: "success",
+      sourceUrl: "https://logo.clearbit.com/acme.com",
+      sourcePageUrl: "https://acme.com",
+      provider: "clearbit-logo",
+      license: "unknown",
+      attribution: "Acme",
+      width: 256,
+      height: 256,
+      alt: "Acme logo",
+    }, workspaceDir)
+
+    expect(result).toMatchObject({
+      ok: true,
+      assetId: "acme-logo",
+      status: "success",
+      path: "assets/ev-market/media/acme-logo.png",
+    })
+    expect(JSON.parse(readFileSync(join(workspaceDir, "assets/ev-market/media-manifest.json"), "utf-8"))).toMatchObject({
+      assets: [
+        expect.objectContaining({
+          id: "acme-logo",
+          provider: "clearbit-logo",
+          sourceUrl: "https://logo.clearbit.com/acme.com",
+          sourcePageUrl: "https://acme.com",
+          license: "unknown",
+          attribution: "Acme",
+          width: 256,
+          height: 256,
+          alt: "Acme logo",
+        }),
+      ],
+    })
+  })
+
   it("records invalid-url failures in the manifest", async () => {
     const result = await saveMediaAsset({
       topic: "EV Market",

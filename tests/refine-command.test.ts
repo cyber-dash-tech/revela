@@ -32,6 +32,35 @@ describe("renderRefineShell", () => {
     expect(html).toContain("Revela Refine")
     expect(html).toContain("id=\"editTab\"")
     expect(html).toContain("id=\"inspectTab\"")
+    expect(html).toContain("id=\"assetsTab\"")
+    expect(html).toContain("Search Assets")
+    expect(html).toContain("aria-label=\"Edit assets\"")
+    expect(html).toContain("<div class=\"label\">Workspace Assets</div>")
+    expect(html).toContain("id=\"editSavedAssets\"")
+    expect(html).toContain("id=\"librarySavedAssets\"")
+    expect(html).toContain("Search image candidates, then click + to save one to the workspace.")
+    expect(html).toContain("No saved assets yet. Search in Assets.")
+    expect(html).toContain("id=\"assetShuffleButton\"")
+    expect(html).toContain("换一批")
+    expect(html).toContain("searchAssets(true)")
+    expect(html).toContain("assetSearchPage")
+    expect(html).toContain("No displayable images found")
+    expect(html).toContain("grid-template-columns: repeat(4, minmax(0, 1fr))")
+    expect(html).toContain("Save to workspace")
+    expect(html).toContain("Add to comment")
+    expect(html).toContain("addAssetToComment")
+    expect(html).toContain("selectedAsset")
+    expect(html).toContain("asset-ref-chip")
+    expect(html).toContain("assetDropOutline")
+    expect(html).toContain("renderAssetDropTarget")
+    expect(html).toContain("insert-into")
+    expect(html).toContain("Insert into this element")
+    expect(html).toContain("limit: '24'")
+    expect(html).toContain("page: String(state.assetSearchPage)")
+    expect(html).toContain("/api/assets/search")
+    expect(html).toContain("/api/assets/save")
+    expect(html).toContain("/api/assets/list")
+    expect(html).toContain("sendAssetPlacement")
     expect(html).toContain("Send Edit")
     expect(html).toContain("Inspect Selection")
     expect(html).toContain("/api/comment")
@@ -67,7 +96,7 @@ describe("renderRefineShell", () => {
     const html = renderRefineShell("test-token", "inspect")
 
     expect(html).toContain("const defaultMode = \"inspect\"")
-    expect(html).toContain("state.mode = mode === 'inspect' ? 'inspect' : 'edit'")
+    expect(html).toContain("state.mode = mode === 'inspect' || mode === 'assets' ? mode : 'edit'")
   })
 })
 
@@ -324,6 +353,52 @@ describe("refine HTTP inspect lifecycle", () => {
       claimFocus: "Conversion improved 18%",
     })
     expect(getInspectRequest(data.requestId)?.status).toBe("pending")
+  })
+})
+
+describe("refine asset APIs", () => {
+  it("lists saved workspace assets with preview and deck-relative paths", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><h1>Launch</h1></section>', "utf-8")
+    mkdirSync(join(root, "assets", workspaceDeckSlug(root), "media"), { recursive: true })
+    writeFileSync(join(root, "assets", workspaceDeckSlug(root), "media", "acme-logo.png"), new Uint8Array([1, 2, 3]))
+    writeFileSync(join(root, "assets", workspaceDeckSlug(root), "media-manifest.json"), JSON.stringify({
+      topic: workspaceDeckSlug(root),
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      assets: [{
+        id: "acme-logo",
+        type: "image",
+        purpose: "logo",
+        brief: "Logo",
+        status: "success",
+        path: `assets/${workspaceDeckSlug(root)}/media/acme-logo.png`,
+        provider: "clearbit-logo",
+        sourcePageUrl: "https://acme.com",
+        alt: "Acme logo",
+        savedAt: "2026-01-01T00:00:00.000Z",
+      }],
+    }), "utf-8")
+
+    const opened = openRefineDeck("", {
+      client: { session: { prompt: async () => undefined } },
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openBrowser: false,
+    })
+    const url = new URL(opened.url)
+    url.pathname = "/api/assets/list"
+    const response = await fetch(url)
+    const data = await response.json() as any
+
+    expect(data.ok).toBe(true)
+    expect(data.assets).toHaveLength(1)
+    expect(data.assets[0]).toMatchObject({
+      id: "acme-logo",
+      purpose: "logo",
+      provider: "clearbit-logo",
+      deckPath: `../assets/${workspaceDeckSlug(root)}/media/acme-logo.png`,
+    })
+    expect(data.assets[0].previewUrl).toContain("/__revela_asset?token=")
   })
 })
 

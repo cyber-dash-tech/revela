@@ -24,6 +24,8 @@ export interface EditCommentPayload extends EditSelectedElementPayload {
   comment: string
   elements?: EditSelectedElementPayload[]
   comments?: EditCommentDraftPayload[]
+  asset?: Record<string, unknown>
+  drop?: Record<string, unknown>
 }
 
 export function buildEditPrompt(payload: EditCommentPayload): string {
@@ -54,6 +56,8 @@ export function buildEditPrompt(payload: EditCommentPayload): string {
     deck: payload.deck,
     file: payload.file,
     comments,
+    asset: payload.asset,
+    drop: payload.drop,
   }
 
   return `The user left a visual edit comment on a Revela slide deck.
@@ -75,6 +79,14 @@ Instructions:
 - Pure artifact polish such as layout, spacing, typography, alignment, color, image crop, animation, export fidelity, runtime JavaScript fixes, or deck HTML contract fixes may remain an artifact-level edit.
 - If the request mixes content meaning and visual polish, treat it as narrative-impacting unless the user clarifies otherwise.
 - Preserve the existing deck structure, active design language, typography, spacing system, animations, and slide count unless the comment explicitly asks otherwise.
+- If an asset/drop payload is present, this is an asset placement request. Use only the saved local asset path from the asset payload in deck HTML. Prefer asset.deckPath when present because it is relative to the target HTML file; otherwise use asset.path.
+- Do not write remote imageUrl, thumbnailUrl, source page URLs, or ${"`/__revela_asset`"} proxy URLs into deck HTML.
+- Logo assets should remain small, clear, and brand-like; do not use logos as decorative backgrounds.
+- Photography can be cropped or masked when appropriate, but must not cover text, charts, tables, evidence, or important claims.
+- Screenshots, diagrams, charts, tables, and evidence images must remain readable and should not be converted into decorative hero imagery.
+- For asset targetMode ${"`replace`"}, prefer replacing the targeted image or visual element. For ${"`insert-into`"}, place the asset inside the targeted card, media box, or semantic container while preserving that element's layout role. For ${"`add`"}, place the asset near the drop coordinates within the existing layout or semantic box. Do not invent a new visual system when the existing deck grammar can express the placement.
+- If an asset payload is present without drop coordinates, use the user's comment and selected element context to choose placement; if placement remains ambiguous, ask one concise clarification question instead of guessing.
+- Preserve source/license/attribution facts if you surface them in visible notes; do not invent missing licensing or attribution.
 - Do not rewrite unrelated slides or broad sections of the deck.
 - Locate each target primarily with slideIndex, slideTitle, selected text, nearbyText, and outerHTMLExcerpt. Use selector/domPath as hints; they may be approximate.
 - For targeted artifact-level edits, patch ${"`decks/*.html`"} directly. Do not call ${"`revela-decks`"} action ${"`review`"} as a precondition, and do not let ${"`writeReadiness`"}, ${"`planReview`"}, or ${"`slide_plan_unconfirmed`"} block the patch.

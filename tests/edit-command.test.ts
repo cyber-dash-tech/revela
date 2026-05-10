@@ -156,6 +156,56 @@ describe("buildEditPrompt", () => {
     expect(prompt).toContain(".metric-a")
     expect(prompt).toContain(".metric-b")
   })
+
+  it("includes asset placement payload and local asset rules", () => {
+    const prompt = buildEditPrompt({
+      deck: "sales-kickoff",
+      file: "decks/sales-kickoff.html",
+      comment: "Place the logo near the heading.",
+      asset: {
+        id: "acme-logo",
+        path: "assets/sales-kickoff/media/acme-logo.png",
+        deckPath: "../assets/sales-kickoff/media/acme-logo.png",
+        purpose: "logo",
+        provider: "clearbit-logo",
+      },
+      drop: {
+        slideIndex: 1,
+        x: 0.8,
+        y: 0.15,
+        targetMode: "add",
+      },
+    })
+
+    expect(prompt).toContain("asset")
+    expect(prompt).toContain("../assets/sales-kickoff/media/acme-logo.png")
+    expect(prompt).toContain("asset.deckPath")
+    expect(prompt).toContain("Do not write remote imageUrl")
+    expect(prompt).toContain("Logo assets should remain small")
+    expect(prompt).toContain("targetMode `replace`")
+    expect(prompt).toContain("For `insert-into`")
+    expect(prompt).toContain("inside the targeted card, media box, or semantic container")
+  })
+
+  it("supports asset refs from the edit comment without drop coordinates", () => {
+    const prompt = buildEditPrompt({
+      deck: "sales-kickoff",
+      file: "decks/sales-kickoff.html",
+      comment: "Use this as a small logo near the title.",
+      asset: {
+        id: "acme-logo",
+        path: "assets/sales-kickoff/media/acme-logo.png",
+        deckPath: "../assets/sales-kickoff/media/acme-logo.png",
+        purpose: "logo",
+      },
+    })
+
+    expect(prompt).toContain("Use this as a small logo near the title")
+    expect(prompt).toContain("../assets/sales-kickoff/media/acme-logo.png")
+    expect(prompt).toContain("without drop coordinates")
+    expect(prompt).toContain("selected element context")
+    expect(prompt).toContain("ask one concise clarification question")
+  })
 })
 
 describe("ensureEditableDeckState", () => {
