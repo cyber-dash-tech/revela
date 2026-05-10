@@ -79,9 +79,11 @@ Before generating a derived design, extract a visual schema from references:
 
 Preserve composition, not only color and shape.
 
-### SVG Motif Rules
+### Visual Motif Rules
 
-For flat vector, doodle, mascot, blob, line-art, or geometric references, prefer the `svg-motif` component. Use a fixed `viewBox`; place the SVG with CSS; keep facial features, doodles, and geometric details inside the SVG coordinate system. Do not build complex illustration details from scattered CSS absolute-positioned divs.
+Do not use decorative SVG as a default content component. Use `media` for normal images, screenshots, diagrams, logos, and portraits. Use `hero` for full-bleed cover, divider, closing, or strong visual-statement slides with overlaid text.
+
+For explicit illustration/icon-like requests or when authoring a new design from flat vector, doodle, mascot, blob, line-art, or geometric references, a small SVG motif may be used as an implementation detail. Use a fixed `viewBox`; place the SVG with CSS; keep facial features, doodles, and geometric details inside the SVG coordinate system. Do not build complex illustration details from scattered CSS absolute-positioned divs.
 
 For photography, UI screenshots, webpages, and product surfaces, do not convert the reference to SVG. Extract palette, type scale, spacing, layout rhythm, borders, image treatment, and surface behavior instead.
 
@@ -136,6 +138,7 @@ body { background: var(--bg-frame); color: var(--text-primary); font-family: var
 .page { position: relative; width: 100%; height: 100%; background: var(--bg-page); color: var(--text-primary); padding: 56px 64px 64px; box-shadow: 0 24px 80px var(--shadow-soft); display: flex; flex-direction: column; overflow: hidden; }
 .page.alt { background: var(--bg-page-alt); }
 .eyebrow, .caption, .meta-label { font-size: var(--font-size-meta); line-height: 1.4; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+.source, .source-note { font-family: "Times New Roman", Times, serif; font-size: 11px; line-height: 1.35; letter-spacing: 0; text-transform: none; color: var(--text-muted); }
 h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 750; letter-spacing: -0.035em; color: var(--text-primary); }
 h1 { font-size: 96px; line-height: 0.94; }
 h2 { font-size: 46px; line-height: 1.04; }
@@ -146,6 +149,7 @@ p, li { font-size: var(--font-size-body); line-height: 1.6; color: var(--text-se
 .media-frame { position: relative; overflow: hidden; background: var(--surface-strong); }
 .media-frame img { width: 100%; height: 100%; display: block; object-fit: cover; }
 .media-caption { margin-top: 12px; font-size: var(--font-size-meta); line-height: 1.5; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+.media-caption.source, .media-caption.source-note { font-family: "Times New Roman", Times, serif; font-size: 11px; line-height: 1.35; letter-spacing: 0; text-transform: none; }
 .editorial-list { list-style: none; display: flex; flex-direction: column; gap: 14px; }
 .editorial-list li { position: relative; padding-left: 20px; font-size: var(--font-size-body); line-height: 1.58; color: var(--text-secondary); }
 .editorial-list li::before { content: ''; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; background: var(--accent-primary); }
@@ -228,8 +232,11 @@ new SlidePresentation();
 - **Preserve composition.** A bottom strip stays bottom anchored; a small corner motif stays small; a sparse reference stays sparse.
 - **Stable layout CSS.** Do not rewrite base layout/container CSS unless the structure itself must change. Prefer tokens, typography, component skins, and small motif components.
 - **Reusable class vocabulary.** New classes must be documented in this DESIGN.md. Avoid many one-off selectors in generated decks.
-- **SVG for vector motifs.** Use `svg-motif` for flat vector, doodle, mascot, blob, line-art, and geometric references.
+- **SVG is exceptional.** Use decorative SVG only when the user explicitly asks for an illustration/icon-like visual or when design authoring requires a motif.
 - **Images for photographic references.** Use image treatment rules rather than fake SVG when the reference is photographic, UI, webpage, or product imagery.
+- **Content pages need a stable title block.** Except cover, TOC, closing, section divider, and full-bleed hero slides, every normal content slide should include a visible title block from the upper-left safe area. It should contain a compact chapter/section label plus a slide title written as the page's claim or takeaway.
+- **Do not hide the page title inside a card.** Body components may have their own headings, but the slide-level title block should remain separate and easy to scan unless the chosen layout explicitly defines a compact side-title variant.
+- **Text panels are not decorative rule panels.** Do not add a default left border, vertical accent bar, yellow/gold line, or inline rule to `text-panel`. Use typography, spacing, boxes, stats, quotes, or layout-level dividers for emphasis.
 - **Preview must be real.** A design preview should show actual layout/component behavior, not empty placeholder boxes only.
 
 ### Common Mistakes
@@ -248,16 +255,18 @@ new SlidePresentation();
 
 Each `<section class="slide">` must set `slide-qa="true"` or `slide-qa="false"`. Use the QA flag on each layout marker. It must also set `data-slide-index="N"`, where `N` is the 1-based `DECKS.json` `slides[].index` value.
 
+Normal `qa=true` content layouts should start with a slide-level title block unless the layout marker explicitly says otherwise. Use this structure as the default: an eyebrow for chapter/section context, then an `h2` that states the slide's claim or takeaway. Keep body boxes, charts, media, and text panels below or beside that title region.
+
 <!-- @layout:fullbleed:start qa=false -->
 #### Fullbleed
 
-Full-page layout for a single dominant component such as `image-title`, a large `svg-motif`, or a sparse title field.
+Full-page layout for a single dominant component such as `hero`, a full-screen chart/media element, or a sparse title field.
 
 ```html
 <section class="slide" slide-qa="false" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page" style="padding:0;">
-      <!-- [slot: content] — usually image-title, svg-motif, or a custom hero component -->
+      <!-- [slot: content] — usually hero, media, echart-panel, or a sparse title field -->
     </div>
   </div>
 </section>
@@ -272,10 +281,16 @@ Asymmetric two-column layout. Use when one side needs more visual or reading wei
 ```html
 <section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
-    <div class="page" style="padding:0;">
-      <div class="narrative-grid">
-        <div><!-- [slot: left] — 1+ components --></div>
-        <div><!-- [slot: right] — 1+ components --></div>
+    <div class="page">
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px;max-width:680px;">
+        <p class="eyebrow">Chapter / Section</p>
+        <h2>Slide claim or takeaway</h2>
+      </div>
+      <div style="flex:1;min-height:0;">
+        <div class="narrative-grid">
+          <div><!-- [slot: left] — 1+ components --></div>
+          <div><!-- [slot: right] — 1+ components --></div>
+        </div>
       </div>
     </div>
   </div>
@@ -297,10 +312,16 @@ Mirrored asymmetric two-column layout. Same structure as `narrative`, with the w
 ```html
 <section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
-    <div class="page" style="padding:0;">
-      <div class="narrative-grid narrative-grid--reverse">
-        <div><!-- [slot: left] — 1+ components --></div>
-        <div><!-- [slot: right] — 1+ components --></div>
+    <div class="page">
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px;max-width:680px;">
+        <p class="eyebrow">Chapter / Section</p>
+        <h2>Slide claim or takeaway</h2>
+      </div>
+      <div style="flex:1;min-height:0;">
+        <div class="narrative-grid narrative-grid--reverse">
+          <div><!-- [slot: left] — 1+ components --></div>
+          <div><!-- [slot: right] — 1+ components --></div>
+        </div>
       </div>
     </div>
   </div>
@@ -345,10 +366,16 @@ Symmetric two-column layout for direct comparison, paired evidence, or split wor
 ```html
 <section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
-    <div class="page" style="padding:0;">
-      <div class="halves-grid">
-        <div><!-- [slot: left] --></div>
-        <div><!-- [slot: right] --></div>
+    <div class="page">
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px;max-width:680px;">
+        <p class="eyebrow">Chapter / Section</p>
+        <h2>Slide claim or takeaway</h2>
+      </div>
+      <div style="flex:1;min-height:0;">
+        <div class="halves-grid">
+          <div><!-- [slot: left] --></div>
+          <div><!-- [slot: right] --></div>
+        </div>
       </div>
     </div>
   </div>
@@ -369,10 +396,16 @@ Two-row layout for a compact header/summary above a larger evidence, chart, or f
 ```html
 <section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
-    <div class="page" style="padding:0;">
-      <div class="stacked-grid">
-        <div class="stacked-top"><!-- [slot: top] --></div>
-        <div class="stacked-bottom"><!-- [slot: bottom] --></div>
+    <div class="page">
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px;max-width:680px;">
+        <p class="eyebrow">Chapter / Section</p>
+        <h2>Slide claim or takeaway</h2>
+      </div>
+      <div style="flex:1;min-height:0;">
+        <div class="stacked-grid">
+          <div class="stacked-top"><!-- [slot: top] --></div>
+          <div class="stacked-bottom"><!-- [slot: bottom] --></div>
+        </div>
       </div>
     </div>
   </div>
@@ -391,12 +424,56 @@ Two-row layout for a compact header/summary above a larger evidence, chart, or f
 
 ### Components
 
-Components are reusable primitives. Derived designs should preserve coverage and skin them through variables, typography, surfaces, and small motif components.
+Components are reusable primitives. Use this hierarchy: `layout -> box/card -> text-panel + media/chart/table/stat/quote`.
+
+LLM-facing vocabulary:
+- `box` — card/group primitive for one idea, case, evidence item, metric, objection, risk, or action.
+- `text-panel` — language module for title, body text, bullets, and source notes.
+- `media` — normal image/screenshot/diagram/logo/portrait component; use `hero` instead for full-bleed covers.
+- `echart-panel` — chart frame with caption/source structure.
+- `data-table` — structured table component for tabular data and source notes.
+- `steps` — process or phase sequence; compatibility implementation may use `.flow-*` classes.
+- `roadmap-horizontal` and `roadmap-vertical` — dated phases, milestones, historical evolution, or future plans; compatibility implementation may use `.timeline-journey-*` classes.
+- `hero` — full-bleed cover, section divider, closing, or strong visual statement with overlaid title/subtitle.
+- `stat-card`, `quote`, and `toc` — pattern components for their specific use cases.
+- `page-number` and `brand-watermark` — utility components.
+
+Do not expose `image-title`, `media--cover`, `editorial-*`, `flow-*`, `timeline-journey-*`, or `svg-motif` as new component choices. Old classes may remain in CSS as compatibility implementation details.
+
+Source and citation text should use `.source` or `.source-note`, not `.caption`. Source text uses Times New Roman at 11px and never uses uppercase letter-spacing treatment.
+
+Density guidance: normal content slides usually need 2-4 boxes. Evidence slides should use 2-3 evidence boxes or one main chart/table with 2 supporting boxes. Process slides should use 3-5 steps. Use one dominant element only for covers, section dividers, closing asks, full-screen charts/visuals, or deliberate emphasis.
+
+<!-- @component:box:start -->
+#### Box (.box)
+
+Card/group primitive for one idea, case, evidence item, metric, objection, risk, or action. Put `text-panel`, `media`, `echart-panel`, `data-table`, `stat-card`, or `quote` inside a box when they support the same idea.
+
+```html
+<div class="box">
+  <div class="text-panel text-panel--plain">
+    <div class="text-panel-body">
+      <p class="eyebrow">Evidence</p>
+      <h3>One clear idea</h3>
+      <p>Short supporting copy or source-bound explanation.</p>
+    </div>
+  </div>
+</div>
+```
+
+```css
+.box { height: 100%; min-height: 0; padding: 28px; border: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; gap: 18px; overflow: hidden; }
+.box--quiet { background: transparent; }
+.box--accent { border-color: var(--accent-primary); background: var(--accent-soft); }
+```
+<!-- @component:box:end -->
 
 <!-- @component:text-panel:start -->
 #### Text Panel (.text-panel)
 
-Reusable text container for headings, body copy, lists, and footer metadata.
+Language module for headings, body copy, lists, and footer/source metadata. It can sit inside `box` or directly in a layout slot.
+
+`text-panel` is a neutral language container. Do not add a default left border, vertical accent bar, yellow/gold rule, or decorative stripe to it. If a slide needs emphasis, use a `box`, `stat-card`, `quote`, `toc`, or a layout-level divider instead.
 
 ```html
 <div class="text-panel text-panel--light">
@@ -405,18 +482,41 @@ Reusable text container for headings, body copy, lists, and footer metadata.
     <h2>Panel heading</h2>
     <ul class="editorial-list"><li><strong>Signal.</strong> Supporting copy.</li></ul>
   </div>
-  <div class="text-panel-footer"><span class="caption">Source</span><span class="caption">01</span></div>
+  <div class="text-panel-footer"><span class="source">Source: dataset</span><span class="caption">01</span></div>
 </div>
 ```
 
 ```css
 .text-panel { height: 100%; padding: 56px 48px 34px; display: flex; flex-direction: column; justify-content: space-between; gap: 32px; }
+.text-panel--plain { padding: 0; background: transparent; }
 .text-panel--light { background: var(--bg-page-alt); color: var(--text-primary); }
 .text-panel--dark { background: #1f242b; color: #f8fafc; --text-primary: #f8fafc; --text-secondary: #cbd5e1; --text-muted: #94a3b8; --line: rgba(248,250,252,0.16); }
 .text-panel-body { display: flex; flex-direction: column; gap: 14px; }
 .text-panel-footer { display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; }
 ```
 <!-- @component:text-panel:end -->
+
+<!-- @component:media:start -->
+#### Media (.media)
+
+Normal image, screenshot, diagram, logo, or portrait component. Keep important visual information understandable. Do not use `media` for full-bleed covers/dividers/closings; use `hero` for those.
+
+```html
+<figure class="media">
+  <div class="media-frame"><img src="..." alt="Concise description"></div>
+  <figcaption class="media-caption source-note">Source or note</figcaption>
+</figure>
+```
+
+```css
+.media { height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+.media-frame { position: relative; overflow: hidden; background: var(--surface-strong); }
+.media-frame img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.media--contain .media-frame img { object-fit: contain; }
+.media-caption { margin-top: 0; font-size: var(--font-size-meta); line-height: 1.5; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+.media-caption.source, .media-caption.source-note { font-family: "Times New Roman", Times, serif; font-size: 11px; line-height: 1.35; letter-spacing: 0; text-transform: none; }
+```
+<!-- @component:media:end -->
 
 <!-- @component:stat-card:start -->
 #### Stat Card (.stat-card)
@@ -439,67 +539,6 @@ Compact data statement with large numeric value, label, and explanatory copy.
 ```
 <!-- @component:stat-card:end -->
 
-<!-- @component:editorial-image-top:start -->
-#### Editorial Image Top (.editorial-image-top)
-
-Media-over-copy module. Use for examples, visual proof, screenshots, or neutral placeholders.
-
-```html
-<div class="editorial-image-top">
-  <div class="media-frame editorial-media"><img src="..." alt=""></div>
-  <div class="editorial-module-body"><p class="eyebrow">Label</p><h3>Module heading</h3><p>Short supporting text.</p></div>
-</div>
-```
-
-```css
-.editorial-image-top { display: flex; flex-direction: column; gap: 16px; height: 100%; }
-.editorial-image-top .editorial-media { height: 240px; border: 1px solid var(--line); }
-.editorial-module-body { display: flex; flex-direction: column; gap: 12px; }
-```
-<!-- @component:editorial-image-top:end -->
-
-<!-- @component:editorial-text-top:start -->
-#### Editorial Text Top (.editorial-text-top)
-
-Text-over-media module for explanation first, visual second.
-
-```html
-<div class="editorial-text-top">
-  <div class="editorial-module-body"><p class="eyebrow">Label</p><h3>Module heading</h3><p>Short supporting text.</p></div>
-  <div class="media-frame editorial-media"></div>
-</div>
-```
-
-```css
-.editorial-text-top { display: flex; flex-direction: column; gap: 16px; height: 100%; }
-.editorial-text-top .editorial-media { flex: 1; min-height: 180px; border: 1px solid var(--line); }
-```
-<!-- @component:editorial-text-top:end -->
-
-<!-- @component:editorial-text-left:start -->
-#### Editorial Text Left (.editorial-text-left)
-
-Horizontal text-and-visual module for compact evidence or feature explanation.
-
-```html
-<div class="editorial-text-left">
-  <div class="editorial-text-left-header"><p class="eyebrow">Label</p><h3>Module heading</h3></div>
-  <div class="editorial-text-left-content">
-    <div class="editorial-text-left-copy"><p>Short copy.</p></div>
-    <div class="editorial-text-left-visual"><div class="media-frame"></div></div>
-  </div>
-</div>
-```
-
-```css
-.editorial-text-left { display: flex; flex-direction: column; gap: 0; height: 100%; overflow: hidden; border: 1px solid var(--line); }
-.editorial-text-left-header { flex-shrink: 0; padding: 24px 26px 16px; border-bottom: 1px solid var(--line); }
-.editorial-text-left-content { display: flex; flex: 1; min-height: 0; }
-.editorial-text-left-copy { flex: 1.1; min-width: 0; padding: 20px 24px; display: flex; flex-direction: column; justify-content: flex-start; }
-.editorial-text-left-visual { flex: 1; min-width: 0; min-height: 0; align-self: stretch; overflow: hidden; position: relative; background: var(--surface-strong); }
-```
-<!-- @component:editorial-text-left:end -->
-
 <!-- @component:echart-panel:start -->
 #### EChart Panel (.echart-panel)
 
@@ -509,7 +548,7 @@ Chart container with header, chart area, and caption.
 <div class="echart-panel">
   <div class="echart-panel-header"><p class="eyebrow">Chart</p><h3>Chart heading</h3><p class="chart-subtitle">Subtitle</p></div>
   <div class="echart-container" id="chart-id"></div>
-  <p class="chart-caption">Source: dataset</p>
+  <p class="chart-caption source-note">Source: dataset</p>
 </div>
 ```
 
@@ -518,53 +557,38 @@ Chart container with header, chart area, and caption.
 .echart-panel-header { flex-shrink: 0; padding-bottom: 16px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
 .chart-subtitle { margin-top: 4px; font-size: 13px; color: var(--text-muted); line-height: 1.4; }
 .echart-container { flex: 1; min-height: 0; }
-.chart-caption { flex-shrink: 0; margin-top: 12px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+.chart-caption { flex-shrink: 0; margin-top: 12px; }
 ```
 <!-- @component:echart-panel:end -->
 
-<!-- @component:flow-horizontal:start -->
-#### Flow Horizontal (.flow-horizontal)
+<!-- @component:steps:start -->
+#### Steps (.steps)
 
-Horizontal process with numbered markers.
+Process or phase sequence. Use 3-5 steps. Use `.steps--horizontal` for wide slots and `.steps--vertical` for side panels or narrow slots.
 
 ```html
-<div class="flow-horizontal">
-  <div class="flow-item"><div class="flow-number" data-n="01"></div><div class="flow-body"><h4>Step</h4><p>Short text.</p></div></div>
+<div class="steps steps--horizontal">
+  <div class="step-item"><div class="step-number" data-n="01"></div><div class="step-body"><h4>Step</h4><p>Short text.</p></div></div>
 </div>
 ```
 
 ```css
-.flow-number { position: relative; width: 36px; height: 36px; flex-shrink: 0; border: 1px solid var(--line-strong); background: var(--surface); display: flex; align-items: center; justify-content: center; }
-.flow-number::after { content: attr(data-n); font-size: 12px; font-weight: 800; color: var(--accent-primary); }
-.flow-body h4 { font-size: 20px; font-weight: 700; line-height: 1.14; }
-.flow-body p { margin-top: 8px; font-size: 17px; line-height: 1.6; color: var(--text-secondary); }
-.flow-horizontal { position: relative; display: flex; align-items: flex-start; width: 100%; }
-.flow-horizontal::before { content: ''; position: absolute; top: 17px; left: 0; right: 0; height: 1px; background: var(--line-strong); z-index: 0; }
-.flow-horizontal .flow-item { flex: 1; display: flex; flex-direction: column; gap: 18px; padding-right: 40px; }
-.flow-horizontal .flow-number { position: relative; z-index: 1; }
+.step-number, .flow-number { position: relative; width: 36px; height: 36px; flex-shrink: 0; border: 1px solid var(--line-strong); background: var(--surface); display: flex; align-items: center; justify-content: center; }
+.step-number::after, .flow-number::after { content: attr(data-n); font-size: 12px; font-weight: 800; color: var(--accent-primary); }
+.step-body h4, .flow-body h4 { font-size: 20px; font-weight: 700; line-height: 1.14; }
+.step-body p, .flow-body p { margin-top: 8px; font-size: 17px; line-height: 1.6; color: var(--text-secondary); }
+.steps--horizontal, .flow-horizontal { position: relative; display: flex; align-items: flex-start; width: 100%; }
+.steps--horizontal::before, .flow-horizontal::before { content: ''; position: absolute; top: 17px; left: 0; right: 0; height: 1px; background: var(--line-strong); z-index: 0; }
+.steps--horizontal .step-item, .flow-horizontal .flow-item { flex: 1; display: flex; flex-direction: column; gap: 18px; padding-right: 40px; }
+.steps--horizontal .step-number, .flow-horizontal .flow-number { position: relative; z-index: 1; }
+.steps--vertical, .flow-vertical { display: flex; flex-direction: column; width: 100%; }
+.steps--vertical .step-item, .flow-vertical .flow-item { display: flex; gap: 28px; align-items: flex-start; }
+.step-marker, .flow-marker { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+.step-line, .flow-line { width: 1px; flex: 1; min-height: 28px; background: var(--line-strong); margin: 6px 0; }
+.steps--vertical .step-body, .flow-vertical .flow-body { padding-bottom: 32px; }
+.steps--vertical .step-item.last .step-body, .flow-vertical .flow-item.last .flow-body { padding-bottom: 0; }
 ```
-<!-- @component:flow-horizontal:end -->
-
-<!-- @component:flow-vertical:start -->
-#### Flow Vertical (.flow-vertical)
-
-Vertical process for side panels and narrow slots.
-
-```html
-<div class="flow-vertical">
-  <div class="flow-item"><div class="flow-marker"><div class="flow-number" data-n="01"></div><div class="flow-line"></div></div><div class="flow-body"><h4>Step</h4><p>Short text.</p></div></div>
-</div>
-```
-
-```css
-.flow-vertical { display: flex; flex-direction: column; width: 100%; }
-.flow-vertical .flow-item { display: flex; gap: 28px; align-items: flex-start; }
-.flow-vertical .flow-marker { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
-.flow-vertical .flow-line { width: 1px; flex: 1; min-height: 28px; background: var(--line-strong); margin: 6px 0; }
-.flow-vertical .flow-body { padding-bottom: 32px; }
-.flow-vertical .flow-item.last .flow-body { padding-bottom: 0; }
-```
-<!-- @component:flow-vertical:end -->
+<!-- @component:steps:end -->
 
 <!-- @component:data-table:start -->
 #### Data Table (.data-table)
@@ -575,7 +599,7 @@ Dense tabular data with optional highlights and deltas.
 <div class="data-table-wrap">
   <div class="data-table-label">Dataset</div>
   <table class="data-table"><thead><tr><th>Item</th><th>Value</th></tr></thead><tbody><tr><td>Example</td><td>42</td></tr></tbody></table>
-  <p class="table-caption">Source note</p>
+  <p class="table-caption source-note">Source note</p>
 </div>
 ```
 
@@ -590,17 +614,17 @@ Dense tabular data with optional highlights and deltas.
 .data-table td { padding: 9px 12px 9px 0; line-height: 1.4; color: var(--text-secondary); }
 .data-table .delta.positive { color: var(--accent-primary); }
 .data-table .delta.negative { color: var(--accent-danger); }
-.table-caption { margin-top: 12px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+.table-caption { margin-top: 12px; }
 ```
 <!-- @component:data-table:end -->
 
-<!-- @component:image-title:start -->
-#### Image Title (.image-title)
+<!-- @component:hero:start -->
+#### Hero (.hero)
 
-Hero title component for image, surface, or abstract visual backgrounds.
+Full-bleed cover, section divider, closing, or strong visual statement with optional overlaid title/subtitle. Never use `hero` inside a `box`. Never use `hero` for screenshots, charts, tables, diagrams, or source evidence that must stay fully readable.
 
 ```html
-<div class="image-title image-title--left">
+<div class="hero hero--left image-title image-title--left">
   <div class="image-title-media"></div>
   <div class="image-title-overlay"></div>
   <div class="image-title-fg"><div class="image-title-body"><p class="image-title-eyebrow">Label</p><h1>Title</h1><p class="image-title-subtitle">Subtitle</p></div></div>
@@ -618,8 +642,12 @@ Hero title component for image, surface, or abstract visual backgrounds.
 .image-title-eyebrow { font-size: 12px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(248,250,252,0.62); margin-bottom: 20px; }
 .image-title h1 { color: #f8fafc; font-size: 104px; line-height: 0.92; letter-spacing: -0.055em; }
 .image-title-subtitle { margin-top: 24px; font-size: 18px; line-height: 1.56; color: rgba(248,250,252,0.78); max-width: 520px; }
+.hero { position: relative; width: 100%; height: 100%; overflow: hidden; color: #f8fafc; background: #1f242b; }
+.hero--left .image-title-body { max-width: 760px; }
+.hero--right .image-title-fg { text-align: right; }
+.hero--right .image-title-body { max-width: 860px; margin-left: auto; }
 ```
-<!-- @component:image-title:end -->
+<!-- @component:hero:end -->
 
 <!-- @component:toc:start -->
 #### TOC (.toc-panel)
@@ -689,13 +717,13 @@ Small page number utility.
 ```
 <!-- @component:page-number:end -->
 
-<!-- @component:timeline-journey-horizontal:start -->
-#### Timeline Journey Horizontal (.timeline-journey-horizontal)
+<!-- @component:roadmap-horizontal:start -->
+#### Roadmap Horizontal (.roadmap-horizontal)
 
 Horizontal milestone journey with a central axis line. Nodes sit on the axis; a dashed vertical stem leads to a tip dot, with date, title, and description text alongside. Alternate nodes above and below the axis for rhythm. Suitable for 4-8 milestones across a chronological arc, transformation story, roadmap, or multi-year programme recap.
 
 ```html
-<div class="timeline-journey-horizontal" data-preview-component="timeline-journey-horizontal">
+<div class="roadmap-horizontal timeline-journey-horizontal" data-preview-component="roadmap-horizontal">
   <div class="tjh-axis"></div>
 
   <!-- Up node: label, tip-dot, stem, axis-dot. Content grows upward. -->
@@ -725,7 +753,7 @@ Horizontal milestone journey with a central axis line. Nodes sit on the axis; a 
 ```
 
 ```css
-.timeline-journey-horizontal {
+.roadmap-horizontal, .timeline-journey-horizontal {
   --tjh-node: 12px;
   --tjh-stem-h: 76px;
   --tjh-col: calc(100% / 6);
@@ -756,15 +784,15 @@ Rules:
 - Keep `.tjh-text` short, usually 1-2 lines. The column width limits wrapping naturally.
 - Alternate up/down nodes for visual rhythm unless clustering intentionally communicates a phase.
 - Adjust `--tjh-col`, `--tjh-stem-h`, and component `height` for fewer or longer milestones.
-<!-- @component:timeline-journey-horizontal:end -->
+<!-- @component:roadmap-horizontal:end -->
 
-<!-- @component:timeline-journey-vertical:start -->
-#### Timeline Journey Vertical (.timeline-journey-vertical)
+<!-- @component:roadmap-vertical:start -->
+#### Roadmap Vertical (.roadmap-vertical)
 
 Vertical milestone journey with a central axis line. Nodes sit on the axis; a horizontal dashed stem leads to a tip dot, with date, title, and description text alongside. Alternate nodes left and right of the axis for rhythm. Suitable for 3-8 milestones in a full-height slot.
 
 ```html
-<div class="timeline-journey-vertical" data-preview-component="timeline-journey-vertical">
+<div class="roadmap-vertical timeline-journey-vertical" data-preview-component="roadmap-vertical">
   <div class="tjv-axis"></div>
 
   <!-- Left node: DOM order stays axis-dot, stem, tip-dot, label. CSS reverses the row. -->
@@ -794,7 +822,7 @@ Vertical milestone journey with a central axis line. Nodes sit on the axis; a ho
 ```
 
 ```css
-.timeline-journey-vertical {
+.roadmap-vertical, .timeline-journey-vertical {
   --tjv-node: 12px;
   --tjv-stem-w: 76px;
   position: relative;
@@ -825,38 +853,7 @@ Rules:
 - Alternate left and right nodes for rhythm. Avoid consecutive same-side nodes unless the story needs clustering.
 - The parent container must have a defined height. Use `height: 100%` inside a layout slot, or set an explicit height when standalone.
 - Keep `.tjv-text` to 2-3 lines. Longer labels shift the perceived center away from the axis dot.
-<!-- @component:timeline-journey-vertical:end -->
-
-<!-- @component:svg-motif:start -->
-#### SVG Motif (.svg-motif)
-
-Pattern for flat vector motifs, doodles, mascots, blob characters, line-art, and abstract geometric visuals. Keep drawing details inside the SVG; CSS only places and sizes the motif.
-
-```html
-<div class="svg-motif svg-motif--bottom" aria-hidden="true">
-  <svg viewBox="0 0 1600 420" role="img" aria-label="Decorative vector motif">
-    <rect x="0" y="350" width="1600" height="24" fill="var(--accent-soft)" />
-    <path d="M120 330 C160 240 260 220 330 290 C380 340 290 370 180 370 Z" fill="var(--accent-primary)" />
-    <circle cx="230" cy="310" r="8" fill="var(--text-primary)" />
-  </svg>
-</div>
-```
-
-```css
-.svg-motif { position: relative; pointer-events: none; color: var(--text-primary); }
-.svg-motif svg { display: block; width: 100%; height: 100%; overflow: visible; }
-.svg-motif--bottom { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; }
-.svg-motif--side { position: absolute; right: 0; top: 0; bottom: 0; width: 34%; }
-.svg-motif--corner { position: absolute; right: 40px; bottom: 36px; width: 360px; height: 220px; }
-.svg-motif--hero { width: 100%; height: 100%; }
-```
-
-Usage rules:
-- Use fixed `viewBox` values such as `0 0 1600 420` for strips or `0 0 600 600` for emblems.
-- For bottom strips, the wrapper should usually occupy `20%` to `35%` of slide height.
-- Do not let a small reference motif become a full-slide mascot unless the user requests it.
-- Do not create eyes, mouths, doodles, or character details as separate CSS-positioned HTML elements outside the SVG.
-<!-- @component:svg-motif:end -->
+<!-- @component:roadmap-vertical:end -->
 
 <!-- @design:components:end -->
 

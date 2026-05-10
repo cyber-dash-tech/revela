@@ -49,7 +49,7 @@ import { buildPptxNotesPrompt, handlePptx, parsePptxArgs, resolvePptxDeck } from
 import { handleEdit } from "./lib/commands/edit"
 import { handleInspect } from "./lib/commands/inspect"
 import { handleRefine } from "./lib/commands/refine"
-import { formatDeckHtmlContractReport, validateDeckHtmlContract } from "./lib/deck-html/contract"
+import { formatArtifactQAReport, runArtifactQA } from "./lib/qa/artifact"
 import { ensureEditableDeckOpenForChange } from "./lib/edit/open"
 import { hasLiveEditorSessionForFile } from "./lib/edit/server"
 import { handleDesignsPreview } from "./lib/commands/designs-preview"
@@ -62,7 +62,7 @@ import {
 import { buildInitPrompt } from "./lib/commands/init"
 import { buildResearchPrompt } from "./lib/commands/research"
 import { handleBrief, parseBriefArgs } from "./lib/commands/brief"
-import { buildNarrativeViewPrompt, handleNarrative, parseNarrativeArgs } from "./lib/commands/narrative"
+import { buildNarrativeViewPrompt, handleNarrative, parseNarrativeArgs, parseStoryArgs } from "./lib/commands/narrative"
 import { parseRememberArgs, buildRememberPrompt } from "./lib/commands/remember"
 import { buildDeckPrompt, buildDeckReviewPrompt, buildReviewPrompt } from "./lib/commands/review"
 import {
@@ -73,7 +73,6 @@ import {
 } from "./lib/decks-memory"
 import {
   buildDecksStatePromptLayer,
-  checkDeckStateWriteReadiness,
   DECKS_STATE_FILE,
   extractDecksStateTargetsFromPatch,
   hasDecksState,
@@ -98,7 +97,6 @@ import pptxTool from "./tools/pptx"
 import createEditTool from "./tools/edit"
 import { RESEARCH_PROMPT, RESEARCH_AGENT_SIGNATURE } from "./lib/agents/research-prompt"
 import { NARRATIVE_REVIEWER_PROMPT, NARRATIVE_REVIEWER_SIGNATURE } from "./lib/agents/narrative-reviewer-prompt"
-import { formatReport, runComplianceQA } from "./lib/qa"
 import { extractDesignClasses } from "./lib/design/designs"
 import { log, childLog } from "./lib/log"
 
@@ -154,53 +152,29 @@ const server: Plugin = (async (pluginCtx) => {
   const client = pluginCtx.client
   const workspaceRoot = pluginCtx.directory
   const blockedDeckWrites = new Map<string, string>()
-  const blockedDeckPatches = new Map<string, string>()
+  const blockedPatches = new Map<string, string>()
 
-  async function appendComplianceReport(filePath: string, output: any): Promise<void> {
-    if (!isDeckHtmlPath(filePath)) return
+  async function runPostWriteArtifactQA(filePath: string, output: any): Promise<boolean> {
+    if (!isDeckHtmlPath(filePath)) return true
 
     try {
       let vocabulary
       try {
         vocabulary = extractDesignClasses()
       } catch {
-        // Design may not be installed or may have no markers — skip compliance.
+        // Design may not be installed or may have no markers — skip compliance vocabulary.
       }
 
-      const report = runComplianceQA(filePath, vocabulary)
-      if (report.totalIssues === 0) return
-
-      appendToolResult(
-        output,
-        "---\n\n**[revela design compliance]** Static check completed:\n\n" +
-        formatReport(report)
-      )
+      const report = await runArtifactQA({ workspaceRoot, filePath, vocabulary })
+      appendToolResult(output, "---\n\n" + formatArtifactQAReport(report))
+      return report.passed
     } catch (e) {
-      childLog("compliance").warn("static compliance failed", {
+      childLog("artifact-qa").warn("post-write artifact QA failed", {
         filePath,
         error: e instanceof Error ? e.message : String(e),
       })
-    }
-  }
-
-  async function appendDeckHtmlContractReport(filePath: string, output: any): Promise<void> {
-    if (!isDeckHtmlPath(filePath)) return
-
-    try {
-      const report = validateDeckHtmlContract(workspaceRoot, filePath)
-      if (report.status === "valid" || report.status === "skipped") return
-
-      appendToolResult(
-        output,
-        "---\n\n**[revela deck HTML contract]** Slide identity check failed:\n\n" +
-        formatDeckHtmlContractReport(report) +
-        "\n\nFix every `<section class=\"slide\">` to use the matching 1-based `data-slide-index` from DECKS.json before inspection or export."
-      )
-    } catch (e) {
-      childLog("deck-contract").warn("deck HTML contract report failed", {
-        filePath,
-        error: e instanceof Error ? e.message : String(e),
-      })
+      appendToolResult(output, "---\n\n## Artifact QA: FAILED\n\nError running artifact QA: " + (e instanceof Error ? e.message : String(e)))
+      return false
     }
   }
 
@@ -409,8 +383,9 @@ const server: Plugin = (async (pluginCtx) => {
         return
       }
       if (sub === "story") {
-        if (param) {
-          await send("`/revela story` does not accept arguments yet. It opens the current workspace story UI. Use `/revela review` for a readiness report.")
+        const parsed = parseStoryArgs(param)
+        if (!parsed.ok) {
+          await send(parsed.error)
           throw new Error("__REVELA_STORY_USAGE_HANDLED__")
         }
         queueWorkflowCommand({
@@ -418,7 +393,7 @@ const server: Plugin = (async (pluginCtx) => {
           name: "story",
           mode: "narrative",
           visibleText: "Open Revela story workspace.",
-          hiddenPrompt: buildNarrativeViewPrompt({ workspaceRoot, language: "en" }),
+          hiddenPrompt: buildNarrativeViewPrompt({ workspaceRoot, language: parsed.args.language }),
           output,
         })
         return
@@ -850,7 +825,7 @@ const server: Plugin = (async (pluginCtx) => {
 
     // ── Pre-tool processing ────────────────────────────────────────────────
     // - read: intercept DOCX/PPTX/XLSX before read executes.
-    // - write/apply_patch: gate decks/*.html on DECKS.json readiness.
+    // - write/apply_patch: protect DECKS.json, but do not block deck HTML edits.
     "tool.execute.before": async (input, output) => {
       log.info("[hook] tool.execute.before fired", { tool: input.tool, enabled: ctx.enabled, isResearch: ctx.isResearchAgent })
       if (!ctx.enabled) return
@@ -875,32 +850,6 @@ Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSl
           childLog("decks-state").warn("blocked direct DECKS.json write", { filePath, blockedPath })
           return
         }
-        if (!isDeckHtmlPath(filePath)) return
-        if (hasLiveEditorSessionForFile(workspaceRoot, filePath)) return
-
-        const readiness = checkDeckStateWriteReadiness(workspaceRoot, filePath) ?? {
-          ready: false,
-          slug: basename(filePath, ".html") || "deck",
-          blocker: `No ${DECKS_STATE_FILE} exists. Use revela-decks init/upsertDeck/upsertSlides/review before writing deck HTML.`,
-          blockers: [`No ${DECKS_STATE_FILE} exists.`],
-        }
-        if (readiness.ready) return
-
-        const blockedDir = join(workspaceRoot, ".opencode", "revela", "blocked-writes")
-        mkdirSync(blockedDir, { recursive: true })
-        const blockedPath = join(blockedDir, `${readiness.slug}.blocked.md`)
-        ;(output.args as any).filePath = blockedPath
-        ;(output.args as any).content = `# Revela Blocked Deck Write
-
-The attempted write to \`${filePath}\` was blocked.
-
-Reason: ${readiness.blocker}
-
-Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FILE}, then write only after the matching deck has \`writeReadiness.status\` set to \`ready\` and no blockers.
-`
-        blockedDeckWrites.set(filePath, readiness.blocker)
-        childLog("decks-memory").warn("blocked deck write", { filePath, blockedPath, blocker: readiness.blocker })
-        return
       }
 
       if (input.tool === "apply_patch") {
@@ -925,49 +874,10 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
 +Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSlides\`, or \`review\`.
 *** End Patch`
           setPatchTextArg(args, blockedPatch)
-          blockedDeckPatches.set(blockedRelativePath, blocker)
+          blockedPatches.set(blockedRelativePath, blocker)
           childLog("decks-state").warn("blocked direct DECKS.json patch", { targets: stateTargets, blockedPath: blockedRelativePath })
           return
         }
-
-        const targets = extractDeckHtmlTargetsFromPatch(patchText)
-        if (targets.length === 0) return
-        if (targets.every((target) => hasLiveEditorSessionForFile(workspaceRoot, target))) return
-
-        const blocked = targets
-          .map((target) => ({
-            target,
-            readiness: checkDeckStateWriteReadiness(workspaceRoot, target) ?? {
-              ready: false,
-              slug: basename(target, ".html") || "deck",
-              blocker: `No ${DECKS_STATE_FILE} exists. Use revela-decks init/upsertDeck/upsertSlides/review before patching deck HTML.`,
-              blockers: [`No ${DECKS_STATE_FILE} exists.`],
-            },
-          }))
-          .find((item) => !item.readiness.ready)
-        if (!blocked) return
-
-        const blockedDir = join(workspaceRoot, ".opencode", "revela", "blocked-writes")
-        mkdirSync(blockedDir, { recursive: true })
-        const blockedRelativePath = `.opencode/revela/blocked-writes/${blocked.readiness.slug}-${Date.now()}.blocked.md`
-        const blockedPatch = `*** Begin Patch
-*** Add File: ${blockedRelativePath}
-+# Revela Blocked Deck Patch
-+
-+The attempted patch touching \`${blocked.target}\` was blocked.
-+
-+Reason: ${blocked.readiness.blocker}
-+
-+Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FILE}, then patch only after the matching deck has \`writeReadiness.status\` set to \`ready\` and no blockers.
-*** End Patch`
-        setPatchTextArg(args, blockedPatch)
-        blockedDeckPatches.set(blockedRelativePath, blocked.readiness.blocker)
-        childLog("decks-memory").warn("blocked deck patch", {
-          target: blocked.target,
-          blockedPath: blockedRelativePath,
-          blocker: blocked.readiness.blocker,
-        })
-        return
       }
 
       if (input.tool === "read") {
@@ -987,7 +897,7 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
     // PDF: extract text, remove base64. Images: jimp compress.
     //
     // Also reports writes/patches blocked by the DECKS.json prewrite gate and
-    // runs lightweight static design compliance after successful deck changes.
+    // runs artifact QA before opening Refine after successful deck changes.
     "tool.execute.after": async (input, output) => {
       if (!ctx.enabled) return
 
@@ -1004,7 +914,7 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
         return
       }
 
-      // ── Report blocked deck writes and run static compliance ──────────
+      // ── Report blocked state writes and run artifact QA ───────────────
       if (input.tool === "write") {
         const filePath: string = input.args?.filePath ?? ""
         const blockedReason = blockedDeckWrites.get(filePath)
@@ -1018,20 +928,19 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
           )
           return
         }
-        await appendComplianceReport(filePath, output)
-        await appendDeckHtmlContractReport(filePath, output)
-        ensureEditorOpenAfterDeckChange(filePath, extractSessionID(input))
+        const qaPassed = await runPostWriteArtifactQA(filePath, output)
+        if (qaPassed) ensureEditorOpenAfterDeckChange(filePath, extractSessionID(input))
         return
       }
 
-      if (input.tool === "apply_patch" && blockedDeckPatches.size > 0) {
-        const [blockedPath, blockedReason] = blockedDeckPatches.entries().next().value ?? []
-        if (blockedPath) blockedDeckPatches.delete(blockedPath)
+      if (input.tool === "apply_patch" && blockedPatches.size > 0) {
+        const [blockedPath, blockedReason] = blockedPatches.entries().next().value ?? []
+        if (blockedPath) blockedPatches.delete(blockedPath)
         appendToolResult(
           output,
-          "---\n\n**[revela prewrite gate]** Deck HTML patch was blocked.\n\n" +
+          "---\n\n**[revela prewrite gate]** Patch was blocked.\n\n" +
           `${blockedReason}\n\n` +
-          "Run `/revela review` or complete the same DECKS.json review workflow before patching the deck."
+          "Use the `revela-decks` tool for controlled workspace state changes."
         )
         return
       }
@@ -1040,18 +949,16 @@ Next step: use \`revela-decks\` or \`/revela review\` to update ${DECKS_STATE_FI
         const patchText = extractPatchTextArg(input.args as Record<string, unknown>)
         const targets = patchText ? extractDeckHtmlTargetsFromPatch(patchText) : []
         for (const target of targets) {
-          await appendComplianceReport(target, output)
-          await appendDeckHtmlContractReport(target, output)
-          ensureEditorOpenAfterDeckChange(target, extractSessionID(input))
+          const qaPassed = await runPostWriteArtifactQA(target, output)
+          if (qaPassed) ensureEditorOpenAfterDeckChange(target, extractSessionID(input))
         }
         return
       }
 
       if (input.tool === "edit") {
         const filePath = extractEditFilePath(input.args)
-        await appendComplianceReport(filePath, output)
-        await appendDeckHtmlContractReport(filePath, output)
-        ensureEditorOpenAfterDeckChange(filePath, extractSessionID(input))
+        const qaPassed = await runPostWriteArtifactQA(filePath, output)
+        if (qaPassed) ensureEditorOpenAfterDeckChange(filePath, extractSessionID(input))
         return
       }
     },

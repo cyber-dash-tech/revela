@@ -233,16 +233,47 @@ describe("starter built-in design", () => {
       "stacked",
     ]))
     expect(Object.keys(parsed.layouts)).toHaveLength(6)
-    expect(Object.keys(parsed.components)).toContain("svg-motif")
-    expect(Object.keys(parsed.components)).toContain("timeline-journey-horizontal")
-    expect(Object.keys(parsed.components)).toContain("timeline-journey-vertical")
-    expect(Object.keys(parsed.components).length).toBeGreaterThanOrEqual(16)
+    expect(Object.keys(parsed.components)).toEqual(expect.arrayContaining([
+      "box",
+      "text-panel",
+      "media",
+      "steps",
+      "hero",
+      "roadmap-horizontal",
+      "roadmap-vertical",
+    ]))
+    expect(Object.keys(parsed.components)).not.toContain("svg-motif")
+    expect(Object.keys(parsed.components)).not.toContain("timeline-journey-horizontal")
+    expect(Object.keys(parsed.components)).not.toContain("timeline-journey-vertical")
+    expect(Object.keys(parsed.components)).toHaveLength(14)
     expect(body).toContain("Visual Schema Rules")
-    expect(body).toContain("SVG Motif Rules")
+    expect(body).toContain("Visual Motif Rules")
+    expect(body).toContain("Content pages need a stable title block")
+    expect(body).toContain("Text panels are not decorative rule panels")
+    expect(body).toContain("Do not add a default left border, vertical accent bar, yellow/gold rule")
+    expect(body).toContain("Source and citation text should use `.source` or `.source-note`, not `.caption`")
+    expect(body).toContain('font-family: "Times New Roman", Times, serif')
+    expect(body).toContain("font-size: 11px")
+    expect(body).toContain("text-transform: none")
+    expect(body).toContain("chart-caption source-note")
+    expect(body).toContain("table-caption source-note")
     expect(body).toContain(".tjh-axis")
     expect(body).toContain(".tjv-axis")
     expect(body).toContain("tjh-item--up")
     expect(body).toContain("tjv-item--left")
+
+    const textPanel = parsed.components["text-panel"] ?? ""
+    expect(textPanel).toContain('class="source"')
+
+    const mediaComponent = parsed.components["media"] ?? ""
+    expect(mediaComponent).toContain("media-caption source-note")
+    expect(mediaComponent).toContain('font-family: "Times New Roman", Times, serif')
+
+    const chartComponent = parsed.components["echart-panel"] ?? ""
+    expect(chartComponent).toContain("chart-caption source-note")
+
+    const tableComponent = parsed.components["data-table"] ?? ""
+    expect(tableComponent).toContain("table-caption source-note")
 
     const preview = readFileSync(previewPath, "utf-8")
     expect(preview).toContain("Starter Design System")
@@ -250,8 +281,8 @@ describe("starter built-in design", () => {
     expect(preview).toContain("svg-motif")
     expect(preview).toContain('data-slide-role="cover"')
     expect(preview).toContain('data-slide-role="closing"')
-    expect(preview).toContain('data-preview-component="timeline-journey-horizontal"')
-    expect(preview).toContain('data-preview-component="timeline-journey-vertical"')
+    expect(preview).toContain('data-preview-component="roadmap-horizontal"')
+    expect(preview).toContain('data-preview-component="roadmap-vertical"')
   })
 
   it("is marked internal and hidden from normal design listings", () => {
@@ -277,6 +308,83 @@ ${wrapMinimalDesignBody()}`, "utf-8")
 
     const allNames = listDesigns({ includeInternal: true }).map((d) => d.name)
     expect(allNames).toContain(name)
+  })
+})
+
+describe("summit built-in design", () => {
+  it("keeps normal content titles stable and text panels neutral", () => {
+    const designPath = join(import.meta.dir, "..", "designs", "summit", "DESIGN.md")
+    expect(existsSync(designPath)).toBe(true)
+
+    const raw = readFileSync(designPath, "utf-8")
+    const { body } = parseFrontmatter(raw)
+    const parsed = parseDesignSections(body)
+
+    expect(Object.keys(parsed.layouts)).toEqual(expect.arrayContaining([
+      "narrative",
+      "narrative-reverse",
+      "highlight-cols",
+      "halves",
+      "stacked",
+    ]))
+    expect(Object.keys(parsed.components)).toEqual(expect.arrayContaining([
+      "box",
+      "text-panel",
+      "media",
+      "steps",
+      "hero",
+      "roadmap-horizontal",
+      "roadmap-vertical",
+    ]))
+    expect(Object.keys(parsed.components)).not.toContain("image-title")
+    expect(Object.keys(parsed.components)).not.toContain("flow-horizontal")
+    expect(Object.keys(parsed.components)).not.toContain("timeline-journey-horizontal")
+    expect(Object.keys(parsed.components)).toHaveLength(14)
+    expect(body).toContain("Content pages need a stable title block")
+    expect(body).toContain("Normal `qa=true` content layouts should start with a slide-level title block")
+    expect(body).toContain("Text panels are not decorative rule panels")
+    expect(body).toContain("Do not add a default left border, vertical accent bar, yellow/gold rule")
+    expect(body).toContain("Summit may use thin rules at the layout level or in `toc`")
+    expect(body).toContain("Titles use Title Case, not all caps")
+    expect(body).toContain("Titles are Title Case")
+    expect(body).toContain("cover h1: `108px` to `124px`, weight `600` to `700`, line-height `0.88` to `0.94`, Title Case")
+    expect(body).toContain("Components are transparent by default")
+    expect(body).toContain("Component defaults are transparent")
+    expect(body).toContain("Source and citation text should use `.source` or `.source-note`, not `.caption`")
+    expect(body).toContain('font-family: "Times New Roman", Times, serif')
+    expect(body).toContain("font-size: 11px")
+    expect(body).toContain("text-transform: none")
+    expect(body).toContain("chart-caption source-note")
+    expect(body).toContain("table-caption source-note")
+    expect(body).toContain(".slide-canvas")
+    expect(body).toContain("padding: 0;")
+
+    const box = parsed.components["box"] ?? ""
+    expect(box).toContain(".box { height: 100%; min-height: 0; padding: 28px; border: 1px solid var(--line); background: transparent;")
+    expect(box).toContain(".box--paper { background: rgba(247,244,238,0.72); }")
+
+    const media = parsed.components["media"] ?? ""
+    expect(media).toContain(".media-frame { position: relative; overflow: hidden; background: transparent;")
+    expect(media).toContain("media-caption source-note")
+    expect(media).toContain('font-family: "Times New Roman", Times, serif')
+
+    const chart = parsed.components["echart-panel"] ?? ""
+    expect(chart).toContain("chart-caption source-note")
+
+    const table = parsed.components["data-table"] ?? ""
+    expect(table).toContain("table-caption source-note")
+
+    const toc = parsed.components["toc"] ?? ""
+    expect(toc).toContain("font-size:28px")
+    expect(toc).toContain("font-size:14px")
+    expect(toc).toContain("Keep TOC compact")
+    expect(toc).toContain("background: transparent")
+    expect(toc).not.toContain("background: var(--bg-page)")
+    expect(toc).not.toContain("text-transform:uppercase")
+
+    const hero = parsed.components["hero"] ?? ""
+    expect(hero).toContain(".image-title h1")
+    expect(hero).not.toContain(".image-title h1 {\n    color: #f7f4ee;\n    font-size: 96px;\n    line-height: 0.92;\n    letter-spacing: -0.03em;\n    text-transform: uppercase;")
   })
 })
 

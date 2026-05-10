@@ -1,6 +1,7 @@
 import { tool } from "@opencode-ai/plugin"
 import {
   createDeckSpec,
+  confirmDeckPlan,
   DECKS_STATE_FILE,
   normalizeWorkspaceDeckState,
   readOrCreateDecksState,
@@ -67,7 +68,7 @@ export default tool({
     "It stores workspace narrative state, active deck specs, per-slide content/layout/components, and computes narrative or deck readiness.",
   args: {
     action: tool.schema
-      .enum(["read", "init", "upsertDeck", "upsertSlides", "upsertNarrative", "compileDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
+      .enum(["read", "init", "upsertDeck", "upsertSlides", "upsertNarrative", "compileDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
       .describe("Action to perform on DECKS.json."),
     summary: tool.schema.boolean().optional().describe("For read: return a compact summary instead of full state."),
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
@@ -251,8 +252,8 @@ export default tool({
     findingsFile: tool.schema.string().optional().describe("For attachResearchFindings: workspace-relative researches/{topic}/{axis}.md file to attach to researchPlan."),
     researchAxis: tool.schema.string().optional().describe("For attachResearchFindings: researchPlan axis to attach the findings file to. Required when filename matching would be ambiguous."),
     researchStatus: tool.schema.enum(["done", "read"]).optional().describe("For attachResearchFindings: optional explicit status to set on the matched research axis."),
-    approvalNote: tool.schema.string().optional().describe("For approveNarrative: optional note explaining the approval or override."),
-    approvalBy: tool.schema.enum(["user", "override"]).optional().describe("For approveNarrative: use override only for explicit render overrides, not normal strategic approval."),
+    approvalNote: tool.schema.string().optional().describe("For approveNarrative or confirmDeckPlan: optional note explaining the approval, override, or deck plan confirmation."),
+    approvalBy: tool.schema.enum(["user", "override"]).optional().describe("For approveNarrative or confirmDeckPlan: use override only for explicit render overrides, not normal strategic approval or deck plan confirmation."),
     approvalScope: tool.schema.enum(["narrative", "render_override"]).optional().describe("For approveNarrative: narrative approval or explicit render override scope."),
     gapId: tool.schema.string().optional().describe("For updateResearchGap/closeResearchGap: canonical research gap id."),
     researchGaps: tool.schema.array(tool.schema.object({
@@ -426,6 +427,31 @@ export default tool({
         }
         writeDecksState(workspaceRoot, compiled.state)
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: compiled.result, deck: compiled.state.activeDeck ? compiled.state.decks[compiled.state.activeDeck] : undefined, narrative: compiled.state.narrative }, null, 2)
+      }
+
+      if (args.action === "confirmDeckPlan") {
+        if (args.approvalBy && args.approvalBy !== "user") return JSON.stringify({ ok: false, error: "confirmDeckPlan requires approvalBy=user" })
+        const confirmed = confirmDeckPlan(state, {
+          approvedBy: "user",
+          note: args.approvalNote,
+        })
+        if (confirmed.result.confirmed) {
+          recordWorkspaceAction(confirmed.state, {
+            type: "deck.plan_confirmed",
+            actor: "revela-decks",
+            inputs: { activeDeck: state.activeDeck, approvalBy: "user" },
+            outputs: {
+              slug: confirmed.result.slug,
+              narrativeHash: confirmed.result.narrativeHash,
+              planHash: confirmed.result.planHash,
+            },
+            status: "success",
+            summary: args.approvalNote?.trim() || "User confirmed the compiled deck plan.",
+            nodeIds: [confirmed.state.narrative?.id, confirmed.result.slug ? `deck:${confirmed.result.slug}` : undefined].filter((item): item is string => Boolean(item)),
+          })
+        }
+        writeDecksState(workspaceRoot, confirmed.state)
+        return JSON.stringify({ ok: confirmed.result.confirmed, path: DECKS_STATE_FILE, result: confirmed.result, deck: confirmed.state.activeDeck ? confirmed.state.decks[confirmed.state.activeDeck] : undefined }, null, 2)
       }
 
       if (args.action === "backfillClaimRefs") {

@@ -52,7 +52,17 @@ function makeMetrics(
     )
   }
 
-  return { index, title, slideQa, canvasRect: CANVAS_RECT, elements, contentRect }
+  return {
+    index,
+    title,
+    slideQa,
+    canvasRect: CANVAS_RECT,
+    slideRect: CANVAS_RECT,
+    hasScrollbars: false,
+    elements,
+    contentRect,
+    contentStats: { bodyTextPoints: 0, contentUnits: elements.length, supportReferences: 0 },
+  }
 }
 
 function htmlFile(html: string): string {
@@ -64,7 +74,7 @@ function htmlFile(html: string): string {
 
 const vocabulary: DesignClassVocabulary = {
   classes: new Set(["slide", "slide-canvas", "title", "card", "known-rule"]),
-  prefixExemptions: ["lucide-", "echarts-", "editable-"],
+  prefixExemptions: ["lucide-", "echarts-"],
 }
 
 describe("overflow", () => {
@@ -89,19 +99,42 @@ describe("overflow", () => {
   })
 })
 
-describe("disabled soft geometry checks", () => {
-  it("does not report balance or rhythm issues in the default QA path", () => {
+describe("content density", () => {
+  it("warns on content slides with too few claim/evidence points", () => {
     const sparse = makeElement(makeRect(60, 60, 260, 160))
-    const irregular = [100, 210, 320, 530].map((top, i) =>
-      makeElement(makeRect(100, top, 1820, top + 100), `div.item${i}`)
-    )
 
     const report = runChecks("test.html", [
       makeMetrics({ index: 0, slideQa: true, elements: [sparse] }),
-      makeMetrics({ index: 1, slideQa: true, elements: irregular }),
     ])
 
-    expect(report.totalIssues).toBe(0)
+    const density = report.slides[0].issues.find((i) => i.type === "density")
+    expect(density?.severity).toBe("warning")
+    expect(density?.detail).toContain("claim/evidence")
+  })
+
+  it("does not warn on non-QA focus slides", () => {
+    const sparse = makeElement(makeRect(60, 60, 260, 160))
+    const report = runChecks("test.html", [makeMetrics({ slideQa: false, elements: [sparse] })])
+    expect(report.slides[0].issues.some((i) => i.type === "density")).toBe(false)
+  })
+})
+
+describe("canvas and text checks", () => {
+  it("requires exact 1920x1080 slide and canvas dimensions", () => {
+    const metrics = makeMetrics({ elements: [makeElement(makeRect(100, 100, 500, 300))] })
+    metrics.canvasRect = makeRect(0, 0, 1600, 900)
+    const report = runChecks("test.html", [metrics])
+    const canvas = report.slides[0].issues.find((i) => i.type === "canvas")
+    expect(canvas?.severity).toBe("error")
+    expect(canvas?.detail).toContain("1920x1080")
+  })
+
+  it("reports clipped text containers", () => {
+    const el = { ...makeElement(makeRect(100, 100, 500, 180), "p.copy"), textOverflow: true, text: "Long clipped copy" }
+    const report = runChecks("test.html", [makeMetrics({ elements: [el] })])
+    const issue = report.slides[0].issues.find((i) => i.type === "text_overflow")
+    expect(issue?.severity).toBe("error")
+    expect(issue?.detail).toContain("Long clipped copy")
   })
 })
 
@@ -143,13 +176,26 @@ describe("static compliance", () => {
 
   it("respects exempt class prefixes", () => {
     const file = htmlFile(`
-      <html><style>.lucide-arrow { width: 1em; } .editable-hover { outline: none; }</style><body>
-        <section class="slide"><div class="slide-canvas"><i class="lucide-arrow"></i><span class="editable-label">Text</span></div></section>
+      <html><style>.lucide-arrow { width: 1em; } .echarts-tooltip { opacity: 1; }</style><body>
+        <section class="slide"><div class="slide-canvas"><i class="lucide-arrow"></i><span class="echarts-label">Text</span></div></section>
       </body></html>
     `)
 
     const report = runComplianceQA(file, vocabulary)
     expect(report.totalIssues).toBe(0)
+  })
+
+  it("flags deck-local editable classes", () => {
+    const file = htmlFile(`
+      <html><style>.editable-hover { outline: none; }</style><body>
+        <section class="slide"><div class="slide-canvas"><span class="editable-label">Text</span></div></section>
+      </body></html>
+    `)
+
+    const report = runComplianceQA(file, vocabulary)
+    expect(report.totalIssues).toBeGreaterThan(0)
+    expect(report.slides[0].issues.some((i) => i.data?.class === "editable-hover")).toBe(true)
+    expect(report.slides[0].issues.some((i) => i.data?.class === "editable-label")).toBe(true)
   })
 })
 

@@ -13,6 +13,7 @@ import { buildRememberPrompt, parseRememberArgs } from "../lib/commands/remember
 import { buildDeckPrompt, buildDeckReviewPrompt, buildReviewPrompt } from "../lib/commands/review"
 import { buildResearchPrompt } from "../lib/commands/research"
 import {
+  confirmDeckPlan,
   createDeckSpec,
   createEmptyDecksState,
   buildDecksStatePromptLayer,
@@ -158,10 +159,14 @@ describe("review command", () => {
 
   it("builds a deck handoff prompt from approved narrative to artifact gate", () => {
     const prompt = buildDeckPrompt({ exists: true, workspaceRoot: "/workspace/project" })
-    expect(prompt).toContain("Begin Revela deck render handoff")
+    expect(prompt).toContain("Begin Revela deck plan handoff")
     expect(prompt).toContain("deck-render prompt mode")
     expect(prompt).toContain("reviewNarrative")
     expect(prompt).toContain("compileDeckPlan")
+    expect(prompt).toContain("low-fidelity layout sketch")
+    expect(prompt).toContain("Deck plan: awaiting confirmation")
+    expect(prompt).toContain("Stop after presenting the plan")
+    expect(prompt).toContain("confirmDeckPlan")
     expect(prompt).toContain("approved")
     expect(prompt).toContain("ready_for_approval")
     expect(prompt).toContain("render override")
@@ -170,6 +175,7 @@ describe("review command", () => {
     expect(prompt).toContain("Deck handoff: <status>")
     expect(prompt).toContain("deck HTML contract")
     expect(prompt).toContain("Do not write or overwrite `decks/*.html` until")
+    expect(prompt).toContain("user deck-plan confirmation")
     expect(prompt).toContain("Current workspace root: `/workspace/project`")
   })
 
@@ -256,6 +262,7 @@ describe("DECKS.json state readiness", () => {
       researchPlan: [{ axis: "Market", needed: true, status: "read", findingsFile: "researches/investor-update/market.md" }],
     })
     state = upsertSlides(state, "investor-update", [readySlide()])
+    state = confirmDeckPlan(state, { approvedBy: "user", note: "Confirmed test plan.", now: "2026-01-01T00:00:00.000Z" }).state
     return reviewDeckState(state, "investor-update").state
   }
 
@@ -286,6 +293,48 @@ describe("DECKS.json state readiness", () => {
     const result = evaluateDeckStateWriteReadiness(state, "decks/investor-update.html")
     expect(result.ready).toBe(false)
     expect(result.blocker).toContain("requiredInputs.audienceClarified")
+  })
+
+  it("blocks when the slide plan has not been confirmed", () => {
+    let state = createEmptyDecksState()
+    state = upsertDeck(state, {
+      slug: "investor-update",
+      goal: "Board update",
+      audience: "Board",
+      language: "English",
+      outputPath: "decks/investor-update.html",
+      theme: { design: "aurora", domain: "general" },
+      requiredInputs: defaultRequiredInputs({
+        topicClarified: true,
+        audienceClarified: true,
+        languageDecided: true,
+        visualStyleSelected: true,
+        sourceMaterialsIdentified: true,
+        researchNeedAssessed: true,
+        researchFindingsRead: true,
+        slidePlanConfirmed: true,
+        designLayoutsFetched: true,
+      }),
+      researchPlan: [{ axis: "Market", needed: true, status: "read", findingsFile: "researches/investor-update/market.md" }],
+    })
+    state = upsertSlides(state, "investor-update", [readySlide()])
+    state = reviewDeckState(state, "investor-update").state
+
+    const result = evaluateDeckStateWriteReadiness(state, "decks/investor-update.html")
+    expect(result.ready).toBe(false)
+    expect(result.issues.some((issue) => issue.type === "slide_plan_unconfirmed")).toBe(true)
+    expect(result.blocker).toContain("Deck slide plan is not confirmed")
+  })
+
+  it("blocks when confirmed slide plan changes", () => {
+    let state = readyState()
+    state = upsertSlides(state, "investor-update", [{ ...readySlide(), content: { headline: "Changed headline", bullets: ["One concrete point"] } }])
+    state = reviewDeckState(state, "investor-update").state
+
+    const result = evaluateDeckStateWriteReadiness(state, "decks/investor-update.html")
+    expect(result.ready).toBe(false)
+    expect(result.issues.some((issue) => issue.type === "slide_plan_unconfirmed")).toBe(true)
+    expect(result.blocker).toContain("confirmation is stale")
   })
 
   it("blocks when slide specs are missing content", () => {
@@ -437,6 +486,26 @@ describe("apply_patch deck targets", () => {
 *** End Patch`)
 
     expect(targets).toEqual([])
+  })
+
+  it("keeps deck html patches separate from controlled state patches", () => {
+    const deckPatch = `*** Begin Patch
+*** Update File: decks/runtime-bug.html
+@@
+-broken()
++fixed()
+*** End Patch`
+    expect(extractDeckHtmlTargetsFromPatch(deckPatch)).toEqual(["decks/runtime-bug.html"])
+    expect(extractDecksStateTargetsFromPatch(deckPatch)).toEqual([])
+
+    const statePatch = `*** Begin Patch
+*** Update File: DECKS.json
+@@
+-{}
++{"decks":{}}
+*** End Patch`
+    expect(extractDeckHtmlTargetsFromPatch(statePatch)).toEqual([])
+    expect(extractDecksStateTargetsFromPatch(statePatch)).toEqual(["DECKS.json"])
   })
 
   it("reads and writes the first available patch text field", () => {

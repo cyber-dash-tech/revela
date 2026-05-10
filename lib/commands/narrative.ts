@@ -12,7 +12,33 @@ export interface NarrativeArgs {
   raw: boolean
 }
 
+export interface StoryArgs {
+  language: NarrativeViewLanguage
+}
+
 export type ParseNarrativeArgsResult = { ok: true; args: NarrativeArgs } | { ok: false; error: string }
+export type ParseStoryArgsResult = { ok: true; args: StoryArgs } | { ok: false; error: string }
+
+export function parseStoryArgs(param: string): ParseStoryArgsResult {
+  const tokens = param.trim().split(/\s+/).filter(Boolean)
+  let language: NarrativeViewLanguage = "en"
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i]
+    if (token === "--language" || token === "-l") {
+      const value = tokens[++i]
+      if (!value) return { ok: false, error: "Usage: `/revela story [--language <language> | -l <language>]`" }
+      language = normalizeLanguageRequest(value)
+      continue
+    }
+    if (token.startsWith("--language=")) {
+      return { ok: false, error: "Usage: `/revela story --language <language>` or `/revela story -l <language>`. Do not use `--language=<language>`." }
+    }
+    return { ok: false, error: "Usage: `/revela story [--language <language> | -l <language>]`. Use `/revela review` for a readiness report." }
+  }
+
+  return { ok: true, args: { language } }
+}
 
 export function parseNarrativeArgs(param: string): ParseNarrativeArgsResult {
   const tokens = param.trim().split(/\s+/).filter(Boolean)

@@ -72,14 +72,15 @@ Instructions:
 - If there are multiple comments, apply them as one coherent edit pass and avoid changes from one comment overwriting another.
 - Each comment may reference one or more selected elements. Treat the elements in a single comment as a group.
 - Preserve the narrative boundary: if the requested edit changes audience framing, belief shift, decision/action, thesis, recommendation, claim wording, evidence scope, caveat, risk, objection, or decision ask, do not patch the HTML directly. Explain that the canonical narrative must be updated first through ${"`revela-decks`"} action ${"`upsertNarrative`"}, then reviewed/approved or explicitly overridden before updating the deck projection.
-- Pure artifact polish such as layout, spacing, typography, alignment, color, image crop, animation, export fidelity, or deck HTML contract fixes may remain an artifact-level edit.
+- Pure artifact polish such as layout, spacing, typography, alignment, color, image crop, animation, export fidelity, runtime JavaScript fixes, or deck HTML contract fixes may remain an artifact-level edit.
 - If the request mixes content meaning and visual polish, treat it as narrative-impacting unless the user clarifies otherwise.
 - Preserve the existing deck structure, active design language, typography, spacing system, animations, and slide count unless the comment explicitly asks otherwise.
 - Do not rewrite unrelated slides or broad sections of the deck.
 - Locate each target primarily with slideIndex, slideTitle, selected text, nearbyText, and outerHTMLExcerpt. Use selector/domPath as hints; they may be approximate.
-- Before patching or writing ${"`decks/*.html`"}, ensure ${"`DECKS.json`"} contains this deck and call ${"`revela-decks`"} with action ${"`review`"}. If ${"`DECKS.json`"} or the deck entry is missing, initialize/upsert the deck state with ${"`revela-decks`"} first. If readiness remains blocked, explain the blockers instead of forcing the edit.
-- Apply the edit to ${payload.file} only after readiness allows deck HTML changes.
-- Static design compliance is checked automatically after deck writes. If the tool result reports unknown classes, replace them with classes from the active design.
-- Do not run QA after the edit unless the user explicitly asks for diagnostics. PDF/PPTX export commands run hard-error pre-export QA automatically.
+- For targeted artifact-level edits, patch ${"`decks/*.html`"} directly. Do not call ${"`revela-decks`"} action ${"`review`"} as a precondition, and do not let ${"`writeReadiness`"}, ${"`planReview`"}, or ${"`slide_plan_unconfirmed`"} block the patch.
+- Do not patch or write ${"`DECKS.json`"} directly. If state must change, use the ${"`revela-decks`"} tool.
+- Apply the edit to ${payload.file} with the smallest targeted HTML patch that satisfies the comment.
+- Artifact QA runs automatically after deck writes/patches/edits. It checks deck HTML contract, design component compliance, exact 1920x1080 slide geometry, scrollbars, element overflow, text clipping, and claim/evidence content-density warnings.
+- If the tool result reports hard QA errors, fix them with the smallest targeted patch and let the post-write QA run again. Refine opens automatically only after hard errors pass; warnings such as thin claim/evidence substance do not block opening.
 - If the comment is ambiguous, ask one concise clarification question instead of guessing.`
 }

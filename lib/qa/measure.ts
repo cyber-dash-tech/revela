@@ -49,6 +49,19 @@ export interface ElementInfo {
   children: ElementInfo[]
   /** all CSS class names on this element */
   classList: string[]
+  /** visible text excerpt for text overflow diagnostics */
+  text?: string
+  /** whether text content is clipped inside this element */
+  textOverflow?: boolean
+}
+
+export interface SlideContentStats {
+  /** Non-title effective text points: English words + CJK characters. */
+  bodyTextPoints: number
+  /** Recognizable semantic content units such as boxes, cards, evidence, charts, tables, media, metrics, bullets. */
+  contentUnits: number
+  /** Evidence/source/caveat-like references visible on the slide. */
+  supportReferences: number
 }
 
 export interface SlideMetrics {
@@ -65,10 +78,16 @@ export interface SlideMetrics {
   slideQa: boolean
   /** bounding box of the slide-canvas element itself (post-scale) */
   canvasRect: Rect
+  /** bounding box of the .slide element itself (post-scale) */
+  slideRect: Rect
+  /** whether document/body/slide has scrollbars at 1920x1080 */
+  hasScrollbars: boolean
   /** top-level visible children of .slide-canvas */
   elements: ElementInfo[]
   /** union bounding box of all visible leaf elements */
   contentRect: Rect
+  /** text/content-density signals for content slides */
+  contentStats: SlideContentStats
 }
 
 /**
@@ -207,6 +226,29 @@ export async function measureSlides(htmlFilePath: string): Promise<MeasurementRe
             visible: boolean
             children: EI[]
             classList: string[]
+            text?: string
+            textOverflow?: boolean
+          }
+
+          function textPoints(text: string): number {
+            const normalized = text.replace(/\s+/g, " ").trim()
+            if (!normalized) return 0
+            const cjk = (normalized.match(/[\u3400-\u9fff\uf900-\ufaff]/g) || []).length
+            const words = (normalized.replace(/[\u3400-\u9fff\uf900-\ufaff]/g, " ").match(/[A-Za-z0-9]+(?:[-'][A-Za-z0-9]+)*/g) || []).length
+            return cjk + words
+          }
+
+          function isSemanticContentUnit(el: Element): boolean {
+            const tag = el.tagName.toLowerCase()
+            if (["li", "table", "figure", "img", "svg", "canvas", "blockquote"].includes(tag)) return true
+            const cls = Array.from(el.classList).join(" ")
+            return /\b(box|card|claim|evidence|source|caveat|metric|stat|quote|media|chart|echart|table|step|roadmap|toc-item|bullet)\b/i.test(cls)
+          }
+
+          function isSupportReference(el: Element): boolean {
+            const text = (el.textContent || "").replace(/\s+/g, " ").trim()
+            const cls = Array.from(el.classList).join(" ")
+            return /\b(evidence|source|caveat|claim|support|citation|note)\b/i.test(cls) || /\b(source|evidence|caveat|claim|来源|证据|出处|风险|假设)\b/i.test(text)
           }
 
           function collectChildren(
@@ -220,6 +262,11 @@ export async function measureSlides(htmlFilePath: string): Promise<MeasurementRe
             for (const child of Array.from(el.children)) {
               if (!isVisible(child)) continue
               const rawR = child.getBoundingClientRect()
+              const text = (child.textContent || "").replace(/\s+/g, " ").trim()
+              const textOverflow = textPoints(text) > 0 && (
+                (child as HTMLElement).scrollHeight > (child as HTMLElement).clientHeight + 2 ||
+                (child as HTMLElement).scrollWidth > (child as HTMLElement).clientWidth + 2
+              )
               const cls = child.className || ""
               if (
                 typeof cls === "string" &&
@@ -235,6 +282,8 @@ export async function measureSlides(htmlFilePath: string): Promise<MeasurementRe
                 rect: relR,
                 visible: true,
                 classList: Array.from(child.classList),
+                text: text.slice(0, 160),
+                textOverflow,
                 children: collectChildren(child, offsetTop, offsetLeft, depth + 1),
               })
             }
@@ -273,6 +322,7 @@ export async function measureSlides(htmlFilePath: string): Promise<MeasurementRe
           if (!canvas) return null
 
           const canvasRaw = canvas.getBoundingClientRect()
+          const slideRaw = (slide as HTMLElement).getBoundingClientRect()
           // Use canvas top-left as the coordinate origin
           const offsetTop = canvasRaw.top
           const offsetLeft = canvasRaw.left
@@ -286,7 +336,39 @@ export async function measureSlides(htmlFilePath: string): Promise<MeasurementRe
             height: canvasRaw.height,
           }
 
+          const slideRect = {
+            left: 0,
+            top: 0,
+            right: slideRaw.width,
+            bottom: slideRaw.height,
+            width: slideRaw.width,
+            height: slideRaw.height,
+          }
+
           const elements = collectChildren(canvas, offsetTop, offsetLeft)
+
+          let bodyTextPoints = 0
+          let contentUnits = 0
+          let supportReferences = 0
+          for (const el of Array.from(canvas.querySelectorAll("*"))) {
+            if (!isVisible(el)) continue
+            if (/^H[1-2]$/.test(el.tagName)) continue
+            const text = (el.textContent || "").replace(/\s+/g, " ").trim()
+            if (text) bodyTextPoints += textPoints(text)
+            if (isSemanticContentUnit(el)) contentUnits++
+            if (isSupportReference(el)) supportReferences++
+          }
+
+          const doc = document.documentElement
+          const body = document.body
+          const slideEl = slide as HTMLElement
+          const hasScrollbars =
+            doc.scrollWidth > window.innerWidth + 2 ||
+            doc.scrollHeight > window.innerHeight + 2 ||
+            body.scrollWidth > window.innerWidth + 2 ||
+            body.scrollHeight > window.innerHeight + 2 ||
+            slideEl.scrollWidth > slideEl.clientWidth + 2 ||
+            slideEl.scrollHeight > slideEl.clientHeight + 2
 
           const titleEl = canvas.querySelector("h1, h2")
           const title = titleEl
@@ -298,8 +380,11 @@ export async function measureSlides(htmlFilePath: string): Promise<MeasurementRe
             title,
             slideQa,
             canvasRect,
+            slideRect,
+            hasScrollbars,
             elements,
             contentRect: unionRect(elements),
+            contentStats: { bodyTextPoints, contentUnits, supportReferences },
           }
         },
         idx

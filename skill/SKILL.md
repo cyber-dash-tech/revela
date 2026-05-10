@@ -460,16 +460,11 @@ deck HTML writes or patches. If the tool result reports compliance issues, fix
 them immediately by removing the offending classes and replacing them with the
 closest component from the Component Index.
 
-Do not run `revela-qa` after writing or editing HTML unless the user explicitly
-asks for diagnostics. PDF/PPTX export commands run hard-error pre-export QA
-automatically and will report overflow issues that must be fixed before exporting.
-
-### Inline Editing
-
-**Always include inline editing** in every generated presentation. The complete
-reference implementation is provided in the active design's `@design:foundation`
-section. Follow it exactly — pay attention to the hover-delay pattern, editable
-element selector list, and `window.getEditedHTML()` definition.
+Deck HTML writes and patches automatically run Artifact QA. If hard errors are
+reported, fix them immediately with the smallest patch; Refine opens only after
+hard errors pass. Do not add deck-local inline editing JavaScript, `contenteditable`
+handlers, `editable` classes, or `window.getEditedHTML()` implementations. Post-
+artifact editing belongs in `/revela refine`, not inside generated deck HTML.
 
 ### Image Rules
 

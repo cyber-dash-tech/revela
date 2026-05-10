@@ -373,10 +373,11 @@ describe("extractDesignClasses", () => {
 
   it("always includes universal classes regardless of design", () => {
     const vocab = extractDesignClasses()
-    const universals = ["slide", "slide-canvas", "visible", "reveal", "editable", "page"]
+    const universals = ["slide", "slide-canvas", "visible", "reveal", "page"]
     for (const cls of universals) {
       expect(vocab.classes.has(cls)).toBe(true)
     }
+    expect(vocab.classes.has("editable")).toBe(false)
   })
 
   it("returns default prefix exemptions including lucide- and echarts-", () => {
@@ -385,10 +386,10 @@ describe("extractDesignClasses", () => {
     expect(vocab.prefixExemptions).toContain("echarts-")
   })
 
-  it("DEFAULT_PREFIX_EXEMPTIONS includes at least lucide-, echarts-, editable-", () => {
+  it("DEFAULT_PREFIX_EXEMPTIONS includes third-party prefixes but not deck-local editing", () => {
     expect(DEFAULT_PREFIX_EXEMPTIONS).toContain("lucide-")
     expect(DEFAULT_PREFIX_EXEMPTIONS).toContain("echarts-")
-    expect(DEFAULT_PREFIX_EXEMPTIONS).toContain("editable-")
+    expect(DEFAULT_PREFIX_EXEMPTIONS).not.toContain("editable-")
   })
 
   it("throws or returns universal-only for a non-existent design name", () => {

@@ -468,6 +468,11 @@ describe("narrative state", () => {
       slidePlanConfirmed: false,
       designLayoutsFetched: false,
     })
+    expect(deck.planReview).toMatchObject({
+      status: "pending",
+      narrativeHash: result.result.narrativeHash,
+      planHash: expect.any(String),
+    })
     expect(deck.writeReadiness.status).toBe("blocked")
     expect(deck.narrativeBrief?.decisionOrAction).toBe("Approve phased expansion.")
     expect(reloaded.renderTargets).toContainEqual(expect.objectContaining({
@@ -482,6 +487,33 @@ describe("narrative state", () => {
       type: "deck.plan_compiled",
       actor: "revela-decks",
       outputs: expect.objectContaining({ slideCount: 5, narrativeHash: expect.any(String) }),
+    }))
+  })
+
+  it("records user confirmation for the current compiled deck plan", async () => {
+    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-plan-confirm-"))
+    writeDecksState(workspaceRoot, legacyDecisionDeck())
+    await (decksTool as any).execute({ action: "approveNarrative", approvalNote: "Approved for deck planning." }, { directory: workspaceRoot })
+    await (decksTool as any).execute({ action: "compileDeckPlan" }, { directory: workspaceRoot })
+
+    const result = JSON.parse(await (decksTool as any).execute({ action: "confirmDeckPlan", approvalBy: "user", approvalNote: "Confirmed slide plan and low-fi sketches." }, { directory: workspaceRoot }))
+    const reloaded = readDecksState(workspaceRoot)
+    const deck = reloaded.decks[reloaded.activeDeck!]
+
+    expect(result.ok).toBe(true)
+    expect(result.result).toMatchObject({ confirmed: true, skipped: false, slug: deck.slug })
+    expect(deck.requiredInputs.slidePlanConfirmed).toBe(true)
+    expect(deck.planReview).toMatchObject({
+      status: "confirmed",
+      confirmedBy: "user",
+      summary: "Confirmed slide plan and low-fi sketches.",
+      narrativeHash: expect.any(String),
+      planHash: expect.any(String),
+    })
+    expect(reloaded.actions).toContainEqual(expect.objectContaining({
+      type: "deck.plan_confirmed",
+      actor: "revela-decks",
+      outputs: expect.objectContaining({ slug: deck.slug, narrativeHash: expect.any(String), planHash: expect.any(String) }),
     }))
   })
 

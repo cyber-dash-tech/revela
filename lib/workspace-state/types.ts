@@ -98,6 +98,7 @@ export type WorkspaceActionType =
   | "research.gap_closed"
   | "narrative.upserted"
   | "deck.plan_compiled"
+  | "deck.plan_confirmed"
   | "artifact.coverage_backfilled"
   | "evidence.candidate_generated"
   | "evidence.binding_applied"

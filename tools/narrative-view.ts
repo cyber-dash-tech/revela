@@ -10,7 +10,7 @@ export default tool({
     "Render Revela's read-only narrative claim-flow UI from the current deterministic narrative map plus an optional localized display model. " +
     "This tool validates display IDs against DECKS.json, opens a local HTML view, and never mutates workspace state.",
   args: {
-    language: tool.schema.string().describe("UI language request from /revela narrative. May be any language tag or language name, such as en, zh-CN, fr, de, Korean, Arabic, or Portuguese-BR."),
+    language: tool.schema.string().describe("UI language request from /revela story or /revela narrative. May be any language tag or language name, such as en, zh-CN, fr, de, Korean, Arabic, or Portuguese-BR."),
     narrativeHash: tool.schema.string().optional().describe("Narrative hash from the prompt projection. Used to detect stale display prompts."),
     displayModel: tool.schema.object({
       version: tool.schema.number().describe("Must be 1."),

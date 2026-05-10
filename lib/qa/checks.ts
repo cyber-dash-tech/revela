@@ -1,17 +1,18 @@
 /**
  * lib/qa/checks.ts
  *
- * Geometry-based layout quality checks. The active default path only checks
- * overflow; softer visual heuristics are kept here for future opt-in use.
+ * Browser-measured slide quality checks. The active default path checks hard
+ * artifact failures plus a content-substance warning; older soft visual
+ * heuristics are kept here for future opt-in use.
  *
- * Dimension 1: Overflow    — elements exceed canvas bounds (correctness)
- * Dimension 2: Balance     — content centroid & distribution (fill, sparsity)
- * Dimension 3: Rhythm      — spacing regularity & internal whitespace
+ * Dimension 1: Canvas      — exact 1920x1080 slide/canvas size
+ * Dimension 2: Overflow    — scrollbars, element overflow, and text clipping
+ * Dimension 3: Density     — claim/evidence/source substance warnings
  * Dimension 4: Compliance  — CSS classes match the active design's vocabulary
  *
  * All checks operate on SlideMetrics produced by measure.ts.
- * Dimensions 1–4 are geometry-only (no CSS class-name assumptions).
- * Dimension 5 requires an allowedClasses vocabulary from the design system.
+ * Design component compliance requires an allowedClasses vocabulary from the
+ * design system and is run by combined artifact QA.
  */
 
 import type { SlideMetrics, ElementInfo, Rect } from "./measure"
@@ -22,9 +23,10 @@ import { CANVAS_W, CANVAS_H } from "./measure"
 export type IssueSeverity = "error" | "warning" | "info"
 
 export interface LayoutIssue {
-  type: "overflow" | "balance" | "symmetry" | "rhythm" | "compliance"
+  type: "canvas" | "scrollbar" | "overflow" | "text_overflow" | "density" | "balance" | "symmetry" | "rhythm" | "compliance"
   /** Sub-category within the dimension */
-  sub?: "centroid_offset" | "bottom_gap" | "sparse"
+  sub?: "size_mismatch" | "page_scroll" | "text_clipped" | "thin_content"
+      | "centroid_offset" | "bottom_gap" | "sparse"
       | "height_mismatch" | "density_mismatch"
       | "gap_variance"
       | "unknown_class" | "novel_css_rule"
@@ -75,6 +77,9 @@ const T = {
   GAP_MIN_MEAN: 10,
   // Rhythm — min children count to check gap variance
   GAP_MIN_CHILDREN: 3,
+  CANVAS_TOLERANCE: 1,
+  DENSITY_MIN_TEXT_POINTS: 70,
+  DENSITY_MIN_UNITS: 2,
 }
 
 // ── Geometry helpers ──────────────────────────────────────────────────────────
@@ -172,6 +177,42 @@ function collectLeaves(el: ElementInfo): ElementInfo[] {
 
 // ── Dimension 1: Overflow ─────────────────────────────────────────────────────
 
+function checkCanvas(metrics: SlideMetrics): LayoutIssue[] {
+  const issues: LayoutIssue[] = []
+  const tol = T.CANVAS_TOLERANCE
+  const canvasBad = Math.abs(metrics.canvasRect.width - CANVAS_W) > tol || Math.abs(metrics.canvasRect.height - CANVAS_H) > tol
+  const slideBad = Math.abs(metrics.slideRect.width - CANVAS_W) > tol || Math.abs(metrics.slideRect.height - CANVAS_H) > tol
+
+  if (canvasBad || slideBad) {
+    issues.push({
+      type: "canvas",
+      sub: "size_mismatch",
+      severity: "error",
+      detail: `Slide and canvas must render exactly ${CANVAS_W}x${CANVAS_H}px. Measured slide ${Math.round(metrics.slideRect.width)}x${Math.round(metrics.slideRect.height)}px, canvas ${Math.round(metrics.canvasRect.width)}x${Math.round(metrics.canvasRect.height)}px.`,
+      data: {
+        expectedWidth: CANVAS_W,
+        expectedHeight: CANVAS_H,
+        slideWidth: Math.round(metrics.slideRect.width),
+        slideHeight: Math.round(metrics.slideRect.height),
+        canvasWidth: Math.round(metrics.canvasRect.width),
+        canvasHeight: Math.round(metrics.canvasRect.height),
+      },
+    })
+  }
+
+  return issues
+}
+
+function checkScrollbars(metrics: SlideMetrics): LayoutIssue[] {
+  if (!metrics.hasScrollbars) return []
+  return [{
+    type: "scrollbar",
+    sub: "page_scroll",
+    severity: "error",
+    detail: "Rendered slide/page has scrollbars at 1920x1080. Deck slides must fit the fixed canvas without document, body, or slide scrolling.",
+  }]
+}
+
 /**
  * Check 1: Overflow — elements extending beyond canvas boundaries.
  * Hard correctness check; applies to all slide types.
@@ -203,6 +244,45 @@ function checkOverflow(metrics: SlideMetrics): LayoutIssue[] {
 
   walk(metrics.elements)
   return issues
+}
+
+function checkTextOverflow(metrics: SlideMetrics): LayoutIssue[] {
+  const issues: LayoutIssue[] = []
+
+  function walk(els: ElementInfo[]) {
+    for (const el of els) {
+      if (!el.visible) continue
+      if (el.textOverflow) {
+        issues.push({
+          type: "text_overflow",
+          sub: "text_clipped",
+          severity: "error",
+          detail: `Text appears clipped inside \`${el.selector}\`${el.text ? `: "${el.text}"` : ""}. Increase container size, reduce copy, or adjust font/line-height.`,
+          data: { selector: el.selector, text: el.text ?? "" },
+        })
+      }
+      if (el.children.length > 0) walk(el.children)
+    }
+  }
+
+  walk(metrics.elements)
+  return issues
+}
+
+function checkContentDensity(metrics: SlideMetrics): LayoutIssue[] {
+  if (!metrics.slideQa) return []
+  const { bodyTextPoints, contentUnits, supportReferences } = metrics.contentStats
+  const thinText = bodyTextPoints < T.DENSITY_MIN_TEXT_POINTS
+  const thinUnits = contentUnits < T.DENSITY_MIN_UNITS
+  if (!thinText && !thinUnits) return []
+
+  return [{
+    type: "density",
+    sub: "thin_content",
+    severity: "warning",
+    detail: `Content slide may not have enough claim/evidence substance: ${bodyTextPoints} non-title text point(s), ${contentUnits} recognizable content unit(s), ${supportReferences} evidence/source/claim reference(s). Add concrete claim points, evidence, metrics, chart/table support, or source/caveat text if this is not a deliberate focus slide.`,
+    data: { bodyTextPoints, contentUnits, supportReferences },
+  }]
 }
 
 // ── Dimension 2: Balance ──────────────────────────────────────────────────────
@@ -542,7 +622,13 @@ export function runChecks(
   const slides: SlideReport[] = []
 
   for (const metrics of allMetrics) {
-    const issues: LayoutIssue[] = [...checkOverflow(metrics)]
+    const issues: LayoutIssue[] = [
+      ...checkCanvas(metrics),
+      ...checkScrollbars(metrics),
+      ...checkOverflow(metrics),
+      ...checkTextOverflow(metrics),
+      ...checkContentDensity(metrics),
+    ]
 
     slides.push({ index: metrics.index, title: metrics.title, issues })
   }
@@ -605,7 +691,11 @@ export function formatReport(report: QAReport): string {
     `### Action Required`,
     ``,
     `Please fix the above hard-error issues in the HTML file. For each issue type:`,
+    `- **canvas**: ensure each slide and .slide-canvas render exactly 1920x1080px, not merely any 16:9 size.`,
+    `- **scrollbar**: remove document/body/slide scrolling; content must fit inside the fixed 1920x1080 canvas.`,
     `- **overflow**: reduce font size, padding, or content amount for the affected element.`,
+    `- **text_overflow**: increase the text container size, reduce copy, or adjust font/line-height so text is not clipped.`,
+    `- **density/thin_content**: add concrete claim/evidence points, metrics, chart/table support, or source/caveat text. This is a warning for content substance, not a blank-space failure.`,
     `- **compliance/unknown_class**: an HTML element uses a CSS class not defined in the active design. Replace it with a class from the Component Index or Layout Index. Fetch the component/layout details with the \`revela-designs\` tool if needed.`,
     `- **compliance/novel_css_rule**: \`<style>\` defines a CSS class that is not part of the active design. Remove the custom rule and use the design's existing component styles. For minor spacing/sizing adjustments, use inline \`style=""\` instead.`,
   )

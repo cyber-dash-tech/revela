@@ -1,4 +1,4 @@
-import { upsertDeck, upsertSlides, type DecksState, type EvidenceRef, type RequiredInputs, type SlideSpec } from "../decks-state"
+import { deckPlanHash, upsertDeck, upsertSlides, type DecksState, type EvidenceRef, type RequiredInputs, type SlideSpec } from "../decks-state"
 import { ensureActiveHtmlDeckRenderTarget } from "../workspace-state/render-targets"
 import { getClaimSlideRefs } from "./queries"
 import { computeNarrativeHash } from "./hash"
@@ -65,6 +65,15 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
     writeReadiness: deck?.writeReadiness ?? { status: "blocked" as const, blockers: [] },
   })
   next = upsertSlides(next, slug, slides)
+  const plannedDeck = next.decks[slug]
+  plannedDeck.planReview = {
+    status: "pending",
+    narrativeHash,
+    planHash: deckPlanHash(plannedDeck.slides),
+  }
+  plannedDeck.requiredInputs = { ...plannedDeck.requiredInputs, slidePlanConfirmed: false }
+  plannedDeck.writeReadiness = { status: "blocked", blockers: [] }
+  next.decks[slug] = plannedDeck
   next.narrative = { ...narrative, updatedAt: options.now ?? narrative.updatedAt }
   const htmlTarget = ensureActiveHtmlDeckRenderTarget(next)
   if (htmlTarget) {

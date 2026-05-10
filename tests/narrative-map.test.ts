@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "fs"
 import { tmpdir } from "os"
 import { join } from "path"
 import { createEmptyDecksState, readDecksState, upsertDeck, upsertSlides, writeDecksState, type DecksState } from "../lib/decks-state"
-import { buildNarrativeViewPrompt, handleNarrative, parseNarrativeArgs } from "../lib/commands/narrative"
+import { buildNarrativeViewPrompt, handleNarrative, parseNarrativeArgs, parseStoryArgs } from "../lib/commands/narrative"
 import { validateNarrativeDisplayModel } from "../lib/narrative-state/display"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { buildNarrativeMap, formatNarrativeMap } from "../lib/narrative-state/map"
@@ -397,6 +397,15 @@ describe("narrative map", () => {
     expect(parseNarrativeArgs("--Portuguese-BR --raw")).toEqual({ ok: true, args: { language: "Portuguese-BR", raw: true } })
     expect(parseNarrativeArgs("中文")).toEqual({ ok: true, args: { language: "中文", raw: false } })
     expect(parseNarrativeArgs("--unknown")).toEqual({ ok: true, args: { language: "unknown", raw: false } })
+  })
+
+  it("parses story language flags without accepting equals syntax", () => {
+    expect(parseStoryArgs("")).toEqual({ ok: true, args: { language: "en" } })
+    expect(parseStoryArgs("--language zh-CN")).toEqual({ ok: true, args: { language: "zh-CN" } })
+    expect(parseStoryArgs("-l Japanese")).toEqual({ ok: true, args: { language: "ja-JP" } })
+    expect(parseStoryArgs("--language=fr").ok).toBe(false)
+    expect(parseStoryArgs("--language").ok).toBe(false)
+    expect(parseStoryArgs("--raw").ok).toBe(false)
   })
 
   it("accepts arbitrary display languages and localized labels", () => {

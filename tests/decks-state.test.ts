@@ -4,6 +4,7 @@ import { tmpdir } from "os"
 import { join } from "path"
 import {
   applyEvidenceCandidates,
+  confirmDeckPlan,
   createDeckSpec,
   createEmptyDecksState,
   evaluateDeckStateWriteReadiness,
@@ -16,6 +17,10 @@ import { upsertSourceMaterial } from "../lib/source-materials"
 import { currentReviewInputHash, isReviewSnapshotCurrent } from "../lib/workspace-state/review-snapshots"
 
 describe("DECKS.json state readiness", () => {
+  function confirmPlan(state: ReturnType<typeof createEmptyDecksState>) {
+    return confirmDeckPlan(state, { approvedBy: "user", note: "Confirmed test deck plan.", now: "2026-01-01T00:00:00.000Z" }).state
+  }
+
   function readyState() {
     let state = createEmptyDecksState()
     state = upsertDeck(state, {
@@ -58,7 +63,7 @@ describe("DECKS.json state readiness", () => {
         status: "ready",
       },
     ])
-    return reviewDeckState(state, "test-two-page-deck").state
+    return reviewDeckState(confirmPlan(state), "test-two-page-deck").state
   }
 
   it("marks a complete deck ready through review", () => {
@@ -114,10 +119,11 @@ describe("DECKS.json state readiness", () => {
   })
 
   it("re-review refreshes stale review snapshots", () => {
-    const state = readyState()
+    let state = readyState()
     state.decks["test-two-page-deck"].slides[1].content.bullets = ["Updated post-review bullet"]
     expect(evaluateDeckStateWriteReadiness(state, "decks/test-two-page-deck.html").ready).toBe(false)
 
+    state = confirmPlan(state)
     const reviewed = reviewDeckState(state, "test-two-page-deck")
     const result = evaluateDeckStateWriteReadiness(reviewed.state, "decks/test-two-page-deck.html")
 
@@ -404,6 +410,7 @@ topic: factory
   it("allows simple non-claim slides without evidence", () => {
     let state = readyState()
     for (const slide of state.decks["test-two-page-deck"].slides) slide.evidence = []
+    state = confirmPlan(state)
 
     const reviewed = reviewDeckState(state, "test-two-page-deck")
 
@@ -415,6 +422,7 @@ topic: factory
     let state = readyState()
     state.decks["test-two-page-deck"].slides[1].content.bullets = ["Revenue grows 25% annually through 2028"]
     state.decks["test-two-page-deck"].slides[1].evidence = [{ source: "researches/test/market.md" }]
+    state = confirmPlan(state)
 
     const reviewed = reviewDeckState(state, "test-two-page-deck")
 
@@ -439,6 +447,7 @@ topic: factory
       let state = readyState()
       state.decks["test-two-page-deck"].slides[1].content.bullets = ["Revenue grows 25% annually through 2028"]
       state.decks["test-two-page-deck"].slides[1].evidence = [{ source: "market source", ...evidence }]
+      state = confirmPlan(state)
 
       const reviewed = reviewDeckState(state, "test-two-page-deck")
 
@@ -521,6 +530,7 @@ topic: factory
       narrativeSlide(3, "Path Forward", "recommendation"),
       narrativeSlide(4, "Decision Ask", "ask"),
     ]
+    state = confirmPlan(state)
 
     const reviewed = reviewDeckState(state, "test-two-page-deck")
 
@@ -546,6 +556,7 @@ topic: factory
       narrativeSlide(3, "Path Forward", "recommendation"),
       narrativeSlide(4, "Decision Ask", "ask"),
     ]
+    state = confirmPlan(state)
 
     const reviewed = reviewDeckState(state, "test-two-page-deck")
 
@@ -580,6 +591,7 @@ topic: factory
       narrativeSlide(3, "Path Forward", "recommendation"),
       narrativeSlide(4, "Decision Ask", "ask"),
     ]
+    state = confirmPlan(state)
 
     const reviewed = reviewDeckState(state, "test-two-page-deck")
 
@@ -594,6 +606,7 @@ topic: factory
   it("warns when a multi-slide deck has no narrative roles", () => {
     let state = readyState()
     state.decks["test-two-page-deck"].slides = [1, 2, 3, 4].map((index) => narrativeSlide(index, `Slide ${index}`))
+    state = confirmPlan(state)
 
     const reviewed = reviewDeckState(state, "test-two-page-deck")
 
@@ -613,6 +626,7 @@ topic: factory
       narrativeSlide(3, "Risk Handling", "risk"),
       narrativeSlide(4, "Close", "close"),
     ]
+    state = confirmPlan(state)
 
     const reviewed = reviewDeckState(state, "test-two-page-deck")
 
@@ -633,6 +647,7 @@ topic: factory
       narrativeSlide(3, "Evidence", "evidence"),
       narrativeSlide(4, "Operating Details", "appendix"),
     ]
+    state = confirmPlan(state)
 
     const reviewed = reviewDeckState(state, "test-two-page-deck")
 
@@ -653,6 +668,7 @@ topic: factory
       narrativeSlide(3, "Evidence", "evidence"),
       narrativeSlide(4, "Decision Ask", "ask"),
     ]
+    state = confirmPlan(state)
 
     const reviewed = reviewDeckState(state, "test-two-page-deck")
 
@@ -672,6 +688,7 @@ topic: factory
       narrativeSlide(3, "Evidence", "evidence"),
       narrativeSlide(4, "Close", "close"),
     ]
+    state = confirmPlan(state)
 
     const reviewed = reviewDeckState(state, "test-two-page-deck")
 

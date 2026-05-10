@@ -1,9 +1,9 @@
 /**
  * lib/qa/index.ts
  *
- * Public entry point for hard-error slide QA.
- * Runs overflow measurement only. Static design compliance is handled by a
- * separate post-write/post-patch/post-edit hook.
+ * Public entry point for browser-rendered slide QA.
+ * Combined artifact QA, including contract and component compliance, lives in
+ * `lib/qa/artifact.ts`.
  */
 
 import { measureSlides } from "./measure"
@@ -18,12 +18,14 @@ export type { RunChecksOptions } from "./checks"
  * Run hard-error QA on `htmlFilePath`.
  *
  * 1. Opens the file in headless Chrome (puppeteer-core)
- * 2. Measures each .slide element's geometry + CSS class definitions
- * 3. Runs hard-error overflow checks only
+ * 2. Measures each .slide element's geometry, scroll state, text clipping,
+ *    content-density signals, and CSS class definitions
+ * 3. Runs browser QA checks for exact 1920x1080 slides, scrollbars, overflow,
+ *    text clipping, and claim/evidence density warnings
  * 4. Returns a structured QAReport
  *
  * The optional `vocabulary` argument is retained for backward compatibility;
- * compliance is intentionally not part of hard-error QA.
+ * design compliance is handled by combined artifact QA.
  *
  * Throws if the file cannot be opened or Chrome is not found.
  */

@@ -18,6 +18,7 @@ import {
 } from "./workspace-state/review-snapshots"
 import { WORKSPACE_STATE_FILE, type RenderTarget, type ReviewSnapshot, type WorkspaceAction } from "./workspace-state/types"
 import { normalizeCanonicalNarrativeState, normalizeNarrativeState } from "./narrative-state/normalize"
+import { computeNarrativeHash } from "./narrative-state/hash"
 import type { NarrativeStateV1 } from "./narrative-state/types"
 
 export const DECKS_STATE_FILE = WORKSPACE_STATE_FILE
@@ -91,11 +92,21 @@ export interface DeckSpec {
   researchPlan: ResearchAxis[]
   slides: SlideSpec[]
   assets: DeckAsset[]
+  planReview?: DeckPlanReview
   writeReadiness: {
     status: WriteReadinessStatus
     blockers: string[]
     lastReviewedAt?: string
   }
+}
+
+export interface DeckPlanReview {
+  status: "pending" | "confirmed"
+  narrativeHash: string
+  planHash: string
+  confirmedAt?: string
+  confirmedBy?: "user"
+  summary?: string
 }
 
 export interface NarrativeBrief {
@@ -202,6 +213,7 @@ export type ReadinessSeverity = "blocker" | "warning"
 export type ReadinessIssueType =
   | "missing_required_input"
   | "missing_slide_spec"
+  | "slide_plan_unconfirmed"
   | "research_not_ready"
   | "missing_evidence"
   | "weak_evidence"
@@ -278,6 +290,22 @@ const SOURCE_TRACE_ACTION = "Add slide evidence with source plus source trace su
 
 export interface ReviewDeckStateOptions {
   workspaceRoot?: string
+  narrativeHash?: string
+}
+
+export interface ConfirmDeckPlanOptions {
+  approvedBy?: "user"
+  note?: string
+  now?: string
+}
+
+export interface ConfirmDeckPlanResult {
+  confirmed: boolean
+  skipped: boolean
+  reason?: string
+  slug?: string
+  narrativeHash?: string
+  planHash?: string
 }
 
 export function decksStatePath(workspaceRoot: string): string {
@@ -357,8 +385,72 @@ export function createDeckSpec(input: Partial<DeckSpec> & { slug: string }): Dec
     researchPlan: input.researchPlan ?? [],
     slides: normalizeSlides(input.slides ?? []),
     assets: input.assets ?? [],
+    planReview: normalizeDeckPlanReview(input.planReview),
     writeReadiness: input.writeReadiness ?? { status: "blocked", blockers: [] },
   }
+}
+
+export function deckPlanHash(slides: SlideSpec[]): string {
+  return createHash("sha1")
+    .update(JSON.stringify(normalizeSlides(slides).map((slide) => ({
+      index: slide.index,
+      title: slide.title,
+      purpose: slide.purpose,
+      narrativeRole: slide.narrativeRole,
+      layout: slide.layout,
+      components: slide.components,
+      claimIds: slide.claimIds ?? [],
+      claimRefs: slide.claimRefs ?? [],
+      evidenceBindingIds: slide.evidenceBindingIds ?? [],
+      content: slide.content,
+      evidence: slide.evidence,
+      visuals: slide.visuals ?? [],
+    }))))
+    .digest("hex")
+}
+
+export function currentDeckPlanReviewStatus(deck: DeckSpec, narrativeHash?: string): { current: boolean; stale: boolean; reason?: string; planHash: string } {
+  const planHash = deckPlanHash(deck.slides)
+  const review = deck.planReview
+  if (!review) return { current: false, stale: false, reason: "deck plan has not been shown and confirmed", planHash }
+  if (review.status !== "confirmed") return { current: false, stale: false, reason: "deck plan is pending user confirmation", planHash }
+  if (narrativeHash && review.narrativeHash !== narrativeHash) return { current: false, stale: true, reason: "deck plan confirmation is stale because the narrative hash changed", planHash }
+  if (review.planHash !== planHash) return { current: false, stale: true, reason: "deck plan confirmation is stale because the slide plan changed", planHash }
+  return { current: true, stale: false, planHash }
+}
+
+export function confirmDeckPlan(state: DecksState, options: ConfirmDeckPlanOptions = {}): { state: DecksState; result: ConfirmDeckPlanResult } {
+  const normalized = normalizeDecksStateWithNarrative(state)
+  const key = currentDeckKey(normalized)
+  const deck = key ? normalized.decks[key] : undefined
+  if (!deck) {
+    return { state: normalized, result: { confirmed: false, skipped: true, reason: `No active deck exists in ${DECKS_STATE_FILE}.` } }
+  }
+  if (deck.slides.length === 0) {
+    return { state: normalized, result: { confirmed: false, skipped: true, slug: deck.slug, reason: "Cannot confirm a deck plan with no slides." } }
+  }
+  const narrative = normalizeNarrativeState(normalized)
+  const narrativeHash = computeNarrativeHash(narrative)
+  const planHash = deckPlanHash(deck.slides)
+  const pending = deck.planReview
+  if (pending && pending.status === "pending" && (pending.narrativeHash !== narrativeHash || pending.planHash !== planHash)) {
+    return { state: normalized, result: { confirmed: false, skipped: true, slug: deck.slug, narrativeHash, planHash, reason: "Cannot confirm because the pending deck plan is stale. Re-run compileDeckPlan first." } }
+  }
+
+  deck.planReview = {
+    status: "confirmed",
+    narrativeHash,
+    planHash,
+    confirmedAt: options.now ?? new Date().toISOString(),
+    confirmedBy: options.approvedBy ?? "user",
+    summary: cleanOptionalText(options.note),
+  }
+  deck.requiredInputs = { ...deck.requiredInputs, slidePlanConfirmed: true }
+  deck.writeReadiness = { status: "blocked", blockers: [] }
+  normalized.decks[deck.slug] = deck
+  normalized.activeDeck = deck.slug
+  normalized.narrative = narrative
+  return { state: normalized, result: { confirmed: true, skipped: false, slug: deck.slug, narrativeHash, planHash } }
 }
 
 export function readDecksState(workspaceRoot: string): DecksState {
@@ -487,7 +579,10 @@ export function reviewDeckState(state: DecksState, slug?: string, options: Revie
     }
   }
 
-  const issues = computeDeckReadinessIssues(deck, normalized.workspace, options)
+  const issues = computeDeckReadinessIssues(deck, normalized.workspace, {
+    ...options,
+    narrativeHash: options.narrativeHash ?? computeNarrativeHash(normalizeNarrativeState(normalized)),
+  })
   const blockers = issues.filter((issue) => issue.severity === "blocker").map((issue) => issue.message)
   const warnings = issues.filter((issue) => issue.severity === "warning").map((issue) => issue.message)
   const evidenceCandidates = issues.flatMap((issue) => issue.evidenceCandidates ?? [])
@@ -544,7 +639,9 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
     }
   }
 
-  const issues = computeDeckReadinessIssues(deck, normalized.workspace)
+  const issues = computeDeckReadinessIssues(deck, normalized.workspace, {
+    narrativeHash: computeNarrativeHash(normalizeNarrativeState(normalized)),
+  })
   const blockers = issues.filter((issue) => issue.severity === "blocker").map((issue) => issue.message)
   const warnings = issues.filter((issue) => issue.severity === "warning").map((issue) => issue.message)
   if (normalizeDeckPath(deck.outputPath) !== targetPath) {
@@ -651,7 +748,7 @@ export function buildDecksStatePromptLayer(workspaceRoot: string, maxChars = 140
   }
   let text = JSON.stringify(compact, null, 2)
   if (text.length > maxChars) text = text.slice(0, maxChars).trimEnd() + "\n[DECKS.json state truncated for prompt size.]"
-  return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as the source of truth for the single current deck's specs, slide plan, evidence, render targets, and write readiness.\n- The decks map is compatibility storage; operate only on the current workspace deck.\n- ${DECKS_STATE_FILE} deck slides use 1-based \`slides[].index\` values. Render every HTML \`<section class="slide">\` with a matching 1-based \`data-slide-index\` attribute, and do not use 0-based \`data-index\` as slide identity.\n- The active HTML deck is represented as a \`renderTarget\` of type \`html_deck\`; PDF/PPTX exports should be recorded as derived render targets, not as separate deck specs.\n- \`writeReadiness\` is a compatibility projection. When review snapshots exist, deck HTML writes require a current non-stale ready review snapshot for the active HTML render target.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- Before writing decks/*.html, the current deck must have writeReadiness.status=ready and a complete slide spec, and its outputPath must match the target file.`
+  return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as the source of truth for the single current deck's specs, slide plan, evidence, render targets, and write readiness.\n- The decks map is compatibility storage; operate only on the current workspace deck.\n- ${DECKS_STATE_FILE} deck slides use 1-based \`slides[].index\` values. Render every HTML \`<section class="slide">\` with a matching 1-based \`data-slide-index\` attribute, and do not use 0-based \`data-index\` as slide identity.\n- The active HTML deck is represented as a \`renderTarget\` of type \`html_deck\`; PDF/PPTX exports should be recorded as derived render targets, not as separate deck specs.\n- \`writeReadiness\` is a compatibility projection for the /revela make deck generation workflow, not a hard blocker for targeted artifact-level HTML fixes.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- For /revela make deck generated HTML, use the current deck's outputPath and satisfy the deck HTML contract. For targeted artifact-level edits, patch the requested deck HTML directly without treating \`writeReadiness\` or \`planReview\` as a precondition.`
 }
 
 function compactWorkspaceForPrompt(workspace: DecksState["workspace"]): DecksState["workspace"] {
@@ -765,6 +862,18 @@ function normalizeDecksStateWithNarrative(input: DecksState): DecksState {
   return state
 }
 
+function normalizeDeckPlanReview(input: DeckPlanReview | undefined): DeckPlanReview | undefined {
+  if (!input || !input.narrativeHash || !input.planHash) return undefined
+  return {
+    status: input.status === "confirmed" ? "confirmed" : "pending",
+    narrativeHash: input.narrativeHash,
+    planHash: input.planHash,
+    confirmedAt: cleanOptionalText(input.confirmedAt),
+    confirmedBy: input.confirmedBy === "user" ? "user" : undefined,
+    summary: cleanOptionalText(input.summary),
+  }
+}
+
 function currentDeckKey(state: DecksState): string | undefined {
   if (state.activeDeck && state.decks[state.activeDeck]) return state.activeDeck
   const keys = Object.keys(state.decks)
@@ -800,6 +909,16 @@ function computeDeckReadinessIssues(deck: DeckSpec, workspace: DecksState["works
   }
 
   if (deck.slides.length === 0) issues.push(blockerIssue("missing_slide_spec", "slides are missing", "Add the confirmed slide plan through revela-decks upsertSlides."))
+  if (deck.slides.length > 0) {
+    const planReview = currentDeckPlanReviewStatus(deck, options.narrativeHash)
+    if (!planReview.current) {
+      issues.push(blockerIssue(
+        "slide_plan_unconfirmed",
+        planReview.stale ? `Deck slide plan confirmation is stale: ${planReview.reason}` : `Deck slide plan is not confirmed: ${planReview.reason}`,
+        "Show the compiled deck plan with low-fidelity layout sketches to the user, then call revela-decks confirmDeckPlan only after explicit user confirmation.",
+      ))
+    }
+  }
   for (const slide of deck.slides) {
     const slideRef = { slideIndex: slide.index, slideTitle: slide.title }
     if (!slide.title.trim()) issues.push(blockerIssue("missing_slide_spec", `Slide ${slide.index} title is missing`, "Add a slide title to the slide spec.", slideRef))

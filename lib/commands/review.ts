@@ -73,12 +73,13 @@ export function buildDeckPrompt({
     ? `${DECKS_STATE_FILE} exists. Read it through the revela-decks tool.`
     : `${DECKS_STATE_FILE} does not exist yet. Do not invent a deck; initialize narrative state first with /revela init.`
 
-  return `Begin Revela deck render handoff.
+  return `Begin Revela deck plan handoff.
 
 Goal:
-- Treat this as the explicit transition from approved narrative state to deck render planning.
+- Treat this as the explicit transition from approved narrative state to user-confirmed deck planning.
 - Use the deck-render prompt mode for design, layout, component, HTML, QA, and deck artifact rules.
-- Do not write or overwrite \`decks/*.html\` until the narrative handoff and deck/artifact gate are both satisfied.
+- Default behavior is two-stage: first show the compiled deck plan with low-fidelity layout sketches, then stop for user confirmation before any artifact review or HTML writing.
+- Do not write or overwrite \`decks/*.html\` until the narrative handoff, explicit user deck-plan confirmation, and deck/artifact gate are all satisfied.
 - Do not treat legacy \`writeReadiness.status\`, old review snapshots, or existing HTML decks as narrative approval.
 - Do not bypass the deck HTML contract, review snapshot freshness, source-trace expectations, or export preflight protections.
 
@@ -92,25 +93,61 @@ Workflow:
 3. If narrative readiness is \`approved\`, continue. If it is \`ready_for_approval\`, ask the user for explicit approval before continuing. If it is blocked, stale, or needs research, stop and report the smallest next action. Do not call \`approveNarrative\` unless the user explicitly approves or requests a render override.
 4. After approval or explicit render override exists, call \`revela-decks\` action \`compileDeckPlan\`. This projects canonical narrative claims and evidence bindings into compatibility \`slides[]\` and \`slides[].evidence[]\`; it must not write HTML.
 5. If \`compileDeckPlan\` returns \`skipped\`, stop and report the reason. Do not invent slide specs manually to bypass approval.
-6. Ask for or confirm visual design only after the narrative deck plan exists. Fetch required design layouts/components with \`revela-designs read\` as needed.
-7. Update only deck/artifact metadata through \`revela-decks upsertDeck\` / \`upsertSlides\` when required by confirmed design/layout choices. Do not change canonical narrative claims unless the user asks to revise the narrative.
-8. Call \`revela-decks\` action \`review\` as the artifact gate. It computes \`writeReadiness\` and review snapshots for deck HTML writing.
-9. Write \`decks/*.html\` only if the deck/artifact gate is ready and all deck HTML contract requirements can be satisfied. If not ready, report blockers and stop.
+6. Present the compiled deck plan to the user and include a low-fidelity layout sketch for every slide. The sketch is ASCII/text structure only; do not generate visual images or HTML mockups.
+7. Stop after presenting the plan. Ask the user to confirm or request changes. Do not call \`revela-decks review\`, do not fetch design context, and do not write HTML in the same turn unless the user had already explicitly confirmed the current plan before this command.
+8. Only after explicit user confirmation of the current slide plan, call \`revela-decks\` action \`confirmDeckPlan\` with \`approvalBy=user\` and a compact \`approvalNote\`.
+9. After confirmation is recorded, ask for or confirm visual design only after the narrative deck plan exists. Fetch required design layouts/components with \`revela-designs read\` as needed.
+10. Update only deck/artifact metadata through \`revela-decks upsertDeck\` / \`upsertSlides\` when required by confirmed design/layout choices. Do not change canonical narrative claims unless the user asks to revise the narrative.
+11. Call \`revela-decks\` action \`review\` as the artifact gate. It computes \`writeReadiness\` and review snapshots for deck HTML writing. If it reports \`slide_plan_unconfirmed\`, stop and ask for explicit deck-plan confirmation.
+12. Write \`decks/*.html\` only if the deck/artifact gate is ready and all deck HTML contract requirements can be satisfied. After each HTML write, the system automatically runs artifact QA before opening Refine.
+13. If post-write artifact QA reports hard errors, fix them and let QA run again. Refine opens only after hard errors pass. Density warnings about thin claim/evidence substance should be reported and improved when useful, but they do not block Refine.
 
-Report format before any HTML write:
-- Start with \`Deck handoff: <status>\`.
+Deck plan report format:
+- Start with \`Deck plan: awaiting confirmation\` when a plan was compiled and has not yet been confirmed.
 - Include narrative readiness status and narrative hash when available.
 - Include whether \`compileDeckPlan\` compiled or skipped.
+- For every slide, include: slide index, title, purpose, narrative role, low-fidelity layout sketch, layout, components, primary/supporting claim ids, evidence binding ids or source summary, visual intent, and caveats/unsupported scope.
+- Use this sketch style or similarly simple ASCII boxes:
+
+\`\`\`text
+Slide N: <title>
+
+Purpose:
+<one sentence>
+
+Layout sketch:
+┌──────────────────────────────────────────────┐
+│ Headline                                     │
+├──────────────────────┬───────────────────────┤
+│ Main chart/media     │ Evidence boxes         │
+│                      │ Source/caveat note     │
+└──────────────────────┴───────────────────────┘
+
+Layout:
+Components:
+Primary claim:
+Supporting claims:
+Evidence bindings:
+Caveats / unsupported scope:
+\`\`\`
+- End by asking the user to confirm the deck plan or request changes.
+
+Report format before any HTML write after confirmation:
+- Start with \`Deck handoff: <status>\`.
+- Include which user-confirmed plan, approved narrative hash, and deck review snapshot authorized the artifact work.
 - If deck/artifact review is blocked, list blockers separately from narrative blockers.
-- If proceeding to HTML writing, state which approved narrative hash and deck review snapshot authorized the artifact work.
+- After writing HTML, read the appended \`Artifact QA\` report from the tool output. If it failed, fix hard errors before considering the deck ready for Refine.
 
 Rules:
 - \`compileDeckPlan\` is the canonical narrative-to-deck planning path. Do not manually invent slide specs to avoid it.
 - Deck slide specs are render-target projections. Canonical narrative remains the authority for audience, decision, claims, evidence boundaries, objections, risks, and approval.
 - Applying evidence candidates, rewriting canonical claims, or approving narratives requires explicit user instruction.
+- If the user requests slide order, layout, component, or visual-intent changes that do not alter meaning, update only the deck projection through \`upsertSlides\` and present the revised plan for confirmation.
+- If the user requests claim, evidence, caveat, decision, or recommendation meaning changes, update canonical narrative first and rerun narrative review/approval or explicit render override before compiling a new deck plan.
 - Do not store secrets, credentials, tokens, or sensitive personal information.
+- Artifact QA requires each slide to render exactly 1920x1080px, not merely any 16:9 ratio. It also checks component compliance, text overflow/clipping, page scrollbars, and whether normal QA-enabled content slides have enough claim/evidence/source substance.
 
-Start now by reading ${DECKS_STATE_FILE}, reviewing narrative readiness, and then compiling the deck plan only if approval or explicit render override is current.`
+Start now by reading ${DECKS_STATE_FILE}, reviewing narrative readiness, compiling the deck plan only if approval or explicit render override is current, then showing the deck plan with low-fidelity layout sketches and stopping for user confirmation.`
 }
 
 export function buildDeckReviewPrompt({

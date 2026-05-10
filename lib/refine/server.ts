@@ -634,6 +634,11 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .resize-handle:hover::before, body.resizing .resize-handle::before { height: 52px; background: #94a3b8; box-shadow: 0 0 0 4px rgba(148,163,184,.16); }
     iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
     .hitbox { position: absolute; inset: 0; z-index: 2; cursor: crosshair; background: transparent; }
+    .deck-nav { position: absolute; left: 50%; bottom: 18px; z-index: 4; display: inline-flex; align-items: center; gap: 8px; transform: translateX(-50%); padding: 7px; border: 1px solid rgba(148,163,184,.42); border-radius: 999px; background: rgba(15,23,42,.76); box-shadow: 0 16px 44px rgba(15,23,42,.24); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); pointer-events: auto; }
+    .deck-nav button { width: auto; min-width: 84px; padding: 8px 12px; border-radius: 999px; background: rgba(255,255,255,.12); color: #fff; box-shadow: none; font-size: 12px; font-weight: 900; }
+    .deck-nav button:hover:not(:disabled) { background: rgba(255,255,255,.22); }
+    .deck-nav button:disabled { opacity: .38; }
+    .deck-nav-status { min-width: 76px; color: #e2e8f0; font-size: 12px; font-weight: 900; text-align: center; font-variant-numeric: tabular-nums; }
     aside { display: flex; flex-direction: column; gap: 16px; padding: 20px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); overflow: auto; }
     h1 { margin: 0; font-size: 18px; line-height: 1.2; letter-spacing: -.01em; color: #0f172a; }
     .wordmark { font-family: Garamond, "Iowan Old Style", Georgia, serif; font-size: 21px; letter-spacing: .08em; font-weight: 600; }
@@ -681,12 +686,12 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     button { width: 100%; padding: 12px 14px; border: 0; border-radius: 12px; background: #2563eb; color: #ffffff; font-weight: 800; cursor: pointer; box-shadow: 0 10px 24px rgba(37,99,235,.22); }
     button:disabled { cursor: not-allowed; opacity: .5; }
     .status { min-height: 20px; color: #475569; font-size: 13px; line-height: 1.45; }
-    @media (max-width: 900px) { .app { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; } .resize-handle { display: none; } aside { max-height: 48vh; } }
+    @media (max-width: 900px) { .app { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; } .resize-handle { display: none; } aside { max-height: 48vh; } .deck-nav { bottom: 10px; } }
   </style>
 </head>
 <body>
   <main class="app">
-    <section class="preview"><iframe id="deck" src="/deck?token=${encodeURIComponent(token)}"></iframe><div id="hitbox" class="hitbox" aria-label="Deck element selection layer"></div></section>
+    <section class="preview"><iframe id="deck" src="/deck?token=${encodeURIComponent(token)}"></iframe><div id="hitbox" class="hitbox" aria-label="Deck element selection layer"></div><nav class="deck-nav" aria-label="Deck navigation"><button id="deckPrev" type="button" title="Previous slide (ArrowLeft / ArrowUp / PageUp)">Previous</button><div id="deckCounter" class="deck-nav-status" aria-live="polite">-- / --</div><button id="deckNext" type="button" title="Next slide (ArrowRight / ArrowDown / Space / PageDown)">Next</button></nav></section>
     <div id="resizeHandle" class="resize-handle" role="separator" aria-label="Resize editor panel" aria-orientation="vertical" title="Drag to resize editor. Double-click to reset."></div>
     <aside>
       <div>
@@ -752,6 +757,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         bound: false,
         commentRange: null,
         resizeDrag: null,
+        deckSlideIndex: 0,
+        deckSlideCount: 0,
         mode: defaultMode === 'inspect' ? 'inspect' : 'edit',
         inspecting: false,
         activeInspectRequestId: '',
@@ -762,6 +769,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         frame: null,
         hitbox: null,
         resizeHandle: null,
+        deckPrev: null,
+        deckNext: null,
+        deckCounter: null,
         selectionSummary: null,
         selectionChips: null,
         editTab: null,
@@ -792,6 +802,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           els.frame = document.getElementById('deck');
           els.hitbox = document.getElementById('hitbox');
           els.resizeHandle = document.getElementById('resizeHandle');
+          els.deckPrev = document.getElementById('deckPrev');
+          els.deckNext = document.getElementById('deckNext');
+          els.deckCounter = document.getElementById('deckCounter');
           els.selectionSummary = document.getElementById('selectionSummary');
           els.selectionChips = document.getElementById('selectionChips');
           els.editTab = document.getElementById('editTab');
@@ -808,7 +821,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
           els.inspectLanguage = document.getElementById('inspectLanguage');
 
-          if (!els.frame || !els.hitbox || !els.resizeHandle || !els.selectionSummary || !els.selectionChips || !els.editTab || !els.inspectTab || !els.editPanel || !els.inspectPanel || !els.comment || !els.commentThread || !els.send || !els.inspectButton || !els.inspectLanguage || !els.inspectCards || !els.inspectStale || !els.status) {
+          if (!els.frame || !els.hitbox || !els.resizeHandle || !els.deckPrev || !els.deckNext || !els.deckCounter || !els.selectionSummary || !els.selectionChips || !els.editTab || !els.inspectTab || !els.editPanel || !els.inspectPanel || !els.comment || !els.commentThread || !els.send || !els.inspectButton || !els.inspectLanguage || !els.inspectCards || !els.inspectStale || !els.status) {
             throw new Error('Editor boot failed: required DOM nodes are missing.');
           }
 
@@ -828,7 +841,18 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         state.bound = true;
         els.frame.addEventListener('load', initFrame);
         document.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape') clearHover();
+          if (event.key === 'Escape') {
+            clearHover();
+            return;
+          }
+          if (isTextInputTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
+          if (['ArrowDown', 'ArrowRight', ' ', 'PageDown'].includes(event.key)) {
+            event.preventDefault();
+            nextDeckSlide();
+          } else if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(event.key)) {
+            event.preventDefault();
+            prevDeckSlide();
+          }
         });
         els.comment.addEventListener('input', () => {
           saveCommentRange();
@@ -854,6 +878,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         }, { passive: false });
         els.resizeHandle.addEventListener('pointerdown', startEditorResize);
         els.resizeHandle.addEventListener('dblclick', resetEditorWidth);
+        els.deckPrev.addEventListener('click', prevDeckSlide);
+        els.deckNext.addEventListener('click', nextDeckSlide);
         els.send.addEventListener('click', sendComment);
         els.inspectButton.addEventListener('click', inspectCurrentSelection);
         els.inspectLanguage.addEventListener('change', () => {
@@ -940,6 +966,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             renderReferenceOutlines();
           }, true);
           const slides = getSlides(doc);
+          syncDeckNavigation();
           updateSendState();
           if (state.pendingRefreshMessage) {
             state.pendingRefreshMessage = false;
@@ -950,6 +977,102 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         } catch (error) {
           reportError(error);
         }
+      }
+
+      function isTextInputTarget(target) {
+        if (!target || !(target instanceof Element)) return false;
+        const tag = target.tagName.toLowerCase();
+        return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable || Boolean(target.closest('[contenteditable="true"]'));
+      }
+
+      function syncDeckNavigation() {
+        try {
+          const doc = els.frame.contentDocument;
+          const slides = doc ? getSlides(doc) : [];
+          state.deckSlideCount = slides.length;
+          state.deckSlideIndex = Math.max(0, Math.min(state.deckSlideIndex, Math.max(0, slides.length - 1)));
+          updateDeckNavControls();
+        } catch {
+          state.deckSlideCount = 0;
+          state.deckSlideIndex = 0;
+          updateDeckNavControls();
+        }
+      }
+
+      function updateDeckNavControls() {
+        const total = state.deckSlideCount;
+        const current = total > 0 ? state.deckSlideIndex + 1 : 0;
+        els.deckCounter.textContent = total > 0 ? current + ' / ' + total : '-- / --';
+        els.deckPrev.disabled = total <= 1 || state.deckSlideIndex <= 0;
+        els.deckNext.disabled = total <= 1 || state.deckSlideIndex >= total - 1;
+      }
+
+      function prevDeckSlide() {
+        goToDeckSlide(state.deckSlideIndex - 1);
+      }
+
+      function nextDeckSlide() {
+        goToDeckSlide(state.deckSlideIndex + 1);
+      }
+
+      function goToDeckSlide(index) {
+        try {
+          const doc = els.frame.contentDocument;
+          const win = els.frame.contentWindow;
+          if (!doc || !win) return;
+          const slides = getSlides(doc);
+          if (!slides.length) {
+            syncDeckNavigation();
+            return;
+          }
+          const clamped = Math.max(0, Math.min(slides.length - 1, index));
+          const nav = win.RevelaDeckNav;
+          let handled = false;
+          if (nav && typeof nav.goTo === 'function') {
+            try {
+              nav.goTo(clamped);
+              handled = true;
+            } catch {}
+          } else if (nav && clamped > state.deckSlideIndex && typeof nav.next === 'function') {
+            try {
+              nav.next();
+              handled = true;
+            } catch {}
+          } else if (nav && clamped < state.deckSlideIndex && typeof nav.prev === 'function') {
+            try {
+              nav.prev();
+              handled = true;
+            } catch {}
+          }
+          if (!handled) applyFallbackDeckNavigation(win, doc, slides, clamped);
+          state.deckSlideIndex = clamped;
+          updateDeckNavControls();
+          renderHoverOutline(state.hoverEl);
+          renderReferenceOutlines();
+        } catch (error) {
+          reportError(error);
+        }
+      }
+
+      function applyFallbackDeckNavigation(win, doc, slides, index) {
+        const target = slides[index];
+        const usesOverlaySlides = slides.some((slide) => {
+          const style = win.getComputedStyle(slide);
+          return style.position === 'absolute' || style.position === 'fixed' || style.opacity === '0' || slide.style.opacity !== '';
+        });
+        if (usesOverlaySlides) {
+          slides.forEach((slide, i) => {
+            slide.style.opacity = i === index ? '1' : '0';
+            slide.style.pointerEvents = i === index ? 'auto' : 'none';
+          });
+          win.scrollTo?.(0, 0);
+          return;
+        }
+        if (target && typeof target.scrollIntoView === 'function') {
+          target.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
+          return;
+        }
+        doc.defaultView?.scrollTo?.(0, index * win.innerHeight);
       }
 
       function startDeckVersionPolling() {

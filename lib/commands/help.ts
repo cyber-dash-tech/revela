@@ -28,7 +28,7 @@ export async function handleHelp(
     `\`/revela disable\`             — disable ambient Revela mode\n` +
     `\`/revela init\`                — initialize or refresh workspace DECKS.json\n` +
     `\`/revela research\`            — research, bind evidence, and reduce story gaps\n` +
-    `\`/revela story\`               — open the read-only story workspace UI\n` +
+    `\`/revela story [-l language]\`  — open the read-only story workspace UI\n` +
     `\`/revela review\`              — legacy readiness report for story state\n` +
     `\`/revela narrative\`           — compatibility alias for /revela story\n` +
     `\`/revela make deck\`           — make a deck from approved story state\n` +

@@ -642,7 +642,6 @@ const UNIVERSAL_CLASSES = new Set([
   "slide-canvas",
   "visible",
   "reveal",
-  "editable",
   "page",
   "bg",
   "fg",
@@ -655,7 +654,7 @@ const UNIVERSAL_CLASSES = new Set([
  * CSS class prefixes that are always exempt from compliance checks.
  * Third-party libraries (icons, charts) generate classes with these prefixes.
  */
-export const DEFAULT_PREFIX_EXEMPTIONS: string[] = ["lucide-", "echarts-", "editable-"]
+export const DEFAULT_PREFIX_EXEMPTIONS: string[] = ["lucide-", "echarts-"]
 
 export interface DesignClassVocabulary {
   /** Complete set of allowed CSS class names. */

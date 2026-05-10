@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { mkdirSync, mkdtempSync, writeFileSync } from "fs"
 import { tmpdir } from "os"
 import { join } from "path"
-import { createEmptyDecksState, readDecksState, upsertDeck, upsertSlides, writeDecksState } from "../lib/decks-state"
+import { confirmDeckPlan, createEmptyDecksState, readDecksState, upsertDeck, upsertSlides, writeDecksState } from "../lib/decks-state"
 import { currentReviewInputHash } from "../lib/workspace-state/review-snapshots"
 import decksTool from "../tools/decks"
 import researchSaveTool from "../tools/research-save"
@@ -121,6 +121,7 @@ describe("workspace tool action provenance", () => {
       evidence: [{ source: "user request" }],
       status: "ready",
     }])
+    state = confirmDeckPlan(state, { approvedBy: "user", note: "Confirmed test plan.", now: "2026-01-01T00:00:00.000Z" }).state
     writeDecksState(root, state)
 
     const review = JSON.parse(await (decksTool as any).execute({ action: "review" }, { directory: root }))

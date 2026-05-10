@@ -1,7 +1,7 @@
 /**
  * tools/qa.ts
  *
- * revela-qa — Hard-error quality assurance for generated slide HTML files.
+ * revela-qa — Artifact quality assurance for generated slide HTML files.
  *
  * Exposed as a manual diagnostic tool. Export commands run pre-export QA automatically.
  */
@@ -9,15 +9,16 @@
 import { tool } from "@opencode-ai/plugin"
 import { resolve } from "path"
 import { existsSync } from "fs"
-import { runQA, formatReport } from "../lib/qa"
+import { extractDesignClasses } from "../lib/design/designs"
+import { formatArtifactQAReport, runArtifactQA } from "../lib/qa/artifact"
 
 export default tool({
   description:
-    "Run hard-error checks on a generated slide HTML file. " +
+    "Run artifact QA on a generated slide HTML file. " +
     "Opens the file in a headless browser and measures actual rendered geometry. " +
-    "Checks for element overflow. " +
+    "Checks deck contract, component compliance, exact 1920x1080 canvas, scrollbars, element overflow, text overflow, and content/evidence density warnings. " +
     "Returns a structured report with specific issues and fix instructions. " +
-    "Normally PDF/PPTX export commands run this automatically; call it directly only for explicit diagnostics.",
+    "Deck writes and PDF/PPTX export commands run QA automatically; call it directly for explicit diagnostics.",
   args: {
     file: tool.schema
       .string()
@@ -39,20 +40,25 @@ export default tool({
     }
 
     try {
-      const report = await runQA(filePath)
-      const formatted = formatReport(report)
+      let vocabulary
+      try {
+        vocabulary = extractDesignClasses()
+      } catch {
+        // Design may not be installed or may have no markers.
+      }
+      const report = await runArtifactQA({ workspaceRoot: directory || process.cwd(), filePath, vocabulary })
+      const formatted = formatArtifactQAReport(report)
 
       // Prepend a compact JSON summary for programmatic use if needed
       const jsonSummary = JSON.stringify({
-        totalIssues: report.totalIssues,
-        errors: report.errorCount,
+        passed: report.passed,
+        errors: report.hardErrorCount,
         warnings: report.warningCount,
-        slidesWithIssues: report.slides.filter((s) => s.issues.length > 0).map((s) => s.index + 1),
       })
 
       return `<!-- QA Summary: ${jsonSummary} -->\n\n${formatted}`
     } catch (err: any) {
-      return `Error running hard-error QA: ${err?.message ?? String(err)}\n\nMake sure Chrome is installed at /Applications/Google Chrome.app`
+      return `Error running artifact QA: ${err?.message ?? String(err)}\n\nMake sure Chrome is installed at /Applications/Google Chrome.app`
     }
   },
 })
