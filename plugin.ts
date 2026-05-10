@@ -50,8 +50,7 @@ import { handleEdit } from "./lib/commands/edit"
 import { handleInspect } from "./lib/commands/inspect"
 import { handleRefine } from "./lib/commands/refine"
 import { formatArtifactQAReport, runArtifactQA } from "./lib/qa/artifact"
-import { ensureEditableDeckOpenForChange } from "./lib/edit/open"
-import { hasLiveEditorSessionForFile } from "./lib/edit/server"
+import { ensureRefineDeckOpenForChange } from "./lib/refine/open"
 import { handleDesignsPreview } from "./lib/commands/designs-preview"
 import {
   parseDesignsNewArgs,
@@ -203,17 +202,17 @@ const server: Plugin = (async (pluginCtx) => {
     input.output.parts.push({ type: "text", text: input.visibleText } as any)
   }
 
-  function ensureEditorOpenAfterDeckChange(filePath: string, sessionID: string): void {
+  function ensureRefineOpenAfterDeckChange(filePath: string, sessionID: string): void {
     if (!isDeckHtmlPath(filePath) || !sessionID) return
 
     try {
-      ensureEditableDeckOpenForChange("", {
+      ensureRefineDeckOpenForChange("", {
         client,
         sessionID,
         workspaceRoot,
       })
     } catch (e) {
-      childLog("edit").warn("failed to ensure visual editor after deck change", {
+      childLog("refine").warn("failed to ensure Refine after deck change", {
         filePath,
         error: e instanceof Error ? e.message : String(e),
       })
@@ -506,7 +505,7 @@ const server: Plugin = (async (pluginCtx) => {
       }
       if (sub === "edit") {
         if (param) {
-          await send("`/revela edit` is deprecated and does not accept a target. Use `/revela refine` for the unified refinement workspace.")
+          await send("`/revela edit` has been removed. Use `/revela refine` for the unified reading, inspection, and editing workspace.")
           throw new Error("__REVELA_EDIT_USAGE_HANDLED__")
         }
         await handleEdit({ client, sessionID, workspaceRoot }, send)
@@ -929,7 +928,7 @@ Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSl
           return
         }
         const qaPassed = await runPostWriteArtifactQA(filePath, output)
-        if (qaPassed) ensureEditorOpenAfterDeckChange(filePath, extractSessionID(input))
+        if (qaPassed) ensureRefineOpenAfterDeckChange(filePath, extractSessionID(input))
         return
       }
 
@@ -950,7 +949,7 @@ Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSl
         const targets = patchText ? extractDeckHtmlTargetsFromPatch(patchText) : []
         for (const target of targets) {
           const qaPassed = await runPostWriteArtifactQA(target, output)
-          if (qaPassed) ensureEditorOpenAfterDeckChange(target, extractSessionID(input))
+          if (qaPassed) ensureRefineOpenAfterDeckChange(target, extractSessionID(input))
         }
         return
       }
@@ -958,7 +957,7 @@ Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSl
       if (input.tool === "edit") {
         const filePath = extractEditFilePath(input.args)
         const qaPassed = await runPostWriteArtifactQA(filePath, output)
-        if (qaPassed) ensureEditorOpenAfterDeckChange(filePath, extractSessionID(input))
+        if (qaPassed) ensureRefineOpenAfterDeckChange(filePath, extractSessionID(input))
         return
       }
     },

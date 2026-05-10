@@ -65,7 +65,7 @@ describe("resolveEditableDeck", () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "only-deck.html"), "<html></html>", "utf-8")
 
-    expect(() => resolveEditableDeck(root, "only-deck")).toThrow("no longer accepts a target")
+    expect(() => resolveEditableDeck(root, "only-deck")).toThrow("/revela refine does not accept a target")
   })
 
   it("rejects when decks/ has no HTML files", () => {

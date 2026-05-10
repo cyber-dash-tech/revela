@@ -12,7 +12,7 @@ export interface EditableDeck {
 
 export function resolveEditableDeck(workspaceRoot: string, input = ""): EditableDeck {
   if (input.trim()) {
-    throw new Error("/revela edit no longer accepts a target. It opens the only HTML deck in decks/.")
+    throw new Error("/revela refine does not accept a target. It opens the active HTML deck or the only HTML deck in decks/.")
   }
 
   if (hasDecksState(workspaceRoot)) {

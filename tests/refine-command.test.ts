@@ -7,7 +7,7 @@ import { clearInspectRequestsForTests, getInspectRequest } from "../lib/inspect/
 import { handleEdit } from "../lib/commands/edit"
 import { handleInspect } from "../lib/commands/inspect"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
-import { openRefineDeck } from "../lib/refine/open"
+import { ensureRefineDeckOpenForChange, openRefineDeck } from "../lib/refine/open"
 import { renderRefineShell, stopRefineServer } from "../lib/refine/server"
 
 const roots: string[] = []
@@ -149,7 +149,7 @@ describe("openRefineDeck", () => {
 })
 
 describe("deprecated refine command shims", () => {
-  it("opens Refine Edit mode from /revela edit", async () => {
+  it("does not open UI from removed /revela edit", async () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Market Map</h2></section></body></html>", "utf-8")
     const messages: string[] = []
@@ -163,9 +163,9 @@ describe("deprecated refine command shims", () => {
       messages.push(message)
     })
 
-    expect(messages[0]).toContain("`/revela edit` is deprecated")
-    expect(messages[0]).toContain("`/revela refine` in Edit mode")
-    expect(messages[0]).toContain("/refine?token=")
+    expect(messages[0]).toContain("`/revela edit` has been removed")
+    expect(messages[0]).toContain("/revela refine")
+    expect(messages[0]).not.toContain("/refine?token=")
   })
 
   it("opens Refine Inspect mode from /revela inspect", async () => {
@@ -185,6 +185,38 @@ describe("deprecated refine command shims", () => {
     expect(messages[0]).toContain("`/revela inspect` is deprecated")
     expect(messages[0]).toContain("`/revela refine` in Inspect mode")
     expect(messages[0]).toContain("/refine?token=")
+  })
+})
+
+describe("ensureRefineDeckOpenForChange", () => {
+  it("opens Refine after a deck change but skips reopening a live session", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Market Map</h2></section></body></html>", "utf-8")
+    const opened: string[] = []
+    const client = { session: { prompt: async () => undefined } }
+
+    const first = ensureRefineDeckOpenForChange("", {
+      client,
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openUrl: (url) => opened.push(url),
+    })
+
+    const second = ensureRefineDeckOpenForChange("", {
+      client,
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openUrl: (url) => opened.push(url),
+    })
+
+    expect(first.url).toContain("/refine?token=")
+    expect(first.openedBrowser).toBe(true)
+    expect(second.url).toBe(first.url)
+    expect(second.reusedSession).toBe(true)
+    expect(second.liveSession).toBe(true)
+    expect(second.openedBrowser).toBe(false)
+    expect(second.skippedReason).toBe("live-session")
+    expect(opened).toHaveLength(1)
   })
 })
 

@@ -37,7 +37,6 @@ export async function handleHelp(
     `\`/revela deck\`                — compatibility alias for /revela make deck\n` +
     `\`/revela brief [file.md]\`      — compatibility alias for /revela make brief\n` +
     `\`/revela refine\`              — open unified reading, inspection, and editing workspace\n` +
-    `\`/revela edit\`                — deprecated compatibility shim to /revela refine Edit\n` +
     `\`/revela inspect\`             — deprecated compatibility shim to /revela refine Inspect\n` +
     `\`/revela remember <text>\`     — save an explicit preference to DECKS.json\n` +
     `\`/revela design\`              — list installed designs\n` +

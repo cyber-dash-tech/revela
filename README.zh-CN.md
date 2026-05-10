@@ -148,7 +148,6 @@ export { default } from "/absolute/path/to/revela/index.ts";
 /revela make brief [file.md]     从已批准 story 渲染 executive brief
 /revela remember <text>          保存明确的用户/工作流偏好
 /revela refine                   打开统一的阅读、检查和编辑 workspace
-/revela edit                     deprecated，兼容到 /revela refine Edit mode
 /revela inspect                  deprecated，兼容到 /revela refine Inspect mode
 
 /revela review                   legacy story readiness report
@@ -180,7 +179,7 @@ export { default } from "/absolute/path/to/revela/index.ts";
 /revela pptx <file>              将 HTML deck 导出为同目录可编辑 PPTX
 ```
 
-大多数 `/revela` 命令都在本地执行，不消耗 LLM token。`/revela init`、`/revela research`、`/revela story`、`/revela review`、`/revela make deck`、`/revela remember`、`/revela design new` 和 `/revela design edit` 会启动 AI 辅助流程，因为它们需要读取或更新项目状态。这些 workflow command 只在可见聊天里显示短意图，详细内部说明通过一次性的 system-prompt command intent 注入。`/revela refine` 是统一的 post-artifact workspace，会打开一个本地浏览器 workspace，里面有 Edit 和 Inspect 两个 tab，并共享同一套 Cmd/Ctrl-click 元素引用。Edit 会把精准修改评论发回当前 OpenCode 会话；Inspect 会把 grounded selection context 发给当前 OpenCode 会话，并渲染本地化的 Narrative Reading、Exploratory Reading、Source、Purpose 卡片。确定性预处理保留为 fallback context，而不是默认先展示的 UI。如果生成结果缺少较新的 reading 卡片，Refine 会保留确定性 Narrative Reading 和 Exploratory Reading，而不是丢掉这些上下文。Narrative Reading 还会显示所选 canonical claim 的 artifact coverage，包括每个已记录 artifact 是否包含该 claim，以及 coverage 是 current、stale、partial 还是 missing。Exploratory Reading 明确是非官方阅读辅助，只能基于已记录 claim、evidence、caveat、objection、risk 和 artifact coverage。它没有聊天框，也不会修改 deck。`/revela edit` 和 `/revela inspect` 只作为 deprecated 兼容入口保留。
+大多数 `/revela` 命令都在本地执行，不消耗 LLM token。`/revela init`、`/revela research`、`/revela story`、`/revela review`、`/revela make deck`、`/revela remember`、`/revela design new` 和 `/revela design edit` 会启动 AI 辅助流程，因为它们需要读取或更新项目状态。这些 workflow command 只在可见聊天里显示短意图，详细内部说明通过一次性的 system-prompt command intent 注入。`/revela refine` 是统一的 post-artifact workspace，会打开一个本地浏览器 workspace，里面有 Edit 和 Inspect 两个 tab，并共享同一套 Cmd/Ctrl-click 元素引用。Edit 会把精准修改评论发回当前 OpenCode 会话；Inspect 会把 grounded selection context 发给当前 OpenCode 会话，并渲染本地化的 Narrative Reading、Exploratory Reading、Source、Purpose 卡片。确定性预处理保留为 fallback context，而不是默认先展示的 UI。如果生成结果缺少较新的 reading 卡片，Refine 会保留确定性 Narrative Reading 和 Exploratory Reading，而不是丢掉这些上下文。Narrative Reading 还会显示所选 canonical claim 的 artifact coverage，包括每个已记录 artifact 是否包含该 claim，以及 coverage 是 current、stale、partial 还是 missing。Exploratory Reading 明确是非官方阅读辅助，只能基于已记录 claim、evidence、caveat、objection、risk 和 artifact coverage。它没有聊天框，也不会修改 deck。`/revela edit` 已移除；请使用 `/revela refine`。`/revela inspect` 仅作为 deprecated 兼容入口保留。
 
 ---
 
@@ -229,7 +228,7 @@ Deck 仍然是主要 authored artifact，但现在它是从同一份 workspace s
 6. 只在 deck handoff 阶段选择或确认 design，然后通过 handoff workflow 或 `/revela make deck --review` 运行 deck/artifact gate。
 7. 只有 artifact gate ready 后，才让 agent 把 HTML deck 写到 `decks/` 下。
 8. 用 `/revela refine` 对选中 deck 元素做可视化评论、精准修改、只读 Narrative Reading、有边界的 Exploratory Reading、Source、Purpose 检查，以及 claim-to-artifact coverage 查看。
-9. 只有旧脚本或旧习惯需要时，才使用 `/revela edit` 或 `/revela inspect`；两者都会打开对应模式的 `/revela refine`。
+9. post-artifact 修改统一使用 `/revela refine`；`/revela edit` 已移除，`/revela inspect` 仅保留给旧脚本或旧习惯。
 10. 用 `/revela pdf <file>` 或 `/revela pptx <file>` 导出。
 
 只有当你希望普通聊天消息，而不只是显式 `/revela ...` 命令，也保持 Revela narrative mode 时，才需要使用 `/revela enable`。
@@ -578,19 +577,19 @@ Prompt 注入规则：
 
 `/revela refine` 会打开 active HTML deck，并提供两个 tab。使用 `Ctrl`/`Cmd` + click 先引用 deck 元素，然后在 Edit 里快速写自然语言修改评论，或在 Inspect 里做只读 Narrative Reading、有边界的 Exploratory Reading、Source、Purpose 和 artifact coverage 检查。Inspect 不会修改 deck；真正的 mutation 仍然只走 Edit。这是 post-artifact 阅读、检查和编辑的推荐入口。
 
-Deprecated 兼容命令：
+已移除命令：
 
 ```text
 /revela edit
 ```
 
-`/revela edit` 不再打开独立的 edit-only shell。它会打开 `/revela refine` 的 Edit mode，用于兼容旧脚本和旧使用习惯。
+`/revela edit` 已移除。请使用 `/revela refine` 打开统一的阅读、检查和编辑 workspace。
 
 使用 `Ctrl`/`Cmd` + 点击 deck 元素来引用它们，在 Edit tab 写一段自然语言评论，然后发送回 OpenCode。Revela 会把 deck 文件、slide 上下文、选中元素 metadata 和你的评论整理成结构化 edit prompt。
 
-对应的 LLM tool：`revela-edit`，不需要 target。这个 tool 也是兼容入口，当你说“我要编辑这个 deck”时，agent 会打开 Refine 的 Edit mode。
+对应的 LLM tool：`revela-edit`，不需要 target。这个 tool 仍作为兼容入口保留，当你说“我要编辑这个 deck”时，agent 会打开 Refine 的 Edit mode。
 
-对于已有 HTML deck，`/revela edit` 会自动准备必要的最小项目上下文，让后续精准修改仍然经过正常安全检查。
+对于已有 HTML deck，`/revela refine` 会自动准备必要的最小项目上下文，让后续精准修改仍然经过正常安全检查。
 
 ---
 

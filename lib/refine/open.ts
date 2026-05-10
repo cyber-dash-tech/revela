@@ -22,6 +22,10 @@ export interface OpenRefineDeckResult {
   mode: RefineMode
 }
 
+export interface EnsureRefineDeckOpenResult extends OpenRefineDeckResult {
+  skippedReason?: "live-session"
+}
+
 export interface OpenRefineDeckOptions {
   client: any
   sessionID: string
@@ -32,6 +36,21 @@ export interface OpenRefineDeckOptions {
 }
 
 export function openRefineDeck(target: string, options: OpenRefineDeckOptions): OpenRefineDeckResult {
+  return openRefineDeckInternal(target, options, { skipLiveSession: false })
+}
+
+export function ensureRefineDeckOpenForChange(
+  target: string,
+  options: OpenRefineDeckOptions,
+): EnsureRefineDeckOpenResult {
+  return openRefineDeckInternal(target, options, { skipLiveSession: true })
+}
+
+function openRefineDeckInternal(
+  target: string,
+  options: OpenRefineDeckOptions,
+  behavior: { skipLiveSession: boolean },
+): EnsureRefineDeckOpenResult {
   const deck = resolveEditableDeck(options.workspaceRoot, target)
   const preflight = ensureEditableDeckState(options.workspaceRoot, deck)
   assertDeckHtmlContractValid(options.workspaceRoot, deck.absoluteFile)
@@ -53,7 +72,7 @@ export function openRefineDeck(target: string, options: OpenRefineDeckOptions): 
     mode,
   })
   const url = `${refineServer.baseUrl}/refine?token=${encodeURIComponent(session.token)}`
-  const shouldOpen = options.openBrowser !== false
+  const shouldOpen = options.openBrowser !== false && !(behavior.skipLiveSession && session.live)
   if (shouldOpen) (options.openUrl ?? openUrl)(url)
 
   return {
@@ -66,5 +85,6 @@ export function openRefineDeck(target: string, options: OpenRefineDeckOptions): 
     liveSession: session.live,
     openedBrowser: shouldOpen,
     mode,
+    skippedReason: behavior.skipLiveSession && session.live ? "live-session" : undefined,
   }
 }

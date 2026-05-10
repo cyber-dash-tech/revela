@@ -124,7 +124,7 @@ Use `/revela refine` for post-artifact reading, inspection, and editing.
 - Reading should explain source, support strength, caveat, unsupported scope, narrative purpose, related risks/objections, research gaps, and artifact coverage.
 - Pure artifact polish may stay artifact-level: layout, typography, spacing, crop, visual hierarchy, export mechanics, and deck contract fixes.
 - Meaning-changing edits must update canonical narrative first, then run story readiness/approval or explicit override, then remake affected artifacts.
-- Deprecated `/revela edit` and `/revela inspect` route to Refine.
+- `/revela edit` has been removed; use `/revela refine`. Deprecated `/revela inspect` routes to Refine.
 
 ## Design Surface
 

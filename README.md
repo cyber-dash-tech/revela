@@ -149,7 +149,6 @@ Disable ambient mode when done:
 /revela make brief [file.md]     render executive brief from approved story
 /revela remember <text>          save an explicit user/workflow preference
 /revela refine                   open unified reading, inspection, and editing workspace
-/revela edit                     deprecated shim to /revela refine Edit mode
 /revela inspect                  deprecated shim to /revela refine Inspect mode
 
 /revela review                   legacy readiness report for story state
@@ -181,7 +180,7 @@ Disable ambient mode when done:
 /revela pptx <file>              export an HTML deck to editable PPTX in the same directory
 ```
 
-Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela research`, `/revela story`, `/revela review`, `/revela make deck`, `/revela remember`, `/revela design new`, and `/revela design edit` start AI-assisted workflows because they need to read or update project files. These workflow commands keep the visible chat message short and inject their detailed instructions through a one-shot system-prompt command intent. `/revela refine` is the unified post-artifact workspace. It opens a local browser workspace with Edit and Inspect tabs that share the same Cmd/Ctrl-click element references. Edit sends targeted comments back into the current OpenCode session; Inspect sends grounded selection context to the current OpenCode session and renders localized Narrative Reading, Exploratory Reading, Source, and Purpose cards, has no chat box, and does not edit the deck. Deterministic preprocessing is kept as fallback context rather than the normal first UI. If a generated result omits newer reading cards, Refine keeps the deterministic Narrative Reading and Exploratory Reading cards instead of dropping context. Narrative Reading also shows artifact coverage for the selected canonical claim, including whether each recorded artifact contains the claim and whether coverage is current, stale, partial, or missing. Exploratory Reading is explicitly non-official and bounded to recorded claims, evidence, caveats, objections, risks, and artifact coverage. `/revela edit` and `/revela inspect` remain only as deprecated compatibility shims to Refine.
+Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela research`, `/revela story`, `/revela review`, `/revela make deck`, `/revela remember`, `/revela design new`, and `/revela design edit` start AI-assisted workflows because they need to read or update project files. These workflow commands keep the visible chat message short and inject their detailed instructions through a one-shot system-prompt command intent. `/revela refine` is the unified post-artifact workspace. It opens a local browser workspace with Edit and Inspect tabs that share the same Cmd/Ctrl-click element references. Edit sends targeted comments back into the current OpenCode session; Inspect sends grounded selection context to the current OpenCode session and renders localized Narrative Reading, Exploratory Reading, Source, and Purpose cards, has no chat box, and does not edit the deck. Deterministic preprocessing is kept as fallback context rather than the normal first UI. If a generated result omits newer reading cards, Refine keeps the deterministic Narrative Reading and Exploratory Reading cards instead of dropping context. Narrative Reading also shows artifact coverage for the selected canonical claim, including whether each recorded artifact contains the claim and whether coverage is current, stale, partial, or missing. Exploratory Reading is explicitly non-official and bounded to recorded claims, evidence, caveats, objections, risks, and artifact coverage. `/revela edit` has been removed; use `/revela refine` instead. `/revela inspect` remains only as a deprecated compatibility shim to Refine.
 
 ---
 
@@ -230,7 +229,7 @@ Use Revela as a narrative-first artifact workflow:
 6. Choose or confirm design only during deck handoff, then run the deck/artifact gate with `/revela make deck --review` or the handoff workflow.
 7. Let the agent write the HTML deck under `decks/` only after the artifact gate is ready.
 8. Use `/revela refine` for visual comments, targeted revisions, read-only Narrative Reading, bounded Exploratory Reading, Source, and Purpose inspection, and claim-to-artifact coverage for selected deck elements.
-9. Use `/revela edit` or `/revela inspect` only for old scripts or habits; both open `/revela refine` in the matching mode.
+9. Use `/revela refine` for post-artifact changes; `/revela edit` has been removed and `/revela inspect` remains only for old scripts or habits.
 10. Export with `/revela pdf <file>` or `/revela pptx <file>`.
 
 Use `/revela enable` only when you want ordinary chat messages, not just explicit `/revela ...` commands, to stay in Revela narrative mode.
@@ -613,19 +612,19 @@ Use the unified refinement workspace for normal post-write review and revision:
 
 `/revela refine` opens the active HTML deck with two tabs. Use `Ctrl`/`Cmd` + click once to reference deck elements, then choose Edit for fast natural-language change comments or Inspect for read-only Narrative Reading, bounded Exploratory Reading, Source, Purpose, and artifact coverage review. Inspect does not mutate the deck; Edit remains the mutation path. This is the recommended entry for post-artifact reading, inspection, and editing.
 
-Deprecated compatibility command:
+Removed command:
 
 ```text
 /revela edit
 ```
 
-`/revela edit` no longer opens a separate edit-only shell. It opens `/revela refine` in Edit mode for compatibility with old scripts and user habits.
+`/revela edit` has been removed. Use `/revela refine` for the unified reading, inspection, and editing workspace.
 
 Use `Ctrl`/`Cmd` + click to reference deck elements, write a natural-language comment in the Edit tab, then send it back to OpenCode. Revela sends a structured edit prompt that includes the deck file, slide context, selected element metadata, and your comment.
 
-LLM tool equivalent: `revela-edit` with no target. The tool is also a compatibility shim and opens Refine in Edit mode when you say things like “I want to edit the deck”.
+LLM tool equivalent: `revela-edit` with no target. The tool remains a compatibility shim and opens Refine in Edit mode when you say things like “I want to edit the deck”.
 
-For existing decks, `/revela edit` prepares whatever minimal project context is needed so targeted edits can still use the normal safety checks.
+For existing decks, `/revela refine` prepares whatever minimal project context is needed so targeted edits can still use the normal safety checks.
 
 ---
 
