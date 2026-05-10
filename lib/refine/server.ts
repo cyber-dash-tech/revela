@@ -904,7 +904,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             <div id="editSavedAssets" class="asset-grid"><p class="asset-empty">No local assets yet. Click + to search assets.</p></div>
           </div>
         </div>
-        <button id="send" class="primary-action" disabled><svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 12-8.5 8.5a2.12 2.12 0 0 1-3-3L12 9"/><path d="m17.64 15 3.24-3.24a2 2 0 0 0 0-2.83l-5.66-5.66a2 2 0 0 0-2.83 0L9.15 6.5"/><path d="m14 7 3 3"/><path d="M5 19l3-3"/></svg><span>Send Edit</span></button>
+        <button id="send" class="primary-action" disabled><svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94L14.7 6.3z"/></svg><span>Apply Fix</span></button>
         <div class="activity-panel"><div class="label">Activity</div><div id="commentThread" class="comment-thread" aria-live="polite"></div></div>
       </div>
       <div id="inspectPanel" class="tab-panel">
@@ -1678,7 +1678,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         insertPlainText(' ');
         setMode('edit');
         updateSendState();
-        setStatus('Asset added to the Edit comment. Describe where or how to use it, then Send Edit.');
+        setStatus('Asset added to the Edit comment. Describe where or how to use it, then Apply Fix.');
       }
 
       function onAssetDragOver(event) {
@@ -2013,7 +2013,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
       function updateSendState() {
         if (state.sendingEdit) setButtonLoading(els.send, true, 'Sending...');
-        else setButtonLoading(els.send, false, '<svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 12-8.5 8.5a2.12 2.12 0 0 1-3-3L12 9"/><path d="m17.64 15 3.24-3.24a2 2 0 0 0 0-2.83l-5.66-5.66a2 2 0 0 0-2.83 0L9.15 6.5"/><path d="m14 7 3 3"/><path d="M5 19l3-3"/></svg><span>Send Edit</span>', true);
+        else setButtonLoading(els.send, false, '<svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94L14.7 6.3z"/></svg><span>Apply Fix</span>', true);
         els.send.disabled = state.sendingEdit || !getCommentText().trim();
         if (state.inspecting) setButtonLoading(els.inspectButton, true, 'Inspecting...');
         else setButtonLoading(els.inspectButton, false, 'Inspect Reference');
