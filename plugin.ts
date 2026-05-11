@@ -230,7 +230,7 @@ const server: Plugin = (async (pluginCtx) => {
       opencodeConfig.command ??= {}
       opencodeConfig.command["revela"] = {
         template: "",
-        description: "Revela — narrative artifact workspace (init, research, story, make, refine, design)",
+        description: "show REVELA help",
       }
 
       // Register the research subagent.

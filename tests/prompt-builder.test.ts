@@ -35,6 +35,20 @@ describe("buildPrompt", () => {
     expect(prompt).not.toContain("slide-canvas")
   })
 
+  it("injects active domain guidance in narrative mode", () => {
+    seedBuiltinDesigns()
+    seedBuiltinDomains()
+
+    buildPrompt({ mode: "narrative", designName: "starter", domainName: "consulting" })
+    const prompt = readFileSync(ACTIVE_PROMPT_FILE, "utf-8")
+
+    expect(prompt).toContain("Revela prompt mode: narrative")
+    expect(prompt).toContain("Active domain: consulting")
+    expect(prompt).toContain("Strategic Consulting Reports")
+    expect(prompt).toContain("Report Type Auto-Detection")
+    expect(prompt).not.toContain("On-Demand Design Sections")
+  })
+
   it("builds deck-render mode with the legacy design layer", () => {
     seedBuiltinDesigns()
     seedBuiltinDomains()
@@ -47,5 +61,19 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("AI Presentation Generator")
     expect(prompt).toContain("On-Demand Design Sections")
     expect(prompt).toContain("Layout Index")
+  })
+
+  it("excludes full domain guidance from deck-render mode", () => {
+    seedBuiltinDesigns()
+    seedBuiltinDomains()
+
+    buildPrompt({ mode: "deck-render", designName: "starter", domainName: "consulting" })
+    const prompt = readFileSync(ACTIVE_PROMPT_FILE, "utf-8")
+
+    expect(prompt).toContain("Revela prompt mode: deck-render")
+    expect(prompt).toContain("Active domain: consulting (not injected in deck-render mode)")
+    expect(prompt).toContain("Active design: starter")
+    expect(prompt).toContain("On-Demand Design Sections")
+    expect(prompt).not.toContain("Report Type Auto-Detection")
   })
 })

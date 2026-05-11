@@ -7,8 +7,10 @@
  *
  * Deck-render mode:
  *   Layer 1: SKILL.md           — legacy deck render protocol (HTML rules, quality)
- *   Layer 2: DOMAIN.md          — domain structure/terminology
- *   Layer 3: DESIGN.md          — visual style (colors, fonts, animations, layout)
+ *   Layer 2: DESIGN.md          — visual style (colors, fonts, animations, layout)
+ *
+ * Domain guidance is intentionally narrative-only. Deck-render mode must render
+ * the approved canonical narrative instead of re-interpreting domain semantics.
  *
  * When the active DESIGN.md has @section markers, only the global section,
  * layouts section, and a generated component index are injected into the
@@ -87,19 +89,23 @@ export function buildPrompt(optionsOrDesignName?: BuildPromptOptions | string, l
     ? "<!--   - preview.html — canonical visual reference (read this before generating slides) -->"
     : "<!--   - (no preview.html for this design) -->"
 
-  // Layer 2 — DOMAIN.md skill text (may be empty for "general")
+  // Layer 2 — DOMAIN.md skill text (narrative mode only). Deck-render mode
+  // renders the approved canonical narrative and must not re-interpret domain
+  // semantics from the full domain prompt.
   let domainSkill = ""
-  try {
-    domainSkill = getDomainSkillMd(domain)
-  } catch (e) {
-    // Domain not installed or empty — proceed without domain layer
-    promptLog.warn("domain skill not found — building without domain layer", {
-      domain,
-      error: e instanceof Error ? e.message : String(e),
-    })
+  if (mode === "narrative") {
+    try {
+      domainSkill = getDomainSkillMd(domain)
+    } catch (e) {
+      // Domain not installed or empty — proceed without domain layer
+      promptLog.warn("domain skill not found — building without domain layer", {
+        domain,
+        error: e instanceof Error ? e.message : String(e),
+      })
+    }
   }
 
-  // Layer 3 — DESIGN.md: deck-render only. Narrative mode must not inject
+  // DESIGN.md: deck-render only. Narrative mode must not inject
   // visual CSS, layout catalogs, component indexes, or HTML skeleton rules.
   const designSkill = mode === "deck-render" ? buildDesignLayer(design) : ""
 
@@ -107,7 +113,7 @@ export function buildPrompt(optionsOrDesignName?: BuildPromptOptions | string, l
   const header = mode === "deck-render"
     ? `<!-- Revela prompt mode: deck-render -->\n` +
       `<!-- Active design: ${design} -->\n` +
-      `<!-- Active domain: ${domain} -->\n` +
+      `<!-- Active domain: ${domain} (not injected in deck-render mode) -->\n` +
       `<!-- Design files: ${designDir}/ -->\n` +
       `<!--   - DESIGN.md — metadata + style instructions (injected below) -->\n` +
       `${previewLine}\n\n`
@@ -115,7 +121,7 @@ export function buildPrompt(optionsOrDesignName?: BuildPromptOptions | string, l
       `<!-- Active domain: ${domain} -->\n` +
       `<!-- Design layer intentionally omitted in narrative mode. Use deck-render mode before writing deck artifacts. -->\n\n`
 
-  // Concatenation: Header → Skill → Domain → Design (deck-render only)
+  // Concatenation: Header → Skill → Domain (narrative only) → Design (deck-render only)
   const parts = [header, coreSkill]
   if (domainSkill) {
     parts.push(`\n\n---\n\n${domainSkill}`)

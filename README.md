@@ -154,11 +154,14 @@ Explicit Revela workflow commands append one-shot command instructions to the cu
 
 The default prompt is narrative-first: it follows `Init -> Research -> Story -> Make -> Refine -> Export` and focuses on audience belief shift, decision/action, thesis, claims, evidence boundaries, objections, risks, research gaps, and approval. Active design CSS, layout catalogs, component indexes, chart rules, and deck HTML skeletons are intentionally omitted until `/revela make --deck` switches the session into deck-render mode or `/revela design` starts explicit design work.
 
-Deck-render mode is built from 3 layers:
+Deck-render mode is built from 2 layers:
 
 1. `skill/SKILL.md` - the core deck-render workflow
-2. active domain - domain-specific report structure and terminology
-3. active design - visual system, layouts, components, and chart rules
+2. active design - visual system, layouts, components, and chart rules
+
+Active domain guidance is narrative-only. It helps `init`, `research`, and `story`
+shape the canonical narrative; `make --deck` renders that approved narrative
+without injecting the full domain prompt again.
 
 Persistent preferences live in `~/.config/revela/config.json`.
 The ambient enabled or disabled state is session-level only.

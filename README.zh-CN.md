@@ -118,7 +118,7 @@ export { default } from "/absolute/path/to/revela/index.ts";
 ## 命令
 
 ```text
-/revela                          显示 REVELA help
+/revela                          show REVELA help
 
 /revela init                     初始化或刷新 narrative workspace state
 /revela research                 调研、绑定证据，并减少 story gaps/caveats
@@ -153,11 +153,13 @@ export { default } from "/absolute/path/to/revela/index.ts";
 
 默认 prompt 是 narrative-first：它遵循 `Init -> Research -> Story -> Make -> Refine -> Export`，关注受众信念变化、decision/action、thesis、claims、证据边界、objections、risks、research gaps 和 approval。Active design CSS、layout catalog、component index、chart rules 和 deck HTML skeleton 在 `/revela make --deck` 切换到 deck-render mode 或 `/revela design` 进入显式设计工作流前不会注入。
 
-Deck-render mode 由 3 层组成：
+Deck-render mode 由 2 层组成：
 
 1. `skill/SKILL.md` - 核心 deck-render 流程
-2. 当前 active domain - 行业结构与术语
-3. 当前 active design - 视觉系统、layout、component 和图表规则
+2. 当前 active design - 视觉系统、layout、component 和图表规则
+
+Active domain 只进入 narrative pipeline。它帮助 `init`、`research`、`story`
+形成 canonical narrative；`make --deck` 只渲染已批准的 narrative，不再重复注入完整 domain prompt。
 
 持久化配置保存在 `~/.config/revela/config.json`。
 显式 workflow command 会自动选择 narrative 或 deck-render prompt mode。
