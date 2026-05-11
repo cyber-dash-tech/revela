@@ -61,6 +61,10 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("AI Presentation Generator")
     expect(prompt).toContain("On-Demand Design Sections")
     expect(prompt).toContain("Layout Index")
+    expect(prompt).toContain("| Table of Contents | Always |")
+    expect(prompt).toContain("Never skip Cover, Table of Contents, Background, or Closing")
+    expect(prompt).toContain("Generate the artifact chapter by chapter")
+    expect(prompt).toContain("Do not draft all content slides in")
   })
 
   it("excludes full domain guidance from deck-render mode", () => {
