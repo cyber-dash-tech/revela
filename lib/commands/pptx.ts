@@ -1,7 +1,7 @@
 /**
  * lib/commands/pptx.ts
  *
- * Handler for `/revela pptx [file_path]` — exports an HTML slide deck to PPTX.
+ * Handler for `/revela export --deck pptx [file_path]` — exports an HTML slide deck to PPTX.
  *
  * Output: same directory and base name as the input, with .pptx extension.
  * Example: decks/my-deck.html → decks/my-deck.pptx
@@ -64,7 +64,7 @@ export function resolvePptxDeck(workspaceRoot: string, filePath = ""): ResolvedP
     throw new Error("No deck HTML found in decks/. Generate a deck first or pass a file path.")
   }
   if (htmlFiles.length > 1) {
-    throw new Error("This workspace contains multiple deck HTML files. Run `/revela pptx decks/<file>.html` to choose one.")
+    throw new Error("This workspace contains multiple deck HTML files. Run `/revela export --deck pptx decks/<file>.html` to choose one.")
   }
 
   const absoluteFile = resolve(root, htmlFiles[0])

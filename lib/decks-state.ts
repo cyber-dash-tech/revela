@@ -661,7 +661,7 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
       type: "missing_slide_spec",
       severity: "blocker",
       message,
-      suggestedAction: "Run /revela make deck --review and resolve all readiness blockers before writing deck HTML.",
+      suggestedAction: "Run /revela make --deck and resolve all readiness blockers before writing deck HTML.",
     })
   }
   if (deck.writeReadiness.blockers.length > 0) {
@@ -671,7 +671,7 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
       type: "missing_slide_spec",
       severity: "blocker",
       message,
-      suggestedAction: "Resolve the stored writeReadiness blockers and rerun /revela make deck --review.",
+      suggestedAction: "Resolve the stored writeReadiness blockers and rerun /revela make --deck.",
     })
   }
   if (normalized.reviews.length > 0) {
@@ -684,7 +684,7 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
         type: "missing_slide_spec",
         severity: "blocker",
         message,
-        suggestedAction: "Run /revela make deck --review so readiness is recorded against the current active render target.",
+        suggestedAction: "Run /revela make --deck so readiness is recorded against the current active render target.",
       })
     } else if (!isReviewSnapshotCurrent(normalized, snapshot, deck.slug)) {
       const message = "Latest review snapshot is stale for the current deck, sources, evidence, narrative state, or render target"
@@ -693,7 +693,7 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
         type: "missing_slide_spec",
         severity: "blocker",
         message,
-        suggestedAction: "Run /revela make deck --review again after the latest state changes before writing deck HTML.",
+        suggestedAction: "Run /revela make --deck again after the latest state changes before writing deck HTML.",
       })
     } else if (snapshot.status !== "ready") {
       const message = `Latest review snapshot is ${snapshot.status}, not ready`
@@ -702,7 +702,7 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
         type: "missing_slide_spec",
         severity: "blocker",
         message,
-        suggestedAction: "Resolve review blockers and rerun /revela make deck --review before writing deck HTML.",
+        suggestedAction: "Resolve review blockers and rerun /revela make --deck before writing deck HTML.",
       })
     }
   }
@@ -748,7 +748,7 @@ export function buildDecksStatePromptLayer(workspaceRoot: string, maxChars = 140
   }
   let text = JSON.stringify(compact, null, 2)
   if (text.length > maxChars) text = text.slice(0, maxChars).trimEnd() + "\n[DECKS.json state truncated for prompt size.]"
-  return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as the source of truth for the single current deck's specs, slide plan, evidence, render targets, and write readiness.\n- The decks map is compatibility storage; operate only on the current workspace deck.\n- ${DECKS_STATE_FILE} deck slides use 1-based \`slides[].index\` values. Render every HTML \`<section class="slide">\` with a matching 1-based \`data-slide-index\` attribute, and do not use 0-based \`data-index\` as slide identity.\n- The active HTML deck is represented as a \`renderTarget\` of type \`html_deck\`; PDF/PPTX exports should be recorded as derived render targets, not as separate deck specs.\n- \`writeReadiness\` is a compatibility projection for the /revela make deck generation workflow, not a hard blocker for targeted artifact-level HTML fixes.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- For /revela make deck generated HTML, use the current deck's outputPath and satisfy the deck HTML contract. For targeted artifact-level edits, patch the requested deck HTML directly without treating \`writeReadiness\` or \`planReview\` as a precondition.`
+  return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as the source of truth for the single current deck's specs, slide plan, evidence, render targets, and write readiness.\n- The decks map is compatibility storage; operate only on the current workspace deck.\n- ${DECKS_STATE_FILE} deck slides use 1-based \`slides[].index\` values. Render every HTML \`<section class="slide">\` with a matching 1-based \`data-slide-index\` attribute, and do not use 0-based \`data-index\` as slide identity.\n- The active HTML deck is represented as a \`renderTarget\` of type \`html_deck\`; PDF/PPTX exports should be recorded as derived render targets, not as separate deck specs.\n- \`writeReadiness\` is a compatibility projection for the /revela make --deck generation workflow, not a hard blocker for targeted artifact-level HTML fixes.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- For /revela make --deck generated HTML, use the current deck's outputPath and satisfy the deck HTML contract. For targeted artifact-level edits, patch the requested deck HTML directly without treating \`writeReadiness\` or \`planReview\` as a precondition.`
 }
 
 function compactWorkspaceForPrompt(workspace: DecksState["workspace"]): DecksState["workspace"] {

@@ -2,10 +2,10 @@
  * lib/commands/domains.ts
  *
  * Handlers for domain-related sub-commands:
- *   /revela domains             — list installed domains
- *   /revela domains <name>      — activate a domain
- *   /revela domains-add <url>   — install a domain from URL / github:user/repo / local path
- *   /revela domains-rm <name>   — remove an installed domain
+ *   /revela domain              — list installed domains
+ *   /revela domain --use <name> — activate a domain
+ *   /revela domain --add <url>  — install a domain from URL / github:user/repo / local path
+ *   /revela domain --rm <name>  — remove an installed domain
  */
 
 import { listDomains, activeDomain, activateDomain, installDomain, removeDomain } from "../domain/domains"
@@ -17,7 +17,7 @@ export async function handleDomainsList(
   const domains = listDomains()
   const current = activeDomain()
   if (!domains.length) {
-    await send(`No domains installed. Use \`/revela domains-add <url>\` to install one.`)
+    await send(`No domains installed. Use \`/revela domain --add <url>\` to install one.`)
     return
   }
   const lines = domains.map((d) => {
@@ -36,7 +36,7 @@ export async function handleDomainsActivate(
   try {
     activateDomain(name)
     buildPrompt({ mode: "narrative" })
-    await send(`**Domain activated:** \`${name}\`\nNarrative prompt rebuilt. Domain reasoning applies now; deck-specific render guidance applies during \`/revela make deck\`.`)
+    await send(`**Domain activated:** \`${name}\`\nNarrative prompt rebuilt. Domain reasoning applies now; deck-specific render guidance applies during \`/revela make --deck\`.`)
   } catch (e: any) {
     await send(`**Error:** ${e.message}`)
   }
@@ -47,13 +47,13 @@ export async function handleDomainsAdd(
   send: (text: string) => Promise<void>,
 ): Promise<void> {
   if (!source) {
-    await send(`**Usage:** \`/revela domains-add <url|github:user/repo|local-path>\``)
+    await send(`**Usage:** \`/revela domain --add <url|github:user/repo|local-path>\``)
     return
   }
   try {
     await send(`Installing domain from \`${source}\`…`)
     const name = await installDomain(source)
-    await send(`**Domain installed:** \`${name}\`\nUse \`/revela domains ${name}\` to activate it.`)
+    await send(`**Domain installed:** \`${name}\`\nUse \`/revela domain --use ${name}\` to activate it.`)
   } catch (e: any) {
     await send(`**Install failed:** ${e.message}`)
   }
@@ -64,7 +64,7 @@ export async function handleDomainsRemove(
   send: (text: string) => Promise<void>,
 ): Promise<void> {
   if (!name) {
-    await send(`**Usage:** \`/revela domains-rm <name>\``)
+    await send(`**Usage:** \`/revela domain --rm <name>\``)
     return
   }
   try {

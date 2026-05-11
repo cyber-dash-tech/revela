@@ -182,7 +182,7 @@ describe("buildDesignsNewPrompt", () => {
     const prompt = buildDesignsNewPrompt({ name: "neon-finance", base: "summit" })
     expect(prompt).toContain("Do not generate or save files immediately")
     expect(prompt).toContain("revela-designs-author")
-    expect(prompt).toContain("/revela designs neon-finance")
+    expect(prompt).toContain("/revela design --use neon-finance")
   })
 
   it("requires visual schema extraction and scoped CSS generation", () => {
@@ -203,7 +203,7 @@ describe("buildDesignsEditPrompt", () => {
     expect(prompt).toContain("Do not save files immediately")
     expect(prompt).toContain("overwrite=true")
     expect(prompt).toContain("Ask the user to confirm the edit brief")
-    expect(prompt).toContain("/revela designs neon-finance")
+    expect(prompt).toContain("/revela design --use neon-finance")
     expect(prompt).toContain("data-preview-component")
     expect(prompt).toContain("data-slide-role=\"closing\"")
   })

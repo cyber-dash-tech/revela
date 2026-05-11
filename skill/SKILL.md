@@ -276,7 +276,7 @@ Example: `<section class="slide" slide-qa="true" data-slide-index="1">`
 The export QA path treats this as deck metadata. It is consumed when PDF/PPTX
 export runs preflight checks.
 
-Speaker notes are normally generated during `/revela pptx --notes` export and
+Speaker notes are normally generated during `/revela export --deck pptx --notes` export and
 passed to `revela-pptx` as structured input. Do not add hidden notes to every
 slide by default.
 
@@ -374,7 +374,7 @@ After the user confirms the slide plan, update `DECKS.json` through `revela-deck
 3. Call `revela-designs` tool with `action: "read"` and `component` set to ALL component
    names you plan to use (comma-separated, e.g. `component: "card,stat-card,evidence-list"`).
 4. Use `revela-decks` action `upsertDeck` to mark `requiredInputs.designLayoutsFetched` complete.
-5. Run `/revela make deck --review` or call `revela-decks` action `review` yourself. The tool must compute readiness from `DECKS.json`.
+5. Run the `/revela make --deck` artifact gate or call `revela-decks` action `review` yourself. The tool must compute readiness from `DECKS.json`.
 6. Use `revela-decks` action `read` and confirm `writeReadiness.status` is `ready` with no blockers.
 7. Generate HTML that **exactly matches** the fetched examples — copy the HTML structure verbatim.
 
@@ -464,7 +464,7 @@ Deck HTML writes and patches automatically run Artifact QA. If hard errors are
 reported, fix them immediately with the smallest patch; Refine opens only after
 hard errors pass. Do not add deck-local inline editing JavaScript, `contenteditable`
 handlers, `editable` classes, or `window.getEditedHTML()` implementations. Post-
-artifact editing belongs in `/revela refine`, not inside generated deck HTML.
+artifact editing belongs in `/revela refine --deck`, not inside generated deck HTML.
 
 ### Image Rules
 

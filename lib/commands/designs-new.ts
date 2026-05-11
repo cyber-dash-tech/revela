@@ -12,12 +12,12 @@ export type DesignsEditParseResult =
   | { ok: false; error: string }
 
 const USAGE =
-  "**Usage:** `/revela designs-new <kebab-case-name> [--base starter]`\n" +
-  "Example: `/revela designs-new neon-finance --base starter`"
+  "**Usage:** `/revela design --new <kebab-case-name> [--base starter]`\n" +
+  "Example: `/revela design --new neon-finance --base starter`"
 
 const EDIT_USAGE =
-  "**Usage:** `/revela designs-edit <kebab-case-name>`\n" +
-  "Example: `/revela designs-edit neon-finance`"
+  "**Usage:** `/revela design --edit <kebab-case-name>`\n" +
+  "Example: `/revela design --edit neon-finance`"
 
 function isValidDesignName(name: string): boolean {
   return /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(name)
@@ -126,7 +126,7 @@ Workflow:
 8. Self-review the preview against the visual schema before saving.
 9. Save the package with \`revela-designs-author\` using action \`create\`.
 10. Validate it with \`revela-designs-author\` using action \`validate\`.
-11. Report the saved path and activation command: \`/revela designs ${name}\`.
+11. Report the saved path and activation command: \`/revela design --use ${name}\`.
 
 Hard requirements:
 - \`DESIGN.md\` must include frontmatter with name, description, author, and version.
@@ -166,7 +166,7 @@ Workflow:
 7. Self-review the preview for text overlap, scale drift, lost anchoring, overflow, and whether the requested change is visible.
 8. Save with \`revela-designs-author\` using action \`create\`, name \`${name}\`, and overwrite=true.
 9. Validate with \`revela-designs-author\` using action \`validate\`.
-10. Report the saved path and activation command: \`/revela designs ${name}\`.
+10. Report the saved path and activation command: \`/revela design --use ${name}\`.
 
 Hard requirements:
 - Preserve valid frontmatter and marker structure.

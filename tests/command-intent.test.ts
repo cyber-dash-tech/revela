@@ -44,12 +44,12 @@ describe("command intent store", () => {
 
   it("clears only the matching session", () => {
     setPendingCommandIntent({ sessionID: "session-a", name: "init", mode: "narrative", visibleText: "A", hiddenPrompt: "A hidden" })
-    setPendingCommandIntent({ sessionID: "session-b", name: "make deck", mode: "deck-render", visibleText: "B", hiddenPrompt: "B hidden" })
+    setPendingCommandIntent({ sessionID: "session-b", name: "make --deck", mode: "deck-render", visibleText: "B", hiddenPrompt: "B hidden" })
 
     clearPendingCommandIntent("session-a")
 
     expect(peekPendingCommandIntent("session-a")).toBeUndefined()
-    expect(peekPendingCommandIntent("session-b")?.name).toBe("make deck")
+    expect(peekPendingCommandIntent("session-b")?.name).toBe("make --deck")
   })
 
   it("formats a hidden system block without dropping command metadata", () => {

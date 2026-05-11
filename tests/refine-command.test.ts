@@ -249,11 +249,11 @@ describe("deprecated refine command shims", () => {
     })
 
     expect(messages[0]).toContain("`/revela edit` has been removed")
-    expect(messages[0]).toContain("/revela refine")
+    expect(messages[0]).toContain("/revela refine --deck")
     expect(messages[0]).not.toContain("/refine?token=")
   })
 
-  it("opens Refine Inspect mode from /revela inspect", async () => {
+  it("does not open UI from removed /revela inspect", async () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Market Map</h2></section></body></html>", "utf-8")
     const messages: string[] = []
@@ -267,9 +267,9 @@ describe("deprecated refine command shims", () => {
       messages.push(message)
     })
 
-    expect(messages[0]).toContain("`/revela inspect` is deprecated")
-    expect(messages[0]).toContain("`/revela refine` in Inspect mode")
-    expect(messages[0]).toContain("/refine?token=")
+    expect(messages[0]).toContain("`/revela inspect` is no longer a public command")
+    expect(messages[0]).toContain("/revela refine --deck")
+    expect(messages[0]).not.toContain("/refine?token=")
   })
 })
 

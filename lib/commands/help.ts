@@ -17,45 +17,42 @@ export async function handleHelp(
   const status = ctx.enabled ? "enabled ✓" : "disabled"
   await send(
     `\`\`\`\n` +
-    `             R E V E L A   v${pkg.version}\n` +
+    `             R E V E L A   H e l p   v${pkg.version}\n` +
     `\`\`\`\n` +
-    `**Status:** ${status}\n` +
-    `🟠 **Design:** \`${design}\`\n` +
-    `🟠 **Domain:** \`${domain}\`\n\n` +
+    `Turn source materials, research, and narrative state into trusted, traceable decision artifacts.\n\n` +
+    `**Current**\n\n` +
+    `Status: ${status}\n` +
+    `Design: \`${design}\`\n` +
+    `Domain: \`${domain}\`\n\n` +
+    `---\n\n` +
+    `**Workflow**\n\n` +
+    `1. \`init\` — discover workspace sources and capture intent\n` +
+    `2. \`research\` — close evidence gaps and bind support\n` +
+    `3. \`story\` — inspect audience, thesis, claims, evidence, risks, and approval\n` +
+    `4. \`make\` — generate deck or brief from approved story state\n` +
+    `5. \`refine\` — inspect and edit rendered deck artifacts\n` +
+    `6. \`export\` — export deck artifacts to PDF or PPTX\n\n` +
     `---\n\n` +
     `**Commands**\n\n` +
-    `\`/revela enable\`              — optional ambient narrative mode for normal chat\n` +
-    `\`/revela disable\`             — disable ambient Revela mode\n` +
-    `\`/revela init\`                — initialize or refresh workspace DECKS.json\n` +
-    `\`/revela research\`            — research, bind evidence, and reduce story gaps\n` +
-    `\`/revela story [-l language]\`  — open the read-only story workspace UI\n` +
-    `\`/revela review\`              — legacy readiness report for story state\n` +
-    `\`/revela narrative\`           — compatibility alias for /revela story\n` +
-    `\`/revela make deck\`           — make a deck from approved story state\n` +
-    `\`/revela make deck --review\`  — review deck/artifact readiness before writing HTML\n` +
-    `\`/revela make brief [file.md]\` — render executive brief from approved story\n` +
-    `\`/revela deck\`                — compatibility alias for /revela make deck\n` +
-    `\`/revela brief [file.md]\`      — compatibility alias for /revela make brief\n` +
-    `\`/revela refine\`              — open unified reading, inspection, and editing workspace\n` +
-    `\`/revela inspect\`             — deprecated compatibility shim to /revela refine Inspect\n` +
-    `\`/revela remember <text>\`     — save an explicit preference to DECKS.json\n` +
-    `\`/revela design\`              — list installed designs\n` +
-    `\`/revela design use <name>\`   — activate a design\n` +
-    `\`/revela design new <name>\`   — create a custom design with AI\n` +
-    `\`/revela design edit <name>\`  — refine an existing custom design with AI\n` +
-    `\`/revela design preview [name]\` — open a design preview in browser\n` +
-    `\`/revela designs\`             — list installed designs\n` +
-    `\`/revela designs <name>\`      — activate a design\n` +
-    `\`/revela designs-new <name>\`  — create a new custom design with AI\n` +
-    `\`/revela designs-edit <name>\` — refine an existing custom design with AI\n` +
-    `\`/revela designs-preview [name]\` — open a design preview in browser\n` +
-    `\`/revela domains\`             — list installed domains\n` +
-    `\`/revela domains <name>\`      — activate a domain\n` +
-    `\`/revela designs-add <url>\`   — install a design from URL / github:user/repo\n` +
-    `\`/revela domains-add <url>\`   — install a domain from URL / github:user/repo\n` +
-    `\`/revela designs-rm <name>\`   — remove an installed design\n` +
-    `\`/revela domains-rm <name>\`   — remove an installed domain\n` +
-    `\`/revela pdf <file>\`          — export HTML slide deck to PDF\n` +
-    `\`/revela pptx [file] [--notes]\` — export HTML slide deck to PPTX`
+    `\`/revela\`                                      — show REVELA help\n` +
+    `\`/revela init\`                                 — initialize or refresh workspace story state\n` +
+    `\`/revela research\`                             — research, bind evidence, and reduce story gaps\n` +
+    `\`/revela story [-l language]\`                   — open the read-only story workspace UI\n` +
+    `\`/revela make --deck\`                          — make a deck from approved story state\n` +
+    `\`/revela make --brief [file.md]\`                — render executive brief from approved story\n` +
+    `\`/revela refine --deck\`                        — open deck reading, inspection, and editing workspace\n` +
+    `\`/revela export --deck pdf [file.html]\`         — export HTML deck to PDF\n` +
+    `\`/revela export --deck pptx [file.html] [--notes]\` — export HTML deck to PPTX\n` +
+    `\`/revela design\`                               — list installed designs\n` +
+    `\`/revela design --use <name>\`                  — activate a design\n` +
+    `\`/revela design --preview [name]\`              — open a design preview in browser\n` +
+    `\`/revela design --new <name>\`                  — create a custom design with AI\n` +
+    `\`/revela design --edit <name>\`                 — refine an existing custom design with AI\n` +
+    `\`/revela design --add <source>\`                — install a design from URL / github:user/repo / local path\n` +
+    `\`/revela design --rm <name>\`                   — remove an installed design\n` +
+    `\`/revela domain\`                               — list installed domains\n` +
+    `\`/revela domain --use <name>\`                  — activate a domain\n` +
+    `\`/revela domain --add <source>\`                — install a domain from URL / github:user/repo / local path\n` +
+    `\`/revela domain --rm <name>\`                   — remove an installed domain`
   )
 }

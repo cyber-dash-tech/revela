@@ -12,7 +12,7 @@ export type ParseBriefArgsResult = { ok: true; args: BriefArgs } | { ok: false; 
 export function parseBriefArgs(input: string): ParseBriefArgsResult {
   const value = input.trim()
   if (!value) return { ok: true, args: {} }
-  if (value.startsWith("--")) return { ok: false, error: "Usage: `/revela brief [workspace-relative-output.md]`" }
+  if (value.startsWith("--")) return { ok: false, error: "Usage: `/revela make --brief [workspace-relative-output.md]`" }
   if (!value.endsWith(".md")) return { ok: false, error: "Executive brief output must be a Markdown file ending in `.md`." }
   if (isAbsolute(value) || value.split(/[\\/]+/).includes("..")) return { ok: false, error: "Executive brief output must be a safe workspace-relative path." }
   return { ok: true, args: { outputPath: normalize(value).replace(/\\/g, "/") } }

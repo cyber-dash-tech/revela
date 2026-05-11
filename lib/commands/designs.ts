@@ -2,10 +2,10 @@
  * lib/commands/designs.ts
  *
  * Handlers for design-related sub-commands:
- *   /revela designs             — list installed designs
- *   /revela designs <name>      — activate a design
- *   /revela designs-add <url>   — install a design from URL / github:user/repo / local path
- *   /revela designs-rm <name>   — remove an installed design
+ *   /revela design              — list installed designs
+ *   /revela design --use <name> — activate a design
+ *   /revela design --add <url>  — install a design from URL / github:user/repo / local path
+ *   /revela design --rm <name>  — remove an installed design
  */
 
 import { listDesigns, activeDesign, activateDesign, installDesign, removeDesign } from "../design/designs"
@@ -17,7 +17,7 @@ export async function handleDesignsList(
   const designs = listDesigns()
   const current = activeDesign()
   if (!designs.length) {
-    await send(`No designs installed. Use \`/revela designs-add <url>\` to install one.`)
+    await send(`No designs installed. Use \`/revela design --add <url>\` to install one.`)
     return
   }
   const lines = designs.map((d) => {
@@ -36,7 +36,7 @@ export async function handleDesignsActivate(
   try {
     activateDesign(name)
     buildPrompt({ mode: "narrative" })
-    await send(`**Design activated:** \`${name}\`\nNarrative prompt rebuilt. The design will apply when \`/revela make deck\` enters deck-render mode.`)
+    await send(`**Design activated:** \`${name}\`\nNarrative prompt rebuilt. The design will apply when \`/revela make --deck\` enters deck-render mode.`)
   } catch (e: any) {
     await send(`**Error:** ${e.message}`)
   }
@@ -47,13 +47,13 @@ export async function handleDesignsAdd(
   send: (text: string) => Promise<void>,
 ): Promise<void> {
   if (!source) {
-    await send(`**Usage:** \`/revela designs-add <url|github:user/repo|local-path>\``)
+    await send(`**Usage:** \`/revela design --add <url|github:user/repo|local-path>\``)
     return
   }
   try {
     await send(`Installing design from \`${source}\`…`)
     const name = await installDesign(source)
-    await send(`**Design installed:** \`${name}\`\nUse \`/revela designs ${name}\` to activate it.`)
+    await send(`**Design installed:** \`${name}\`\nUse \`/revela design --use ${name}\` to activate it.`)
   } catch (e: any) {
     await send(`**Install failed:** ${e.message}`)
   }
@@ -64,7 +64,7 @@ export async function handleDesignsRemove(
   send: (text: string) => Promise<void>,
 ): Promise<void> {
   if (!name) {
-    await send(`**Usage:** \`/revela designs-rm <name>\``)
+    await send(`**Usage:** \`/revela design --rm <name>\``)
     return
   }
   try {

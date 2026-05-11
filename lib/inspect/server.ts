@@ -484,7 +484,7 @@ export function renderInspectorShell(token: string): string {
     <aside>
       <div>
         <h1>Evidence Inspector</h1>
-        <p class="hint">Cmd/Ctrl-click slide elements to attach them as references, exactly like /revela edit. Then click <b>Inspect Selection</b>. This is not chat.</p>
+        <p class="hint">Cmd/Ctrl-click slide elements to attach them as references in /revela refine --deck. Then click <b>Inspect Selection</b>. This is not chat.</p>
       </div>
       <div id="selection" class="selection">
         <strong>Selection</strong>
@@ -632,7 +632,7 @@ export function renderInspectorShell(token: string): string {
         if (bindAttempts >= 80) {
           clearInterval(bindTimer);
           bindTimer = 0;
-          setBindingStatus('error', 'Selection binding timed out. Reopen /revela inspect or reload this page.');
+          setBindingStatus('error', 'Selection binding timed out. Reopen /revela refine --deck or reload this page.');
         }
       }, 150);
     }

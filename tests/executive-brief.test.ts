@@ -71,7 +71,7 @@ describe("executive brief render target", () => {
     expect(result.ok).toBe(true)
   })
 
-  it("handles /revela brief by writing markdown and DECKS render target", async () => {
+  it("handles /revela make --brief by writing markdown and DECKS render target", async () => {
     const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-executive-brief-"))
     writeDecksState(workspaceRoot, executiveBriefState({ approved: true }))
     const messages: string[] = []

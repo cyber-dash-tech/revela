@@ -17,7 +17,7 @@ Goal:
 - Build or update ${DECKS_STATE_FILE}, the workspace-level machine-readable state file for Revela narrative and artifact work.
 - Use the \`revela-decks\` tool for state updates. Do not write or patch ${DECKS_STATE_FILE} directly.
 - Capture stable narrative context first: primary audience, belief before, belief after, decision/action, thesis, central claims, evidence availability, objections, risks, available source materials, existing artifact history, and open questions.
-- Do not treat initialization as permission to write a deck. Narrative readiness is reviewed later by \`/revela story\`; deck/artifact readiness is reviewed by \`/revela make deck --review\`.
+- Do not treat initialization as permission to write a deck. Narrative readiness is reviewed later by \`/revela story\`; deck/artifact readiness is handled by \`/revela make --deck\` after story approval and deck-plan confirmation.
 - Do not require slide count, visual style, design selection, output path, layout choices, or component choices during narrative initialization unless the user explicitly asks to render a deck now.
 - ${DECKS_STATE_FILE} is the compatibility workspace-state file. Deck specs are render-target projections, not the center of initialization.
 

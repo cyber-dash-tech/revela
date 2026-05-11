@@ -34,7 +34,7 @@ export function parseStoryArgs(param: string): ParseStoryArgsResult {
     if (token.startsWith("--language=")) {
       return { ok: false, error: "Usage: `/revela story --language <language>` or `/revela story -l <language>`. Do not use `--language=<language>`." }
     }
-    return { ok: false, error: "Usage: `/revela story [--language <language> | -l <language>]`. Use `/revela review` for a readiness report." }
+    return { ok: false, error: "Usage: `/revela story [--language <language> | -l <language>]`." }
   }
 
   return { ok: true, args: { language } }
@@ -130,9 +130,9 @@ export function buildNarrativeViewPrompt(options: { workspaceRoot: string; langu
   return `Prepare the read-only Revela narrative UI display model.
 
 Target language request: ${options.language}
-- The language value is passed from the user's /revela narrative arguments. Interpret it as the desired UI/display language.
+- The language value is passed from the user's /revela story arguments. Interpret it as the desired UI/display language.
 - Examples: --cn maps to zh-CN, --jp maps to ja-JP, while --fr, --de, --es, --ko, --Arabic, --Portuguese-BR, or a written language name should be localized normally into that requested language.
-- Default /revela narrative language is en when the user provides no language request.
+- Default /revela story language is en when the user provides no language request.
 
 You must call the \`revela-narrative-view\` tool exactly once.
 

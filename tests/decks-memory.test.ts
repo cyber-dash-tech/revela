@@ -125,7 +125,7 @@ describe("review command", () => {
     expect(prompt).toContain("ready_for_approval")
     expect(prompt).toContain("approved")
     expect(prompt).toContain("render override")
-    expect(prompt).toContain("/revela make deck --review")
+    expect(prompt).toContain("/revela make --deck")
     expect(prompt).toContain("Do not write or overwrite `decks/*.html`")
   })
 
@@ -133,7 +133,7 @@ describe("review command", () => {
     const prompt = buildDeckReviewPrompt({ exists: true })
     expect(prompt).toContain("Review Revela deck/artifact write readiness")
     expect(prompt).toContain("artifact gate")
-    expect(prompt).toContain("Narrative readiness reports are reviewed by `/revela review`")
+    expect(prompt).toContain("Narrative readiness is reviewed through `/revela story`")
     expect(prompt).toContain("writeReadiness")
     expect(prompt).toContain("evidence and Narrative Compiler readiness review")
     expect(prompt).toContain("unsupported numbers")

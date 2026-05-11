@@ -13,7 +13,7 @@ export function createEditTool(options: { client: any; workspaceRoot: string; op
       "Open Revela Refine in Edit mode for an existing slide deck. " +
       "Use this when the user asks to edit, revise, annotate, or visually comment on a deck, " +
       "including when they reference the current deck. " +
-      "This is a compatibility tool for the older edit-only workflow; the user-facing entry is /revela refine. " +
+      "This is a compatibility tool for the older edit-only workflow; the user-facing entry is /revela refine --deck. " +
       "It opens a local browser workspace where the user can Ctrl/Cmd-click deck elements, use the Edit tab, " +
       "and send precise edit requests back to the current OpenCode session.",
     args: {},
