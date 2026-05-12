@@ -3,5 +3,5 @@ export async function handleEdit(
   send: (text: string) => Promise<void>,
 ): Promise<void> {
   void options
-  await send("`/revela edit` has been removed. Use `/revela refine --deck` for the unified reading, inspection, and editing workspace.")
+  await send("`/revela edit` has been removed. Use `/revela review --deck` and the Comment tab for the unified deck review workspace.")
 }

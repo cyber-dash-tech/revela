@@ -84,7 +84,7 @@ function inferSlides(filePath: string): SlideSpec[] {
       evidence: [],
       visuals: [],
       status: "ready",
-      notes: "Inferred automatically by /revela refine --deck preflight.",
+      notes: "Inferred automatically by /revela review --deck preflight.",
     }
   })
 }

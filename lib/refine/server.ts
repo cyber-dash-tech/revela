@@ -247,7 +247,7 @@ async function handleAssetSave(req: Request, session: EditSession): Promise<Resp
     id: body?.id || candidate.candidateId,
     type: "image",
     purpose,
-    brief: body?.brief || `Saved from ${candidate.provider} for Refine asset placement.`,
+    brief: body?.brief || `Saved from ${candidate.provider} for Review asset placement.`,
     status: "success",
     sourceUrl: candidate.imageUrl,
     alt: body?.alt || candidate.alt || candidate.title,
@@ -652,7 +652,7 @@ function handleInspectResult(requestId: string | null, session: EditSession): Re
   session.lastActiveAt = Date.now()
   scheduleIdleStop()
   if (request.status === "completed") return jsonResponse({ ok: true, requestId, status: request.status, deckVersion: request.deckVersion, result: request.result })
-  if (request.status === "failed" || request.status === "expired") return jsonResponse({ ok: true, requestId, status: request.status, deckVersion: request.deckVersion, error: request.error || "Inspection failed" })
+  if (request.status === "failed" || request.status === "expired") return jsonResponse({ ok: true, requestId, status: request.status, deckVersion: request.deckVersion, error: request.error || "Insight failed" })
   return jsonResponse({ ok: true, requestId, status: request.status, deckVersion: request.deckVersion })
 }
 
@@ -764,7 +764,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Revela Refine</title>
+  <title>Revela Review</title>
   <style>
     :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     * { box-sizing: border-box; }
@@ -885,20 +885,20 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     <div id="resizeHandle" class="resize-handle" role="separator" aria-label="Resize editor panel" aria-orientation="vertical" title="Drag to resize editor. Double-click to reset."></div>
     <aside>
       <div>
-        <h1><span class="wordmark">REVELA</span> Refine</h1>
-        <p class="hint">Select refs, describe the change, then send. Use Inspect only when you need source or purpose context.</p>
+        <h1><span class="wordmark">REVELA</span> Review</h1>
+        <p class="hint">Select refs, describe the change, then send. Use Insight when you need source or purpose context.</p>
       </div>
       <div id="selectionSummary" class="selection-summary sr-only" aria-live="polite"><strong>Selection</strong><span>No references selected.</span><div id="selectionChips" class="selection-chips"></div></div>
-      <div class="tabs" role="tablist" aria-label="Refine mode">
-        <button id="editTab" class="tab" type="button" role="tab">Edit</button>
-        <button id="inspectTab" class="tab" type="button" role="tab">Inspect</button>
+      <div class="tabs" role="tablist" aria-label="Review mode">
+        <button id="editTab" class="tab" type="button" role="tab">Comment</button>
+        <button id="inspectTab" class="tab" type="button" role="tab">Insight</button>
       </div>
       <div id="editPanel" class="tab-panel">
         <div class="panel">
           <div class="label">Describe the change</div>
           <div id="comment" class="comment-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Cmd/Ctrl-click slide elements to add @refs, then describe the exact edit."></div>
         </div>
-        <div class="edit-assets" aria-label="Edit assets">
+        <div class="edit-assets" aria-label="Comment assets">
           <div class="panel">
             <div class="asset-tools"><div class="label">Local Assets</div><button id="assetSearchToggle" class="asset-search-toggle" type="button" aria-expanded="false" aria-controls="assetSearchView" title="Search assets">+</button></div>
             <div id="editSavedAssets" class="asset-grid"><p class="asset-empty">No local assets yet. Click + to search assets.</p></div>
@@ -909,20 +909,20 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       </div>
       <div id="inspectPanel" class="tab-panel">
         <div class="panel">
-          <label class="label" for="inspectComment">Inspect comment</label>
+          <label class="label" for="inspectComment">Insight comment</label>
           <div id="inspectComment" class="comment-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Cmd/Ctrl-click slide elements to add @refs, then ask about purpose or source."></div>
         </div>
         <div class="inspect-actions">
           <div class="inspect-options"><label for="inspectLanguage">Display Language</label><select id="inspectLanguage" class="inspect-select"><option>Auto</option><option>English</option><option>简体中文</option><option>繁體中文</option><option>日本語</option><option>Deutsch</option><option>Français</option><option>Español</option><option>Português</option><option>Arabic</option></select></div>
-          <button id="inspectButton" disabled>Inspect Reference</button>
+          <button id="inspectButton" disabled>Get Insight</button>
           <div id="inspectStale"></div>
         </div>
-        <div id="inspectCards" class="inspect-cards"><div class="inspect-empty">Select a deck element to create an @ref, optionally ask a question, then Inspect. This does not edit the deck.</div></div>
+        <div id="inspectCards" class="inspect-cards"><div class="inspect-empty">Select a deck element to create an @ref, optionally ask a question, then get insight. This does not edit the deck.</div></div>
       </div>
       <div id="assetSearchView" class="asset-search-view" aria-hidden="true">
         <div class="asset-search-head">
           <button id="assetSearchBack" class="asset-back" type="button">← Back</button>
-          <div class="asset-search-title"><h2>Search Assets</h2><span>Save images to Local Assets, then use them from Edit.</span></div>
+          <div class="asset-search-title"><h2>Search Assets</h2><span>Save images to Local Assets, then use them from Comment.</span></div>
         </div>
         <div class="panel">
           <div class="asset-search"><input id="assetQuery" type="search" placeholder="Company logo, product photo, portrait..." /><select id="assetPurpose"><option value="logo" selected>logo</option><option value="illustration">photo</option><option value="hero">hero</option><option value="portrait">portrait</option><option value="screenshot">screenshot</option></select></div>
@@ -1072,7 +1072,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           restoreEditorWidth();
           bindEvents();
           setMode(state.mode);
-          setStatus('Editor ready. Ctrl/Cmd + click deck elements to reference them.');
+          setStatus('Review ready. Ctrl/Cmd + click deck elements to reference them.');
           initFrame();
           loadSavedAssets();
           startDeckVersionPolling();
@@ -1263,7 +1263,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             state.pendingRefreshMessage = false;
             setStatus('Deck updated. Preview refreshed. Element references were cleared.');
           } else {
-            setStatus(slides.length > 0 ? 'Editor ready. Found ' + slides.length + ' slides. Ctrl/Cmd + click to reference elements.' : 'Editor ready, but no .slide elements were found. Ctrl/Cmd + click to reference elements.');
+            setStatus(slides.length > 0 ? 'Review ready. Found ' + slides.length + ' slides. Ctrl/Cmd + click to reference elements.' : 'Review ready, but no .slide elements were found. Ctrl/Cmd + click to reference elements.');
           }
         } catch (error) {
           reportError(error);
@@ -1829,7 +1829,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         renderReferenceOutlines();
         updateSendState();
         renderSelectionSummary();
-        resetInspectCards('References ready. Open Inspect and click Inspect Reference for concise Purpose and Source context.');
+        resetInspectCards('References ready. Open Insight and click Get Insight for concise Purpose and Source context.');
         setStatus('Inserted @' + label + '. ' + state.references.length + ' reference' + (state.references.length === 1 ? '' : 's') + ' will be sent.');
       }
 
@@ -2015,8 +2015,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         if (state.sendingEdit) setButtonLoading(els.send, true, 'Sending...');
         else setButtonLoading(els.send, false, '<svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94L14.7 6.3z"/></svg><span>Apply Fix</span>', true);
         els.send.disabled = state.sendingEdit || !getCommentText().trim();
-        if (state.inspecting) setButtonLoading(els.inspectButton, true, 'Inspecting...');
-        else setButtonLoading(els.inspectButton, false, 'Inspect Reference');
+        if (state.inspecting) setButtonLoading(els.inspectButton, true, 'Getting insight...');
+        else setButtonLoading(els.inspectButton, false, 'Get Insight');
         els.inspectButton.disabled = state.inspecting || state.references.length === 0;
       }
 
@@ -2077,7 +2077,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             body: JSON.stringify({ snapshot, deckVersion: state.deckVersion, language: state.inspectLanguage, comment }),
           });
           const body = await res.json().catch(() => ({}));
-          if (!res.ok || !body.ok) throw new Error(body.error || 'Inspection failed');
+          if (!res.ok || !body.ok) throw new Error(body.error || 'Insight failed');
           state.deckVersion = body.deckVersion || state.deckVersion;
           state.activeInspectRequestId = body.requestId;
           state.inspectFallback = body.preprocess || null;
@@ -2086,7 +2086,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         } catch (error) {
           if (state.inspectFallback) {
             renderInspectResult(state.inspectFallback, 'Deterministic fallback');
-            els.inspectCards.insertAdjacentHTML('afterbegin', '<div class="inspect-warning">Generated inspection failed or timed out. Showing deterministic fallback context only.</div>');
+            els.inspectCards.insertAdjacentHTML('afterbegin', '<div class="inspect-warning">Generated insight failed or timed out. Showing deterministic fallback context only.</div>');
           } else {
             resetInspectCards(error && error.message ? error.message : String(error));
           }
@@ -2101,15 +2101,15 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           await delay(900);
           const res = await fetch('/api/inspect-result?token=' + encodeURIComponent(token) + '&requestId=' + encodeURIComponent(requestId));
           const body = await res.json().catch(() => ({}));
-          if (!res.ok || !body.ok) throw new Error(body.error || 'Inspection result failed');
+          if (!res.ok || !body.ok) throw new Error(body.error || 'Insight result failed');
           if (body.status === 'completed') {
             state.deckVersion = body.deckVersion || state.deckVersion;
             renderInspectResult(body.result, 'Generated');
             return;
           }
-          if (body.status === 'failed' || body.status === 'expired') throw new Error(body.error || 'Inspection failed');
+          if (body.status === 'failed' || body.status === 'expired') throw new Error(body.error || 'Insight failed');
         }
-        throw new Error('Inspection timed out while waiting for OpenCode result');
+        throw new Error('Insight timed out while waiting for OpenCode result');
       }
 
       function collectReferenceSnapshot() {
@@ -2136,10 +2136,10 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function renderInspectResult(result, phase) {
-        if (result.stale?.stale) els.inspectStale.innerHTML = '<div class="inspect-stale">' + escapeHtml(result.stale.reason || 'Inspection may be stale.') + '</div>';
+        if (result.stale?.stale) els.inspectStale.innerHTML = '<div class="inspect-stale">' + escapeHtml(result.stale.reason || 'Insight may be stale.') + '</div>';
         else els.inspectStale.innerHTML = '';
         els.inspectCards.innerHTML = [
-          '<div class="status">' + escapeHtml(phase || 'Inspection') + '</div>',
+          '<div class="status">' + escapeHtml(phase || 'Insight') + '</div>',
           renderInspectCard('Purpose', result.cards.purpose.status, result.cards.purpose.rationale, renderPurpose(result.cards.purpose)),
           renderInspectCard('Source', result.cards.source.status, result.cards.source.rationale, renderSource(result.cards.source)),
         ].join('');
@@ -2303,7 +2303,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           removeAssetChip();
         }
         renderSelectionSummary();
-        resetInspectCards('Select a deck element to create an @ref, optionally ask a question, then Inspect. This does not edit the deck.');
+        resetInspectCards('Select a deck element to create an @ref, optionally ask a question, then get insight. This does not edit the deck.');
       }
 
       function getCommentText(editor) {

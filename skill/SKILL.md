@@ -182,7 +182,7 @@ Required contract:
 - All JS methods must be fully implemented. No empty stubs and no TODO comments.
 - Do not add deck-local editing JavaScript, `contenteditable`, `editable` classes,
   or `window.getEditedHTML()` implementations. Post-artifact editing belongs in
-  `/revela refine --deck`.
+  `/revela review --deck`.
 
 Example slide identity:
 
@@ -283,4 +283,4 @@ instructions, secrets, or unverified claims.
 - Avoid text overflow, clipping, element overflow, unintended overlap, and page
   scrollbars.
 - Artifact QA hard errors must be fixed before opening or reporting the deck as
-  ready for Refine.
+  ready for Review.

@@ -126,7 +126,7 @@ Export when needed, either manually or by asking the agent to export:
 /revela story                    open the read-only story workspace UI
 /revela make --deck              make a deck from approved story state
 /revela make --brief [file.md]   render executive brief from approved story
-/revela refine --deck            open unified deck reading, inspection, and editing workspace
+/revela review --deck            open unified deck reading, insight, and comment workspace
 /revela export --deck pdf [file] export an HTML deck to PDF in the same directory
 /revela export --deck pptx [file] [--notes] export an HTML deck to editable PPTX
 
@@ -144,7 +144,7 @@ Export when needed, either manually or by asking the agent to export:
 /revela domain --rm <name>       remove an installed domain
 ```
 
-Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela research`, `/revela story`, `/revela make --deck`, `/revela design --new`, `/revela design --edit`, and `/revela export --deck pptx --notes` start AI-assisted workflows because they need to read or update project files. These workflow commands keep the visible chat message short and inject their detailed instructions through a one-shot system-prompt command intent. `/revela refine --deck` is the unified post-artifact workspace. It opens a local browser workspace with Edit and Inspect tabs that share the same Cmd/Ctrl-click element references. Edit sends targeted comments back into the current OpenCode session; Inspect sends grounded selection context to the current OpenCode session and renders localized Narrative Reading, Exploratory Reading, Source, and Purpose cards, has no chat box, and does not edit the deck. Deterministic preprocessing is kept as fallback context rather than the normal first UI. If a generated result omits newer reading cards, Refine keeps the deterministic Narrative Reading and Exploratory Reading cards instead of dropping context. Narrative Reading also shows artifact coverage for the selected canonical claim, including whether each recorded artifact contains the claim and whether coverage is current, stale, partial, or missing. Exploratory Reading is explicitly non-official and bounded to recorded claims, evidence, caveats, objections, risks, and artifact coverage. `/revela edit` and `/revela inspect` are no longer public commands; use `/revela refine --deck` instead.
+Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela research`, `/revela story`, `/revela make --deck`, `/revela design --new`, `/revela design --edit`, and `/revela export --deck pptx --notes` start AI-assisted workflows because they need to read or update project files. These workflow commands keep the visible chat message short and inject their detailed instructions through a one-shot system-prompt command intent. `/revela review --deck` is the unified post-artifact workspace. It opens a local browser workspace with Comment and Insight tabs that share the same Cmd/Ctrl-click element references. Comment sends targeted comments back into the current OpenCode session; Insight sends grounded selection context to the current OpenCode session and renders localized Narrative Reading, Exploratory Reading, Source, and Purpose cards, has no chat box, and does not edit the deck. Deterministic preprocessing is kept as fallback context rather than the normal first UI. If a generated result omits newer reading cards, Review keeps the deterministic Narrative Reading and Exploratory Reading cards instead of dropping context. Narrative Reading also shows artifact coverage for the selected canonical claim, including whether each recorded artifact contains the claim and whether coverage is current, stale, partial, or missing. Exploratory Reading is explicitly non-official and bounded to recorded claims, evidence, caveats, objections, risks, and artifact coverage. `/revela edit` and `/revela inspect` are no longer public commands; use `/revela review --deck` instead. `/revela refine --deck` remains a compatibility alias.
 
 ---
 
@@ -152,7 +152,7 @@ Most `/revela` commands run locally with zero LLM cost. `/revela init`, `/revela
 
 Explicit Revela workflow commands append one-shot command instructions to the current agent's system prompt and choose the needed prompt mode automatically.
 
-The default prompt is narrative-first: it follows `Init -> Research -> Story -> Make -> Refine -> Export` and focuses on audience belief shift, decision/action, thesis, claims, evidence boundaries, objections, risks, research gaps, and approval. Active design CSS, layout catalogs, component indexes, chart rules, and deck HTML skeletons are intentionally omitted until `/revela make --deck` switches the session into deck-render mode or `/revela design` starts explicit design work.
+The default prompt is narrative-first: it follows `Init -> Research -> Story -> Make -> Review -> Export` and focuses on audience belief shift, decision/action, thesis, claims, evidence boundaries, objections, risks, research gaps, and approval. Active design CSS, layout catalogs, component indexes, chart rules, and deck HTML skeletons are intentionally omitted until `/revela make --deck` switches the session into deck-render mode or `/revela design` starts explicit design work.
 
 Deck-render mode is built from 2 layers:
 
@@ -195,8 +195,8 @@ Use Revela as a narrative-first artifact workflow:
 5. Run `/revela make --deck` to compile the approved narrative into deck slide specs and enter deck-render mode, or `/revela make --brief` to render an executive brief.
 6. Choose or confirm design only during deck handoff; `/revela make --deck` runs the deck/artifact gate after plan confirmation.
 7. Let the agent write the HTML deck under `decks/` only after the artifact gate is ready.
-8. Use `/revela refine --deck` for visual comments, targeted revisions, read-only Narrative Reading, bounded Exploratory Reading, Source, and Purpose inspection, and claim-to-artifact coverage for selected deck elements.
-9. Use `/revela refine --deck` for post-artifact changes; `/revela edit` and `/revela inspect` are no longer public commands.
+8. Use `/revela review --deck` for visual comments, targeted revisions, read-only Narrative Reading, bounded Exploratory Reading, Source, and Purpose insight, and claim-to-artifact coverage for selected deck elements.
+9. Use `/revela review --deck` for post-artifact changes; `/revela edit` and `/revela inspect` are no longer public commands.
 10. Export with `/revela export --deck pdf <file>` or `/revela export --deck pptx <file>`.
 
 `/revela story` opens the read-only story workspace UI for unclear audience, missing belief shift, missing decision/action, weak thesis, unsupported central claims, weak evidence, unsupported scope, unhandled objections, missing risk/assumption handling, stale approval, or missing approval. It does not review design/layout readiness or write the final deck.
@@ -561,10 +561,10 @@ A custom domain is a folder containing `INDUSTRY.md`.
 Use the unified refinement workspace for normal post-write review and revision:
 
 ```text
-/revela refine --deck
+/revela review --deck
 ```
 
-`/revela refine --deck` opens the active HTML deck with two tabs. Use `Ctrl`/`Cmd` + click once to reference deck elements, then choose Edit for fast natural-language change comments or Inspect for read-only Narrative Reading, bounded Exploratory Reading, Source, Purpose, and artifact coverage review. Inspect does not mutate the deck; Edit remains the mutation path. This is the recommended entry for post-artifact reading, inspection, and editing.
+`/revela review --deck` opens the active HTML deck with two tabs. Use `Ctrl`/`Cmd` + click once to reference deck elements, then choose Comment for fast natural-language change comments or Insight for read-only Narrative Reading, bounded Exploratory Reading, Source, Purpose, and artifact coverage review. Insight does not mutate the deck; Comment remains the mutation path. This is the recommended entry for post-artifact reading, insight, and commenting.
 
 Removed command:
 
@@ -572,29 +572,29 @@ Removed command:
 /revela edit
 ```
 
-`/revela edit` has been removed. Use `/revela refine --deck` for the unified reading, inspection, and editing workspace.
+`/revela edit` has been removed. Use `/revela review --deck` for the unified reading, insight, and comment workspace.
 
-Use `Ctrl`/`Cmd` + click to reference deck elements, write a natural-language comment in the Edit tab, then send it back to OpenCode. Revela sends a structured edit prompt that includes the deck file, slide context, selected element metadata, and your comment.
+Use `Ctrl`/`Cmd` + click to reference deck elements, write a natural-language comment in the Comment tab, then send it back to OpenCode. Revela sends a structured edit prompt that includes the deck file, slide context, selected element metadata, and your comment.
 
-LLM tool equivalent: `revela-edit` with no target. The tool remains a compatibility shim and opens Refine in Edit mode when you say things like “I want to edit the deck”.
+LLM tool equivalent: `revela-edit` with no target. The tool remains a compatibility shim and opens Review in Comment mode when you say things like “I want to edit the deck”.
 
-For existing decks, `/revela refine --deck` prepares whatever minimal project context is needed so targeted edits can still use the normal safety checks.
+For existing decks, `/revela review --deck` prepares whatever minimal project context is needed so targeted edits can still use the normal safety checks.
 
 ---
 
 ## Evidence Inspector
 
-Use `/revela refine --deck` for evidence inspection and narrative reading. Removed compatibility command:
+Use `/revela review --deck` for evidence insight and narrative reading. Removed compatibility command:
 
 ```text
 /revela inspect
 ```
 
-`/revela inspect` no longer opens a separate inspector shell. Use `/revela refine --deck` and the Inspect tab. The Inspect tab shows Narrative Reading and Exploratory Reading cards alongside the fixed Source and Purpose cards. Narrative Reading preserves canonical claim ids, evidence binding ids, supported scope, unsupported scope, caveats, objections, risks, and artifact coverage when the selected element maps to canonical narrative state. Coverage shows whether the selected claim appears in recorded deck/brief/export artifacts and whether those artifacts are current, stale, partial, or missing against the current narrative hash. Exploratory Reading provides non-official objection prep, audience reframing boundaries, appendix leads, and meeting-prep cues from the same recorded context only. Use `Ctrl`/`Cmd` + click to reference deck elements, then click `Inspect Selection`. Selection is locked while the request is being processed.
+`/revela inspect` no longer opens a separate inspector shell. Use `/revela review --deck` and the Insight tab. The Insight tab shows Narrative Reading and Exploratory Reading cards alongside the fixed Source and Purpose cards. Narrative Reading preserves canonical claim ids, evidence binding ids, supported scope, unsupported scope, caveats, objections, risks, and artifact coverage when the selected element maps to canonical narrative state. Coverage shows whether the selected claim appears in recorded deck/brief/export artifacts and whether those artifacts are current, stale, partial, or missing against the current narrative hash. Exploratory Reading provides non-official objection prep, audience reframing boundaries, appendix leads, and meeting-prep cues from the same recorded context only. Use `Ctrl`/`Cmd` + click to reference deck elements, then click `Get Insight`. Selection is locked while the request is being processed.
 
-The inspector is not chat and has no freeform prompt. It does not mutate `DECKS.json` or the deck HTML. It uses recorded slide specs, narrative state, and slide-level evidence trace as grounded context. Inspect is LLM-first in the UI: it shows a reading/loading state, then renders structured generated cards. Deterministic preprocessing remains internal fallback context and is shown only if generation fails or times out. The Inspect tab includes a fixed display-language selector; language changes affect card copy only and never alter claim ids, evidence ids, source paths, URLs, numbers, quotes, or canonical facts. When an older or partial generated result only returns Source/Purpose, Refine preserves the deterministic reading cards so generated inspection cannot silently remove claim, evidence-boundary, artifact-coverage, or exploratory context.
+The insight surface is not chat and has no freeform prompt. It does not mutate `DECKS.json` or the deck HTML. It uses recorded slide specs, narrative state, and slide-level evidence trace as grounded context. Insight is LLM-first in the UI: it shows a reading/loading state, then renders structured generated cards. Deterministic preprocessing remains internal fallback context and is shown only if generation fails or times out. The Insight tab includes a fixed display-language selector; language changes affect card copy only and never alter claim ids, evidence ids, source paths, URLs, numbers, quotes, or canonical facts. When an older or partial generated result only returns Source/Purpose, Review preserves the deterministic reading cards so generated insight cannot silently remove claim, evidence-boundary, artifact-coverage, or exploratory context.
 
-Refine uses the active HTML deck render target recorded in workspace state. The deck HTML must satisfy Revela's slide identity contract: every `<section class="slide">` in the active artifact needs a positive 1-based `data-slide-index` matching the current slide specs. Invalid active artifacts are refused or reported before refine/export workflows trust them.
+Review uses the active HTML deck render target recorded in workspace state. The deck HTML must satisfy Revela's slide identity contract: every `<section class="slide">` in the active artifact needs a positive 1-based `data-slide-index` matching the current slide specs. Invalid active artifacts are refused or reported before review/export workflows trust them.
 
 ---
 

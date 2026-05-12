@@ -125,7 +125,7 @@ export { default } from "/absolute/path/to/revela/index.ts";
 /revela story                    打开只读 story workspace UI
 /revela make --deck              从已批准 story 生成 deck
 /revela make --brief [file.md]   从已批准 story 渲染 executive brief
-/revela refine --deck            打开统一的 deck 阅读、检查和编辑 workspace
+/revela review --deck            打开统一的 deck 阅读、洞察和评论 workspace
 /revela export --deck pdf [file] 将 HTML deck 导出为同目录 PDF
 /revela export --deck pptx [file] [--notes] 将 HTML deck 导出为可编辑 PPTX
 
@@ -143,7 +143,7 @@ export { default } from "/absolute/path/to/revela/index.ts";
 /revela domain --rm <name>       删除已安装 domain
 ```
 
-大多数 `/revela` 命令都在本地执行，不消耗 LLM token。`/revela init`、`/revela research`、`/revela story`、`/revela make --deck`、`/revela design --new`、`/revela design --edit` 和 `/revela export --deck pptx --notes` 会启动 AI 辅助流程，因为它们需要读取或更新项目状态。这些 workflow command 只在可见聊天里显示短意图，详细内部说明通过一次性的 system-prompt command intent 注入。`/revela refine --deck` 是统一的 post-artifact workspace，会打开一个本地浏览器 workspace，里面有 Edit 和 Inspect 两个 tab，并共享同一套 Cmd/Ctrl-click 元素引用。Edit 会把精准修改评论发回当前 OpenCode 会话；Inspect 会把 grounded selection context 发给当前 OpenCode 会话，并渲染本地化的 Narrative Reading、Exploratory Reading、Source、Purpose 卡片。确定性预处理保留为 fallback context，而不是默认先展示的 UI。如果生成结果缺少较新的 reading 卡片，Refine 会保留确定性 Narrative Reading 和 Exploratory Reading，而不是丢掉这些上下文。Narrative Reading 还会显示所选 canonical claim 的 artifact coverage，包括每个已记录 artifact 是否包含该 claim，以及 coverage 是 current、stale、partial 还是 missing。Exploratory Reading 明确是非官方阅读辅助，只能基于已记录 claim、evidence、caveat、objection、risk 和 artifact coverage。它没有聊天框，也不会修改 deck。`/revela edit` 和 `/revela inspect` 不再是公开命令；请使用 `/revela refine --deck`。
+大多数 `/revela` 命令都在本地执行，不消耗 LLM token。`/revela init`、`/revela research`、`/revela story`、`/revela make --deck`、`/revela design --new`、`/revela design --edit` 和 `/revela export --deck pptx --notes` 会启动 AI 辅助流程，因为它们需要读取或更新项目状态。这些 workflow command 只在可见聊天里显示短意图，详细内部说明通过一次性的 system-prompt command intent 注入。`/revela review --deck` 是统一的 post-artifact workspace，会打开一个本地浏览器 workspace，里面有 Comment 和 Insight 两个 tab，并共享同一套 Cmd/Ctrl-click 元素引用。Comment 会把精准修改评论发回当前 OpenCode 会话；Insight 会把 grounded selection context 发给当前 OpenCode 会话，并渲染本地化的 Narrative Reading、Exploratory Reading、Source、Purpose 卡片。确定性预处理保留为 fallback context，而不是默认先展示的 UI。如果生成结果缺少较新的 reading 卡片，Review 会保留确定性 Narrative Reading 和 Exploratory Reading，而不是丢掉这些上下文。Narrative Reading 还会显示所选 canonical claim 的 artifact coverage，包括每个已记录 artifact 是否包含该 claim，以及 coverage 是 current、stale、partial 还是 missing。Exploratory Reading 明确是非官方阅读辅助，只能基于已记录 claim、evidence、caveat、objection、risk 和 artifact coverage。它没有聊天框，也不会修改 deck。`/revela edit` 和 `/revela inspect` 不再是公开命令；请使用 `/revela review --deck`。`/revela refine --deck` 仍作为兼容 alias 保留。
 
 ---
 
@@ -151,7 +151,7 @@ export { default } from "/absolute/path/to/revela/index.ts";
 
 显式 Revela workflow command 会把一次性 command instructions 追加到当前 agent 的 system prompt 中。你不需要先运行 ambient enable/disable；公开入口都在 `/revela` help 中列出。
 
-默认 prompt 是 narrative-first：它遵循 `Init -> Research -> Story -> Make -> Refine -> Export`，关注受众信念变化、decision/action、thesis、claims、证据边界、objections、risks、research gaps 和 approval。Active design CSS、layout catalog、component index、chart rules 和 deck HTML skeleton 在 `/revela make --deck` 切换到 deck-render mode 或 `/revela design` 进入显式设计工作流前不会注入。
+默认 prompt 是 narrative-first：它遵循 `Init -> Research -> Story -> Make -> Review -> Export`，关注受众信念变化、decision/action、thesis、claims、证据边界、objections、risks、research gaps 和 approval。Active design CSS、layout catalog、component index、chart rules 和 deck HTML skeleton 在 `/revela make --deck` 切换到 deck-render mode 或 `/revela design` 进入显式设计工作流前不会注入。
 
 Deck-render mode 由 2 层组成：
 
@@ -193,8 +193,8 @@ Deck 仍然是主要 authored artifact，但现在它是从同一份 workspace s
 5. 运行 `/revela make --deck`，把已批准 narrative 编译成 deck slide specs 并进入 deck-render mode，或运行 `/revela make --brief` 渲染 executive brief。
 6. 只在 deck handoff 阶段选择或确认 design；`/revela make --deck` 会在 deck plan 确认后运行 deck/artifact gate。
 7. 只有 artifact gate ready 后，才让 agent 把 HTML deck 写到 `decks/` 下。
-8. 用 `/revela refine --deck` 对选中 deck 元素做可视化评论、精准修改、只读 Narrative Reading、有边界的 Exploratory Reading、Source、Purpose 检查，以及 claim-to-artifact coverage 查看。
-9. post-artifact 修改统一使用 `/revela refine --deck`；`/revela edit` 和 `/revela inspect` 不再是公开命令。
+8. 用 `/revela review --deck` 对选中 deck 元素做可视化评论、精准修改、只读 Narrative Reading、有边界的 Exploratory Reading、Source、Purpose 洞察，以及 claim-to-artifact coverage 查看。
+9. post-artifact 修改统一使用 `/revela review --deck`；`/revela edit` 和 `/revela inspect` 不再是公开命令。
 10. 用 `/revela export --deck pdf <file>` 或 `/revela export --deck pptx <file>` 导出。
 
 普通聊天不需要 ambient command。需要 Revela 工作流时，直接运行对应的 `/revela ...` 显式命令。
@@ -527,10 +527,10 @@ Prompt 注入规则：
 正常的写后 review 和修改建议使用统一 refinement workspace：
 
 ```text
-/revela refine --deck
+/revela review --deck
 ```
 
-`/revela refine --deck` 会打开 active HTML deck，并提供两个 tab。使用 `Ctrl`/`Cmd` + click 先引用 deck 元素，然后在 Edit 里快速写自然语言修改评论，或在 Inspect 里做只读 Narrative Reading、有边界的 Exploratory Reading、Source、Purpose 和 artifact coverage 检查。Inspect 不会修改 deck；真正的 mutation 仍然只走 Edit。这是 post-artifact 阅读、检查和编辑的推荐入口。
+`/revela review --deck` 会打开 active HTML deck，并提供两个 tab。使用 `Ctrl`/`Cmd` + click 先引用 deck 元素，然后在 Comment 里快速写自然语言修改评论，或在 Insight 里做只读 Narrative Reading、有边界的 Exploratory Reading、Source、Purpose 和 artifact coverage 检查。Insight 不会修改 deck；真正的 mutation 仍然只走 Comment。这是 post-artifact 阅读、洞察和评论的推荐入口。
 
 已移除命令：
 
@@ -538,29 +538,29 @@ Prompt 注入规则：
 /revela edit
 ```
 
-`/revela edit` 已移除。请使用 `/revela refine --deck` 打开统一的阅读、检查和编辑 workspace。
+`/revela edit` 已移除。请使用 `/revela review --deck` 打开统一的阅读、洞察和评论 workspace。
 
-使用 `Ctrl`/`Cmd` + 点击 deck 元素来引用它们，在 Edit tab 写一段自然语言评论，然后发送回 OpenCode。Revela 会把 deck 文件、slide 上下文、选中元素 metadata 和你的评论整理成结构化 edit prompt。
+使用 `Ctrl`/`Cmd` + 点击 deck 元素来引用它们，在 Comment tab 写一段自然语言评论，然后发送回 OpenCode。Revela 会把 deck 文件、slide 上下文、选中元素 metadata 和你的评论整理成结构化 edit prompt。
 
-对应的 LLM tool：`revela-edit`，不需要 target。这个 tool 仍作为兼容入口保留，当你说“我要编辑这个 deck”时，agent 会打开 Refine 的 Edit mode。
+对应的 LLM tool：`revela-edit`，不需要 target。这个 tool 仍作为兼容入口保留，当你说“我要编辑这个 deck”时，agent 会打开 Review 的 Comment mode。
 
-对于已有 HTML deck，`/revela refine --deck` 会自动准备必要的最小项目上下文，让后续精准修改仍然经过正常安全检查。
+对于已有 HTML deck，`/revela review --deck` 会自动准备必要的最小项目上下文，让后续精准修改仍然经过正常安全检查。
 
 ---
 
 ## Evidence Inspector
 
-用 `/revela refine --deck` 做 evidence inspection 和 narrative reading。已移除的兼容命令：
+用 `/revela review --deck` 做 evidence insight 和 narrative reading。已移除的兼容命令：
 
 ```text
 /revela inspect
 ```
 
-`/revela inspect` 不再打开独立 inspector shell。请使用 `/revela refine --deck` 的 Inspect tab。Inspect tab 会在固定 Source 和 Purpose 卡片之外显示 Narrative Reading 和 Exploratory Reading 卡片。当选中元素能映射到 canonical narrative state 时，Narrative Reading 会保留 canonical claim id、evidence binding id、supported scope、unsupported scope、caveat、objection、risk 和 artifact coverage。Coverage 会显示所选 claim 是否出现在已记录的 deck/brief/export artifact 中，以及这些 artifact 相对当前 narrative hash 是 current、stale、partial 还是 missing。Exploratory Reading 提供非官方的 objection prep、audience reframing 边界、appendix leads 和 meeting-prep cues，并且只能使用同一份已记录 context。使用 `Ctrl`/`Cmd` + click 引用 deck 元素，然后点击 `Inspect Selection`。请求处理期间，deck 选择会被锁定。
+`/revela inspect` 不再打开独立 inspector shell。请使用 `/revela review --deck` 的 Insight tab。Insight tab 会在固定 Source 和 Purpose 卡片之外显示 Narrative Reading 和 Exploratory Reading 卡片。当选中元素能映射到 canonical narrative state 时，Narrative Reading 会保留 canonical claim id、evidence binding id、supported scope、unsupported scope、caveat、objection、risk 和 artifact coverage。Coverage 会显示所选 claim 是否出现在已记录的 deck/brief/export artifact 中，以及这些 artifact 相对当前 narrative hash 是 current、stale、partial 还是 missing。Exploratory Reading 提供非官方的 objection prep、audience reframing 边界、appendix leads 和 meeting-prep cues，并且只能使用同一份已记录 context。使用 `Ctrl`/`Cmd` + click 引用 deck 元素，然后点击 `Get Insight`。请求处理期间，deck 选择会被锁定。
 
-Inspector 不是聊天，也没有自由输入框。它不会修改 `DECKS.json` 或 deck HTML。它使用已记录的 slide spec、narrative state 和 slide-level evidence trace 作为 grounded context。Inspect 的用户界面是 LLM-first：先显示 reading/loading 状态，再渲染结构化生成卡片。确定性预处理仍作为内部 fallback context，仅在生成失败或超时时显示。Inspect tab 提供固定 display-language 下拉选项；语言只影响卡片文案，不会改变 claim id、evidence id、source path、URL、数字、引用或 canonical facts。如果旧版或不完整的生成结果只返回 Source/Purpose，Refine 会保留确定性 reading 卡片，避免 generated inspection 静默移除 claim、evidence boundary、artifact coverage 或 exploratory context。
+Insight 不是聊天，也没有自由输入框。它不会修改 `DECKS.json` 或 deck HTML。它使用已记录的 slide spec、narrative state 和 slide-level evidence trace 作为 grounded context。Insight 的用户界面是 LLM-first：先显示 reading/loading 状态，再渲染结构化生成卡片。确定性预处理仍作为内部 fallback context，仅在生成失败或超时时显示。Insight tab 提供固定 display-language 下拉选项；语言只影响卡片文案，不会改变 claim id、evidence id、source path、URL、数字、引用或 canonical facts。如果旧版或不完整的生成结果只返回 Source/Purpose，Review 会保留确定性 reading 卡片，避免 generated insight 静默移除 claim、evidence boundary、artifact coverage 或 exploratory context。
 
-Refine 会使用 workspace state 中记录的 active HTML deck render target。Deck HTML 必须满足 Revela 的 slide identity contract：active artifact 中每个 `<section class="slide">` 都需要有正数、1-based 的 `data-slide-index`，并且要匹配当前 slide specs。无效的 active artifact 会在 refine/export 工作流信任它之前被拒绝或报告。
+Review 会使用 workspace state 中记录的 active HTML deck render target。Deck HTML 必须满足 Revela 的 slide identity contract：active artifact 中每个 `<section class="slide">` 都需要有正数、1-based 的 `data-slide-index`，并且要匹配当前 slide specs。无效的 active artifact 会在 review/export 工作流信任它之前被拒绝或报告。
 
 ---
 

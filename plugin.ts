@@ -341,11 +341,20 @@ const server: Plugin = (async (pluginCtx) => {
         await send("Usage: `/revela make --deck` or `/revela make --brief [workspace-relative-output.md]`.")
         throw new Error("__REVELA_MAKE_USAGE_HANDLED__")
       }
+      if (sub === "review") {
+        if (param !== "--deck") {
+          await send("Usage: `/revela review --deck`.")
+          throw new Error("__REVELA_REVIEW_USAGE_HANDLED__")
+        }
+        await handleRefine({ client, sessionID, workspaceRoot }, send)
+        throw new Error("__REVELA_REVIEW_HANDLED__")
+      }
       if (sub === "refine") {
         if (param !== "--deck") {
-          await send("Usage: `/revela refine --deck`.")
+          await send("Usage: `/revela review --deck`.")
           throw new Error("__REVELA_REFINE_USAGE_HANDLED__")
         }
+        await send("`/revela refine --deck` is deprecated. Use `/revela review --deck`.")
         await handleRefine({ client, sessionID, workspaceRoot }, send)
         throw new Error("__REVELA_REFINE_HANDLED__")
       }

@@ -102,7 +102,7 @@ Workflow:
 11. Call \`revela-decks\` action \`review\` as the artifact gate. It computes \`writeReadiness\` and review snapshots for deck HTML writing. If it reports \`slide_plan_unconfirmed\`, stop and ask for explicit deck-plan confirmation.
 12. Write \`decks/*.html\` only if the deck/artifact gate is ready and all deck HTML contract requirements can be satisfied. Generate the artifact chapter by chapter instead of drafting all content slides in one broad pass. Keep the HTML file valid after every write, preserve already-written slides, and update one chapter's slide sections at a time.
 13. For each chapter, make every content slide carry a distinct claim, evidence item, comparison, risk, or action. If a chapter lacks enough substance for its allocated slides, merge weak slides or reduce the slide count instead of creating sparse filler.
-14. After each HTML write, the system automatically runs artifact QA before opening Refine. If post-write artifact QA reports hard errors, fix them and let QA run again. Refine opens only after hard errors pass. Density warnings about thin claim/evidence substance should be reported and improved when useful, but they do not block Refine.
+14. After each HTML write, the system automatically runs artifact QA before opening Review. If post-write artifact QA reports hard errors, fix them and let QA run again. Review opens only after hard errors pass. Density warnings about thin claim/evidence substance should be reported and improved when useful, but they do not block Review.
 
 Deck plan report format:
 - Start with \`Deck plan: awaiting confirmation\` when a plan was compiled and has not yet been confirmed.
@@ -141,7 +141,7 @@ Report format before any HTML write after confirmation:
 - Include which user-confirmed plan, approved narrative hash, and deck review snapshot authorized the artifact work.
 - Include the chapter currently being generated and confirm already-written slides are being preserved.
 - If deck/artifact review is blocked, list blockers separately from narrative blockers.
-- After writing HTML, read the appended \`Artifact QA\` report from the tool output. If it failed, fix hard errors before considering the deck ready for Refine.
+- After writing HTML, read the appended \`Artifact QA\` report from the tool output. If it failed, fix hard errors before considering the deck ready for Review.
 
 Rules:
 - \`compileDeckPlan\` is the canonical narrative-to-deck planning path. Do not manually invent slide specs to avoid it.

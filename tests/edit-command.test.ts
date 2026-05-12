@@ -65,7 +65,7 @@ describe("resolveEditableDeck", () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "only-deck.html"), "<html></html>", "utf-8")
 
-    expect(() => resolveEditableDeck(root, "only-deck")).toThrow("/revela refine --deck does not accept a target")
+    expect(() => resolveEditableDeck(root, "only-deck")).toThrow("/revela review --deck does not accept a target")
   })
 
   it("rejects when decks/ has no HTML files", () => {
@@ -520,7 +520,7 @@ describe("revela-edit tool", () => {
     expect(result.mode).toBe("edit")
     expect(result.url).toStartWith("http://127.0.0.1:")
     expect(result.url).toContain("/refine?token=")
-    expect(result.message).toContain("Opened Revela Refine in Edit mode")
+    expect(result.message).toContain("Opened Revela Review in Comment mode")
     expect(result.message).toContain("Ctrl/Cmd")
   })
 

@@ -30,7 +30,7 @@ export async function handleHelp(
     `2. \`research\` — close evidence gaps and bind support\n` +
     `3. \`story\` — inspect audience, thesis, claims, evidence, risks, and approval\n` +
     `4. \`make\` — generate deck or brief from approved story state\n` +
-    `5. \`refine\` — inspect and edit rendered deck artifacts\n` +
+    `5. \`review\` — comment on and inspect rendered deck artifacts\n` +
     `6. \`export\` — export deck artifacts to PDF or PPTX\n\n` +
     `---\n\n` +
     `**Commands**\n\n` +
@@ -40,7 +40,7 @@ export async function handleHelp(
     `\`/revela story [-l language]\`                   — open the read-only story workspace UI\n` +
     `\`/revela make --deck\`                          — make a deck from approved story state\n` +
     `\`/revela make --brief [file.md]\`                — render executive brief from approved story\n` +
-    `\`/revela refine --deck\`                        — open deck reading, inspection, and editing workspace\n` +
+    `\`/revela review --deck\`                        — open deck reading, insight, and comment workspace\n` +
     `\`/revela export --deck pdf [file.html]\`         — export HTML deck to PDF\n` +
     `\`/revela export --deck pptx [file.html] [--notes]\` — export HTML deck to PPTX\n` +
     `\`/revela design\`                               — list installed designs\n` +

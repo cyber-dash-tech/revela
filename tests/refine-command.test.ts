@@ -29,7 +29,7 @@ describe("renderRefineShell", () => {
   it("combines edit comments and narrative reading inspect cards behind tabs", () => {
     const html = renderRefineShell("test-token")
 
-    expect(html).toContain("Revela Refine")
+    expect(html).toContain("Revela Review")
     expect(html).toContain("Select refs, describe the change, then send.")
     expect(html).toContain("background: linear-gradient(180deg, #fbfaf7 0%, #f2eee6 100%)")
     expect(html).toContain("border-left: 1px solid #d8d2c6")
@@ -45,7 +45,7 @@ describe("renderRefineShell", () => {
     expect(html).not.toContain("id=\"assetsTab\"")
     expect(html).not.toContain("id=\"assetsPanel\"")
     expect(html).toContain("Search Assets")
-    expect(html).toContain("aria-label=\"Edit assets\"")
+    expect(html).toContain("aria-label=\"Comment assets\"")
     expect(html).toContain("<div class=\"label\">Local Assets</div>")
     expect(html).toContain("id=\"editSavedAssets\"")
     expect(html).not.toContain("id=\"librarySavedAssets\"")
@@ -55,7 +55,7 @@ describe("renderRefineShell", () => {
     expect(html).toContain("class=\"asset-search-view\"")
     expect(html).toContain("id=\"assetSearchBack\"")
     expect(html).toContain("← Back")
-    expect(html).toContain("Save images to Local Assets, then use them from Edit.")
+    expect(html).toContain("Save images to Local Assets, then use them from Comment.")
     expect(html).toContain("toggleAssetSearchPanel")
     expect(html).toContain("closeAssetSearchPanel")
     expect(html).toContain("setAssetSearchOpen")
@@ -98,14 +98,14 @@ describe("renderRefineShell", () => {
     expect(html).toContain("Activity")
     expect(html).toContain("id=\"selectionSummary\" class=\"selection-summary sr-only\"")
     expect(html.indexOf("id=\"send\"")).toBeLessThan(html.indexOf("id=\"commentThread\""))
-    expect(html).toContain("Inspect Reference")
+    expect(html).toContain("Get Insight")
     expect(html).not.toContain("id=\"inspectRefSummary\"")
     expect(html).not.toContain("id=\"inspectQuestion\"")
     expect(html).toContain("id=\"inspectComment\"")
     expect(html).toContain("class=\"comment-editor\" contenteditable=\"true\"")
-    expect(html).toContain("Inspect comment")
+    expect(html).toContain("Insight comment")
     expect(html).toContain("Cmd/Ctrl-click slide elements to add @refs, then ask about purpose or source.")
-    expect(html).toContain("Select a deck element to create an @ref, optionally ask a question, then Inspect.")
+    expect(html).toContain("Select a deck element to create an @ref, optionally ask a question, then get insight.")
     expect(html).toContain("state.sendingEdit")
     expect(html).toContain("assetSavingIndex")
     expect(html).toContain("Saving to workspace")
@@ -115,7 +115,7 @@ describe("renderRefineShell", () => {
     expect(html).toContain("syncReferencesFromComment(false, els.inspectComment)")
     expect(html).toContain("getCommentText(els.inspectComment)")
     expect(html).toContain("language: state.inspectLanguage, comment")
-    expect(html).toContain("Inspecting...")
+    expect(html).toContain("Getting insight...")
     expect(html).toContain("Searching...")
     expect(html).toContain("Sending...")
     expect(html).toContain("class=\"spinner\"")
@@ -148,7 +148,7 @@ describe("renderRefineShell", () => {
     expect(html).not.toContain("Ask anything")
   })
 
-  it("can default to the Inspect tab", () => {
+  it("can default to the Insight tab", () => {
     const html = renderRefineShell("test-token", "inspect")
 
     expect(html).toContain("const defaultMode = \"inspect\"")
@@ -249,7 +249,7 @@ describe("deprecated refine command shims", () => {
     })
 
     expect(messages[0]).toContain("`/revela edit` has been removed")
-    expect(messages[0]).toContain("/revela refine --deck")
+    expect(messages[0]).toContain("/revela review --deck")
     expect(messages[0]).not.toContain("/refine?token=")
   })
 
@@ -268,7 +268,7 @@ describe("deprecated refine command shims", () => {
     })
 
     expect(messages[0]).toContain("`/revela inspect` is no longer a public command")
-    expect(messages[0]).toContain("/revela refine --deck")
+    expect(messages[0]).toContain("/revela review --deck")
     expect(messages[0]).not.toContain("/refine?token=")
   })
 })

@@ -20,7 +20,7 @@ Use the same phase semantics whether the user invokes a slash command or asks in
 - `Research` runs closed loops to fill open story gaps, bind supported findings into canonical evidence, narrow overbroad claims/relations, and reduce caveats without crossing evidence boundaries.
 - `Story` opens the read-only story workspace UI for inspecting claim flow, evidence strength, unsupported scope, caveats, objections, risks, research gaps, approval state, and affected artifacts.
 - `Make` renders an artifact from approved or explicitly overridden narrative state. Supported 0.15 targets are deck and executive brief.
-- `Refine` is the post-artifact workspace for reading, inspection, and targeted editing. Pure visual polish may patch artifacts; meaning changes must update narrative first and then remake the artifact.
+- `Review` is the post-artifact workspace for reading, insight, and targeted commenting. Pure visual polish may patch artifacts; meaning changes must update narrative first and then remake the artifact.
 
 Public command surface:
 
@@ -29,7 +29,7 @@ Public command surface:
 - `/revela story`
 - `/revela make --deck`
 - `/revela make --brief`
-- `/revela refine --deck`
+- `/revela review --deck`
 - `/revela export --deck pdf`
 - `/revela export --deck pptx`
 - `/revela design`
@@ -115,14 +115,14 @@ For `/revela make --brief`, render the executive brief from canonical narrative 
 
 If story readiness, approval, evidence, or artifact blockers remain, report the blocker and suggest `/revela story`, `/revela research`, or a targeted user answer. Do not bypass with invented state.
 
-## Refine Rules
+## Review Rules
 
-Use `/revela refine --deck` for post-artifact reading, inspection, and editing.
+Use `/revela review --deck` for post-artifact reading, insight, and commenting.
 
 - Reading should explain source, support strength, caveat, unsupported scope, narrative purpose, related risks/objections, research gaps, and artifact coverage.
 - Pure artifact polish may stay artifact-level: layout, typography, spacing, crop, visual hierarchy, export mechanics, and deck contract fixes.
 - Meaning-changing edits must update canonical narrative first, then run story readiness/approval or explicit override, then remake affected artifacts.
-- `/revela edit` and `/revela inspect` have been removed from the public surface; use `/revela refine --deck`.
+- `/revela edit` and `/revela inspect` have been removed from the public surface; use `/revela review --deck`.
 
 ## Design Surface
 

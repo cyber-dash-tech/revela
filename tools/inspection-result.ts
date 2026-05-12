@@ -15,7 +15,7 @@ const evidenceSourceItemSchema = tool.schema.object({
 
 export default tool({
   description:
-    "Submit the final structured Evidence Inspector result for a pending /revela refine --deck Inspect request. " +
+    "Submit the final structured Evidence Inspector result for a pending /revela review --deck Insight request. " +
     "Use only when responding to an inspection prompt. This updates the local browser inspector; it does not mutate DECKS.json or deck files.",
   args: {
     requestId: tool.schema.string().describe("Pending inspection request id from the inspection prompt."),
