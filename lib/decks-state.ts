@@ -8,7 +8,7 @@ import {
   workspaceStatePath,
   writeWorkspaceState,
 } from "./workspace-state/repository"
-import { ensureActiveHtmlDeckRenderTarget } from "./workspace-state/render-targets"
+import { activeHtmlDeckRenderTarget, ensureActiveHtmlDeckRenderTarget } from "./workspace-state/render-targets"
 import {
   activeReviewTargetId,
   appendReviewSnapshot,
@@ -19,6 +19,7 @@ import {
 import { WORKSPACE_STATE_FILE, type RenderTarget, type ReviewSnapshot, type WorkspaceAction } from "./workspace-state/types"
 import { normalizeCanonicalNarrativeState, normalizeNarrativeState } from "./narrative-state/normalize"
 import { computeNarrativeHash } from "./narrative-state/hash"
+import { getArtifactClaimRefs } from "./narrative-state/queries"
 import type { NarrativeStateV1 } from "./narrative-state/types"
 
 export const DECKS_STATE_FILE = WORKSPACE_STATE_FILE
@@ -107,6 +108,13 @@ export interface DeckPlanReview {
   confirmedAt?: string
   confirmedBy?: "user"
   summary?: string
+  qualityChecks?: DeckPlanQualityCheck[]
+}
+
+export interface DeckPlanQualityCheck {
+  id: string
+  status: "pass" | "warning" | "blocker"
+  message: string
 }
 
 export interface NarrativeBrief {
@@ -206,6 +214,24 @@ export interface DeckStateReadinessResult {
   warnings: string[]
   issues: ReadinessIssue[]
   evidenceCandidates?: EvidenceBindingCandidate[]
+  diagnostics?: DeckReadinessDiagnostics
+}
+
+export interface DeckReadinessDiagnostics {
+  planQuality: DeckPlanQualityCheck[]
+  artifactCoverage?: ArtifactCoverageDiagnostic
+  nextActions: string[]
+}
+
+export interface ArtifactCoverageDiagnostic {
+  artifactId?: string
+  outputPath?: string
+  coverageStatus: "current" | "stale" | "partial" | "missing" | "unknown"
+  requiredClaimIds: string[]
+  coveredClaimIds: string[]
+  missingClaimIds: string[]
+  affectedClaimIds: string[]
+  staleReasons: string[]
 }
 
 export type ReadinessSeverity = "blocker" | "warning"
@@ -214,6 +240,8 @@ export type ReadinessIssueType =
   | "missing_required_input"
   | "missing_slide_spec"
   | "slide_plan_unconfirmed"
+  | "plan_quality"
+  | "artifact_coverage"
   | "research_not_ready"
   | "missing_evidence"
   | "weak_evidence"
@@ -444,6 +472,7 @@ export function confirmDeckPlan(state: DecksState, options: ConfirmDeckPlanOptio
     confirmedAt: options.now ?? new Date().toISOString(),
     confirmedBy: options.approvedBy ?? "user",
     summary: cleanOptionalText(options.note),
+    qualityChecks: pending?.qualityChecks,
   }
   deck.requiredInputs = { ...deck.requiredInputs, slidePlanConfirmed: true }
   deck.writeReadiness = { status: "blocked", blockers: [] }
@@ -579,7 +608,7 @@ export function reviewDeckState(state: DecksState, slug?: string, options: Revie
     }
   }
 
-  const issues = computeDeckReadinessIssues(deck, normalized.workspace, {
+  const issues = computeDeckReadinessIssues(normalized, deck, {
     ...options,
     narrativeHash: options.narrativeHash ?? computeNarrativeHash(normalizeNarrativeState(normalized)),
   })
@@ -604,6 +633,7 @@ export function reviewDeckState(state: DecksState, slug?: string, options: Revie
     warnings,
     issues,
     evidenceCandidates,
+    diagnostics: deckReadinessDiagnostics(normalized, deck, issues),
   }
   appendReviewSnapshot(normalized, createReviewSnapshot(normalized, { slug: deck.slug, result, reviewedAt }))
   return {
@@ -639,7 +669,7 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
     }
   }
 
-  const issues = computeDeckReadinessIssues(deck, normalized.workspace, {
+  const issues = computeDeckReadinessIssues(normalized, deck, {
     narrativeHash: computeNarrativeHash(normalizeNarrativeState(normalized)),
   })
   const blockers = issues.filter((issue) => issue.severity === "blocker").map((issue) => issue.message)
@@ -715,6 +745,7 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
     blockers,
     warnings,
     issues,
+    diagnostics: deckReadinessDiagnostics(normalized, deck, issues),
   }
 }
 
@@ -871,7 +902,21 @@ function normalizeDeckPlanReview(input: DeckPlanReview | undefined): DeckPlanRev
     confirmedAt: cleanOptionalText(input.confirmedAt),
     confirmedBy: input.confirmedBy === "user" ? "user" : undefined,
     summary: cleanOptionalText(input.summary),
+    qualityChecks: normalizeDeckPlanQualityChecks(input.qualityChecks),
   }
+}
+
+function normalizeDeckPlanQualityChecks(input: DeckPlanQualityCheck[] | undefined): DeckPlanQualityCheck[] | undefined {
+  if (!Array.isArray(input)) return undefined
+  const checks = input.flatMap((item): DeckPlanQualityCheck[] => {
+    if (!item || typeof item !== "object") return []
+    const id = cleanOptionalText(item.id)
+    const message = cleanOptionalText(item.message)
+    if (!id || !message) return []
+    const status = item.status === "blocker" || item.status === "warning" ? item.status : "pass"
+    return [{ id, status, message }]
+  })
+  return checks.length > 0 ? checks : undefined
 }
 
 function currentDeckKey(state: DecksState): string | undefined {
@@ -887,8 +932,9 @@ function currentDeckBlocker(state: DecksState): string {
   return `${DECKS_STATE_FILE} contains multiple deck records and no activeDeck. Select one current deck explicitly or move extra decks to separate workspaces.`
 }
 
-function computeDeckReadinessIssues(deck: DeckSpec, workspace: DecksState["workspace"], options: ReviewDeckStateOptions = {}): ReadinessIssue[] {
+function computeDeckReadinessIssues(state: DecksState, deck: DeckSpec, options: ReviewDeckStateOptions = {}): ReadinessIssue[] {
   const issues: ReadinessIssue[] = []
+  const workspace = state.workspace
   if (!deck.goal.trim()) issues.push(blockerIssue("missing_slide_spec", "Deck goal is missing", "Set the deck goal through revela-decks upsertDeck."))
   if (!isDeckHtmlPath(deck.outputPath)) {
     issues.push(blockerIssue(
@@ -919,6 +965,8 @@ function computeDeckReadinessIssues(deck: DeckSpec, workspace: DecksState["works
       ))
     }
   }
+  issues.push(...deckPlanQualityIssues(deck))
+  issues.push(...artifactCoverageIssues(state, deck))
   for (const slide of deck.slides) {
     const slideRef = { slideIndex: slide.index, slideTitle: slide.title }
     if (!slide.title.trim()) issues.push(blockerIssue("missing_slide_spec", `Slide ${slide.index} title is missing`, "Add a slide title to the slide spec.", slideRef))
@@ -983,6 +1031,96 @@ function computeDeckReadinessIssues(deck: DeckSpec, workspace: DecksState["works
   }
 
   return issues
+}
+
+function deckPlanQualityIssues(deck: DeckSpec): ReadinessIssue[] {
+  const checks = deck.planReview?.qualityChecks ?? []
+  return checks.flatMap((check): ReadinessIssue[] => {
+    if (check.status === "pass") return []
+    const suggestedAction = check.status === "blocker"
+      ? "Re-run compileDeckPlan or revise the deck projection so the deterministic plan includes Cover, TOC, central claim coverage, compatible components, and Closing/Decision Ask before confirming or writing the deck."
+      : "Keep the stated claim boundaries visible in the plan and rendered artifact; do not stretch partial evidence beyond the supported scope."
+    return [{
+      type: "plan_quality",
+      severity: check.status,
+      message: check.message,
+      suggestedAction,
+    }]
+  })
+}
+
+function artifactCoverageIssues(state: DecksState, deck: DeckSpec): ReadinessIssue[] {
+  const coverage = artifactCoverageDiagnostic(state, deck)
+  if (!coverage) return []
+  const issues: ReadinessIssue[] = []
+  if (coverage.missingClaimIds.length > 0) {
+    issues.push(blockerIssue(
+      "artifact_coverage",
+      `Active deck plan is missing required narrative claims: ${coverage.missingClaimIds.join(", ")}`,
+      "Re-run compileDeckPlan or revise the deck projection so every central or evidence-required claim appears in the planned slides before writing the deck.",
+    ))
+  }
+  if (coverage.coverageStatus === "stale") {
+    issues.push(blockerIssue(
+      "artifact_coverage",
+      `Active deck artifact coverage is stale: ${coverage.staleReasons.join("; ") || "narrative or render target changed"}`,
+      "Re-run /revela make --deck so the deck plan and artifact coverage are regenerated from the current approved narrative state.",
+    ))
+  } else if (coverage.coverageStatus === "partial") {
+    issues.push(warningIssue(
+      "artifact_coverage",
+      `Active deck artifact coverage is partial: ${coverage.affectedClaimIds.join(", ") || "some claims are not fully mapped"}`,
+      "Keep the partial coverage visible in the make report and review the affected claims before exporting or presenting the deck.",
+    ))
+  }
+  return issues
+}
+
+function deckReadinessDiagnostics(state: DecksState, deck: DeckSpec, issues: ReadinessIssue[]): DeckReadinessDiagnostics {
+  const planQuality = deck.planReview?.qualityChecks ?? []
+  const artifactCoverage = artifactCoverageDiagnostic(state, deck)
+  return {
+    planQuality,
+    ...(artifactCoverage ? { artifactCoverage } : {}),
+    nextActions: readinessNextActions(issues, artifactCoverage),
+  }
+}
+
+function artifactCoverageDiagnostic(state: DecksState, deck: DeckSpec): ArtifactCoverageDiagnostic | undefined {
+  const target = activeHtmlDeckRenderTarget(state)
+  const artifact = getArtifactClaimRefs(state).find((item) => item.type === "html_deck" && normalizeDeckPath(item.outputPath ?? "") === normalizeDeckPath(deck.outputPath))
+  const data = target?.data ?? {}
+  const requiredClaimIds = stringArray(data.requiredClaimIds)
+  const coveredClaimIds = stringArray(data.coveredClaimIds)
+  const missingClaimIds = [...new Set([...(artifact?.missingClaimIds ?? []), ...stringArray(data.missingClaimIds)])].sort()
+  const affectedClaimIds = [...new Set([...(artifact?.affectedClaimIds ?? []), ...missingClaimIds])].sort()
+  const staleReasons = artifact?.staleReasons ?? []
+  const coverageStatus = artifact?.coverageStatus ?? (target ? (missingClaimIds.length > 0 ? "missing" : "current") : "unknown")
+  if (!target && !artifact && requiredClaimIds.length === 0 && coveredClaimIds.length === 0 && missingClaimIds.length === 0) return undefined
+  return {
+    artifactId: artifact?.artifactId ?? target?.id,
+    outputPath: artifact?.outputPath ?? target?.outputPath ?? deck.outputPath,
+    coverageStatus,
+    requiredClaimIds: [...new Set([...(artifact?.claimIds ?? []), ...requiredClaimIds, ...missingClaimIds])].filter((id) => requiredClaimIds.length === 0 || requiredClaimIds.includes(id) || missingClaimIds.includes(id)).sort(),
+    coveredClaimIds: [...new Set([...(artifact?.claimIds ?? []), ...coveredClaimIds])].filter((id) => missingClaimIds.length === 0 || !missingClaimIds.includes(id)).sort(),
+    missingClaimIds,
+    affectedClaimIds,
+    staleReasons,
+  }
+}
+
+function readinessNextActions(issues: ReadinessIssue[], coverage?: ArtifactCoverageDiagnostic): string[] {
+  const actions = issues
+    .filter((issue) => issue.severity === "blocker" || issue.type === "plan_quality" || issue.type === "artifact_coverage")
+    .map((issue) => issue.suggestedAction)
+  if (coverage?.missingClaimIds.length) actions.unshift("Review missingClaimIds in artifactCoverage and recompile the deterministic deck plan before writing HTML.")
+  if (coverage?.coverageStatus === "stale") actions.unshift("Regenerate the deck plan from the current narrative before writing or exporting artifacts.")
+  return [...new Set(actions)].slice(0, 5)
+}
+
+function stringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return [...new Set(value.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((item) => item.trim()))].sort()
 }
 
 function findEvidenceBindingCandidates(deck: DeckSpec, slide: SlideSpec, claimText: string, options: ReviewDeckStateOptions): { candidates: EvidenceBindingCandidate[]; search?: EvidenceCandidateSearchDiagnostic } {

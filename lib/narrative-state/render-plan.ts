@@ -17,6 +17,13 @@ export interface CompileDeckPlanResult {
   narrativeHash: string
   slideCount: number
   slides: SlideSpec[]
+  qualityChecks?: DeckPlanQualityCheck[]
+}
+
+export interface DeckPlanQualityCheck {
+  id: string
+  status: "pass" | "warning" | "blocker"
+  message: string
 }
 
 export function compileDeckPlanFromNarrative(state: DecksState, options: CompileDeckPlanOptions = {}): { state: DecksState; result: CompileDeckPlanResult } {
@@ -41,6 +48,8 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
   const deck = deckKey ? state.decks[deckKey] : undefined
   const slug = deck?.slug ?? state.activeDeck ?? "deck"
   const slides = buildSlides(narrative)
+  const qualityChecks = checkPlanQuality(narrative, slides)
+  const planCoverage = deckPlanCoverage(narrative, slides)
   const requiredInputs: Partial<RequiredInputs> = {
     topicClarified: true,
     audienceClarified: Boolean(narrative.audience.primary),
@@ -70,6 +79,7 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
     status: "pending",
     narrativeHash,
     planHash: deckPlanHash(plannedDeck.slides),
+    qualityChecks,
   }
   plannedDeck.requiredInputs = { ...plannedDeck.requiredInputs, slidePlanConfirmed: false }
   plannedDeck.writeReadiness = { status: "blocked", blockers: [] }
@@ -81,6 +91,10 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
       ...(htmlTarget.data ?? {}),
       narrativeId: narrative.id,
       narrativeHash,
+      planQualityChecks: qualityChecks,
+      requiredClaimIds: planCoverage.requiredClaimIds,
+      coveredClaimIds: planCoverage.coveredClaimIds,
+      missingClaimIds: planCoverage.missingClaimIds,
       claimSlideRefs: getClaimSlideRefs(next).map((ref) => ({
         claimId: ref.claimId,
         claimText: ref.claimText,
@@ -95,35 +109,50 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
 
   return {
     state: next,
-    result: {
-      compiled: true,
-      skipped: false,
-      narrativeHash,
-      slideCount: slides.length,
-      slides,
-    },
-  }
+      result: {
+        compiled: true,
+        skipped: false,
+        narrativeHash,
+        slideCount: slides.length,
+        slides,
+        qualityChecks,
+      },
+    }
 }
 
 function buildSlides(narrative: NarrativeStateV1): SlideSpec[] {
   const slides: SlideSpec[] = []
-  const centralClaims = narrative.claims.filter((claim) => claim.importance === "central")
-  const supportingClaims = narrative.claims.filter((claim) => claim.importance !== "central")
-  const evidenceByClaim = new Map<string, NarrativeEvidenceBinding[]>()
-  for (const binding of narrative.evidenceBindings) {
-    const list = evidenceByClaim.get(binding.claimId) ?? []
-    list.push(binding)
-    evidenceByClaim.set(binding.claimId, list)
+  const evidenceByClaim = evidenceBindingsByClaim(narrative.evidenceBindings)
+  const centralClaims = orderedClaims(narrative, (claim) => claim.importance === "central")
+  const supportingClaims = orderedClaims(narrative, (claim) => claim.importance !== "central")
+  const chapters = deriveChapters(narrative, centralClaims, supportingClaims)
+
+  slides.push(coverSlide(slides.length + 1, narrative))
+  slides.push(tocSlide(slides.length + 1, chapters))
+
+  for (const claim of centralClaims) {
+    slides.push(claimSlide(slides.length + 1, claim, evidenceByClaim.get(claim.id) ?? []))
+  }
+  if (supportingClaims.length > 0) slides.push(supportingLogicSlide(slides.length + 1, supportingClaims, evidenceByClaim))
+
+  if (narrative.risks.length > 0 || narrative.objections.length > 0) {
+    slides.push(riskObjectionSlide(slides.length + 1, narrative))
   }
 
-  slides.push({
-    index: slides.length + 1,
+  slides.push(decisionAskSlide(slides.length + 1, narrative))
+
+  return slides
+}
+
+function coverSlide(index: number, narrative: NarrativeStateV1): SlideSpec {
+  return {
+    index,
     title: "Decision Context",
     purpose: "Frame the audience belief shift and decision required before presenting the recommendation.",
     narrativeRole: "context",
     layout: "cover",
     qa: false,
-    components: [],
+    components: ["hero", "text-panel"],
     content: {
       headline: narrative.thesis?.statement || narrative.decision.action || "Narrative context",
       body: [
@@ -134,76 +163,25 @@ function buildSlides(narrative: NarrativeStateV1): SlideSpec[] {
     },
     evidence: [],
     status: "planned",
-  })
-
-  for (const claim of centralClaims) slides.push(claimSlide(slides.length + 1, claim, evidenceByClaim.get(claim.id) ?? []))
-  if (supportingClaims.length > 0) {
-    const supportingBindings = supportingClaims.flatMap((claim) => evidenceByClaim.get(claim.id) ?? [])
-    slides.push({
-      index: slides.length + 1,
-      title: "Supporting Logic",
-      purpose: "Connect supporting claims to the central recommendation without overloading the main proof slides.",
-      narrativeRole: "evidence",
-      layout: "card-grid",
-      qa: true,
-      components: ["card"],
-      claimIds: supportingClaims.map((claim) => claim.id),
-      claimRefs: supportingClaims.map((claim) => ({ claimId: claim.id, role: "supporting" as const })),
-      evidenceBindingIds: supportingBindings.map((binding) => binding.id),
-      content: {
-        headline: "Supporting claims and boundaries",
-        bullets: supportingClaims.slice(0, 5).map((claim) => claim.text),
-      },
-      evidence: supportingBindings.map(evidenceRefFromBinding),
-      status: "planned",
-    })
   }
+}
 
-  if (narrative.risks.length > 0 || narrative.objections.length > 0) {
-    const challengedClaimRefs = [
-      ...narrative.risks.map((risk) => risk.claimId ? { claimId: risk.claimId, role: "risk" as const } : undefined).filter((ref): ref is { claimId: string; role: "risk" } => Boolean(ref)),
-      ...narrative.objections.map((objection) => objection.claimId ? { claimId: objection.claimId, role: "objection" as const } : undefined).filter((ref): ref is { claimId: string; role: "objection" } => Boolean(ref)),
-    ]
-    const challengedClaimIds = [...new Set(challengedClaimRefs.map((ref) => ref.claimId))]
-    slides.push({
-      index: slides.length + 1,
-      title: "Risks And Objections",
-      purpose: "Make caveats and stakeholder objections visible before asking for a decision.",
-      narrativeRole: "risk",
-      layout: "two-col",
-      qa: true,
-      components: ["card"],
-      claimIds: challengedClaimIds,
-      claimRefs: dedupeClaimRefs(challengedClaimRefs),
-      content: {
-        headline: "What could break the recommendation",
-        bullets: [
-          ...narrative.risks.slice(0, 3).map((risk) => risk.mitigation ? `${risk.text} Mitigation: ${risk.mitigation}` : risk.text),
-          ...narrative.objections.slice(0, 3).map((objection) => objection.response ? `${objection.text} Response: ${objection.response}` : objection.text),
-        ],
-      },
-      evidence: [],
-      status: "planned",
-    })
-  }
-
-  slides.push({
-    index: slides.length + 1,
-    title: "Decision Ask",
-    purpose: "Close with the explicit decision or action requested from the audience.",
-    narrativeRole: "ask",
-    layout: "closing",
+function tocSlide(index: number, chapters: string[]): SlideSpec {
+  return {
+    index,
+    title: "Storyline",
+    purpose: "Preview the deterministic chapter structure compiled from the approved narrative state.",
+    narrativeRole: "context",
+    layout: "toc",
     qa: false,
-    components: [],
+    components: ["toc", "text-panel"],
     content: {
-      headline: narrative.decision.action || "Confirm the decision",
-      bullets: narrative.decision.consequenceOfNoDecision ? [`If no decision: ${narrative.decision.consequenceOfNoDecision}`] : [],
+      headline: "How the decision story is organized",
+      bullets: chapters,
     },
     evidence: [],
     status: "planned",
-  })
-
-  return slides
+  }
 }
 
 function claimSlide(index: number, claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): SlideSpec {
@@ -214,17 +192,160 @@ function claimSlide(index: number, claim: NarrativeClaim, bindings: NarrativeEvi
     narrativeRole: claim.kind === "risk" || claim.kind === "assumption" ? "risk" : claim.kind === "ask" ? "ask" : claim.kind === "recommendation" ? "recommendation" : "evidence",
     layout: "two-col",
     qa: true,
-    components: ["card"],
+    components: claimComponents(claim, bindings),
     claimIds: [claim.id],
-    claimRefs: [{ claimId: claim.id, role: "primary" }],
+    claimRefs: [{ claimId: claim.id, role: "primary", note: claimBoundaryNote(claim) }],
     evidenceBindingIds: bindings.map((binding) => binding.id),
     content: {
       headline: claim.text,
-      bullets: [claim.supportedScope, claim.unsupportedScope ? `Unsupported scope: ${claim.unsupportedScope}` : undefined, ...(claim.caveats ?? [])].filter((item): item is string => Boolean(item)),
+      bullets: claimBullets(claim, bindings),
     },
     evidence: bindings.map(evidenceRefFromBinding),
     status: "planned",
   }
+}
+
+function supportingLogicSlide(index: number, claims: NarrativeClaim[], evidenceByClaim: Map<string, NarrativeEvidenceBinding[]>): SlideSpec {
+  const supportingBindings = claims.flatMap((claim) => evidenceByClaim.get(claim.id) ?? [])
+  return {
+    index,
+    title: "Supporting Logic",
+    purpose: "Connect supporting and background claims to the central recommendation without overloading the main proof slides.",
+    narrativeRole: "evidence",
+    layout: "card-grid",
+    qa: true,
+    components: ["box", "text-panel"],
+    claimIds: claims.map((claim) => claim.id),
+    claimRefs: claims.map((claim) => ({ claimId: claim.id, role: "supporting" as const, note: claimBoundaryNote(claim) })),
+    evidenceBindingIds: supportingBindings.map((binding) => binding.id),
+    content: {
+      headline: "Supporting claims and boundaries",
+      bullets: claims.slice(0, 5).flatMap((claim) => [claim.text, ...claimBoundaryBullets(claim)]).slice(0, 8),
+    },
+    evidence: supportingBindings.map(evidenceRefFromBinding),
+    status: "planned",
+  }
+}
+
+function riskObjectionSlide(index: number, narrative: NarrativeStateV1): SlideSpec {
+  const challengedClaimRefs = [
+    ...narrative.risks.map((risk) => risk.claimId ? { claimId: risk.claimId, role: "risk" as const } : undefined).filter((ref): ref is { claimId: string; role: "risk" } => Boolean(ref)),
+    ...narrative.objections.map((objection) => objection.claimId ? { claimId: objection.claimId, role: "objection" as const } : undefined).filter((ref): ref is { claimId: string; role: "objection" } => Boolean(ref)),
+  ]
+  const challengedClaimIds = [...new Set(challengedClaimRefs.map((ref) => ref.claimId))]
+  return {
+    index,
+    title: "Risks And Objections",
+    purpose: "Make caveats and stakeholder objections visible before asking for a decision.",
+    narrativeRole: "risk",
+    layout: "two-col",
+    qa: true,
+    components: ["box", "text-panel"],
+    claimIds: challengedClaimIds,
+    claimRefs: dedupeClaimRefs(challengedClaimRefs),
+    content: {
+      headline: "What could break the recommendation",
+      bullets: [
+        ...narrative.risks.slice(0, 3).map((risk) => risk.mitigation ? `${risk.text} Mitigation: ${risk.mitigation}` : risk.text),
+        ...narrative.objections.slice(0, 3).map((objection) => objection.response ? `${objection.text} Response: ${objection.response}` : objection.text),
+      ],
+    },
+    evidence: [],
+    status: "planned",
+  }
+}
+
+function decisionAskSlide(index: number, narrative: NarrativeStateV1): SlideSpec {
+  const askClaims = orderedClaims(narrative, (claim) => claim.kind === "ask" || claim.kind === "recommendation")
+  return {
+    index,
+    title: "Decision Ask",
+    purpose: "Close with the explicit decision or action requested from the audience.",
+    narrativeRole: "ask",
+    layout: "closing",
+    qa: false,
+    components: ["hero", "text-panel"],
+    claimIds: askClaims.map((claim) => claim.id),
+    claimRefs: askClaims.map((claim) => ({ claimId: claim.id, role: "primary" as const, note: claimBoundaryNote(claim) })),
+    content: {
+      headline: narrative.decision.action || "Confirm the decision",
+      bullets: [
+        narrative.decision.owner ? `Owner: ${narrative.decision.owner}` : undefined,
+        narrative.decision.deadline ? `Deadline: ${narrative.decision.deadline}` : undefined,
+        narrative.decision.consequenceOfNoDecision ? `If no decision: ${narrative.decision.consequenceOfNoDecision}` : undefined,
+      ].filter((item): item is string => Boolean(item)),
+    },
+    evidence: [],
+    status: "planned",
+  }
+}
+
+function evidenceBindingsByClaim(bindings: NarrativeEvidenceBinding[]): Map<string, NarrativeEvidenceBinding[]> {
+  const evidenceByClaim = new Map<string, NarrativeEvidenceBinding[]>()
+  for (const binding of bindings) {
+    const list = evidenceByClaim.get(binding.claimId) ?? []
+    list.push(binding)
+    evidenceByClaim.set(binding.claimId, list)
+  }
+  return evidenceByClaim
+}
+
+function orderedClaims(narrative: NarrativeStateV1, predicate: (claim: NarrativeClaim) => boolean): NarrativeClaim[] {
+  const sourceOrder = new Map(narrative.claims.map((claim, index) => [claim.id, index]))
+  const relationScore = new Map<string, number>()
+  for (const relation of narrative.claimRelations ?? []) {
+    const delta = relation.relation === "leads_to" ? 3 : relation.relation === "supports" ? 2 : relation.relation === "depends_on" || relation.relation === "constrains" ? 1 : 0
+    relationScore.set(relation.toClaimId, (relationScore.get(relation.toClaimId) ?? 0) + delta)
+  }
+  return narrative.claims
+    .filter(predicate)
+    .sort((a, b) => (relationScore.get(b.id) ?? 0) - (relationScore.get(a.id) ?? 0) || (sourceOrder.get(a.id) ?? 0) - (sourceOrder.get(b.id) ?? 0))
+}
+
+function deriveChapters(narrative: NarrativeStateV1, centralClaims: NarrativeClaim[], supportingClaims: NarrativeClaim[]): string[] {
+  const chapters: string[] = []
+  addUnique(chapters, narrative.audience.decisionContext ? "Decision context" : "Context and belief shift")
+  if (hasClaimKind([...centralClaims, ...supportingClaims], ["problem", "opportunity"])) addUnique(chapters, "Tension and opportunity")
+  if (centralClaims.some((claim) => claim.kind === "evidence") || supportingClaims.some((claim) => claim.kind === "evidence")) addUnique(chapters, "Evidence and proof")
+  if (centralClaims.some((claim) => claim.kind === "recommendation" || claim.kind === "ask") || narrative.decision.action) addUnique(chapters, "Recommendation and decision")
+  if (narrative.risks.length > 0 || narrative.objections.length > 0 || centralClaims.some((claim) => claim.unsupportedScope || (claim.caveats ?? []).length > 0)) addUnique(chapters, "Risks and boundaries")
+  addUnique(chapters, "Decision ask")
+  if (chapters.length < 3) addUnique(chapters, "Evidence and proof")
+  return chapters.slice(0, 5)
+}
+
+function addUnique(items: string[], item: string): void {
+  if (!items.includes(item)) items.push(item)
+}
+
+function hasClaimKind(claims: NarrativeClaim[], kinds: NarrativeClaim["kind"][]): boolean {
+  return claims.some((claim) => kinds.includes(claim.kind))
+}
+
+function claimComponents(claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): string[] {
+  if (bindings.some((binding) => binding.quote?.trim())) return ["box", "text-panel", "quote"]
+  if (claim.kind === "recommendation" || claim.kind === "ask") return ["box", "text-panel", "steps"]
+  return ["box", "text-panel"]
+}
+
+function claimBullets(claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): string[] {
+  return [
+    ...claimBoundaryBullets(claim),
+    ...bindings.slice(0, 2).map((binding) => binding.supportScope ? `Evidence supports: ${binding.supportScope}` : undefined),
+  ].filter((item): item is string => Boolean(item))
+}
+
+function claimBoundaryBullets(claim: NarrativeClaim): string[] {
+  return [
+    claim.supportedScope ? `Supported scope: ${claim.supportedScope}` : undefined,
+    claim.unsupportedScope ? `Unsupported scope: ${claim.unsupportedScope}` : undefined,
+    ...(claim.caveats ?? []).map((caveat) => `Caveat: ${caveat}`),
+  ].filter((item): item is string => Boolean(item))
+}
+
+function claimBoundaryNote(claim: NarrativeClaim): string | undefined {
+  const notes = claimBoundaryBullets(claim)
+  return notes.length > 0 ? notes.join(" ") : undefined
 }
 
 function dedupeClaimRefs<T extends { claimId: string; role: "risk" | "objection" }>(refs: T[]): T[] {
@@ -247,6 +368,55 @@ function evidenceRefFromBinding(binding: NarrativeEvidenceBinding): EvidenceRef 
     findingsFile: binding.findingsFile,
     caveat: binding.caveat || binding.unsupportedScope,
   }
+}
+
+function checkPlanQuality(narrative: NarrativeStateV1, slides: SlideSpec[]): DeckPlanQualityCheck[] {
+  const coverage = deckPlanCoverage(narrative, slides)
+  const centralClaimIds = narrative.claims.filter((claim) => claim.importance === "central").map((claim) => claim.id)
+  const missingCentralClaims = centralClaimIds.filter((claimId) => coverage.missingClaimIds.includes(claimId))
+  const incompatibleComponents = [...new Set(slides.flatMap((slide) => slide.components).filter((component) => component === "card"))]
+
+  return [
+    {
+      id: "toc_present",
+      status: slides.some((slide) => slide.components.includes("toc")) ? "pass" : "blocker",
+      message: slides.some((slide) => slide.components.includes("toc")) ? "Deck plan includes a deterministic TOC slide." : "Deck plan is missing a TOC slide.",
+    },
+    {
+      id: "closing_ask_present",
+      status: slides.some((slide) => slide.narrativeRole === "ask" && slide.title === "Decision Ask") ? "pass" : "blocker",
+      message: slides.some((slide) => slide.narrativeRole === "ask" && slide.title === "Decision Ask") ? "Deck plan includes a closing Decision Ask slide." : "Deck plan is missing a closing Decision Ask slide.",
+    },
+    {
+      id: "central_claims_covered",
+      status: missingCentralClaims.length === 0 ? "pass" : "blocker",
+      message: missingCentralClaims.length === 0 ? "All central claims are covered by planned slides." : `Central claims missing from planned slides: ${missingCentralClaims.join(", ")}`,
+    },
+    {
+      id: "unsupported_central_claims_visible",
+      status: narrative.claims.some((claim) => claim.importance === "central" && (claim.unsupportedScope || (claim.caveats ?? []).length > 0)) ? "warning" : "pass",
+      message: narrative.claims.some((claim) => claim.importance === "central" && (claim.unsupportedScope || (claim.caveats ?? []).length > 0)) ? "Central claim boundaries are visible and should remain explicit in the rendered artifact." : "No unsupported central claim boundaries were found.",
+    },
+    {
+      id: "simplified_design_grammar",
+      status: incompatibleComponents.length === 0 ? "pass" : "blocker",
+      message: incompatibleComponents.length === 0 ? "Planned slides use the simplified design grammar." : `Deck plan uses incompatible primary components: ${incompatibleComponents.join(", ")}`,
+    },
+  ]
+}
+
+function deckPlanCoverage(narrative: NarrativeStateV1, slides: SlideSpec[]): { requiredClaimIds: string[]; coveredClaimIds: string[]; missingClaimIds: string[] } {
+  const requiredClaimIds = narrative.claims
+    .filter((claim) => claim.importance === "central" || claim.evidenceRequired)
+    .map((claim) => claim.id)
+    .sort()
+  const required = new Set(requiredClaimIds)
+  const coveredClaimIds = [...new Set(slides.flatMap((slide) => [
+    ...(slide.claimIds ?? []),
+    ...(slide.claimRefs ?? []).map((ref) => ref.claimId),
+  ]).filter((claimId) => required.has(claimId)))].sort()
+  const missingClaimIds = requiredClaimIds.filter((claimId) => !coveredClaimIds.includes(claimId))
+  return { requiredClaimIds, coveredClaimIds, missingClaimIds }
 }
 
 function titleFromClaim(claim: NarrativeClaim): string {

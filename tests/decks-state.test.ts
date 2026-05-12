@@ -141,6 +141,99 @@ describe("DECKS.json state readiness", () => {
     expect(reviewed.result.blocker).toContain("slides are missing")
   })
 
+  it("blocks v2 compiled deck plans with quality check blockers", () => {
+    const state = readyState()
+    state.decks["test-two-page-deck"].planReview!.qualityChecks = [
+      { id: "toc_present", status: "pass", message: "Deck plan includes a deterministic TOC slide." },
+      { id: "simplified_design_grammar", status: "blocker", message: "Deck plan uses incompatible primary components: card" },
+    ]
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(false)
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "plan_quality",
+      severity: "blocker",
+      message: "Deck plan uses incompatible primary components: card",
+    }))
+  })
+
+  it("surfaces v2 compiled deck plan quality warnings without blocking readiness", () => {
+    const state = readyState()
+    state.decks["test-two-page-deck"].planReview!.qualityChecks = [
+      { id: "unsupported_central_claims_visible", status: "warning", message: "Central claim boundaries are visible and should remain explicit in the rendered artifact." },
+    ]
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(true)
+    expect(reviewed.result.warnings).toContain("Central claim boundaries are visible and should remain explicit in the rendered artifact.")
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "plan_quality",
+      severity: "warning",
+    }))
+  })
+
+  it("blocks make readiness when active artifact coverage is missing required claims", () => {
+    const state = readyState()
+    state.renderTargets = [{
+      id: "target:html_deck:decks/test-two-page-deck.html",
+      type: "html_deck",
+      outputPath: "decks/test-two-page-deck.html",
+      sourceNodeIds: [],
+      contractStatus: "unknown",
+      data: {
+        requiredClaimIds: ["claim:required"],
+        coveredClaimIds: [],
+        missingClaimIds: ["claim:required"],
+      },
+    }]
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(false)
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "artifact_coverage",
+      severity: "blocker",
+      message: "Active deck plan is missing required narrative claims: claim:required",
+    }))
+    expect(reviewed.result.diagnostics?.artifactCoverage).toMatchObject({
+      coverageStatus: expect.any(String),
+      missingClaimIds: ["claim:required"],
+    })
+    expect(reviewed.result.diagnostics?.nextActions).toContain("Review missingClaimIds in artifactCoverage and recompile the deterministic deck plan before writing HTML.")
+  })
+
+  it("reports stale artifact coverage as a make readiness blocker", () => {
+    const state = readyState()
+    state.renderTargets = [{
+      id: "target:html_deck:decks/test-two-page-deck.html",
+      type: "html_deck",
+      outputPath: "decks/test-two-page-deck.html",
+      sourceNodeIds: [],
+      contractStatus: "unknown",
+      data: {
+        narrativeHash: "old-hash",
+        requiredClaimIds: [],
+        coveredClaimIds: [],
+        missingClaimIds: [],
+      },
+    }]
+
+    const reviewed = reviewDeckState(state, "test-two-page-deck")
+
+    expect(reviewed.result.ready).toBe(false)
+    expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
+      type: "artifact_coverage",
+      severity: "blocker",
+      message: expect.stringContaining("Active deck artifact coverage is stale"),
+    }))
+    expect(reviewed.result.diagnostics?.artifactCoverage).toMatchObject({
+      coverageStatus: "stale",
+      staleReasons: expect.arrayContaining(["Narrative hash changed after this artifact coverage was recorded."]),
+    })
+  })
+
   it("blocks evidence-sensitive numeric claims without slide evidence", () => {
     let state = readyState()
     state.decks["test-two-page-deck"].slides[1].content.bullets = ["Market grows 25% annually through 2028"]
