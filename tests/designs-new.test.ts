@@ -375,12 +375,13 @@ describe("summit built-in design", () => {
     expect(table).toContain("table-caption source-note")
 
     const toc = parsed.components["toc"] ?? ""
-    expect(toc).toContain("font-size:28px")
-    expect(toc).toContain("font-size:14px")
-    expect(toc).toContain("Keep TOC compact")
-    expect(toc).toContain("background: transparent")
-    expect(toc).not.toContain("background: var(--bg-page)")
-    expect(toc).not.toContain("text-transform:uppercase")
+    expect(toc).toContain("font-size: 46px")
+    expect(toc).toContain("font-size: 14px")
+    expect(toc).toContain("Use generous empty space")
+    expect(toc).toContain("background: var(--bg-page)")
+    expect(toc).toContain("text-transform: uppercase")
+    expect(toc).toContain("justify-content: center")
+    expect(toc).toContain("gap: 42px")
 
     const hero = parsed.components["hero"] ?? ""
     expect(hero).toContain(".image-title h1")

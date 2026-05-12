@@ -4,38 +4,30 @@ import { join } from "path"
 import { RESEARCH_PROMPT } from "../lib/agents/research-prompt"
 import { NARRATIVE_REVIEWER_PROMPT, NARRATIVE_REVIEWER_SIGNATURE } from "../lib/agents/narrative-reviewer-prompt"
 
-const skill = readFileSync(join(import.meta.dir, "..", "skill", "SKILL.md"), "utf-8")
+const skill = readFileSync(join(import.meta.dir, "..", "skill", "NARRATIVE_SKILL.md"), "utf-8")
 const plugin = readFileSync(join(import.meta.dir, "..", "plugin.ts"), "utf-8")
 
 describe("primary research orchestration skill", () => {
   it("describes conversation-driven research briefs", () => {
-    expect(skill).toContain("Research Brief")
-    expect(skill).toContain("the working topic emerges from the")
-    expect(skill).toContain("workspace-derived research key")
+    expect(skill).toContain("## Research Rules")
+    expect(skill).toContain("start from open research gaps")
     expect(skill).toContain("DECKS.json")
   })
 
   it("requires Task-based revela-research subagent invocation", () => {
-    expect(skill).toContain("Task tool with `subagent_type: \"revela-research\"`")
-    expect(skill).toContain("`revela-research` is an OpenCode subagent, **not a tool**")
-    expect(skill).toContain("NEVER** call `revela-research` as a tool")
-    expect(skill).toContain("Do not write or imply a\n`revela-research(...)` tool call")
+    expect(skill).toContain("delegate external web search to the `revela-research` subagent")
+    expect(skill).toContain("save findings through `revela-research-save`")
   })
 
   it("requires Task-based read-only narrative reviewer invocation", () => {
-    expect(skill).toContain("`revela-narrative-reviewer` is a read-only OpenCode subagent, **not a tool**")
-    expect(skill).toContain("Task tool with `subagent_type: \"revela-narrative-reviewer\"`")
-    expect(skill).toContain("The primary agent should not\nself-certify semantic narrative quality")
-    expect(skill).toContain("reviewer findings are advisory notes only")
-    expect(skill).toContain("stable finding IDs such as `NB-001`, `KC-001`, `ASK-001`, and\n`EV-001`")
-    expect(skill).toContain("`Findings: none` rather\nthan inventing optional improvements")
-    expect(skill).toContain("NEVER** call `revela-narrative-reviewer` as a tool")
-    expect(skill).toContain("NEVER** present `revela-narrative-reviewer` findings as authoritative")
+    expect(skill).toContain("call `revela-decks` action `reviewNarrative`")
+    expect(skill).toContain("report the tool result as authoritative")
+    expect(skill).toContain("Do not approve automatically")
   })
 
   it("does not force research agents as the first action", () => {
-    expect(skill).toContain("Research is gated by the Research Brief")
-    expect(skill).toContain("without new research")
+    expect(skill).toContain("avoid generic internet research when workspace evidence already supports the claim")
+    expect(skill).toContain("stopping when no public evidence can improve the state")
     expect(skill).not.toContain("ALWAYS** launch research agents as your first action")
     expect(skill).not.toContain("LAUNCH TOGETHER (as your first action)")
   })

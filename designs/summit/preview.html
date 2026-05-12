@@ -6,7 +6,7 @@
   <title>Summit — Climate Report 2026</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   <style>
     :root {
@@ -37,7 +37,7 @@
     body {
       background: var(--bg-frame);
       color: var(--text-primary);
-      font-family: 'Inter', ui-sans-serif, sans-serif;
+      font-family: 'Montserrat', ui-sans-serif, sans-serif;
       -webkit-font-smoothing: antialiased;
       height: 100%;
     }
@@ -89,8 +89,8 @@
     }
 
     h1, h2, h3, h4 {
-      font-family: 'IBM Plex Sans Condensed', 'Inter', ui-sans-serif, sans-serif;
-      font-weight: 600;
+      font-family: 'Montserrat', ui-sans-serif, sans-serif;
+      font-weight: 500;
       letter-spacing: -0.02em;
       color: var(--text-primary);
     }
@@ -114,6 +114,17 @@
     .rule.strong {
       background: var(--line-strong);
     }
+
+    .toc-panel { height: 100%; padding: 96px 150px 76px; display: flex; overflow: hidden; background: var(--bg-page); }
+    .toc-panel-inner { width: 100%; display: grid; grid-template-columns: 34% 1fr; align-items: stretch; gap: 104px; }
+    .toc-header { display: flex; flex-direction: column; min-height: 100%; }
+    .toc-header h2 { margin-top: 32px; max-width: 360px; font-size: 46px; line-height: 1.04; letter-spacing: 0.02em; text-transform: uppercase; font-weight: 500; }
+    .toc-note { margin-top: 230px; margin-bottom: 0; max-width: 300px; font-size: 14px; line-height: 1.7; letter-spacing: 0.02em; color: var(--text-secondary); opacity: 0.58; }
+    .toc-footer { margin-top: auto; font-size: 11px; line-height: 1.4; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500; color: var(--text-primary); }
+    .toc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: center; gap: 42px; height: 100%; }
+    .toc-item { display: grid; grid-template-columns: 80px 1fr; gap: 44px; align-items: center; }
+    .toc-item span { font-style: normal; font-family: 'Montserrat', ui-sans-serif, sans-serif; font-size: 42px; line-height: 1; letter-spacing: 0.03em; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+    .toc-item strong { font-size: 17px; line-height: 1.35; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; color: var(--text-primary); }
 
     .chevron-divider {
       display: inline-flex;
@@ -471,7 +482,7 @@
     }
 
     .flow-horizontal .flow-number {
-      font-family: 'IBM Plex Sans Condensed', sans-serif;
+      font-family: 'Montserrat', ui-sans-serif, sans-serif;
       font-size: 13px;
       font-weight: 700;
       letter-spacing: 0.12em;
@@ -518,7 +529,7 @@
     }
 
     .flow-vertical .flow-number {
-      font-family: 'IBM Plex Sans Condensed', sans-serif;
+      font-family: 'Montserrat', ui-sans-serif, sans-serif;
       font-size: 13px;
       font-weight: 700;
       letter-spacing: 0.12em;
@@ -570,7 +581,7 @@
     .data-table {
       width: 100%;
       border-collapse: collapse;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Montserrat', ui-sans-serif, sans-serif;
       font-size: 13px;
       font-variant-numeric: tabular-nums;
       color: var(--text-primary);
@@ -659,7 +670,7 @@
     .dense-table {
       width: 100%;
       border-collapse: collapse;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Montserrat', ui-sans-serif, sans-serif;
       font-size: 11px;
       font-variant-numeric: tabular-nums;
       color: var(--text-secondary);
@@ -933,7 +944,7 @@
       position: absolute;
       bottom: 36px;
       right: 52px;
-      font-family: 'IBM Plex Sans Condensed', sans-serif;
+      font-family: 'Montserrat', ui-sans-serif, sans-serif;
       font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.18em;
@@ -1069,42 +1080,31 @@
   ═══════════════════════════════════════════════════════════ -->
   <section class="slide" slide-qa="false" data-index="1">
     <div class="slide-canvas">
-      <div class="page reveal" style="padding:0;overflow:hidden;">
-        <div style="display:grid;grid-template-columns:8fr 4fr;height:100%;">
-          <div class="hero-field" style="height:100%;">
-            <div class="full-bleed-media" style="height:100%;">
-              <img src="https://images.unsplash.com/photo-1522163182402-834f871fd851?q=80&w=1800&auto=format&fit=crop" alt="Climbers resting on a steep alpine wall at sunrise">
-            </div>
-          </div>
-          <div style="background:var(--bg-page);height:100%;padding:42px 38px 30px;display:flex;">
-            <div style="width:3px;background:var(--accent-gold);flex:0 0 3px;"></div>
-            <div style="padding-left:22px;display:flex;flex-direction:column;justify-content:space-between;flex:1;">
-              <div>
-                <h2 style="font-size:34px;line-height:0.94;letter-spacing:-0.03em;text-transform:uppercase;max-width:220px;">Table of Contents</h2>
-                <p style="margin-top:18px;font-size:11px;line-height:1.6;letter-spacing:0.06em;color:var(--text-secondary);max-width:255px;">Six sections mapping our progress against the commitments made in our 2022 baseline report.</p>
-                <ol style="list-style:none;display:flex;flex-direction:column;gap:10px;margin-top:26px;">
-                  <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">01</span><span>Climate Commitments &amp; 2030 Targets</span></li>
-                  <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">02</span><span>Material Transition &amp; Circular Design</span></li>
-                  <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">03</span><span>Field Programme Action Highlights</span></li>
-                  <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">04</span><span>Carbon Emissions — Scope 1, 2 &amp; 3</span></li>
-                  <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);padding-bottom:8px;"><span style="font-weight:700;">05</span><span>Decarbonisation Roadmap 2026–2030</span></li>
-                  <li style="display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:11px;line-height:1.45;text-transform:uppercase;letter-spacing:0.06em;"><span style="font-weight:700;">06</span><span>Emissions Data &amp; Assurance Tables</span></li>
-                </ol>
-              </div>
-              <div style="display:flex;flex-direction:column;gap:14px;">
-                <div class="rule"></div>
-                <div>
-                  <p class="caption">Scope of report</p>
-                  <p style="margin-top:10px;font-size:11px;line-height:1.6;color:var(--text-secondary);max-width:255px;">Data covers fiscal year 2026 (Jan–Dec). Scope 3 figures are independently verified by Bureau Veritas.</p>
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:end;">
-                  <p class="caption">Summit Outdoor Co. · 2026</p>
-                </div>
-              </div>
-            </div>
+      <div class="page reveal" style="padding:0;overflow:hidden;background:var(--bg-frame);">
+        <div class="hero-field" style="position:absolute;inset:0;z-index:0;">
+          <div class="full-bleed-media" style="height:100%;">
+            <img src="https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?q=80&w=1800&auto=format&fit=crop" alt="Aerial view of dense taiga forest canopy">
           </div>
         </div>
-        <div class="page-number">01 / 11</div>
+        <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,rgba(5,5,5,0.88) 0%,rgba(5,5,5,0.76) 44%,rgba(5,5,5,0.56) 72%,rgba(5,5,5,0.36) 100%);"></div>
+        <div class="toc-panel" style="position:relative;z-index:2;background:transparent;--text-primary:#f7f4ee;--text-secondary:rgba(247,244,238,0.72);--text-muted:rgba(247,244,238,0.50);">
+          <div class="toc-panel-inner">
+            <div class="toc-header reveal">
+              <h2>Table of<br>Contents</h2>
+              <p class="toc-note">Six sections mapping our progress against the commitments made in our 2022 baseline report.</p>
+              <p class="toc-footer">Summit Outdoor Co. 2026</p>
+            </div>
+            <ol class="toc-list reveal">
+              <li class="toc-item"><span>01</span><strong>Climate commitments and 2030 targets</strong></li>
+              <li class="toc-item"><span>02</span><strong>Material transition and circular design</strong></li>
+              <li class="toc-item"><span>03</span><strong>Field programme action highlights</strong></li>
+              <li class="toc-item"><span>04</span><strong>Carbon emissions scope one two and three</strong></li>
+              <li class="toc-item"><span>05</span><strong>Decarbonisation roadmap 2026 to 2030</strong></li>
+              <li class="toc-item"><span>06</span><strong>Emissions data and assurance tables</strong></li>
+            </ol>
+          </div>
+        </div>
+        <div class="page-number page-number--light">01 / 11</div>
       </div>
     </div>
   </section>
@@ -2072,7 +2072,7 @@
         grid: { top: 20, right: 40, bottom: 36, left: 60 },
         legend: {
           bottom: 0,
-          textStyle: { fontSize: 12, color: '#8a7f73', fontFamily: 'Inter, sans-serif' },
+          textStyle: { fontSize: 12, color: '#8a7f73', fontFamily: 'Montserrat, sans-serif' },
           itemWidth: 14,
           itemHeight: 8,
         },
@@ -2080,7 +2080,7 @@
           trigger: 'axis',
           backgroundColor: '#2c2828',
           borderColor: 'rgba(243,238,230,0.12)',
-          textStyle: { color: '#f3eee6', fontSize: 12, fontFamily: 'Inter, sans-serif' },
+          textStyle: { color: '#f3eee6', fontSize: 12, fontFamily: 'Montserrat, sans-serif' },
           formatter: (params) => {
             let out = `<div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(243,238,230,0.6);margin-bottom:6px;">${params[0].name}</div>`;
             params.forEach(p => {
@@ -2094,15 +2094,15 @@
           data: ['2022', '2023', '2024', '2025', '2026'],
           axisLine: { lineStyle: { color: 'rgba(23,20,17,0.14)' } },
           axisTick: { show: false },
-          axisLabel: { color: '#8a7f73', fontSize: 12, fontFamily: 'Inter, sans-serif', margin: 10 },
+          axisLabel: { color: '#8a7f73', fontSize: 12, fontFamily: 'Montserrat, sans-serif', margin: 10 },
         },
         yAxis: {
           type: 'value',
           name: 'kt CO₂e',
-          nameTextStyle: { color: '#8a7f73', fontSize: 11, fontFamily: 'Inter, sans-serif' },
+          nameTextStyle: { color: '#8a7f73', fontSize: 11, fontFamily: 'Montserrat, sans-serif' },
           axisLine: { show: false },
           axisTick: { show: false },
-          axisLabel: { color: '#8a7f73', fontSize: 12, fontFamily: 'Inter, sans-serif' },
+          axisLabel: { color: '#8a7f73', fontSize: 12, fontFamily: 'Montserrat, sans-serif' },
           splitLine: { lineStyle: { color: 'rgba(23,20,17,0.1)', type: 'dashed' } },
         },
         series: [
@@ -2187,7 +2187,7 @@
           axisPointer: { type: 'cross' },
           backgroundColor: '#2c2828',
           borderColor: 'rgba(243,238,230,0.12)',
-          textStyle: { color: '#f3eee6', fontSize: 11, fontFamily: 'Inter, sans-serif' },
+          textStyle: { color: '#f3eee6', fontSize: 11, fontFamily: 'Montserrat, sans-serif' },
           formatter: (params) => {
             const p = params[0];
             return `<div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(243,238,230,0.55);margin-bottom:6px;">${p.name}</div>` +
@@ -2202,7 +2202,7 @@
           axisLine: { lineStyle: { color: 'var(--line-strong)' } },
           axisTick: { show: false },
           axisLabel: {
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: 'Montserrat, sans-serif',
             fontSize: 10,
             color: '#8a7f73',
             interval: 5,
@@ -2216,7 +2216,7 @@
           axisLine: { show: false },
           axisTick: { show: false },
           axisLabel: {
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: 'Montserrat, sans-serif',
             fontSize: 10,
             color: '#8a7f73',
             formatter: (v) => '$' + v,

@@ -32,8 +32,8 @@ Starter is the neutral structural base for generating new Revela designs. It sho
     --accent-soft: #dbeafe;
     --accent-danger: #dc2626;
     --shadow-soft: rgba(15, 23, 42, 0.16);
-    --font-display: 'Inter', ui-sans-serif, sans-serif;
-    --font-body: 'Inter', ui-sans-serif, sans-serif;
+    --font-display: 'Montserrat', ui-sans-serif, sans-serif;
+    --font-body: 'Montserrat', ui-sans-serif, sans-serif;
     --font-size-body: 17px;
     --font-size-meta: 12px;
     --font-size-body-strong: 20px;
@@ -48,13 +48,13 @@ Accent usage guidance:
 
 ### Typography
 
-- **Display / heading font**: `Inter` — neutral sans-serif base for all headings and display text
-- **Body font**: `Inter` — neutral sans-serif base for copy, captions, labels, and UI text
+- **Display / heading font**: `Montserrat` — geometric sans-serif base for all headings and display text
+- **Body font**: `Montserrat` — geometric sans-serif base for copy, captions, labels, and UI text
 - Font link tag:
   ```html
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   ```
 - cover h1: `88px` to `116px`, weight `700` to `800`, line-height `0.92` to `1.0`
 - inner-layout h2: `34px` to `56px`, weight `650` to `800`, line-height `1.02` to `1.12`
@@ -114,7 +114,7 @@ Every generated presentation must use this exact HTML skeleton:
     <title>{Presentation Title}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script> only if charts are needed -->
     <style>/* all CSS here */</style>
 </head>
@@ -655,17 +655,36 @@ Full-bleed cover, section divider, closing, or strong visual statement with opti
 Table of contents or section index.
 
 ```html
-<div class="toc-panel"><div class="toc-panel-inner"><div class="toc-header"><p class="eyebrow">Contents</p><h2>Agenda</h2></div><div class="toc-list"><div class="toc-item"><span>01</span><strong>Section title</strong><em>03</em></div></div></div></div>
+<div class="toc-panel">
+  <div class="toc-panel-inner">
+    <div class="toc-header">
+      <h2>Table of<br>Contents</h2>
+      <p class="toc-note">Brief context note describing the scope of the sections that follow.</p>
+      <p class="toc-footer">Creative-Curious-Cooperation</p>
+    </div>
+    <ol class="toc-list">
+      <li class="toc-item"><span>01</span><strong>The vision of a changing world</strong></li>
+      <li class="toc-item"><span>02</span><strong>Smart home solutions</strong></li>
+      <li class="toc-item"><span>03</span><strong>Smart city innovations</strong></li>
+      <li class="toc-item"><span>04</span><strong>Smart office revolution</strong></li>
+      <li class="toc-item"><span>05</span><strong>Wearable technology</strong></li>
+      <li class="toc-item"><span>06</span><strong>The future of connected work</strong></li>
+    </ol>
+  </div>
+</div>
 ```
 
 ```css
-.toc-panel { height: 100%; padding: 54px 52px 42px; display: flex; overflow: hidden; background: var(--bg-page); }
-.toc-panel-inner { display: flex; flex-direction: column; justify-content: space-between; width: 100%; gap: 32px; }
-.toc-header { max-width: 620px; display: flex; flex-direction: column; gap: 18px; }
-.toc-list { display: flex; flex-direction: column; border-top: 1px solid var(--line-strong); }
-.toc-item { display: grid; grid-template-columns: 70px 1fr 60px; gap: 24px; align-items: baseline; padding: 22px 0; border-bottom: 1px solid var(--line); }
-.toc-item span, .toc-item em { font-style: normal; color: var(--text-muted); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; }
-.toc-item strong { font-size: 28px; line-height: 1.08; color: var(--text-primary); }
+.toc-panel { height: 100%; padding: 86px 118px 58px; display: flex; overflow: hidden; background: var(--bg-page); }
+.toc-panel-inner { width: 100%; display: grid; grid-template-columns: 37% 1fr; align-items: stretch; gap: 76px; }
+.toc-header { display: flex; flex-direction: column; min-height: 100%; }
+.toc-header h2 { margin-top: 32px; max-width: 360px; font-size: 46px; line-height: 1.04; letter-spacing: 0.02em; text-transform: uppercase; font-weight: 650; }
+.toc-note { margin-top: 230px; margin-bottom: 0; max-width: 300px; font-size: 14px; line-height: 1.7; letter-spacing: 0.02em; color: var(--text-muted); }
+.toc-footer { margin-top: auto; font-size: 11px; line-height: 1.4; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 750; color: var(--text-primary); }
+.toc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: center; gap: 42px; height: 100%; }
+.toc-item { display: grid; grid-template-columns: 80px 1fr; gap: 44px; align-items: center; }
+.toc-item span { font-style: normal; font-family: var(--font-display); font-size: 42px; line-height: 1; letter-spacing: 0.03em; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.toc-item strong { font-size: 17px; line-height: 1.35; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; color: var(--text-primary); }
 ```
 <!-- @component:toc:end -->
 

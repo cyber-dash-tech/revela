@@ -31,8 +31,8 @@ Apply this visual style when generating all slides in this session.
     --accent-danger: #b94a3c;
     --accent-sage: #9eb0a6;
     --shadow-soft: rgba(0, 0, 0, 0.18);
-    --font-display: 'IBM Plex Sans Condensed', 'Inter', ui-sans-serif, sans-serif;
-    --font-body: 'Inter', ui-sans-serif, sans-serif;
+    --font-display: 'Montserrat', ui-sans-serif, sans-serif;
+    --font-body: 'Montserrat', ui-sans-serif, sans-serif;
     --font-size-body: 17px;
     --font-size-meta: 17px;
     --font-size-body-strong: 20px;
@@ -49,13 +49,13 @@ Accent usage guidance:
 
 ### Typography
 
-- **Display / heading font**: `IBM Plex Sans Condensed` — used for all headings (`h1`–`h4`), eyebrows, and display text across every layout
-- **Body font**: `Inter` — used for body copy, labels, captions, and UI text
+- **Display / heading font**: `Montserrat` — used for all headings (`h1`–`h4`), eyebrows, and display text across every layout
+- **Body font**: `Montserrat` — used for body copy, labels, captions, and UI text
 - Font link tag:
   ```html
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   ```
 - cover h1: `108px` to `124px`, weight `600` to `700`, line-height `0.88` to `0.94`, Title Case
 - inner-layout h2: `30px` to `36px`, weight `600` to `700`, line-height `1.06` to `1.12`
@@ -127,7 +127,7 @@ Every generated presentation must use this exact HTML skeleton:
     <title>{Presentation Title}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>  only if charts are needed -->
     <style>/* all CSS here */</style>
 </head>
@@ -220,7 +220,7 @@ body {
 
 h1, h2, h3, h4 {
     font-family: var(--font-display);
-    font-weight: 600;
+    font-weight: 500;
     letter-spacing: -0.02em;
     color: var(--text-primary);
 }
@@ -2012,53 +2012,46 @@ Rules:
 <!-- @component:toc:start -->
 #### TOC Panel
 
-Narrow editorial panel for table-of-contents slides. A 3px accent-gold vertical rule on the left anchors the panel; the right body holds a title, short intro note, chapter list, and a footer block. The `justify-content:space-between` flex column pins the footer to the bottom of the panel.
+Minimal table-of-contents slide with a quiet title block on the left and a spacious numbered section list on the right. Use this for agenda, section map, or transition overview slides.
 
 ```html
 <div class="toc-panel">
-  <div style="width:3px;background:var(--accent-gold);flex:0 0 3px;"></div>
-  <div style="padding-left:22px;display:flex;flex-direction:column;justify-content:space-between;flex:1;">
-    <div>
-      <h2 style="font-size:28px;line-height:1.04;letter-spacing:-0.02em;max-width:220px;">Table of Contents</h2>
-      <p style="margin-top:14px;font-size:15px;line-height:1.45;color:var(--text-secondary);max-width:255px;">Short introductory note describing the scope of the sections that follow.</p>
-      <ol style="list-style:none;display:flex;flex-direction:column;gap:7px;margin-top:20px;">
-        <li style="display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:center;font-size:14px;line-height:1.35;letter-spacing:0.01em;border-bottom:1px solid var(--line);padding-bottom:6px;"><span style="font-weight:700;">01</span><span>Chapter Title or Section Theme</span></li>
-        <li style="display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:center;font-size:14px;line-height:1.35;letter-spacing:0.01em;border-bottom:1px solid var(--line);padding-bottom:6px;"><span style="font-weight:700;">02</span><span>Chapter Title or Section Theme</span></li>
-        <li style="display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:center;font-size:14px;line-height:1.35;letter-spacing:0.01em;border-bottom:1px solid var(--line);padding-bottom:6px;"><span style="font-weight:700;">03</span><span>Chapter Title or Section Theme</span></li>
-        <li style="display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:center;font-size:14px;line-height:1.35;letter-spacing:0.01em;border-bottom:1px solid var(--line);padding-bottom:6px;"><span style="font-weight:700;">04</span><span>Chapter Title or Section Theme</span></li>
-        <li style="display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:center;font-size:14px;line-height:1.35;letter-spacing:0.01em;border-bottom:1px solid var(--line);padding-bottom:6px;"><span style="font-weight:700;">05</span><span>Chapter Title or Section Theme</span></li>
-        <li style="display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:center;font-size:14px;line-height:1.35;letter-spacing:0.01em;"><span style="font-weight:700;">06</span><span>Chapter Title or Section Theme</span></li>
-      </ol>
+  <div class="toc-panel-inner">
+    <div class="toc-header">
+      <h2>Table of<br>Contents</h2>
+      <p class="toc-note">Brief context note describing the scope of the sections that follow.</p>
+      <p class="toc-footer">Creative-Curious-Cooperation</p>
     </div>
-    <div style="display:flex;flex-direction:column;gap:14px;">
-      <div class="rule"></div>
-      <div>
-        <p class="caption">Scope of report</p>
-        <p style="margin-top:10px;color:var(--text-secondary);max-width:255px;">Optional scope note, data coverage period, or brief methodology reference.</p>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:end;">
-        <p class="caption">Organisation · Year</p>
-      </div>
-    </div>
+    <ol class="toc-list">
+      <li class="toc-item"><span>01</span><strong>The vision of a changing world</strong></li>
+      <li class="toc-item"><span>02</span><strong>Smart home solutions</strong></li>
+      <li class="toc-item"><span>03</span><strong>Smart city innovations</strong></li>
+      <li class="toc-item"><span>04</span><strong>Smart office revolution</strong></li>
+      <li class="toc-item"><span>05</span><strong>Wearable technology</strong></li>
+      <li class="toc-item"><span>06</span><strong>The future of connected work</strong></li>
+    </ol>
   </div>
 </div>
 ```
 
 ```css
-.toc-panel {
-    background: transparent;
-    height: 100%;
-    padding: 38px 34px 28px;
-    display: flex;
-}
+.toc-panel { height: 100%; padding: 86px 118px 58px; display: flex; overflow: hidden; background: var(--bg-page); }
+.toc-panel-inner { width: 100%; display: grid; grid-template-columns: 37% 1fr; align-items: stretch; gap: 76px; }
+.toc-header { display: flex; flex-direction: column; min-height: 100%; }
+.toc-header h2 { margin-top: 32px; max-width: 360px; font-size: 46px; line-height: 1.04; letter-spacing: 0.02em; text-transform: uppercase; font-weight: 500; }
+.toc-note { margin-top: 230px; margin-bottom: 0; max-width: 300px; font-size: 14px; line-height: 1.7; letter-spacing: 0.02em; color: var(--text-secondary); opacity: 0.58; }
+.toc-footer { margin-top: auto; font-size: 11px; line-height: 1.4; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500; color: var(--text-primary); }
+.toc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: center; gap: 42px; height: 100%; }
+.toc-item { display: grid; grid-template-columns: 80px 1fr; gap: 44px; align-items: center; }
+.toc-item span { font-style: normal; font-family: var(--font-display); font-size: 42px; line-height: 1; letter-spacing: 0.03em; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.toc-item strong { font-size: 17px; line-height: 1.35; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; color: var(--text-primary); }
 ```
 
 ##### Tips
-- **Chapter numbers must be `font-weight:700`.** Without bold, the numbers dissolve visually into the lighter chapter title text.
-- **Keep TOC compact.** Use a smaller title and 14px chapter items so the agenda reads as a navigation panel, not a main content slide.
-- **Last `li` has no `border-bottom`.** Every item except the last carries `border-bottom:1px solid var(--line)`. Remove it from the final entry to avoid a floating rule at the bottom of the list.
-- **accent-gold vertical rule.** The 3px left rule uses `var(--accent-gold)`. Do not substitute another color — it is the primary editorial accent in Summit.
-- **`justify-content:space-between` requires a defined height on the parent.** The panel must sit inside a container with a known height (grid cell, absolute position, or `height:100%` chain) or the footer will not pin to the bottom.
+- **Use generous empty space.** This TOC is intentionally quiet: avoid boxes, rules, icons, decorative images, or dense explanatory copy.
+- **Keep section titles short.** Six items fit best when titles stay under one line; two-line titles are acceptable but should not dominate the numbered rhythm.
+- **No page-number column.** The visible structure is section number plus title only. Do not add trailing page numbers or border dividers unless the user explicitly asks for them.
+- **Left footer stays small.** The footer should read like a restrained production note, not a secondary headline.
 <!-- @component:toc:end -->
 
 <!-- @component:quote:start -->
