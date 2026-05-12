@@ -783,15 +783,16 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .deck-nav button:hover:not(:disabled) { background: rgba(255,255,255,.22); }
     .deck-nav button:disabled { opacity: .38; }
     .deck-nav-status { min-width: 76px; color: #e2e8f0; font-size: 12px; font-weight: 900; text-align: center; font-variant-numeric: tabular-nums; }
-    aside { position: relative; display: flex; flex-direction: column; gap: 16px; padding: 20px; background: linear-gradient(180deg, #fbfaf7 0%, #f2eee6 100%); overflow: auto; border-left: 1px solid #d8d2c6; }
+    aside { position: relative; display: flex; flex-direction: column; gap: 16px; padding: 20px; background: linear-gradient(180deg, #fbfaf7 0%, #f2eee6 100%); overflow: auto; border-left: 1px solid #d8d2c6; font-family: Garamond, "Iowan Old Style", Georgia, serif; }
+    aside button, aside input, aside select, aside textarea, aside .comment-editor { font-family: inherit; }
     h1 { margin: 0; font-size: 18px; line-height: 1.2; letter-spacing: -.01em; color: #0f172a; }
     .wordmark { font-family: Garamond, "Iowan Old Style", Georgia, serif; font-size: 21px; letter-spacing: .08em; font-weight: 600; }
-    .hint { margin: 0; color: #756f66; font-size: 13px; line-height: 1.5; }
     .panel { display: flex; flex-direction: column; gap: 10px; }
-    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border: 1px solid #d8d2c6; border-radius: 14px; background: #ebe4d8; }
-    .tab { padding: 9px 10px; border: 0; border-radius: 10px; background: transparent; color: #5f594f; box-shadow: none; font-weight: 900; }
-    .tab.active { background: #fbfaf7; color: #111827; box-shadow: 0 6px 16px rgba(31,41,51,.1); }
-    .tab-panel { display: none; flex-direction: column; gap: 12px; }
+    .tabs { display: flex; gap: 2px; padding: 0 0 0 8px; border-bottom: 1px solid #d8d2c6; background: transparent; }
+    .tab { width: auto; min-width: 112px; padding: 10px 18px; border: 1px solid transparent; border-bottom: 0; border-radius: 13px 13px 0 0; background: transparent; color: #5f594f; box-shadow: none; font-weight: 900; }
+    .tab:hover:not(:disabled) { background: rgba(255,253,248,.58); }
+    .tab.active { position: relative; top: 1px; background: #fbfaf7; border-color: #d8d2c6; color: #111827; box-shadow: 0 -7px 16px rgba(31,41,51,.05); }
+    .tab-panel { display: none; flex-direction: column; gap: 12px; padding-top: 12px; }
     .tab-panel.active { display: flex; }
     .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
     .selection-summary { padding: 10px 12px; border: 1px solid #d8d2c6; border-radius: 14px; background: #fbfaf7; color: #3f3a33; font-size: 13px; line-height: 1.45; box-shadow: 0 8px 22px rgba(31,41,51,.05); }
@@ -886,7 +887,6 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     <aside>
       <div>
         <h1><span class="wordmark">REVELA</span> Review</h1>
-        <p class="hint">Select refs, describe the change, then send. Use Insight when you need source or purpose context.</p>
       </div>
       <div id="selectionSummary" class="selection-summary sr-only" aria-live="polite"><strong>Selection</strong><span>No references selected.</span><div id="selectionChips" class="selection-chips"></div></div>
       <div class="tabs" role="tablist" aria-label="Review mode">
@@ -1116,6 +1116,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         els.inspectComment.addEventListener('mouseup', saveCommentRange);
         document.addEventListener('selectionchange', saveCommentRange);
         els.hitbox.addEventListener('pointermove', onHover);
+        els.hitbox.addEventListener('pointerleave', clearHoverSilently);
         els.hitbox.addEventListener('pointerdown', onPointerDown);
         els.hitbox.addEventListener('click', onClick);
         els.hitbox.addEventListener('contextmenu', (event) => {
@@ -1336,9 +1337,11 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             } catch {}
           }
           if (!handled) applyFallbackDeckNavigation(win, doc, slides, clamped);
+          const changed = clamped !== state.deckSlideIndex;
           state.deckSlideIndex = clamped;
           updateDeckNavControls();
-          renderHoverOutline(state.hoverEl);
+          if (changed) clearHoverSilently();
+          else renderHoverOutline(state.hoverEl);
           renderReferenceOutlines();
         } catch (error) {
           reportError(error);
@@ -1415,6 +1418,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           initFrame();
           const target = selectable(targetFromPointer(event));
           if (!target || isReferenced(target)) {
+            state.hoverEl = null;
             renderHoverOutline(null);
             return;
           }
@@ -1997,12 +2001,25 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function renderReferenceOutlines() {
         const doc = els.frame.contentDocument;
         if (!doc || doc.location.href === 'about:blank') return;
+        const slides = getSlides(doc);
+        const currentSlide = slides[state.deckSlideIndex];
+        const explicitSlideIndex = Number(currentSlide?.getAttribute('data-slide-index'));
+        const currentSlideIndex = Number.isFinite(explicitSlideIndex) && explicitSlideIndex > 0 ? explicitSlideIndex : state.deckSlideIndex + 1;
         while (state.referenceOutlines.length < state.references.length) state.referenceOutlines.push(createOutline(doc, '#7aa6d8', 'rgba(122,166,216,.18)'));
         state.referenceOutlines.forEach((outline, index) => {
           const reference = state.references[index];
           setOutlineColor(outline, reference?.color);
+          if (!reference || reference.payload?.slideIndex !== currentSlideIndex) {
+            renderBox(outline, null);
+            return;
+          }
           renderBox(outline, reference?.target);
         });
+      }
+
+      function clearHoverSilently() {
+        state.hoverEl = null;
+        if (state.hoverOutline) state.hoverOutline.style.display = 'none';
       }
 
       function clearHover() {
