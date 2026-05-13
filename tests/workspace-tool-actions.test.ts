@@ -5,7 +5,7 @@ import { confirmDeckPlan, createEmptyDecksState, readDecksState, upsertDeck, ups
 import { currentReviewInputHash } from "../lib/workspace-state/review-snapshots"
 import researchSaveTool from "../tools/research-save"
 import workspaceScanTool from "../tools/workspace-scan"
-import { executeDecksTool, tempWorkspace } from "./helpers/tool-helpers"
+import { executeDecksTool, executeTool, tempWorkspace } from "./helpers/tool-helpers"
 
 describe("workspace tool action provenance", () => {
   function tempRoot() {
@@ -17,7 +17,7 @@ describe("workspace tool action provenance", () => {
     writeDecksState(root, createEmptyDecksState())
     writeFileSync(join(root, "brief.md"), "brief", "utf-8")
 
-    const result = JSON.parse(await (workspaceScanTool as any).execute({ max_depth: 1 }, { directory: root }))
+    const result = await executeTool(workspaceScanTool, { max_depth: 1 }, root)
     const state = readDecksState(root)
 
     expect(result.found).toBe(1)
@@ -37,7 +37,7 @@ describe("workspace tool action provenance", () => {
     writeFileSync(join(root, "~$proposal.docx"), "lock", "utf-8")
     writeFileSync(join(root, "proposal.docx"), "proposal", "utf-8")
 
-    const result = JSON.parse(await (workspaceScanTool as any).execute({ max_depth: 1 }, { directory: root }))
+    const result = await executeTool(workspaceScanTool, { max_depth: 1 }, root)
     const state = readDecksState(root)
 
     expect(result.found).toBe(1)
@@ -53,12 +53,12 @@ describe("workspace tool action provenance", () => {
     const root = tempRoot()
     writeDecksState(root, createEmptyDecksState())
 
-    const result = JSON.parse(await (researchSaveTool as any).execute({
+    const result = await executeTool(researchSaveTool, {
       topic: "Market Study",
       filename: "Demand Data",
       content: `${"large finding ".repeat(100)}`,
       sources: ["https://example.com/report"],
-    }, { directory: root }))
+    }, root)
     const state = readDecksState(root)
 
     expect(result.path).toBe("researches/market-study/demand-data.md")
