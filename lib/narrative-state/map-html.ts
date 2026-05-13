@@ -44,6 +44,17 @@ export function renderNarrativeMapHtmlWithDisplay(map: NarrativeMap, display: Va
     .layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(360px,430px); gap:18px; margin-top:18px; align-items:start; }
     .flow,.detail-panel { background:rgba(255,253,248,.92); border:1px solid var(--line); border-radius:24px; box-shadow:var(--shadow); }
     .flow { padding:20px; }
+    .workbench { margin-top:18px; background:rgba(255,253,248,.92); border:1px solid var(--line); border-radius:24px; box-shadow:var(--shadow); padding:18px 20px; }
+    .workbench h2 { margin:0; font-size:18px; letter-spacing:-.025em; }
+    .filter-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+    .filter-button { cursor:pointer; border:1px solid var(--line); border-radius:999px; background:#fff; color:var(--muted); padding:8px 11px; font-size:12px; font-weight:850; }
+    .filter-button.active { border-color:var(--accent); color:var(--accent); background:#fff4ea; }
+    .coverage-grid { margin-top:16px; display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px; }
+    .coverage-item { border:1px solid var(--line); border-radius:16px; background:#fff; padding:13px; }
+    .coverage-item h3 { margin:0; font-size:14px; line-height:1.2; }
+    .coverage-meta { display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
+    .coverage-detail { margin:9px 0 0; color:var(--muted); font-size:12px; line-height:1.45; }
+    .coverage-detail strong { color:#51483f; }
     .flow-head { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; margin-bottom:18px; }
     .flow-head h2 { margin:0; font-size:18px; letter-spacing:-.025em; }
     .flow-note { margin:4px 0 0; color:var(--muted); font-size:13px; line-height:1.45; }
@@ -64,6 +75,10 @@ export function renderNarrativeMapHtmlWithDisplay(map: NarrativeMap, display: Va
     .claim-section { border-top:1px solid #eee4d8; padding-top:9px; }
     .section-label { display:block; margin-bottom:3px; color:var(--accent); font-size:10px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
     .section-text { display:block; color:#51483f; font-size:13px; line-height:1.46; white-space:pre-line; }
+    .next-actions { display:flex; flex-direction:column; gap:8px; }
+    .next-action { border:1px solid #eee4d8; border-radius:12px; padding:9px; background:#fffaf3; }
+    .next-action strong { display:block; color:#51483f; font-size:13px; }
+    .next-action code { display:inline-block; margin-top:5px; color:#9c4d1d; font-size:12px; }
     .relation-strip { margin-top:12px; display:grid; gap:7px; }
     .relation { display:grid; grid-template-columns:auto minmax(0,1fr); gap:8px; align-items:flex-start; color:var(--muted); font-size:13px; line-height:1.35; }
     .relation-badge { flex:0 0 auto; border-radius:999px; padding:3px 7px; background:#fff4e8; color:#9c4d1d; border:1px solid #efcfb8; font-size:10px; font-weight:850; text-transform:uppercase; letter-spacing:.04em; }
@@ -121,12 +136,14 @@ export function renderNarrativeMapHtmlWithDisplay(map: NarrativeMap, display: Va
         <div class="detail-body" id="detail-body">${initial?.detailHtml ?? emptyCard(display.labels.claimFlow, display.labels.noClaims)}</div>
       </aside>
     </div>
+    ${renderWorkbench(map, display)}
   </main>
   <div class="hidden-detail">
     ${nodes.map((node) => `<template id="detail-${escapeAttr(node.id)}" data-title="${escapeHtml(node.title)}" data-subtitle="${escapeHtml(claimSubtitle(node.claim, display))}">${node.detailHtml}</template>`).join("")}
   </div>
   <script>
     const buttons = Array.from(document.querySelectorAll('.claim-card'));
+    const filters = Array.from(document.querySelectorAll('.filter-button'));
     const title = document.getElementById('detail-title');
     const sub = document.getElementById('detail-sub');
     const body = document.getElementById('detail-body');
@@ -139,6 +156,14 @@ export function renderNarrativeMapHtmlWithDisplay(map: NarrativeMap, display: Va
       buttons.forEach((button) => button.classList.toggle('active', button.dataset.nodeId === id));
     }
     buttons.forEach((button) => button.addEventListener('click', () => selectClaim(button.dataset.nodeId)));
+    filters.forEach((button) => button.addEventListener('click', () => {
+      const filter = button.dataset.filterId || 'all';
+      filters.forEach((item) => item.classList.toggle('active', item === button));
+      buttons.forEach((claimButton) => {
+        const flags = (claimButton.dataset.filters || '').split(' ');
+        claimButton.closest('.claim-step').style.display = filter === 'all' || flags.includes(filter) ? '' : 'none';
+      });
+    }));
   </script>
 </body>
 </html>`
@@ -158,7 +183,7 @@ function renderStep(node: FlowNode, map: NarrativeMap, display: ValidatedNarrati
   const outgoing = map.claimRelations.filter((relation) => relation.fromClaimId === node.claim.id)
   return `<div class="claim-step">
     <div class="step-rail"><div class="step-dot">${index + 1}</div><div class="step-line"></div></div>
-    <button class="claim-card ${escapeAttr(node.claim.evidenceStatus)}${active ? " active" : ""}" data-node-id="${escapeAttr(node.id)}" type="button">
+    <button class="claim-card ${escapeAttr(node.claim.evidenceStatus)}${active ? " active" : ""}" data-node-id="${escapeAttr(node.id)}" data-filters="${escapeHtml(node.claim.workbenchFlags.join(" "))}" type="button">
       <span class="claim-title">${escapeHtml(node.title)}</span>
       <span class="claim-meta"><span class="tag">${escapeHtml(localizeValue(node.claim.kind, display))}</span><span class="tag">${escapeHtml(localizeValue(node.claim.importance, display))}</span><span class="tag">${escapeHtml(localizeValue(node.claim.evidenceStatus, display))}</span><span class="tag">${escapeHtml(node.claim.id)}</span></span>
       ${renderDisplayCardSummary(node.displayCard, display)}
@@ -213,7 +238,50 @@ function claimDetail(claim: NarrativeMapClaim, map: NarrativeMap, display: Valid
     ...(gaps.length ? [[display.labels.researchGaps, gaps.map((item) => `${item.question} [${item.status}/${item.priority}]`).join("<br>")] as [string, string]] : []),
     ...(slideRefs.length ? [[display.labels.coveredSlides, slideRefs.map((ref) => localizeSlideRef(ref, display)).join("<br>")] as [string, string]] : []),
     ...(coverageGaps.length ? [[systemTerm("artifactCoverage", display), coverageGaps.map((artifact) => `${artifact.type}: ${artifact.coverageStatus}${artifact.staleReasons.length ? ` - ${artifact.staleReasons.join("; ")}` : ""}`).join("<br>")] as [string, string]] : []),
+    ...(claim.nextActions.length ? [[systemTerm("nextActions", display), renderNextActions(claim, display), true] as [string, string, boolean]] : []),
   ])
+}
+
+function renderWorkbench(map: NarrativeMap, display: ValidatedNarrativeDisplayModel): string {
+  return `<section class="workbench" aria-label="Story workbench">
+    <h2>${escapeHtml(systemTerm("storyWorkbench", display))}</h2>
+    <p class="flow-note">${escapeHtml(workbenchNote(display))}</p>
+    <div class="filter-row" aria-label="Story filters">
+      ${map.workbench.filters.map((filter, index) => `<button type="button" class="filter-button${index === 0 ? " active" : ""}" data-filter-id="${escapeAttr(filter.id)}">${escapeHtml(localizeFilter(filter.label, display))} (${filter.count})</button>`).join("")}
+    </div>
+    <div class="coverage-grid">
+      ${map.workbench.artifactCoverage.length ? map.workbench.artifactCoverage.map((item) => renderCoverageItem(item, display)).join("") : renderNoRenderTargetCard(map, display)}
+    </div>
+  </section>`
+}
+
+function renderNoRenderTargetCard(map: NarrativeMap, display: ValidatedNarrativeDisplayModel): string {
+  const action = map.workbench.renderTargetAction
+  if (!action) return emptyCard(systemTerm("artifactCoverage", display), systemTerm("noRenderTargets", display))
+  return `<article class="coverage-item">
+    <h3>${escapeHtml(systemTerm("artifactCoverage", display))}</h3>
+    <p class="coverage-detail">${escapeHtml(systemTerm("noRenderTargets", display))}</p>
+    <p class="coverage-detail"><strong>${escapeHtml(systemTerm("notes", display))}:</strong> ${escapeHtml(localizeAction(action.label, display))} - ${escapeHtml(action.reason)}</p>
+    <p class="coverage-detail"><strong>${escapeHtml(systemTerm("recommendedNextCommand", display))}:</strong> <code>${escapeHtml(action.command)}</code></p>
+  </article>`
+}
+
+function renderCoverageItem(item: NarrativeMap["workbench"]["artifactCoverage"][number], display: ValidatedNarrativeDisplayModel): string {
+  const title = item.outputPath ?? item.artifactId
+  const slides = item.affectedSlides.map((slide) => `${localizeSlideRef(`slide ${slide.slideIndex}`, display)}: ${slide.slideTitle} (${slide.claimId}, ${slide.role}/${slide.location})`).join("<br>")
+  return `<article class="coverage-item">
+    <h3>${escapeHtml(title)}</h3>
+    <div class="coverage-meta"><span class="pill ${escapeAttr(item.coverageStatus)}">${escapeHtml(localizeValue(item.coverageStatus, display))}</span><span class="tag">${escapeHtml(item.type)}</span>${item.contractStatus ? `<span class="tag">${escapeHtml(item.contractStatus)}</span>` : ""}</div>
+    <p class="coverage-detail"><strong>${escapeHtml(systemTerm("missingClaims", display))}:</strong> ${escapeHtml(item.missingClaimIds.join(", ") || systemTerm("none", display))}</p>
+    <p class="coverage-detail"><strong>${escapeHtml(systemTerm("affectedClaims", display))}:</strong> ${escapeHtml(item.affectedClaimIds.join(", ") || systemTerm("none", display))}</p>
+    <p class="coverage-detail"><strong>${escapeHtml(systemTerm("affectedSlides", display))}:</strong> ${slides ? allowBreaks(slides) : escapeHtml(systemTerm("none", display))}</p>
+    <p class="coverage-detail"><strong>${escapeHtml(systemTerm("notes", display))}:</strong> ${escapeHtml(item.staleReasons.join("; ") || systemTerm("none", display))}</p>
+    <p class="coverage-detail"><strong>${escapeHtml(systemTerm("recommendedNextCommand", display))}:</strong> <code>${escapeHtml(item.recommendedNextCommand)}</code></p>
+  </article>`
+}
+
+function renderNextActions(claim: NarrativeMapClaim, display: ValidatedNarrativeDisplayModel): string {
+  return `<span class="next-actions">${claim.nextActions.map((action) => `<span class="next-action"><strong>${escapeHtml(localizeAction(action.label, display))}</strong>${escapeHtml(action.reason)}<br><code>${escapeHtml(action.command)}</code></span>`).join("")}</span>`
 }
 
 function relationText(relation: NarrativeMapClaimRelation, display: ValidatedNarrativeDisplayModel): string {
@@ -259,8 +327,8 @@ function missingRationale(display: ValidatedNarrativeDisplayModel): string {
   return "Causal rationale is not recorded."
 }
 
-function detailCards(rows: Array<[string, string]>): string {
-  return rows.map(([label, value]) => `<div class="detail-card"><h3>${escapeHtml(label)}</h3><p>${allowBreaks(value)}</p></div>`).join("")
+function detailCards(rows: Array<[string, string] | [string, string, boolean]>): string {
+  return rows.map(([label, value, raw]) => `<div class="detail-card"><h3>${escapeHtml(label)}</h3><p>${raw ? value : allowBreaks(value)}</p></div>`).join("")
 }
 
 function emptyCard(label: string, value: string): string {
@@ -292,10 +360,28 @@ function sectionLabels(display: ValidatedNarrativeDisplayModel): Record<string, 
   return { role: "Role", narrativeJob: "Narrative job", evidenceSummary: "Evidence summary", riskOrGapSummary: "Risk / gap" }
 }
 
+function workbenchNote(display: ValidatedNarrativeDisplayModel): string {
+  return display.labels.workbenchNote
+}
+
+function localizeFilter(value: string, display: ValidatedNarrativeDisplayModel): string {
+  const zh: Record<string, string> = { "All claims": "全部主张", "Missing evidence": "证据缺失", "Partial evidence": "部分证据", "Stale artifacts": "过期产物", "Open gaps": "开放缺口", Risks: "风险", "High-priority objections": "高优先级异议" }
+  const ja: Record<string, string> = { "All claims": "すべてのクレーム", "Missing evidence": "根拠不足", "Partial evidence": "一部根拠", "Stale artifacts": "古い成果物", "Open gaps": "未解決ギャップ", Risks: "リスク", "High-priority objections": "高優先度の反論" }
+  const table = isChineseLanguage(display.language) ? zh : isJapaneseLanguage(display.language) ? ja : {}
+  return table[value] ?? value
+}
+
+function localizeAction(value: string, display: ValidatedNarrativeDisplayModel): string {
+  const zh: Record<string, string> = { "Research this gap": "研究这个缺口", "Attach findings": "附加研究发现", "Narrow claim": "收窄主张", "Approve narrative": "批准叙事", "Make deck": "制作 deck", "Remake stale artifact": "重新生成过期产物" }
+  const ja: Record<string, string> = { "Research this gap": "このギャップを調査", "Attach findings": "調査結果を紐付け", "Narrow claim": "クレームを絞る", "Approve narrative": "ナラティブを承認", "Make deck": "デッキを作成", "Remake stale artifact": "古い成果物を再生成" }
+  const table = isChineseLanguage(display.language) ? zh : isJapaneseLanguage(display.language) ? ja : {}
+  return table[value] ?? value
+}
+
 function systemTerm(term: string, display: ValidatedNarrativeDisplayModel): string {
-  const zh: Record<string, string> = { approval: "审批", claims: "主张", relations: "关系", inferred: "未确认", relation: "关系", from: "来自", to: "指向", rationale: "说明", strength: "强度", findingsFile: "研究文件", location: "位置", quote: "引用", caveat: "注意事项", artifacts: "产物", attention: "需关注", artifactCoverage: "产物覆盖" }
-  const ja: Record<string, string> = { approval: "承認", claims: "クレーム", relations: "関係", inferred: "未確認", relation: "関係", from: "起点", to: "終点", rationale: "理由", strength: "強度", findingsFile: "調査ファイル", location: "場所", quote: "引用", caveat: "留意点", artifacts: "成果物", attention: "要確認", artifactCoverage: "成果物カバレッジ" }
-  const en: Record<string, string> = { approval: "approval", claims: "claims", relations: "relations", inferred: "unconfirmed", relation: "relation", from: "from", to: "to", rationale: "rationale", strength: "strength", findingsFile: "findings file", location: "location", quote: "quote", caveat: "caveat", artifacts: "artifacts", attention: "need attention", artifactCoverage: "Artifact coverage" }
+  const zh: Record<string, string> = { approval: "审批", claims: "主张", relations: "关系", inferred: "未确认", relation: "关系", from: "来自", to: "指向", rationale: "说明", strength: "强度", findingsFile: "研究文件", location: "位置", quote: "引用", caveat: "注意事项", artifacts: "产物", attention: "需关注", artifactCoverage: display.labels.artifactCoverage, storyWorkbench: display.labels.storyWorkbench, noRenderTargets: display.labels.noRenderTargets, nextActions: display.labels.nextActions, missingClaims: display.labels.missingClaims, affectedClaims: display.labels.affectedClaims, affectedSlides: display.labels.affectedSlides, notes: display.labels.notes, recommendedNextCommand: display.labels.recommendedNextCommand, none: display.labels.none }
+  const ja: Record<string, string> = { approval: "承認", claims: "クレーム", relations: "関係", inferred: "未確認", relation: "関係", from: "起点", to: "終点", rationale: "理由", strength: "強度", findingsFile: "調査ファイル", location: "場所", quote: "引用", caveat: "留意点", artifacts: "成果物", attention: "要確認", artifactCoverage: display.labels.artifactCoverage, storyWorkbench: display.labels.storyWorkbench, noRenderTargets: display.labels.noRenderTargets, nextActions: display.labels.nextActions, missingClaims: display.labels.missingClaims, affectedClaims: display.labels.affectedClaims, affectedSlides: display.labels.affectedSlides, notes: display.labels.notes, recommendedNextCommand: display.labels.recommendedNextCommand, none: display.labels.none }
+  const en: Record<string, string> = { approval: "approval", claims: "claims", relations: "relations", inferred: "unconfirmed", relation: "relation", from: "from", to: "to", rationale: "rationale", strength: "strength", findingsFile: "findings file", location: "location", quote: "quote", caveat: "caveat", artifacts: "artifacts", attention: "need attention", artifactCoverage: display.labels.artifactCoverage, storyWorkbench: display.labels.storyWorkbench, noRenderTargets: display.labels.noRenderTargets, nextActions: display.labels.nextActions, missingClaims: display.labels.missingClaims, affectedClaims: display.labels.affectedClaims, affectedSlides: display.labels.affectedSlides, notes: display.labels.notes, recommendedNextCommand: display.labels.recommendedNextCommand, none: display.labels.none }
   return (isChineseLanguage(display.language) ? zh : isJapaneseLanguage(display.language) ? ja : en)[term] ?? term
 }
 

@@ -23,6 +23,7 @@ export interface NarrativeMap {
   risks: NarrativeMapRisk[]
   researchGaps: NarrativeMapResearchGap[]
   artifactCoverage: NarrativeMapArtifact[]
+  workbench: NarrativeMapWorkbench
   nextActions: string[]
 }
 
@@ -38,7 +39,47 @@ export interface NarrativeMapSnapshot {
   approval: "current" | "stale" | "missing"
 }
 
-export type NarrativeMapClaim = ClaimEvidenceRecord
+export interface NarrativeMapClaim extends ClaimEvidenceRecord {
+  nextActions: NarrativeMapNextAction[]
+  workbenchFlags: NarrativeMapFilterId[]
+}
+
+export type NarrativeMapActionKind = "research" | "attach_findings" | "narrow_claim" | "approve_narrative" | "make_deck" | "remake_artifact"
+
+export interface NarrativeMapNextAction {
+  kind: NarrativeMapActionKind
+  label: string
+  command: string
+  reason: string
+}
+
+export type NarrativeMapFilterId = "all" | "missing_evidence" | "partial_evidence" | "stale_artifacts" | "open_gaps" | "risks" | "high_priority_objections"
+
+export interface NarrativeMapWorkbenchFilter {
+  id: NarrativeMapFilterId
+  label: string
+  count: number
+  claimIds: string[]
+}
+
+export interface NarrativeMapArtifactWorkItem {
+  artifactId: string
+  type: RenderTarget["type"]
+  outputPath?: string
+  coverageStatus: NarrativeMapArtifact["coverageStatus"]
+  contractStatus?: RenderTarget["contractStatus"]
+  affectedClaimIds: string[]
+  missingClaimIds: string[]
+  affectedSlides: Array<{ claimId: string; slideIndex: number; slideTitle: string; role: string; location: string }>
+  staleReasons: string[]
+  recommendedNextCommand: string
+}
+
+export interface NarrativeMapWorkbench {
+  filters: NarrativeMapWorkbenchFilter[]
+  artifactCoverage: NarrativeMapArtifactWorkItem[]
+  renderTargetAction?: NarrativeMapNextAction
+}
 
 export type NarrativeMapEvidence = ClaimEvidenceBindingRecord
 
@@ -91,8 +132,28 @@ export function buildNarrativeMap(state: DecksState): NarrativeMap {
   const reviewed = reviewNarrativeState({ ...state, narrative })
   const readiness = reviewed.result
   const narrativeHash = computeNarrativeHash(narrative)
-  const board = getClaimEvidenceBoard({ ...state, narrative })
+  const rawBoard = getClaimEvidenceBoard({ ...state, narrative })
   const objectionRisk = getObjectionRiskClaimIndex({ ...state, narrative })
+  const researchGaps = (narrative.researchGaps ?? []).map((gap) => ({ ...gap, targetText: targetText(narrative, gap) }))
+  const artifactCoverage = getArtifactClaimRefs({ ...state, narrative }).map((artifact) => ({
+    id: artifact.artifactId,
+    type: artifact.type,
+    outputPath: artifact.outputPath,
+    contractStatus: artifact.contractStatus,
+    sourceNodeIds: artifact.sourceNodeIds,
+    claimIds: artifact.claimIds,
+    narrativeIds: artifact.narrativeIds,
+    slideRefs: artifact.slideRefs,
+    coverageStatus: artifact.coverageStatus,
+    affectedClaimIds: artifact.affectedClaimIds,
+    missingClaimIds: artifact.missingClaimIds,
+    staleReasons: artifact.staleReasons,
+    stale: artifact.stale,
+    staleReason: artifact.staleReason,
+    note: artifact.note,
+  }))
+  const claims = withWorkbenchClaimData(rawBoard.claims, narrative, readiness.approval?.current === true, objectionRisk, researchGaps, artifactCoverage)
+  const claimFlow = claimRecordsInNarrativeOrder(narrative, claims)
 
   return {
     version: 1,
@@ -107,31 +168,160 @@ export function buildNarrativeMap(state: DecksState): NarrativeMap {
       thesis: narrative.thesis?.statement,
       approval: readiness.approval?.current ? "current" : readiness.approval?.stale ? "stale" : "missing",
     },
-    claims: board.claims,
-    claimFlow: claimRecordsInNarrativeOrder(narrative, board.claims),
+    claims,
+    claimFlow,
     claimRelations: mapClaimRelations(narrative),
     objections: objectionRisk.objections,
     risks: objectionRisk.risks,
-    researchGaps: (narrative.researchGaps ?? []).map((gap) => ({ ...gap, targetText: targetText(narrative, gap) })),
-    artifactCoverage: getArtifactClaimRefs({ ...state, narrative }).map((artifact) => ({
-      id: artifact.artifactId,
-      type: artifact.type,
-      outputPath: artifact.outputPath,
-      contractStatus: artifact.contractStatus,
-      sourceNodeIds: artifact.sourceNodeIds,
-      claimIds: artifact.claimIds,
-      narrativeIds: artifact.narrativeIds,
-      slideRefs: artifact.slideRefs,
-      coverageStatus: artifact.coverageStatus,
-      affectedClaimIds: artifact.affectedClaimIds,
-      missingClaimIds: artifact.missingClaimIds,
-      staleReasons: artifact.staleReasons,
-      stale: artifact.stale,
-      staleReason: artifact.staleReason,
-      note: artifact.note,
-    })),
+    researchGaps,
+    artifactCoverage,
+    workbench: buildWorkbench(claimFlow, artifactCoverage, readiness.approval?.current === true),
     nextActions: readiness.nextActions,
   }
+}
+
+function withWorkbenchClaimData(
+  claimsByStatus: Record<NarrativeClaim["evidenceStatus"], ClaimEvidenceRecord[]>,
+  narrative: NarrativeStateV1,
+  approved: boolean,
+  objectionRisk: ReturnType<typeof getObjectionRiskClaimIndex>,
+  researchGaps: NarrativeMapResearchGap[],
+  artifacts: NarrativeMapArtifact[],
+): Record<NarrativeClaim["evidenceStatus"], NarrativeMapClaim[]> {
+  return Object.fromEntries(Object.entries(claimsByStatus).map(([status, claims]) => [
+    status,
+    claims.map((claim) => ({
+      ...claim,
+      nextActions: claimNextActions(claim, narrative, approved, objectionRisk, researchGaps, artifacts),
+      workbenchFlags: claimWorkbenchFlags(claim, objectionRisk, researchGaps, artifacts),
+    })),
+  ])) as Record<NarrativeClaim["evidenceStatus"], NarrativeMapClaim[]>
+}
+
+function claimNextActions(
+  claim: ClaimEvidenceRecord,
+  narrative: NarrativeStateV1,
+  approved: boolean,
+  objectionRisk: ReturnType<typeof getObjectionRiskClaimIndex>,
+  researchGaps: NarrativeMapResearchGap[],
+  artifacts: NarrativeMapArtifact[],
+): NarrativeMapNextAction[] {
+  const actions: NarrativeMapNextAction[] = []
+  const claimGaps = researchGaps.filter((gap) => gap.targetType === "claim" && gap.targetId === claim.id)
+  const hasSavedFindings = claimGaps.some((gap) => gap.status === "findings_saved" || gap.status === "attached")
+  const needsEvidence = claim.evidenceRequired && (claim.evidenceStatus === "missing" || claim.evidenceStatus === "weak")
+  const partialEvidence = claim.evidenceRequired && claim.evidenceStatus === "partial"
+  const affectedArtifacts = artifacts.filter((artifact) => artifact.coverageStatus !== "current" && (artifact.affectedClaimIds.includes(claim.id) || artifact.missingClaimIds.includes(claim.id) || artifact.claimIds.includes(claim.id)))
+
+  if (needsEvidence || claimGaps.some((gap) => gap.status === "open" || gap.status === "in_progress")) actions.push({
+    kind: "research",
+    label: "Research this gap",
+    command: "/revela research",
+    reason: needsEvidence ? "Required evidence is missing or weak for this claim." : "An open research gap targets this claim.",
+  })
+  if (hasSavedFindings) actions.push({
+    kind: "attach_findings",
+    label: "Attach findings",
+    command: "/revela research",
+    reason: "Saved or attached findings still need canonical evidence binding.",
+  })
+  if (partialEvidence || Boolean(claim.unsupportedScope)) actions.push({
+    kind: "narrow_claim",
+    label: "Narrow claim",
+    command: "/revela story",
+    reason: claim.unsupportedScope || "Evidence only partially supports the claim scope.",
+  })
+  if (!approved) actions.push({
+    kind: "approve_narrative",
+    label: "Approve narrative",
+    command: "/revela story",
+    reason: "The current narrative is not approved for artifact rendering.",
+  })
+  if (approved && artifacts.length === 0) actions.push({
+    kind: "make_deck",
+    label: "Make deck",
+    command: "/revela make --deck",
+    reason: "No render target is recorded for this approved narrative.",
+  })
+  if (approved && affectedArtifacts.length > 0) actions.push({
+    kind: "remake_artifact",
+    label: "Remake stale artifact",
+    command: "/revela make --deck",
+    reason: "Artifact coverage is stale, partial, or missing for this claim.",
+  })
+  if (approved && actions.length === 0 && claim.importance === "central") actions.push({
+    kind: "make_deck",
+    label: "Make deck",
+    command: "/revela make --deck",
+    reason: "Central claim is ready to hand off to an artifact.",
+  })
+
+  return dedupeActions(actions)
+}
+
+function claimWorkbenchFlags(
+  claim: ClaimEvidenceRecord,
+  objectionRisk: ReturnType<typeof getObjectionRiskClaimIndex>,
+  researchGaps: NarrativeMapResearchGap[],
+  artifacts: NarrativeMapArtifact[],
+): NarrativeMapFilterId[] {
+  const flags: NarrativeMapFilterId[] = ["all"]
+  if (claim.evidenceRequired && claim.evidenceStatus === "missing") flags.push("missing_evidence")
+  if (claim.evidenceRequired && (claim.evidenceStatus === "partial" || claim.evidenceStatus === "weak")) flags.push("partial_evidence")
+  if (researchGaps.some((gap) => gap.targetType === "claim" && gap.targetId === claim.id && (gap.status === "open" || gap.status === "in_progress" || gap.status === "findings_saved"))) flags.push("open_gaps")
+  if (objectionRisk.risks.some((risk) => risk.claimId === claim.id)) flags.push("risks")
+  if (objectionRisk.objections.some((objection) => objection.claimId === claim.id && objection.priority === "high")) flags.push("high_priority_objections")
+  if (artifacts.some((artifact) => artifact.coverageStatus !== "current" && (artifact.affectedClaimIds.includes(claim.id) || artifact.missingClaimIds.includes(claim.id) || artifact.claimIds.includes(claim.id)))) flags.push("stale_artifacts")
+  return [...new Set(flags)]
+}
+
+function buildWorkbench(claims: NarrativeMapClaim[], artifacts: NarrativeMapArtifact[], approved: boolean): NarrativeMapWorkbench {
+  const filterLabels: Record<NarrativeMapFilterId, string> = {
+    all: "All claims",
+    missing_evidence: "Missing evidence",
+    partial_evidence: "Partial evidence",
+    stale_artifacts: "Stale artifacts",
+    open_gaps: "Open gaps",
+    risks: "Risks",
+    high_priority_objections: "High-priority objections",
+  }
+  const filterIds: NarrativeMapFilterId[] = ["all", "missing_evidence", "partial_evidence", "stale_artifacts", "open_gaps", "risks", "high_priority_objections"]
+  return {
+    filters: filterIds.map((id) => {
+      const claimIds = claims.filter((claim) => claim.workbenchFlags.includes(id)).map((claim) => claim.id)
+      return { id, label: filterLabels[id], count: claimIds.length, claimIds }
+    }),
+    artifactCoverage: artifacts.map((artifact) => ({
+      artifactId: artifact.id,
+      type: artifact.type,
+      outputPath: artifact.outputPath,
+      coverageStatus: artifact.coverageStatus,
+      contractStatus: artifact.contractStatus,
+      affectedClaimIds: artifact.affectedClaimIds,
+      missingClaimIds: artifact.missingClaimIds,
+      affectedSlides: artifact.slideRefs
+        .filter((ref) => artifact.affectedClaimIds.includes(ref.claimId) || artifact.missingClaimIds.includes(ref.claimId) || artifact.coverageStatus !== "current")
+        .map((ref) => ({ claimId: ref.claimId, slideIndex: ref.slideIndex, slideTitle: ref.slideTitle, role: ref.role, location: ref.location })),
+      staleReasons: artifact.staleReasons,
+      recommendedNextCommand: artifact.coverageStatus === "current" ? "/revela review --deck" : "/revela make --deck",
+    })),
+    renderTargetAction: artifacts.length === 0 ? {
+      kind: approved ? "make_deck" : "approve_narrative",
+      label: approved ? "Make deck" : "Approve narrative",
+      command: approved ? "/revela make --deck" : "/revela story",
+      reason: approved ? "No render target is recorded for this approved narrative." : "Narrative approval is required before rendering artifacts.",
+    } : undefined,
+  }
+}
+
+function dedupeActions(actions: NarrativeMapNextAction[]): NarrativeMapNextAction[] {
+  const seen = new Set<string>()
+  return actions.filter((action) => {
+    const key = `${action.kind}:${action.command}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 function claimRecordsInNarrativeOrder(narrative: NarrativeStateV1, claimsByStatus: Record<NarrativeClaim["evidenceStatus"], NarrativeMapClaim[]>): NarrativeMapClaim[] {
@@ -197,6 +387,7 @@ export function formatNarrativeMap(map: NarrativeMap): string {
       for (const evidence of claim.evidence) {
         lines.push(`  Evidence: ${evidenceLine(evidence)}`)
       }
+      if (claim.nextActions.length > 0) lines.push(`  Next actions: ${claim.nextActions.map((action) => `${action.label} (${action.command})`).join("; ")}`)
     }
   }
 
@@ -243,6 +434,16 @@ export function formatNarrativeMap(map: NarrativeMap): string {
     for (const ref of artifact.slideRefs) lines.push(`  Slide ${ref.slideIndex}: ${ref.claimId} [${ref.role}] (${ref.match}/${ref.location})`)
     for (const reason of artifact.staleReasons) lines.push(`  Coverage note: ${reason}`)
     if (artifact.note) lines.push(`  Note: ${artifact.note}`)
+  }
+
+  lines.push("", "## Story Workbench")
+  for (const filter of map.workbench.filters) lines.push(`- Filter ${filter.id}: ${filter.count}${filter.claimIds.length ? ` (${filter.claimIds.join(", ")})` : ""}`)
+  if (map.workbench.renderTargetAction) lines.push(`- Render target action: ${map.workbench.renderTargetAction.label} (${map.workbench.renderTargetAction.command})`)
+  for (const item of map.workbench.artifactCoverage) {
+    lines.push(`- Artifact work item: ${item.type}: ${item.outputPath ?? item.artifactId} [${item.coverageStatus}] -> ${item.recommendedNextCommand}`)
+    if (item.missingClaimIds.length) lines.push(`  Missing claims: ${item.missingClaimIds.join(", ")}`)
+    if (item.affectedClaimIds.length) lines.push(`  Affected claims: ${item.affectedClaimIds.join(", ")}`)
+    if (item.affectedSlides.length) lines.push(`  Affected slides: ${item.affectedSlides.map((slide) => `${slide.slideIndex}:${slide.claimId}`).join(", ")}`)
   }
 
   lines.push("", "## Next Actions")

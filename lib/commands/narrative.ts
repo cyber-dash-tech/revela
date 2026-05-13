@@ -124,7 +124,12 @@ export function buildNarrativeViewPrompt(options: { workspaceRoot: string; langu
     })),
     relations: map.claimRelations.map((relation) => ({ id: relation.id, fromClaimId: relation.fromClaimId, toClaimId: relation.toClaimId, relation: relation.relation, rationale: relation.rationale, inferred: relation.inferred })),
     researchGaps: map.researchGaps.map((gap) => ({ id: gap.id, targetType: gap.targetType, targetId: gap.targetId, status: gap.status, priority: gap.priority, question: gap.question })),
-    artifactCoverage: map.artifactCoverage.map((artifact) => ({ type: artifact.type, outputPath: artifact.outputPath, stale: artifact.stale, slideRefs: artifact.slideRefs.map((ref) => ({ claimId: ref.claimId, slideIndex: ref.slideIndex, role: ref.role, match: ref.match, location: ref.location })) })),
+    artifactCoverage: map.artifactCoverage.map((artifact) => ({ type: artifact.type, outputPath: artifact.outputPath, stale: artifact.stale, coverageStatus: artifact.coverageStatus, affectedClaimIds: artifact.affectedClaimIds, missingClaimIds: artifact.missingClaimIds, slideRefs: artifact.slideRefs.map((ref) => ({ claimId: ref.claimId, slideIndex: ref.slideIndex, role: ref.role, match: ref.match, location: ref.location })) })),
+    workbench: {
+      filters: map.workbench.filters,
+      renderTargetAction: map.workbench.renderTargetAction,
+      artifactCoverage: map.workbench.artifactCoverage.map((item) => ({ type: item.type, outputPath: item.outputPath, coverageStatus: item.coverageStatus, affectedClaimIds: item.affectedClaimIds, missingClaimIds: item.missingClaimIds, recommendedNextCommand: item.recommendedNextCommand })),
+    },
   }
 
   return `Prepare the read-only Revela narrative UI display model.
@@ -141,11 +146,11 @@ Hard rules:
 - Do not invent new claims, evidence, relations, slide coverage, source paths, findings files, quotes, or caveats.
 - Preserve every claimId exactly.
 - Preserve every relation endpoint exactly: fromClaimId, toClaimId, relation.
-- You may only organize and localize display copy for the UI: pageTitle, summaryLine, section labels, claim card displayTitle, roleLabel, narrativeJob, evidenceSummary, riskOrGapSummary, relation displayLabel, and relation displayRationale.
+- You may only organize and localize display copy for the UI: pageTitle, summaryLine, section labels including Story workbench labels, claim card displayTitle, roleLabel, narrativeJob, evidenceSummary, riskOrGapSummary, relation displayLabel, and relation displayRationale.
 - For inferred relations, do not provide relation displayLabel or displayRationale; inferred relations are unconfirmed order notes, not causal/support/dependency judgments.
 - relation displayRationale may only localize or clarify an existing canonical relation rationale. If relation.rationale is missing or the relation is inferred, do not provide displayRationale; the UI will show the missing or inferred status.
 - Keep source paths, findings files, claim IDs, narrative hash, and numbers unchanged.
-- Translate normal UI/display text into the target language request: pageTitle, summaryLine, labels, claim displayTitle, roleLabel, narrativeJob, evidenceSummary, riskOrGapSummary, relation displayLabel, and relation displayRationale.
+- Translate normal UI/display text into the target language request: pageTitle, summaryLine, labels including workbench labels, claim displayTitle, roleLabel, narrativeJob, evidenceSummary, riskOrGapSummary, relation displayLabel, and relation displayRationale.
 - Do not translate claim IDs, relation endpoints, narrative hash, source paths, findings files, URLs, numbers, or quoted/source facts.
 - Use natural business and manufacturing terminology in the target language, not word-by-word machine translation.
 - If a fact is missing, describe it as missing instead of filling it in.

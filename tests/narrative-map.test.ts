@@ -174,6 +174,22 @@ describe("narrative map", () => {
     }))
     expect(map.artifactCoverage).toContainEqual(expect.objectContaining({ type: "pdf", outputPath: "decks/map-demo.pdf" }))
     expect(map.artifactCoverage).toContainEqual(expect.objectContaining({ type: "pptx", outputPath: "decks/map-demo.pptx" }))
+    expect(map.claimFlow.find((claim) => claim.id === "claim:missing")?.nextActions).toContainEqual(expect.objectContaining({ label: "Research this gap", command: "/revela research" }))
+    expect(map.claimFlow.find((claim) => claim.id === "claim:partial")?.nextActions).toContainEqual(expect.objectContaining({ label: "Narrow claim", command: "/revela story" }))
+    expect(map.claimFlow.find((claim) => claim.id === "claim:supported")?.nextActions).toContainEqual(expect.objectContaining({ label: "Remake stale artifact", command: "/revela make --deck" }))
+    expect(map.workbench.filters).toContainEqual(expect.objectContaining({ id: "missing_evidence", count: 1, claimIds: ["claim:missing"] }))
+    expect(map.workbench.filters).toContainEqual(expect.objectContaining({ id: "partial_evidence", count: 1, claimIds: ["claim:partial"] }))
+    expect(map.workbench.filters).toContainEqual(expect.objectContaining({ id: "stale_artifacts", count: 3, claimIds: ["claim:supported", "claim:partial", "claim:missing"] }))
+    expect(map.workbench.filters).toContainEqual(expect.objectContaining({ id: "open_gaps", count: 1, claimIds: ["claim:missing"] }))
+    expect(map.workbench.filters).toContainEqual(expect.objectContaining({ id: "risks", count: 1, claimIds: ["claim:partial"] }))
+    expect(map.workbench.filters).toContainEqual(expect.objectContaining({ id: "high_priority_objections", count: 1, claimIds: ["claim:supported"] }))
+    expect(map.workbench.artifactCoverage).toContainEqual(expect.objectContaining({
+      type: "html_deck",
+      outputPath: "decks/map-demo.html",
+      coverageStatus: "partial",
+      missingClaimIds: ["claim:missing"],
+      recommendedNextCommand: "/revela make --deck",
+    }))
   })
 
   it("formats the narrative map as a stable markdown workspace view", () => {
@@ -198,6 +214,10 @@ describe("narrative map", () => {
     expect(text).toContain("Missing claim refs: claim:missing")
     expect(text).toContain("Coverage note: Artifact does not cover 1 central or evidence-required claim.")
     expect(text).toContain("Slide 1: claim:supported [primary]")
+    expect(text).toContain("## Story Workbench")
+    expect(text).toContain("Filter missing_evidence: 1 (claim:missing)")
+    expect(text).toContain("Artifact work item: html_deck: decks/map-demo.html [partial] -> /revela make --deck")
+    expect(text).toContain("Next actions: Remake stale artifact (/revela make --deck)")
   })
 
   it("renders narrative map without an active deck or render target", async () => {
@@ -208,8 +228,14 @@ describe("narrative map", () => {
     expect(map.snapshot.primaryAudience).toBe("Board")
     expect(map.claimFlow.map((claim) => claim.id)).toEqual(["claim:supported", "claim:partial", "claim:missing", "claim:not-required"])
     expect(map.artifactCoverage).toEqual([])
+    expect(map.workbench.renderTargetAction).toEqual(expect.objectContaining({ label: "Make deck", command: "/revela make --deck" }))
     expect(text).toContain("## Render Target Coverage")
     expect(text).toContain("- No render targets recorded")
+    expect(text).toContain("Render target action: Make deck (/revela make --deck)")
+    const html = renderNarrativeMapHtml(map)
+    expect(html).toContain("No render targets recorded")
+    expect(html).toContain("Recommended next command")
+    expect(html).toContain("/revela make --deck")
 
     const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-no-deck-"))
     const messages: string[] = []
@@ -238,6 +264,19 @@ describe("narrative map", () => {
     expect(html).toContain("coverage:partial")
     expect(html).toContain("Artifact coverage")
     expect(html).toContain("Artifact does not cover 1 central or evidence-required claim.")
+    expect(html).toContain("Story workbench")
+    expect(html).toContain("Missing evidence (1)")
+    expect(html).toContain("Partial evidence (1)")
+    expect(html).toContain("Stale artifacts (3)")
+    expect(html).toContain("Open gaps (1)")
+    expect(html).toContain("High-priority objections (1)")
+    expect(html).toContain("data-filter-id=\"missing_evidence\"")
+    expect(html).toContain("data-filters=\"all high_priority_objections stale_artifacts\"")
+    expect(html).toContain("Next actions")
+    expect(html).toContain("Research this gap")
+    expect(html).toContain("Narrow claim")
+    expect(html).toContain("Recommended next command")
+    expect(html).toContain("/revela make --deck")
     expect(html).toContain("claim:supported")
     expect(html).toContain("claim-card")
     expect(html).toContain("claim-section")
@@ -281,6 +320,8 @@ describe("narrative map", () => {
     expect(html).toContain("由证据支撑")
     expect(html).toContain("试点建议由当前产线证据支撑。")
     expect(html).toContain("自定义当前主张")
+    expect(html).toContain("Story 工作台")
+    expect(html).toContain("建议命令")
     expect(html).toContain("已支持范围")
     expect(html).toContain("前置关系")
     expect(html).toContain("后续关系")
@@ -418,6 +459,9 @@ describe("narrative map", () => {
         selectedClaim: "Thèse sélectionnée",
         claimFlow: "Progression des thèses",
         evidence: "Preuve",
+        storyWorkbench: "Atelier narratif",
+        workbenchNote: "Filtrez les thèses sans modifier l'état narratif.",
+        recommendedNextCommand: "Commande recommandée",
       },
       claimCards: [{ claimId: "claim:supported", displayTitle: "Approuver le pilote par étapes" }],
     }, "fr")
@@ -429,6 +473,9 @@ describe("narrative map", () => {
     expect(html).toContain("Thèse sélectionnée")
     expect(html).toContain("Progression des thèses")
     expect(html).toContain("Preuve")
+    expect(html).toContain("Atelier narratif")
+    expect(html).toContain("Filtrez les thèses sans modifier l'état narratif.")
+    expect(html).toContain("Commande recommandée")
     expect(html).toContain("Approuver le pilote par étapes")
   })
 
@@ -443,6 +490,7 @@ describe("narrative map", () => {
       expect(prompt).toContain("Target language request: fr")
       expect(prompt).toContain("--fr, --de, --es, --ko, --Arabic, --Portuguese-BR")
       expect(prompt).toContain("Translate normal UI/display text into the target language request")
+      expect(prompt).toContain("Story workbench labels")
       expect(prompt).toContain("Preserve every claimId exactly")
       expect(prompt).toContain("relation displayRationale may only localize or clarify an existing canonical relation rationale")
       expect(prompt).toContain("when the target language request is Chinese")
