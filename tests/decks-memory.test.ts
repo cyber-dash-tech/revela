@@ -225,6 +225,8 @@ describe("research command", () => {
     expect(prompt).toContain("Re-run `reviewNarrative` and `deriveResearchTargets` after each loop")
     expect(prompt).toContain("Treat the returned `selected` target as the deterministic first target")
     expect(prompt).toContain("bindingDiagnostic")
+    expect(prompt).toContain("Selected target")
+    expect(prompt).toContain("Unbound findings")
     expect(prompt).toContain("internal_data_needed")
     expect(prompt).toContain("Current workspace root: `/workspace/project`")
   })

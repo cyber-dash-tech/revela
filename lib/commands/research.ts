@@ -48,14 +48,17 @@ Stop conditions:
 
 Report format:
 - Start with \`Research loop completed after <n> round(s).\`
-- State the selected target: \`kind\`, \`priority\`, \`reason\`, \`question\`, and any \`findingsFile\`.
-- If existing findings were inspected, report \`bindingDiagnostic.bindable\` and \`failureReasons\` before listing any external search.
-- List bound evidence by claim id and count.
-- List gaps closed or moved to evidence_bound.
-- List claims or relations narrowed, with the remaining unsupported scope.
-- List remaining caveats only as one of: \`internal_data_needed\`, \`not_publicly_researchable\`, \`source_quality_limit\`, or \`still_open\`.
-- If no binding happened, say why binding criteria failed and what exact source type is needed next.
-- End with the next smallest story action, not a generic request for user confirmation.
+- Then use these exact sections in order:
+  - \`Selected target\`: report \`kind\`, \`priority\`, \`reason\`, \`question\`, \`targetId\`, \`claimId\`, and any \`findingsFile\`.
+  - \`Existing findings inspected\`: for each file, report \`findingsFile\`, \`bindingDiagnostic.bindable\`, \`failureReasons\`, and which explicit fields were present: \`source\`, \`quoteOrSnippet\`, \`supportScope\`, \`unsupportedScope\`, \`caveat\`, \`strength\`. If none were inspected, write \`none\`.
+  - \`Attachments\`: list findings attached with axis/status, or \`none\`.
+  - \`Evidence bound\`: list evidence bindings by claim id, source, quote/snippet, supportScope, unsupportedScope, caveat, and strength, or \`none\`.
+  - \`Unbound findings\`: list every inspected but unbound findings file with structured failure reasons such as \`missing_quote\`, \`unclear_source\`, \`unsupported_scope\`, \`caveat_conflict\`, \`weak_source\`, \`source_mismatch\`, or \`context_only_finding\`. If none, write \`none\`.
+  - \`Gap updates\`: list gaps moved to \`in_progress\`, \`findings_saved\`, \`attached\`, \`evidence_bound\`, \`closed\`, or still \`open\` with notes.
+  - \`Narrative changes\`: list claims or relations narrowed, with remaining unsupported scope. If none, write \`none\`.
+  - \`Remaining caveats\`: use only \`internal_data_needed\`, \`not_publicly_researchable\`, \`source_quality_limit\`, or \`still_open\`.
+  - \`Next smallest story action\`: end with one concrete next command or action, not a generic request for confirmation.
+- If no binding happened, the \`Unbound findings\` or \`Remaining caveats\` section must say why binding criteria failed and what exact source type is needed next.
 
 Rules:
 - Do not use primary-agent broad websearch. Use the \`revela-research\` subagent for external search.

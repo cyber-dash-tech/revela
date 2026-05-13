@@ -69,7 +69,24 @@ describe("revela research command prompt", () => {
     expect(prompt).toContain("claimId exists")
     expect(prompt).toContain("supportScope and unsupportedScope are explicit")
     expect(prompt).toContain("binding does not expand the claim beyond the evidence")
-    expect(prompt).toContain("If existing findings were inspected, report `bindingDiagnostic.bindable` and `failureReasons`")
+    expect(prompt).toContain("report `findingsFile`, `bindingDiagnostic.bindable`, `failureReasons`")
+  })
+
+  it("requires a stable structured research report", () => {
+    const prompt = buildResearchPrompt({ exists: true })
+
+    expect(prompt).toContain("Then use these exact sections in order")
+    expect(prompt).toContain("`Selected target`")
+    expect(prompt).toContain("`Existing findings inspected`")
+    expect(prompt).toContain("`Attachments`")
+    expect(prompt).toContain("`Evidence bound`")
+    expect(prompt).toContain("`Unbound findings`")
+    expect(prompt).toContain("`Gap updates`")
+    expect(prompt).toContain("`Narrative changes`")
+    expect(prompt).toContain("`Remaining caveats`")
+    expect(prompt).toContain("`Next smallest story action`")
+    expect(prompt).toContain("which explicit fields were present: `source`, `quoteOrSnippet`, `supportScope`, `unsupportedScope`, `caveat`, `strength`")
+    expect(prompt).toContain("list every inspected but unbound findings file with structured failure reasons")
   })
 })
 
