@@ -3,6 +3,7 @@ import { readFileSync } from "fs"
 import { join } from "path"
 import { RESEARCH_PROMPT } from "../lib/agents/research-prompt"
 import { NARRATIVE_REVIEWER_PROMPT, NARRATIVE_REVIEWER_SIGNATURE } from "../lib/agents/narrative-reviewer-prompt"
+import { buildResearchPrompt } from "../lib/commands/research"
 
 const skill = readFileSync(join(import.meta.dir, "..", "skill", "NARRATIVE_SKILL.md"), "utf-8")
 const plugin = readFileSync(join(import.meta.dir, "..", "plugin.ts"), "utf-8")
@@ -30,6 +31,45 @@ describe("primary research orchestration skill", () => {
     expect(skill).toContain("stopping when no public evidence can improve the state")
     expect(skill).not.toContain("ALWAYS** launch research agents as your first action")
     expect(skill).not.toContain("LAUNCH TOGETHER (as your first action)")
+  })
+})
+
+describe("revela research command prompt", () => {
+  it("uses deterministic research targets before external search", () => {
+    const prompt = buildResearchPrompt({ exists: true, workspaceRoot: "/tmp/revela-demo" })
+
+    expect(prompt).toContain("then `reviewNarrative`, then `deriveResearchTargets`")
+    expect(prompt).toContain("Treat the returned `selected` target as the deterministic first target")
+    expect(prompt).toContain("use `deriveResearchTargets` as the target order")
+    expect(prompt).toContain("Work the `selected` target first")
+    expect(prompt).toContain("Do not bypass `deriveResearchTargets`")
+    expect(prompt).toContain("target selection, `selected`, and `bindingDiagnostic` are deterministic inputs")
+  })
+
+  it("prioritizes existing findings and reports binding diagnostics", () => {
+    const prompt = buildResearchPrompt({ exists: true })
+
+    expect(prompt).toContain("inspect `bindingDiagnostic` before doing external search")
+    expect(prompt).toContain("Prefer existing findings before external research")
+    expect(prompt).toContain("When `bindingDiagnostic.bindable` is false")
+    expect(prompt).toContain("do not bind or package the findings as strong evidence")
+    expect(prompt).toContain("`missing_quote`")
+    expect(prompt).toContain("`unclear_source`")
+    expect(prompt).toContain("`unsupported_scope`")
+    expect(prompt).toContain("`caveat_conflict`")
+    expect(prompt).toContain("`source_mismatch`")
+    expect(prompt).toContain("`context_only_finding`")
+  })
+
+  it("requires bindable diagnostics or equivalent explicit fields before automatic binding", () => {
+    const prompt = buildResearchPrompt({ exists: true })
+
+    expect(prompt).toContain("Automatically bind evidence only when all binding criteria are met")
+    expect(prompt).toContain("diagnostic is `bindable: true` or the same fields are explicit")
+    expect(prompt).toContain("claimId exists")
+    expect(prompt).toContain("supportScope and unsupportedScope are explicit")
+    expect(prompt).toContain("binding does not expand the claim beyond the evidence")
+    expect(prompt).toContain("If existing findings were inspected, report `bindingDiagnostic.bindable` and `failureReasons`")
   })
 })
 
