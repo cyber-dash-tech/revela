@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { mkdtempSync, mkdirSync, writeFileSync } from "fs"
-import { tmpdir } from "os"
+import { mkdirSync, writeFileSync } from "fs"
 import { join } from "path"
 import {
   applyEvidenceCandidates,
@@ -15,6 +14,7 @@ import {
 import { upsertSourceMaterial } from "../lib/source-materials"
 import { currentReviewInputHash, isReviewSnapshotCurrent } from "../lib/workspace-state/review-snapshots"
 import { confirmTestDeckPlan, readyDeckState } from "./helpers/narrative-fixtures"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("DECKS.json state readiness", () => {
   const confirmPlan = confirmTestDeckPlan
@@ -208,7 +208,7 @@ describe("DECKS.json state readiness", () => {
   })
 
   it("surfaces conservative evidence binding candidates from read research findings", () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-review-candidates-"))
+    const workspaceRoot = tempWorkspace("revela-review-candidates-")
     mkdirSync(join(workspaceRoot, "researches", "factory"), { recursive: true })
     writeFileSync(join(workspaceRoot, "researches", "factory", "context.md"), `---
 topic: factory
@@ -250,7 +250,7 @@ topic: factory
   })
 
   it("finds partial candidates even when future-state claim text has low overlap", () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-review-low-overlap-"))
+    const workspaceRoot = tempWorkspace("revela-review-low-overlap-")
     mkdirSync(join(workspaceRoot, "researches", "factory"), { recursive: true })
     writeFileSync(join(workspaceRoot, "researches", "factory", "context.md"), `## Data
 - P&G/Plug and Play proposal summarizes current operations as "Automation Islands" with fragmented legacy systems and human bottlenecks.
@@ -291,7 +291,7 @@ topic: factory
   })
 
   it("applies selected evidence candidates explicitly without rewriting slide content", () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-review-apply-candidates-"))
+    const workspaceRoot = tempWorkspace("revela-review-apply-candidates-")
     mkdirSync(join(workspaceRoot, "researches", "factory"), { recursive: true })
     writeFileSync(join(workspaceRoot, "researches", "factory", "context.md"), `## Data
 - P&G/Plug and Play proposal summarizes current operations as "Automation Islands" with fragmented legacy systems and human bottlenecks.
@@ -335,7 +335,7 @@ topic: factory
   })
 
   it("skips unknown or stale evidence candidate applications", () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-review-apply-skip-"))
+    const workspaceRoot = tempWorkspace("revela-review-apply-skip-")
     mkdirSync(join(workspaceRoot, "researches", "factory"), { recursive: true })
     writeFileSync(join(workspaceRoot, "researches", "factory", "context.md"), `## Data
 - P&G/Plug and Play proposal summarizes current operations as "Automation Islands" with fragmented legacy systems and human bottlenecks.
@@ -363,7 +363,7 @@ topic: factory
   })
 
   it("falls back to workspace research files when researchPlan does not bind the findings file", () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-review-researches-fallback-"))
+    const workspaceRoot = tempWorkspace("revela-review-researches-fallback-")
     mkdirSync(join(workspaceRoot, "researches", "pg_future_manufacturing_opening"), { recursive: true })
     writeFileSync(join(workspaceRoot, "researches", "pg_future_manufacturing_opening", "unified-data-context-challenges.md"), `## Data
 - P&G/Plug and Play proposal summarizes current operations as "Automation Islands" caused by fragmented legacy systems and human bottlenecks.
@@ -401,7 +401,7 @@ topic: factory
   })
 
   it("reports evidence candidate search near misses when no binding candidate is strong enough", () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-review-near-miss-"))
+    const workspaceRoot = tempWorkspace("revela-review-near-miss-")
     mkdirSync(join(workspaceRoot, "researches", "factory"), { recursive: true })
     writeFileSync(join(workspaceRoot, "researches", "factory", "weak.md"), `## Data
 - This note only mentions automation as a broad theme.

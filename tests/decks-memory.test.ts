@@ -1,7 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { mkdtempSync, rmSync } from "fs"
-import { tmpdir } from "os"
-import { join } from "path"
+import { rmSync } from "fs"
 import {
   extractDeckHtmlTargetsFromPatch,
   extractPatchTextArg,
@@ -12,6 +10,7 @@ import { buildInitPrompt } from "../lib/commands/init"
 import { buildRememberPrompt, parseRememberArgs } from "../lib/commands/remember"
 import { buildDeckPrompt, buildDeckReviewPrompt, buildReviewPrompt } from "../lib/commands/review"
 import { buildResearchPrompt } from "../lib/commands/research"
+import { tempWorkspace } from "./helpers/tool-helpers"
 import {
   confirmDeckPlan,
   createDeckSpec,
@@ -381,7 +380,7 @@ describe("DECKS.json state readiness", () => {
   })
 
   it("preserves evidence source trace in compact prompt state while truncating long snippets", () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-decks-state-"))
+    const workspaceRoot = tempWorkspace("revela-decks-state-")
     try {
       const longQuote = `${"Important source sentence. ".repeat(40)}end`
       const longCaveat = `${"Scope limitation. ".repeat(30)}end`

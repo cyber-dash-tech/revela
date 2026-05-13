@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs"
-import { tmpdir } from "os"
+import { mkdirSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { listResearchImageLeads } from "../lib/research/image-leads"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 let workspaceDir = ""
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "revela-image-leads-"))
+  workspaceDir = tempWorkspace("revela-image-leads-")
 })
 
 afterEach(() => {

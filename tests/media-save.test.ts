@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs"
-import { tmpdir } from "os"
+import { existsSync, readFileSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { saveMediaAsset } from "../lib/media/save"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 let workspaceDir = ""
 const originalFetch = globalThis.fetch
@@ -22,7 +22,7 @@ function mockFetchWith(responseFactory: () => Promise<Response> | Response): typ
 }
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "revela-media-save-"))
+  workspaceDir = tempWorkspace("revela-media-save-")
 })
 
 afterEach(() => {
@@ -227,7 +227,7 @@ describe("saveMediaAsset", () => {
   })
 
   it("rejects sourcePath values outside the workspace", async () => {
-    const outsideDir = mkdtempSync(join(tmpdir(), "revela-media-outside-"))
+    const outsideDir = tempWorkspace("revela-media-outside-")
     const outsidePath = join(outsideDir, "logo.png")
     writeFileSync(outsidePath, validPngBuffer())
 

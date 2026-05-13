@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { existsSync, mkdtempSync, readFileSync } from "fs"
-import { tmpdir } from "os"
+import { existsSync, readFileSync } from "fs"
 import { join } from "path"
 import { createEmptyDecksState, readDecksState, writeDecksState } from "../lib/decks-state"
 import {
@@ -11,6 +10,7 @@ import {
   workspaceStatePath,
   writeWorkspaceState,
 } from "../lib/workspace-state/repository"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("workspace state repository", () => {
   interface TestState {
@@ -20,7 +20,7 @@ describe("workspace state repository", () => {
   }
 
   function tempRoot() {
-    return mkdtempSync(join(tmpdir(), "revela-workspace-state-"))
+    return tempWorkspace("revela-workspace-state-")
   }
 
   it("reads and writes the root workspace state file", () => {

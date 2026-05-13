@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test"
-import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "fs"
-import { tmpdir } from "os"
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { createEmptyDecksState, upsertDeck, upsertSlides, workspaceDeckSlug, writeDecksState } from "../lib/decks-state"
 import { clearInspectRequestsForTests, getInspectRequest } from "../lib/inspect/requests"
@@ -9,6 +8,7 @@ import { handleInspect } from "../lib/commands/inspect"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { ensureRefineDeckOpenForChange, openRefineDeck } from "../lib/refine/open"
 import { renderRefineShell, stopRefineServer } from "../lib/refine/server"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 const roots: string[] = []
 
@@ -19,7 +19,7 @@ afterEach(() => {
 })
 
 function workspace(): string {
-  const root = mkdtempSync(join(tmpdir(), "revela-refine-test-"))
+  const root = tempWorkspace("revela-refine-test-")
   roots.push(root)
   mkdirSync(join(root, "decks"), { recursive: true })
   return root

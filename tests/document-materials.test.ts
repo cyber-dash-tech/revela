@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs"
-import { tmpdir } from "os"
+import { existsSync, readFileSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { zipSync, strToU8 } from "fflate"
 import { PDFDocument, StandardFonts } from "pdf-lib"
 import { extractDocumentMaterials } from "../lib/document-materials/extract"
 import { createEmptyDecksState, readDecksState, writeDecksState } from "../lib/decks-state"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 let workspaceDir = ""
 
@@ -52,7 +52,7 @@ async function writePdf(
 }
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "revela-doc-materials-"))
+  workspaceDir = tempWorkspace("revela-doc-materials-")
 })
 
 afterEach(() => {

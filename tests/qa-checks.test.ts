@@ -1,12 +1,12 @@
 import { describe, it, expect } from "bun:test"
-import { mkdtempSync, writeFileSync } from "fs"
-import { tmpdir } from "os"
+import { writeFileSync } from "fs"
 import { join } from "path"
 import { runChecks, formatReport } from "../lib/qa/checks"
 import { runComplianceQA } from "../lib/qa/compliance"
 import { CANVAS_W, CANVAS_H } from "../lib/qa/measure"
 import type { SlideMetrics, ElementInfo, Rect } from "../lib/qa/measure"
 import type { DesignClassVocabulary } from "../lib/design/designs"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 function makeRect(left: number, top: number, right: number, bottom: number): Rect {
   return { left, top, right, bottom, width: right - left, height: bottom - top }
@@ -66,7 +66,7 @@ function makeMetrics(
 }
 
 function htmlFile(html: string): string {
-  const root = mkdtempSync(join(tmpdir(), "revela-qa-test-"))
+  const root = tempWorkspace("revela-qa-test-")
   const file = join(root, "deck.html")
   writeFileSync(file, html, "utf-8")
   return file

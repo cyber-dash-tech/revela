@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs"
-import { tmpdir } from "os"
+import { existsSync, readFileSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { zipSync, strToU8 } from "fflate"
 import { preRead } from "../lib/read-hooks/pre-read"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 let workspaceDir = ""
 let previousCwd = ""
@@ -20,7 +20,7 @@ function writeZip(relativePath: string, files: Record<string, Uint8Array>): stri
 
 beforeEach(() => {
   previousCwd = process.cwd()
-  workspaceDir = mkdtempSync(join(tmpdir(), "revela-pre-read-"))
+  workspaceDir = tempWorkspace("revela-pre-read-")
   process.chdir(workspaceDir)
 })
 

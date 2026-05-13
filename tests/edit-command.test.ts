@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test"
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "fs"
+import { mkdirSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
-import { tmpdir } from "os"
 import { createEmptyDecksState, readDecksState, upsertDeck, upsertSlides, workspaceDeckSlug, writeDecksState } from "../lib/decks-state"
 import { ensureEditableDeckState } from "../lib/edit/deck-state"
 import { resolveEditableDeck } from "../lib/edit/resolve-deck"
@@ -9,6 +8,7 @@ import { buildEditPrompt } from "../lib/edit/prompt"
 import { ensureEditableDeckOpenForChange, openEditableDeck } from "../lib/edit/open"
 import { hasLiveEditorSessionForFile, LIVE_EDITOR_IDLE_MS, renderEditorShell, stopEditServer } from "../lib/edit/server"
 import createEditTool from "../tools/edit"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 const roots: string[] = []
 
@@ -18,7 +18,7 @@ afterEach(() => {
 })
 
 function workspace(): string {
-  const root = mkdtempSync(join(tmpdir(), "revela-edit-test-"))
+  const root = tempWorkspace("revela-edit-test-")
   roots.push(root)
   mkdirSync(join(root, "decks"), { recursive: true })
   return root
@@ -397,7 +397,7 @@ describe("editor local asset proxy", () => {
 
   it("proxies absolute local image paths outside the workspace", async () => {
     const root = workspace()
-    const external = mkdtempSync(join(tmpdir(), "revela-edit-external-"))
+    const external = tempWorkspace("revela-edit-external-")
     roots.push(external)
     const imagePath = join(external, "cover page pic.jpg")
     writeFileSync(imagePath, new Uint8Array([5, 6, 7]))

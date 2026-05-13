@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "fs"
-import { tmpdir } from "os"
+import { existsSync, readFileSync, rmSync } from "fs"
 import { join } from "path"
 import { batchSaveMediaAssets } from "../lib/media/batch-save"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 let workspaceDir = ""
 const originalFetch = globalThis.fetch
@@ -17,7 +17,7 @@ function mockFetchWith(
 }
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "revela-media-batch-"))
+  workspaceDir = tempWorkspace("revela-media-batch-")
 })
 
 afterEach(() => {

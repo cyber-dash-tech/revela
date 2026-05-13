@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test"
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "fs"
-import { tmpdir } from "os"
+import { mkdirSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { createEmptyDecksState, upsertDeck, upsertSlides, workspaceDeckSlug, writeDecksState } from "../lib/decks-state"
 import { openInspectDeck } from "../lib/inspect/open"
@@ -14,6 +13,7 @@ import { renderInspectorShell, stopInspectServer } from "../lib/inspect/server"
 import { canonicalInspectSlideIndex } from "../lib/inspect/slide-index"
 import type { InspectionPromptProjection } from "../lib/inspection-context/project"
 import type { InspectionResult } from "../lib/inspection-context/result"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("inspect pending request store", () => {
   afterEach(() => {
@@ -143,7 +143,7 @@ describe("inspect HTTP request lifecycle", () => {
   })
 
   it("returns deterministic preprocess before the LLM prompt resolves", async () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-inspect-"))
+    const workspaceRoot = tempWorkspace("revela-inspect-")
     try {
       mkdirSync(join(workspaceRoot, "decks"), { recursive: true })
       writeFileSync(join(workspaceRoot, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><h1>Launch</h1><h2>Conversion improved 18%</h2></section>')

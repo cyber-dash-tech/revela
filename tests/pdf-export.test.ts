@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test"
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs"
-import { tmpdir } from "os"
+import { mkdirSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import {
   extractImageAssetRefsForPdf,
   inlineImageAssetsForPdf,
 } from "../lib/pdf/export"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("extractImageAssetRefsForPdf", () => {
   it("captures quoted local image refs with spaces", () => {
@@ -23,7 +23,7 @@ describe("extractImageAssetRefsForPdf", () => {
 
 describe("inlineImageAssetsForPdf", () => {
   it("inlines local image refs with spaces before PDF export", async () => {
-    const tempRoot = mkdtempSync(join(tmpdir(), "revela-pdf-test-"))
+    const tempRoot = tempWorkspace("revela-pdf-test-")
 
     try {
       const slidesDir = join(tempRoot, "slides")

@@ -1,10 +1,9 @@
 import { describe, expect, it } from "bun:test"
-import { mkdtempSync } from "fs"
-import { tmpdir } from "os"
 import { join } from "path"
 import { createEmptyDecksState, readDecksState, upsertDeck, upsertSlides, writeDecksState } from "../lib/decks-state"
 import { recordRenderedArtifact } from "../lib/workspace-state/rendered-artifacts"
 import { recordArtifactRenderTarget, resolveActiveHtmlDeckPath } from "../lib/workspace-state/render-targets"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("workspace render targets", () => {
   function stateWithDeck() {
@@ -92,7 +91,7 @@ describe("workspace render targets", () => {
   })
 
   it("records artifact render provenance in DECKS.json", () => {
-    const root = mkdtempSync(join(tmpdir(), "revela-render-targets-"))
+    const root = tempWorkspace("revela-render-targets-")
     writeDecksState(root, stateWithDeck())
 
     recordRenderedArtifact(root, {

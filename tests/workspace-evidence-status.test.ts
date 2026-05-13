@@ -1,14 +1,14 @@
 import { describe, expect, it } from "bun:test"
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "fs"
-import { tmpdir } from "os"
+import { mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 import { createEmptyDecksState, readDecksState, upsertDeck, upsertSlides, writeDecksState, type DecksState } from "../lib/decks-state"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { applyEvidenceBindings, getEvidenceStatusForSelection } from "../lib/workspace-state/evidence-status"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("workspace evidence status service", () => {
   it("returns bound evidence for a selected supported claim", () => {
-    const root = mkdtempSync(join(tmpdir(), "revela-evidence-status-bound-"))
+    const root = tempWorkspace("revela-evidence-status-bound-")
     writeDecksState(root, supportedState())
 
     const status = getEvidenceStatusForSelection(root, { slideIndex: 1, selectedText: "Conversion improved 18%", scope: "element" })
@@ -40,7 +40,7 @@ describe("workspace evidence status service", () => {
   })
 
   it("surfaces candidate evidence, unsupported scope, rewrite guidance, and search diagnostics", () => {
-    const root = mkdtempSync(join(tmpdir(), "revela-evidence-status-candidate-"))
+    const root = tempWorkspace("revela-evidence-status-candidate-")
     writeFactoryFindings(root)
     writeDecksState(root, missingEvidenceState())
 
@@ -65,7 +65,7 @@ describe("workspace evidence status service", () => {
   })
 
   it("applies selected evidence bindings explicitly without mutating HTML or slide text", () => {
-    const root = mkdtempSync(join(tmpdir(), "revela-evidence-status-apply-"))
+    const root = tempWorkspace("revela-evidence-status-apply-")
     mkdirSync(join(root, "decks"), { recursive: true })
     writeFactoryFindings(root)
     const htmlPath = join(root, "decks", "demo.html")

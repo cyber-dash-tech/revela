@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate"
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs"
-import { tmpdir } from "os"
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs"
 import { basename, join } from "path"
 import {
   applySpeakerNotesToPptx,
@@ -11,6 +10,7 @@ import {
   resolveDomToPptxBundlePath,
 } from "../lib/pptx/export"
 import { buildPptxNotesPrompt, parsePptxArgs, resolvePptxDeck } from "../lib/commands/pptx"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("resolveDomToPptxBundlePath", () => {
   it("resolves the browser bundle through package resolution", () => {
@@ -37,7 +37,7 @@ describe("extractImageAssetRefsForPptx", () => {
 
 describe("inlineImageAssets", () => {
   it("inlines local image refs with spaces before PPTX export", async () => {
-    const tempRoot = mkdtempSync(join(tmpdir(), "revela-pptx-test-"))
+    const tempRoot = tempWorkspace("revela-pptx-test-")
 
     try {
       const slidesDir = join(tempRoot, "slides")
@@ -141,7 +141,7 @@ describe("parsePptxArgs", () => {
 
 describe("resolvePptxDeck", () => {
   it("uses DECKS.json active deck outputPath first", () => {
-    const tempRoot = mkdtempSync(join(tmpdir(), "revela-pptx-command-test-"))
+    const tempRoot = tempWorkspace("revela-pptx-command-test-")
 
     try {
       mkdirSync(join(tempRoot, "decks"))
@@ -174,7 +174,7 @@ describe("resolvePptxDeck", () => {
   })
 
   it("falls back to the only HTML file in decks/", () => {
-    const tempRoot = mkdtempSync(join(tmpdir(), "revela-pptx-command-test-"))
+    const tempRoot = tempWorkspace("revela-pptx-command-test-")
 
     try {
       mkdirSync(join(tempRoot, "decks"))
@@ -187,7 +187,7 @@ describe("resolvePptxDeck", () => {
   })
 
   it("requires an explicit file when multiple fallback decks exist", () => {
-    const tempRoot = mkdtempSync(join(tmpdir(), "revela-pptx-command-test-"))
+    const tempRoot = tempWorkspace("revela-pptx-command-test-")
 
     try {
       mkdirSync(join(tempRoot, "decks"))

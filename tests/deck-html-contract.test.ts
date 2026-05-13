@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test"
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs"
-import { tmpdir } from "os"
+import { mkdirSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { assertDeckHtmlContractValid, validateDeckHtmlContract } from "../lib/deck-html/contract"
 import { createEmptyDecksState, upsertDeck, upsertSlides, writeDecksState } from "../lib/decks-state"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("deck HTML contract", () => {
   it("accepts active deck HTML with matching 1-based data-slide-index values", () => {
@@ -110,7 +110,7 @@ describe("deck HTML contract", () => {
 })
 
 function workspace(): string {
-  const root = mkdtempSync(join(tmpdir(), "revela-contract-test-"))
+  const root = tempWorkspace("revela-contract-test-")
   mkdirSync(join(root, "decks"), { recursive: true })
   return root
 }
