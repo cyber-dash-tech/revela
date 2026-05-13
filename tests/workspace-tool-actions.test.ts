@@ -1,16 +1,15 @@
 import { describe, expect, it } from "bun:test"
-import { mkdirSync, mkdtempSync, writeFileSync } from "fs"
-import { tmpdir } from "os"
+import { mkdirSync, writeFileSync } from "fs"
 import { join } from "path"
 import { confirmDeckPlan, createEmptyDecksState, readDecksState, upsertDeck, upsertSlides, writeDecksState } from "../lib/decks-state"
 import { currentReviewInputHash } from "../lib/workspace-state/review-snapshots"
-import decksTool from "../tools/decks"
 import researchSaveTool from "../tools/research-save"
 import workspaceScanTool from "../tools/workspace-scan"
+import { executeDecksTool, tempWorkspace } from "./helpers/tool-helpers"
 
 describe("workspace tool action provenance", () => {
   function tempRoot() {
-    return mkdtempSync(join(tmpdir(), "revela-tool-actions-"))
+    return tempWorkspace("revela-tool-actions-")
   }
 
   it("records workspace scan actions when DECKS.json exists", async () => {
@@ -76,10 +75,10 @@ describe("workspace tool action provenance", () => {
   it("records source discovery through revela-decks init", async () => {
     const root = tempRoot()
 
-    const result = JSON.parse(await (decksTool as any).execute({
+    const result = await executeDecksTool({
       action: "init",
       sourceMaterials: [{ path: "sources/a.pdf", type: "pdf", status: "discovered" }],
-    }, { directory: root }))
+    }, root)
     const state = readDecksState(root)
 
     expect(result.ok).toBe(true)
@@ -124,8 +123,8 @@ describe("workspace tool action provenance", () => {
     state = confirmDeckPlan(state, { approvedBy: "user", note: "Confirmed test plan.", now: "2026-01-01T00:00:00.000Z" }).state
     writeDecksState(root, state)
 
-    const review = JSON.parse(await (decksTool as any).execute({ action: "review" }, { directory: root }))
-    const apply = JSON.parse(await (decksTool as any).execute({ action: "applyEvidenceCandidates", candidateIds: ["missing-candidate"] }, { directory: root }))
+    const review = await executeDecksTool({ action: "review" }, root)
+    const apply = await executeDecksTool({ action: "applyEvidenceCandidates", candidateIds: ["missing-candidate"] }, root)
     const next = readDecksState(root)
 
     expect(review.ok).toBe(true)
@@ -178,11 +177,11 @@ describe("workspace tool action provenance", () => {
     const beforeHash = currentReviewInputHash(state, "tool-actions")
     writeDecksState(root, state)
 
-    const result = JSON.parse(await (decksTool as any).execute({
+    const result = await executeDecksTool({
       action: "attachResearchFindings",
       findingsFile: "researches/market/demand-data.md",
       researchStatus: "done",
-    }, { directory: root }))
+    }, root)
     const next = readDecksState(root)
 
     expect(result.ok).toBe(true)
@@ -224,15 +223,15 @@ describe("workspace tool action provenance", () => {
     })
     writeDecksState(root, state)
 
-    const ambiguous = JSON.parse(await (decksTool as any).execute({
+    const ambiguous = await executeDecksTool({
       action: "attachResearchFindings",
       findingsFile: "researches/market/market.md",
-    }, { directory: root }))
-    const unsafe = JSON.parse(await (decksTool as any).execute({
+    }, root)
+    const unsafe = await executeDecksTool({
       action: "attachResearchFindings",
       findingsFile: "../outside.md",
       researchAxis: "Market",
-    }, { directory: root }))
+    }, root)
     const next = readDecksState(root)
 
     expect(ambiguous.result).toMatchObject({ attached: false, skipped: true, reason: "researchPlan axis match is ambiguous" })

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { existsSync, mkdtempSync, readFileSync } from "fs"
-import { tmpdir } from "os"
+import { existsSync, readFileSync } from "fs"
 import { join } from "path"
 import { createEmptyDecksState, readDecksState, writeDecksState, type DecksState } from "../lib/decks-state"
 import { handleBrief, parseBriefArgs } from "../lib/commands/brief"
@@ -8,6 +7,7 @@ import { compileExecutiveBrief } from "../lib/narrative-state/executive-brief"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import type { NarrativeStateV1 } from "../lib/narrative-state/types"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("executive brief render target", () => {
   it("refuses to render without current narrative approval or override", () => {
@@ -72,7 +72,7 @@ describe("executive brief render target", () => {
   })
 
   it("handles /revela make --brief by writing markdown and DECKS render target", async () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-executive-brief-"))
+    const workspaceRoot = tempWorkspace("revela-executive-brief-")
     writeDecksState(workspaceRoot, executiveBriefState({ approved: true }))
     const messages: string[] = []
 

@@ -1,13 +1,12 @@
 import { describe, expect, it } from "bun:test"
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "fs"
-import { tmpdir } from "os"
-import { join } from "path"
+import { existsSync, readFileSync, rmSync } from "fs"
 import { readDecksState, writeDecksState } from "../lib/decks-state"
 import { buildNarrativeViewPrompt, handleNarrative, parseNarrativeArgs, parseStoryArgs } from "../lib/commands/narrative"
 import { validateNarrativeDisplayModel } from "../lib/narrative-state/display"
 import { buildNarrativeMap, formatNarrativeMap } from "../lib/narrative-state/map"
 import { renderNarrativeMapHtml } from "../lib/narrative-state/map-html"
 import { currentHtmlWithStaleExportsState, narrativeMapState, narrativeOnlyState, resolvedCurrentHtmlWithStaleExportsState, resolvedNarrativeOnlyState, staleApprovalState } from "./helpers/narrative-fixtures"
+import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("narrative map", () => {
 
@@ -118,7 +117,7 @@ describe("narrative map", () => {
     expect(html).toContain("Primary next command")
     expect(html).toContain("Primary next reason")
 
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-no-deck-"))
+    const workspaceRoot = tempWorkspace("revela-narrative-no-deck-")
     const messages: string[] = []
     try {
       writeDecksState(workspaceRoot, state)
@@ -432,7 +431,7 @@ describe("narrative map", () => {
   })
 
   it("builds an LLM display-model prompt that preserves deterministic IDs", () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-map-prompt-"))
+    const workspaceRoot = tempWorkspace("revela-narrative-map-prompt-")
     try {
       writeDecksState(workspaceRoot, narrativeMapState())
 
@@ -466,7 +465,7 @@ describe("narrative map", () => {
   })
 
   it("shows /revela init guidance when DECKS.json is missing", async () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-map-missing-"))
+    const workspaceRoot = tempWorkspace("revela-narrative-map-missing-")
     const messages: string[] = []
     try {
       await handleNarrative({ workspaceRoot }, async (text) => { messages.push(text) })
@@ -478,7 +477,7 @@ describe("narrative map", () => {
   })
 
   it("does not mutate DECKS.json while rendering the command", async () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-map-readonly-"))
+    const workspaceRoot = tempWorkspace("revela-narrative-map-readonly-")
     const messages: string[] = []
     try {
       writeDecksState(workspaceRoot, narrativeMapState())
@@ -494,7 +493,7 @@ describe("narrative map", () => {
   })
 
   it("opens the generated HTML view when requested without mutating state", async () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-map-open-"))
+    const workspaceRoot = tempWorkspace("revela-narrative-map-open-")
     const messages: string[] = []
     const opened: string[] = []
     try {
