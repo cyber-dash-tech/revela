@@ -46,9 +46,15 @@ export function renderNarrativeMapHtmlWithDisplay(map: NarrativeMap, display: Va
     .flow { padding:20px; }
     .workbench { margin-top:18px; background:rgba(255,253,248,.92); border:1px solid var(--line); border-radius:24px; box-shadow:var(--shadow); padding:18px 20px; }
     .workbench h2 { margin:0; font-size:18px; letter-spacing:-.025em; }
+    .workbench-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; margin-top:14px; }
+    .summary-item { border:1px solid var(--line); border-radius:14px; background:#fff; padding:11px 12px; }
+    .summary-label { display:block; color:var(--muted); font-size:11px; font-weight:850; letter-spacing:.05em; text-transform:uppercase; }
+    .summary-value { display:block; margin-top:4px; color:#51483f; font-size:14px; font-weight:850; }
     .filter-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
     .filter-button { cursor:pointer; border:1px solid var(--line); border-radius:999px; background:#fff; color:var(--muted); padding:8px 11px; font-size:12px; font-weight:850; }
     .filter-button.active { border-color:var(--accent); color:var(--accent); background:#fff4ea; }
+    .filter-status { margin:10px 0 0; color:var(--muted); font-size:12px; font-weight:780; }
+    .filter-empty { display:none; margin-top:10px; border:1px dashed var(--line); border-radius:14px; padding:12px; color:var(--muted); background:#fffaf3; font-size:13px; }
     .coverage-grid { margin-top:16px; display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px; }
     .coverage-item { border:1px solid var(--line); border-radius:16px; background:#fff; padding:13px; }
     .coverage-item h3 { margin:0; font-size:14px; line-height:1.2; }
@@ -144,6 +150,8 @@ export function renderNarrativeMapHtmlWithDisplay(map: NarrativeMap, display: Va
   <script>
     const buttons = Array.from(document.querySelectorAll('.claim-card'));
     const filters = Array.from(document.querySelectorAll('.filter-button'));
+    const filterStatus = document.getElementById('filter-status');
+    const filterEmpty = document.getElementById('filter-empty');
     const title = document.getElementById('detail-title');
     const sub = document.getElementById('detail-sub');
     const body = document.getElementById('detail-body');
@@ -163,6 +171,11 @@ export function renderNarrativeMapHtmlWithDisplay(map: NarrativeMap, display: Va
         const flags = (claimButton.dataset.filters || '').split(' ');
         claimButton.closest('.claim-step').style.display = filter === 'all' || flags.includes(filter) ? '' : 'none';
       });
+      const visibleButtons = buttons.filter((claimButton) => claimButton.closest('.claim-step').style.display !== 'none');
+      const activeButton = buttons.find((claimButton) => claimButton.classList.contains('active'));
+      if (visibleButtons.length > 0 && (!activeButton || activeButton.closest('.claim-step').style.display === 'none')) selectClaim(visibleButtons[0].dataset.nodeId);
+      if (filterStatus) filterStatus.textContent = (button.dataset.filterLabel || filter) + ': ' + visibleButtons.length;
+      if (filterEmpty) filterEmpty.style.display = visibleButtons.length === 0 ? 'block' : 'none';
     }));
   </script>
 </body>
@@ -246,13 +259,26 @@ function renderWorkbench(map: NarrativeMap, display: ValidatedNarrativeDisplayMo
   return `<section class="workbench" aria-label="Story workbench">
     <h2>${escapeHtml(systemTerm("storyWorkbench", display))}</h2>
     <p class="flow-note">${escapeHtml(workbenchNote(display))}</p>
+    ${renderWorkbenchSummary(map, display)}
     <div class="filter-row" aria-label="Story filters">
-      ${map.workbench.filters.map((filter, index) => `<button type="button" class="filter-button${index === 0 ? " active" : ""}" data-filter-id="${escapeAttr(filter.id)}">${escapeHtml(localizeFilter(filter.label, display))} (${filter.count})</button>`).join("")}
+      ${map.workbench.filters.map((filter, index) => `<button type="button" class="filter-button${index === 0 ? " active" : ""}" data-filter-id="${escapeAttr(filter.id)}" data-filter-label="${escapeHtml(localizeFilter(filter.label, display))}">${escapeHtml(localizeFilter(filter.label, display))} (${filter.count})</button>`).join("")}
     </div>
+    <p class="filter-status" id="filter-status">${escapeHtml(localizeFilter(map.workbench.filters[0]?.label ?? "All claims", display))}: ${map.workbench.filters[0]?.count ?? 0}</p>
+    <div class="filter-empty" id="filter-empty">${escapeHtml(noClaimsMatchFilter(display))}</div>
     <div class="coverage-grid">
       ${map.workbench.artifactCoverage.length ? map.workbench.artifactCoverage.map((item) => renderCoverageItem(item, display)).join("") : renderNoRenderTargetCard(map, display)}
     </div>
   </section>`
+}
+
+function renderWorkbenchSummary(map: NarrativeMap, display: ValidatedNarrativeDisplayModel): string {
+  const summary = map.workbench.summary
+  return `<div class="workbench-summary" aria-label="Story readiness summary">
+    <div class="summary-item"><span class="summary-label">${escapeHtml(systemTerm("approval", display))}</span><span class="summary-value">${escapeHtml(localizeValue(summary.approval, display))}</span></div>
+    <div class="summary-item"><span class="summary-label">${escapeHtml(readinessSummaryTerm("evidenceBlockers", display))}</span><span class="summary-value">${summary.evidenceBlockersCount}</span></div>
+    <div class="summary-item"><span class="summary-label">${escapeHtml(readinessSummaryTerm("artifactStatus", display))}</span><span class="summary-value">${escapeHtml(localizeValue(summary.artifactStatus, display))}</span></div>
+    <div class="summary-item"><span class="summary-label">${escapeHtml(readinessSummaryTerm("primaryNextCommand", display))}</span><span class="summary-value"><code>${escapeHtml(summary.primaryNextCommand)}</code></span></div>
+  </div>`
 }
 
 function renderNoRenderTargetCard(map: NarrativeMap, display: ValidatedNarrativeDisplayModel): string {
@@ -275,7 +301,7 @@ function renderCoverageItem(item: NarrativeMap["workbench"]["artifactCoverage"][
     <p class="coverage-detail"><strong>${escapeHtml(systemTerm("missingClaims", display))}:</strong> ${escapeHtml(item.missingClaimIds.join(", ") || systemTerm("none", display))}</p>
     <p class="coverage-detail"><strong>${escapeHtml(systemTerm("affectedClaims", display))}:</strong> ${escapeHtml(item.affectedClaimIds.join(", ") || systemTerm("none", display))}</p>
     <p class="coverage-detail"><strong>${escapeHtml(systemTerm("affectedSlides", display))}:</strong> ${slides ? allowBreaks(slides) : escapeHtml(systemTerm("none", display))}</p>
-    <p class="coverage-detail"><strong>${escapeHtml(systemTerm("notes", display))}:</strong> ${escapeHtml(item.staleReasons.join("; ") || systemTerm("none", display))}</p>
+    <p class="coverage-detail"><strong>${escapeHtml(systemTerm("notes", display))}:</strong> ${escapeHtml([item.statusNote, ...item.staleReasons].filter(Boolean).join("; ") || systemTerm("none", display))}</p>
     <p class="coverage-detail"><strong>${escapeHtml(systemTerm("recommendedNextCommand", display))}:</strong> <code>${escapeHtml(item.recommendedNextCommand)}</code></p>
   </article>`
 }
@@ -378,6 +404,19 @@ function localizeAction(value: string, display: ValidatedNarrativeDisplayModel):
   return table[value] ?? value
 }
 
+function readinessSummaryTerm(value: string, display: ValidatedNarrativeDisplayModel): string {
+  const zh: Record<string, string> = { evidenceBlockers: "证据阻塞", artifactStatus: "产物状态", primaryNextCommand: "首要建议命令" }
+  const ja: Record<string, string> = { evidenceBlockers: "根拠ブロッカー", artifactStatus: "成果物ステータス", primaryNextCommand: "最優先コマンド" }
+  const en: Record<string, string> = { evidenceBlockers: "Evidence blockers", artifactStatus: "Artifact status", primaryNextCommand: "Primary next command" }
+  return (isChineseLanguage(display.language) ? zh : isJapaneseLanguage(display.language) ? ja : en)[value] ?? value
+}
+
+function noClaimsMatchFilter(display: ValidatedNarrativeDisplayModel): string {
+  if (isChineseLanguage(display.language)) return "没有主张匹配这个过滤器。"
+  if (isJapaneseLanguage(display.language)) return "このフィルターに一致するクレームはありません。"
+  return "No claims match this filter."
+}
+
 function systemTerm(term: string, display: ValidatedNarrativeDisplayModel): string {
   const zh: Record<string, string> = { approval: "审批", claims: "主张", relations: "关系", inferred: "未确认", relation: "关系", from: "来自", to: "指向", rationale: "说明", strength: "强度", findingsFile: "研究文件", location: "位置", quote: "引用", caveat: "注意事项", artifacts: "产物", attention: "需关注", artifactCoverage: display.labels.artifactCoverage, storyWorkbench: display.labels.storyWorkbench, noRenderTargets: display.labels.noRenderTargets, nextActions: display.labels.nextActions, missingClaims: display.labels.missingClaims, affectedClaims: display.labels.affectedClaims, affectedSlides: display.labels.affectedSlides, notes: display.labels.notes, recommendedNextCommand: display.labels.recommendedNextCommand, none: display.labels.none }
   const ja: Record<string, string> = { approval: "承認", claims: "クレーム", relations: "関係", inferred: "未確認", relation: "関係", from: "起点", to: "終点", rationale: "理由", strength: "強度", findingsFile: "調査ファイル", location: "場所", quote: "引用", caveat: "留意点", artifacts: "成果物", attention: "要確認", artifactCoverage: display.labels.artifactCoverage, storyWorkbench: display.labels.storyWorkbench, noRenderTargets: display.labels.noRenderTargets, nextActions: display.labels.nextActions, missingClaims: display.labels.missingClaims, affectedClaims: display.labels.affectedClaims, affectedSlides: display.labels.affectedSlides, notes: display.labels.notes, recommendedNextCommand: display.labels.recommendedNextCommand, none: display.labels.none }
@@ -386,6 +425,7 @@ function systemTerm(term: string, display: ValidatedNarrativeDisplayModel): stri
 }
 
 function localizeValue(value: string, display: ValidatedNarrativeDisplayModel): string {
+  if (value === "no_target") return isChineseLanguage(display.language) ? "无 render target" : isJapaneseLanguage(display.language) ? "render target なし" : "no target"
   const zh: Record<string, string> = {
     current: "当前", stale: "已过期", missing: "缺失", approved: "已批准", ready_for_approval: "待批准", needs_research: "需要研究", needs_user_confirmation: "需要用户确认", blocked: "受阻", draft: "草稿",
     supported: "已支持", partial: "部分支持", weak: "弱支持", not_required: "无需证据", central: "核心", supporting: "支撑", background: "背景",

@@ -9,7 +9,7 @@ import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { buildNarrativeMap, formatNarrativeMap } from "../lib/narrative-state/map"
 import { renderNarrativeMapHtml } from "../lib/narrative-state/map-html"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
-import { recordArtifactRenderTarget } from "../lib/workspace-state/render-targets"
+import { recordArtifactRenderTarget, renderTargetId, upsertRenderTarget } from "../lib/workspace-state/render-targets"
 
 describe("narrative map", () => {
   function narrativeMapState(): DecksState {
@@ -143,6 +143,64 @@ describe("narrative map", () => {
     return state
   }
 
+  function currentHtmlWithStaleExportsState(): DecksState {
+    let state = narrativeMapState()
+    state = upsertSlides(state, "map-demo", [
+      {
+        index: 1,
+        title: "Pilot Recommendation",
+        purpose: "Show why the phased pilot is safer.",
+        narrativeRole: "recommendation",
+        layout: "two-col",
+        components: ["box"],
+        claimIds: ["claim:supported", "claim:partial"],
+        content: { headline: "Phased pilot approval is the safer path.", bullets: ["Current line data supports initial automation gains."] },
+        evidence: [{ source: "Operations study", findingsFile: "researches/map-demo/ops.md", quote: "Pilot scope fits current operating constraints." }],
+        evidenceBindingIds: ["evidence:supported:ops", "evidence:partial:line"],
+        status: "planned",
+      },
+      {
+        index: 2,
+        title: "Supplier Readiness",
+        purpose: "Keep the remaining supplier proof explicit.",
+        narrativeRole: "evidence",
+        layout: "one-col",
+        components: ["box"],
+        claimIds: ["claim:missing"],
+        content: { headline: "Supplier ecosystem readiness is proven." },
+        evidence: [],
+        status: "planned",
+      },
+    ])
+    const hash = computeNarrativeHash(state.narrative!)
+    state.renderTargets = []
+    state = upsertRenderTarget(state, {
+      id: renderTargetId("html_deck", "decks/map-demo.html"),
+      type: "html_deck",
+      outputPath: "decks/map-demo.html",
+      sourceNodeIds: [state.narrative!.id],
+      contractStatus: "valid",
+      data: { narrativeHash: hash },
+    })
+    state = upsertRenderTarget(state, {
+      id: renderTargetId("pdf", "decks/map-demo.pdf"),
+      type: "pdf",
+      outputPath: "decks/map-demo.pdf",
+      sourceNodeIds: [],
+      contractStatus: "valid",
+      data: { sourceOutputPath: "decks/map-demo.html", narrativeHash: "old-hash" },
+    })
+    state = upsertRenderTarget(state, {
+      id: renderTargetId("pptx", "decks/map-demo.pptx"),
+      type: "pptx",
+      outputPath: "decks/map-demo.pptx",
+      sourceNodeIds: [],
+      contractStatus: "valid",
+      data: { sourceOutputPath: "decks/map-demo.html", narrativeHash: "old-hash" },
+    })
+    return state
+  }
+
   it("builds a read-only narrative map with snapshot, claim evidence, risks, and artifacts", () => {
     const map = buildNarrativeMap(narrativeMapState())
 
@@ -190,6 +248,12 @@ describe("narrative map", () => {
       missingClaimIds: ["claim:missing"],
       recommendedNextCommand: "/revela make --deck",
     }))
+    expect(map.workbench.summary).toEqual(expect.objectContaining({
+      approval: "current",
+      evidenceBlockersCount: 2,
+      artifactStatus: "partial",
+      primaryNextCommand: "/revela research",
+    }))
   })
 
   it("formats the narrative map as a stable markdown workspace view", () => {
@@ -215,8 +279,10 @@ describe("narrative map", () => {
     expect(text).toContain("Coverage note: Artifact does not cover 1 central or evidence-required claim.")
     expect(text).toContain("Slide 1: claim:supported [primary]")
     expect(text).toContain("## Story Workbench")
+    expect(text).toContain("Summary primary next command: /revela research")
     expect(text).toContain("Filter missing_evidence: 1 (claim:missing)")
     expect(text).toContain("Artifact work item: html_deck: decks/map-demo.html [partial] -> /revela make --deck")
+    expect(text).toContain("Status note: Artifact coverage is not current; remake the deck from the approved narrative.")
     expect(text).toContain("Next actions: Remake stale artifact (/revela make --deck)")
   })
 
@@ -236,6 +302,8 @@ describe("narrative map", () => {
     expect(html).toContain("No render targets recorded")
     expect(html).toContain("Recommended next command")
     expect(html).toContain("/revela make --deck")
+    expect(html).toContain("Artifact status")
+    expect(html).toContain("Primary next command")
 
     const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-no-deck-"))
     const messages: string[] = []
@@ -265,12 +333,18 @@ describe("narrative map", () => {
     expect(html).toContain("Artifact coverage")
     expect(html).toContain("Artifact does not cover 1 central or evidence-required claim.")
     expect(html).toContain("Story workbench")
+    expect(html).toContain("Evidence blockers")
+    expect(html).toContain("Primary next command")
+    expect(html).toContain("No claims match this filter.")
     expect(html).toContain("Missing evidence (1)")
     expect(html).toContain("Partial evidence (1)")
     expect(html).toContain("Stale artifacts (3)")
     expect(html).toContain("Open gaps (1)")
     expect(html).toContain("High-priority objections (1)")
     expect(html).toContain("data-filter-id=\"missing_evidence\"")
+    expect(html).toContain("id=\"filter-empty\"")
+    expect(html).toContain("visibleButtons.length > 0")
+    expect(html).toContain("selectClaim(visibleButtons[0].dataset.nodeId)")
     expect(html).toContain("data-filters=\"all high_priority_objections stale_artifacts\"")
     expect(html).toContain("Next actions")
     expect(html).toContain("Research this gap")
@@ -284,6 +358,31 @@ describe("narrative map", () => {
     expect(html).toContain("relation-badge")
     expect(html).toContain("relation-target")
     expect(html).toContain("data-node-id=\"claim-claim-supported\"")
+  })
+
+  it("recommends export commands for stale PDF and PPTX when HTML is current", () => {
+    const map = buildNarrativeMap(currentHtmlWithStaleExportsState())
+
+    expect(map.workbench.summary.artifactStatus).toBe("stale")
+    expect(map.workbench.summary.primaryNextCommand).toBe("/revela research")
+    expect(map.workbench.artifactCoverage).toContainEqual(expect.objectContaining({
+      type: "html_deck",
+      coverageStatus: "current",
+      recommendedNextCommand: "/revela review --deck",
+      statusNote: "Current HTML deck is ready for review or export.",
+    }))
+    expect(map.workbench.artifactCoverage).toContainEqual(expect.objectContaining({
+      type: "pdf",
+      coverageStatus: "stale",
+      recommendedNextCommand: "/revela export --deck pdf",
+      statusNote: "HTML deck is current; refresh the PDF export.",
+    }))
+    expect(map.workbench.artifactCoverage).toContainEqual(expect.objectContaining({
+      type: "pptx",
+      coverageStatus: "stale",
+      recommendedNextCommand: "/revela export --deck pptx",
+      statusNote: "HTML deck is current; refresh the PPTX export.",
+    }))
   })
 
   it("renders localized display-only claim card organization", () => {

@@ -126,9 +126,10 @@ export function buildNarrativeViewPrompt(options: { workspaceRoot: string; langu
     researchGaps: map.researchGaps.map((gap) => ({ id: gap.id, targetType: gap.targetType, targetId: gap.targetId, status: gap.status, priority: gap.priority, question: gap.question })),
     artifactCoverage: map.artifactCoverage.map((artifact) => ({ type: artifact.type, outputPath: artifact.outputPath, stale: artifact.stale, coverageStatus: artifact.coverageStatus, affectedClaimIds: artifact.affectedClaimIds, missingClaimIds: artifact.missingClaimIds, slideRefs: artifact.slideRefs.map((ref) => ({ claimId: ref.claimId, slideIndex: ref.slideIndex, role: ref.role, match: ref.match, location: ref.location })) })),
     workbench: {
+      summary: map.workbench.summary,
       filters: map.workbench.filters,
       renderTargetAction: map.workbench.renderTargetAction,
-      artifactCoverage: map.workbench.artifactCoverage.map((item) => ({ type: item.type, outputPath: item.outputPath, coverageStatus: item.coverageStatus, affectedClaimIds: item.affectedClaimIds, missingClaimIds: item.missingClaimIds, recommendedNextCommand: item.recommendedNextCommand })),
+      artifactCoverage: map.workbench.artifactCoverage.map((item) => ({ type: item.type, outputPath: item.outputPath, coverageStatus: item.coverageStatus, affectedClaimIds: item.affectedClaimIds, missingClaimIds: item.missingClaimIds, statusNote: item.statusNote, recommendedNextCommand: item.recommendedNextCommand })),
     },
   }
 

@@ -46,6 +46,8 @@ export interface NarrativeMapClaim extends ClaimEvidenceRecord {
 
 export type NarrativeMapActionKind = "research" | "attach_findings" | "narrow_claim" | "approve_narrative" | "make_deck" | "remake_artifact"
 
+export type NarrativeMapArtifactStatus = "current" | "stale" | "partial" | "missing" | "no_target"
+
 export interface NarrativeMapNextAction {
   kind: NarrativeMapActionKind
   label: string
@@ -72,10 +74,20 @@ export interface NarrativeMapArtifactWorkItem {
   missingClaimIds: string[]
   affectedSlides: Array<{ claimId: string; slideIndex: number; slideTitle: string; role: string; location: string }>
   staleReasons: string[]
+  statusNote: string
   recommendedNextCommand: string
 }
 
+export interface NarrativeMapWorkbenchSummary {
+  approval: NarrativeMapSnapshot["approval"]
+  evidenceBlockersCount: number
+  artifactStatus: NarrativeMapArtifactStatus
+  primaryNextCommand: string
+  readinessNextActions: string[]
+}
+
 export interface NarrativeMapWorkbench {
+  summary: NarrativeMapWorkbenchSummary
   filters: NarrativeMapWorkbenchFilter[]
   artifactCoverage: NarrativeMapArtifactWorkItem[]
   renderTargetAction?: NarrativeMapNextAction
@@ -175,7 +187,7 @@ export function buildNarrativeMap(state: DecksState): NarrativeMap {
     risks: objectionRisk.risks,
     researchGaps,
     artifactCoverage,
-    workbench: buildWorkbench(claimFlow, artifactCoverage, readiness.approval?.current === true),
+    workbench: buildWorkbench(claimFlow, artifactCoverage, readiness.approval?.current === true, readiness.nextActions, readiness.approval?.current ? "current" : readiness.approval?.stale ? "stale" : "missing"),
     nextActions: readiness.nextActions,
   }
 }
@@ -275,7 +287,13 @@ function claimWorkbenchFlags(
   return [...new Set(flags)]
 }
 
-function buildWorkbench(claims: NarrativeMapClaim[], artifacts: NarrativeMapArtifact[], approved: boolean): NarrativeMapWorkbench {
+function buildWorkbench(
+  claims: NarrativeMapClaim[],
+  artifacts: NarrativeMapArtifact[],
+  approved: boolean,
+  readinessNextActions: string[],
+  approval: NarrativeMapSnapshot["approval"],
+): NarrativeMapWorkbench {
   const filterLabels: Record<NarrativeMapFilterId, string> = {
     all: "All claims",
     missing_evidence: "Missing evidence",
@@ -286,7 +304,14 @@ function buildWorkbench(claims: NarrativeMapClaim[], artifacts: NarrativeMapArti
     high_priority_objections: "High-priority objections",
   }
   const filterIds: NarrativeMapFilterId[] = ["all", "missing_evidence", "partial_evidence", "stale_artifacts", "open_gaps", "risks", "high_priority_objections"]
+  const renderTargetAction = artifacts.length === 0 ? {
+    kind: approved ? "make_deck" as const : "approve_narrative" as const,
+    label: approved ? "Make deck" : "Approve narrative",
+    command: approved ? "/revela make --deck" : "/revela story",
+    reason: approved ? "No render target is recorded for this approved narrative." : "Narrative approval is required before rendering artifacts.",
+  } : undefined
   return {
+    summary: buildWorkbenchSummary(claims, artifacts, approval, readinessNextActions, renderTargetAction?.command),
     filters: filterIds.map((id) => {
       const claimIds = claims.filter((claim) => claim.workbenchFlags.includes(id)).map((claim) => claim.id)
       return { id, label: filterLabels[id], count: claimIds.length, claimIds }
@@ -303,15 +328,70 @@ function buildWorkbench(claims: NarrativeMapClaim[], artifacts: NarrativeMapArti
         .filter((ref) => artifact.affectedClaimIds.includes(ref.claimId) || artifact.missingClaimIds.includes(ref.claimId) || artifact.coverageStatus !== "current")
         .map((ref) => ({ claimId: ref.claimId, slideIndex: ref.slideIndex, slideTitle: ref.slideTitle, role: ref.role, location: ref.location })),
       staleReasons: artifact.staleReasons,
-      recommendedNextCommand: artifact.coverageStatus === "current" ? "/revela review --deck" : "/revela make --deck",
+      statusNote: artifactStatusNote(artifact, artifacts),
+      recommendedNextCommand: recommendedArtifactCommand(artifact, artifacts),
     })),
-    renderTargetAction: artifacts.length === 0 ? {
-      kind: approved ? "make_deck" : "approve_narrative",
-      label: approved ? "Make deck" : "Approve narrative",
-      command: approved ? "/revela make --deck" : "/revela story",
-      reason: approved ? "No render target is recorded for this approved narrative." : "Narrative approval is required before rendering artifacts.",
-    } : undefined,
+    renderTargetAction,
   }
+}
+
+function buildWorkbenchSummary(
+  claims: NarrativeMapClaim[],
+  artifacts: NarrativeMapArtifact[],
+  approval: NarrativeMapSnapshot["approval"],
+  readinessNextActions: string[],
+  renderTargetCommand?: string,
+): NarrativeMapWorkbenchSummary {
+  const evidenceBlockersCount = claims.filter((claim) => claim.evidenceRequired && (claim.evidenceStatus === "missing" || claim.evidenceStatus === "weak" || claim.evidenceStatus === "partial")).length
+  const artifactStatus = aggregateArtifactStatus(artifacts)
+  return {
+    approval,
+    evidenceBlockersCount,
+    artifactStatus,
+    primaryNextCommand: primaryNextCommand({ approval, evidenceBlockersCount, artifactStatus, artifacts, renderTargetCommand }),
+    readinessNextActions,
+  }
+}
+
+function primaryNextCommand(input: { approval: NarrativeMapSnapshot["approval"]; evidenceBlockersCount: number; artifactStatus: NarrativeMapArtifactStatus; artifacts: NarrativeMapArtifact[]; renderTargetCommand?: string }): string {
+  if (input.evidenceBlockersCount > 0) return "/revela research"
+  if (input.approval !== "current") return "/revela story"
+  if (input.artifactStatus === "no_target") return input.renderTargetCommand ?? "/revela make --deck"
+  if (input.artifactStatus !== "current") return input.artifacts.map((artifact) => recommendedArtifactCommand(artifact, input.artifacts)).find((command) => command !== "/revela review --deck") ?? "/revela make --deck"
+  return "/revela review --deck"
+}
+
+function aggregateArtifactStatus(artifacts: NarrativeMapArtifact[]): NarrativeMapArtifactStatus {
+  if (artifacts.length === 0) return "no_target"
+  if (artifacts.some((artifact) => artifact.coverageStatus === "stale")) return "stale"
+  if (artifacts.some((artifact) => artifact.coverageStatus === "missing")) return "missing"
+  if (artifacts.some((artifact) => artifact.coverageStatus === "partial")) return "partial"
+  return "current"
+}
+
+function recommendedArtifactCommand(artifact: NarrativeMapArtifact, artifacts: NarrativeMapArtifact[]): string {
+  if (artifact.coverageStatus === "current") return artifact.type === "html_deck" ? "/revela review --deck" : exportCommand(artifact.type) ?? "/revela review --deck"
+  if (artifact.type === "html_deck") return "/revela make --deck"
+  if ((artifact.type === "pdf" || artifact.type === "pptx") && activeHtmlIsCurrent(artifact, artifacts)) return exportCommand(artifact.type) ?? "/revela make --deck"
+  return "/revela make --deck"
+}
+
+function artifactStatusNote(artifact: NarrativeMapArtifact, artifacts: NarrativeMapArtifact[]): string {
+  if (artifact.coverageStatus === "current") return artifact.type === "html_deck" ? "Current HTML deck is ready for review or export." : `Current ${artifact.type.toUpperCase()} export is recorded.`
+  const command = recommendedArtifactCommand(artifact, artifacts)
+  if ((artifact.type === "pdf" || artifact.type === "pptx") && command.startsWith("/revela export")) return `HTML deck is current; refresh the ${artifact.type.toUpperCase()} export.`
+  return "Artifact coverage is not current; remake the deck from the approved narrative."
+}
+
+function activeHtmlIsCurrent(artifact: NarrativeMapArtifact, artifacts: NarrativeMapArtifact[]): boolean {
+  const expectedHtmlPath = artifact.outputPath?.replace(/\.(pdf|pptx)$/i, ".html")
+  return artifacts.some((item) => item.type === "html_deck" && item.coverageStatus === "current" && (!expectedHtmlPath || item.outputPath === expectedHtmlPath))
+}
+
+function exportCommand(type: RenderTarget["type"]): string | undefined {
+  if (type === "pdf") return "/revela export --deck pdf"
+  if (type === "pptx") return "/revela export --deck pptx"
+  return undefined
 }
 
 function dedupeActions(actions: NarrativeMapNextAction[]): NarrativeMapNextAction[] {
@@ -437,10 +517,15 @@ export function formatNarrativeMap(map: NarrativeMap): string {
   }
 
   lines.push("", "## Story Workbench")
+  lines.push(`- Summary approval: ${map.workbench.summary.approval}`)
+  lines.push(`- Summary evidence blockers: ${map.workbench.summary.evidenceBlockersCount}`)
+  lines.push(`- Summary artifact status: ${map.workbench.summary.artifactStatus}`)
+  lines.push(`- Summary primary next command: ${map.workbench.summary.primaryNextCommand}`)
   for (const filter of map.workbench.filters) lines.push(`- Filter ${filter.id}: ${filter.count}${filter.claimIds.length ? ` (${filter.claimIds.join(", ")})` : ""}`)
   if (map.workbench.renderTargetAction) lines.push(`- Render target action: ${map.workbench.renderTargetAction.label} (${map.workbench.renderTargetAction.command})`)
   for (const item of map.workbench.artifactCoverage) {
     lines.push(`- Artifact work item: ${item.type}: ${item.outputPath ?? item.artifactId} [${item.coverageStatus}] -> ${item.recommendedNextCommand}`)
+    lines.push(`  Status note: ${item.statusNote}`)
     if (item.missingClaimIds.length) lines.push(`  Missing claims: ${item.missingClaimIds.join(", ")}`)
     if (item.affectedClaimIds.length) lines.push(`  Affected claims: ${item.affectedClaimIds.join(", ")}`)
     if (item.affectedSlides.length) lines.push(`  Affected slides: ${item.affectedSlides.map((slide) => `${slide.slideIndex}:${slide.claimId}`).join(", ")}`)
