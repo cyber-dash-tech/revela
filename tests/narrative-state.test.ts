@@ -1,15 +1,12 @@
 import { describe, expect, it } from "bun:test"
-import { mkdtempSync } from "fs"
-import { tmpdir } from "os"
-import { join } from "path"
 import { readDecksState, writeDecksState } from "../lib/decks-state"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { narrativeToBrief } from "../lib/narrative-state/project-compat"
 import { approveNarrativeState, reviewNarrativeState } from "../lib/narrative-state/readiness"
 import { closeResearchGapInState, deriveResearchGapsFromReadiness, updateResearchGapInState } from "../lib/narrative-state/research-gaps"
-import decksTool from "../tools/decks"
 import { legacyDecisionDeck } from "./helpers/narrative-fixtures"
+import { executeDecksTool, runDecksTool, tempWorkspace } from "./helpers/tool-helpers"
 
 describe("narrative state", () => {
   it("migrates legacy narrativeBrief and slides into canonical narrative state", () => {
@@ -43,7 +40,7 @@ describe("narrative state", () => {
   })
 
   it("preserves canonical narrative when DECKS.json is normalized", () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-state-"))
+    const workspaceRoot = tempWorkspace("revela-narrative-state-")
     const state = legacyDecisionDeck()
     const narrative = normalizeNarrativeState(state)
     state.narrative = { ...narrative, status: "ready_for_approval", updatedAt: "2026-05-06T00:00:00.000Z" }
@@ -60,7 +57,7 @@ describe("narrative state", () => {
   })
 
   it("normalizes old workspaces by adding top-level canonical narrative", () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-migrate-"))
+    const workspaceRoot = tempWorkspace("revela-narrative-migrate-")
     const state = legacyDecisionDeck()
 
     writeDecksState(workspaceRoot, state)
@@ -251,11 +248,11 @@ describe("narrative state", () => {
   })
 
   it("exposes reviewNarrative and approveNarrative through revela-decks", async () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-tool-"))
+    const workspaceRoot = tempWorkspace("revela-narrative-tool-")
     writeDecksState(workspaceRoot, legacyDecisionDeck())
 
-    const review = JSON.parse(await (decksTool as any).execute({ action: "reviewNarrative" }, { directory: workspaceRoot }))
-    const approval = JSON.parse(await (decksTool as any).execute({ action: "approveNarrative", approvalNote: "Approved for narrative handoff." }, { directory: workspaceRoot }))
+    const review = await executeDecksTool({ action: "reviewNarrative" }, workspaceRoot)
+    const approval = await executeDecksTool({ action: "approveNarrative", approvalNote: "Approved for narrative handoff." }, workspaceRoot)
     const reloaded = readDecksState(workspaceRoot)
 
     expect(review.ok).toBe(true)
@@ -276,10 +273,10 @@ describe("narrative state", () => {
   })
 
   it("exposes upsertNarrative through revela-decks and projects compatibility brief", async () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-upsert-"))
+    const workspaceRoot = tempWorkspace("revela-narrative-upsert-")
     writeDecksState(workspaceRoot, legacyDecisionDeck())
 
-    const result = JSON.parse(await (decksTool as any).execute({
+    const result = await executeDecksTool({
       action: "upsertNarrative",
       narrative: {
         audience: {
@@ -310,7 +307,7 @@ describe("narrative state", () => {
         }],
         risks: [{ text: "Execution capacity remains constrained.", severity: "medium" }],
       },
-    }, { directory: workspaceRoot }))
+    }, workspaceRoot)
     const reloaded = readDecksState(workspaceRoot)
 
     expect(result.ok).toBe(true)
@@ -403,11 +400,11 @@ describe("narrative state", () => {
   })
 
   it("compiles an approved canonical narrative into deck slide specs without marking deck ready", async () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-compile-"))
+    const workspaceRoot = tempWorkspace("revela-narrative-compile-")
     writeDecksState(workspaceRoot, legacyDecisionDeck())
-    await (decksTool as any).execute({ action: "approveNarrative", approvalNote: "Approved for deck planning." }, { directory: workspaceRoot })
+    await runDecksTool({ action: "approveNarrative", approvalNote: "Approved for deck planning." }, workspaceRoot)
 
-    const result = JSON.parse(await (decksTool as any).execute({ action: "compileDeckPlan" }, { directory: workspaceRoot }))
+    const result = await executeDecksTool({ action: "compileDeckPlan" }, workspaceRoot)
     const reloaded = readDecksState(workspaceRoot)
     const deck = reloaded.decks[reloaded.activeDeck!]
 
@@ -471,11 +468,11 @@ describe("narrative state", () => {
   })
 
   it("compiles the same approved narrative into a stable v2 deck plan", async () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-compile-stable-"))
+    const workspaceRoot = tempWorkspace("revela-narrative-compile-stable-")
     writeDecksState(workspaceRoot, legacyDecisionDeck())
-    await (decksTool as any).execute({ action: "approveNarrative", approvalNote: "Approved for stable deck planning." }, { directory: workspaceRoot })
+    await runDecksTool({ action: "approveNarrative", approvalNote: "Approved for stable deck planning." }, workspaceRoot)
 
-    await (decksTool as any).execute({ action: "compileDeckPlan" }, { directory: workspaceRoot })
+    await runDecksTool({ action: "compileDeckPlan" }, workspaceRoot)
     const firstState = readDecksState(workspaceRoot)
     const firstDeck = firstState.decks[firstState.activeDeck!]
     const firstPlan = firstDeck.slides.map((slide) => ({
@@ -487,7 +484,7 @@ describe("narrative state", () => {
     }))
     const firstPlanHash = firstDeck.planReview?.planHash
 
-    await (decksTool as any).execute({ action: "compileDeckPlan" }, { directory: workspaceRoot })
+    await runDecksTool({ action: "compileDeckPlan" }, workspaceRoot)
     const secondState = readDecksState(workspaceRoot)
     const secondDeck = secondState.decks[secondState.activeDeck!]
     const secondPlan = secondDeck.slides.map((slide) => ({
@@ -503,12 +500,12 @@ describe("narrative state", () => {
   })
 
   it("records user confirmation for the current compiled deck plan", async () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-plan-confirm-"))
+    const workspaceRoot = tempWorkspace("revela-narrative-plan-confirm-")
     writeDecksState(workspaceRoot, legacyDecisionDeck())
-    await (decksTool as any).execute({ action: "approveNarrative", approvalNote: "Approved for deck planning." }, { directory: workspaceRoot })
-    await (decksTool as any).execute({ action: "compileDeckPlan" }, { directory: workspaceRoot })
+    await runDecksTool({ action: "approveNarrative", approvalNote: "Approved for deck planning." }, workspaceRoot)
+    await runDecksTool({ action: "compileDeckPlan" }, workspaceRoot)
 
-    const result = JSON.parse(await (decksTool as any).execute({ action: "confirmDeckPlan", approvalBy: "user", approvalNote: "Confirmed slide plan and low-fi sketches." }, { directory: workspaceRoot }))
+    const result = await executeDecksTool({ action: "confirmDeckPlan", approvalBy: "user", approvalNote: "Confirmed slide plan and low-fi sketches." }, workspaceRoot)
     const reloaded = readDecksState(workspaceRoot)
     const deck = reloaded.decks[reloaded.activeDeck!]
 
@@ -531,12 +528,12 @@ describe("narrative state", () => {
   })
 
   it("backfills slide claimRefs through the decks tool without mutating HTML or narrative substance", async () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-coverage-backfill-"))
+    const workspaceRoot = tempWorkspace("revela-coverage-backfill-")
     const state = legacyDecisionDeck()
     writeDecksState(workspaceRoot, state)
     const beforeHash = computeNarrativeHash(readDecksState(workspaceRoot).narrative!)
 
-    const result = JSON.parse(await (decksTool as any).execute({ action: "backfillClaimRefs" }, { directory: workspaceRoot }))
+    const result = await executeDecksTool({ action: "backfillClaimRefs" }, workspaceRoot)
     const reloaded = readDecksState(workspaceRoot)
     const deck = reloaded.decks[reloaded.activeDeck!]
 
@@ -549,10 +546,10 @@ describe("narrative state", () => {
   })
 
   it("refuses to compile a deck plan before narrative approval or render override", async () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-compile-refuse-"))
+    const workspaceRoot = tempWorkspace("revela-narrative-compile-refuse-")
     writeDecksState(workspaceRoot, legacyDecisionDeck())
 
-    const result = JSON.parse(await (decksTool as any).execute({ action: "compileDeckPlan" }, { directory: workspaceRoot }))
+    const result = await executeDecksTool({ action: "compileDeckPlan" }, workspaceRoot)
     const reloaded = readDecksState(workspaceRoot)
 
     expect(result.ok).toBe(true)
@@ -613,15 +610,15 @@ describe("narrative state", () => {
   })
 
   it("exposes research gap lifecycle through revela-decks", async () => {
-    const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-research-gap-tool-"))
+    const workspaceRoot = tempWorkspace("revela-research-gap-tool-")
     const state = legacyDecisionDeck()
     state.decks["narrative-demo"].slides[0].evidence = []
     writeDecksState(workspaceRoot, state)
 
-    const derived = JSON.parse(await (decksTool as any).execute({ action: "deriveResearchGaps" }, { directory: workspaceRoot }))
+    const derived = await executeDecksTool({ action: "deriveResearchGaps" }, workspaceRoot)
     const gapId = derived.result.created[0].id
-    const updated = JSON.parse(await (decksTool as any).execute({ action: "updateResearchGap", gapId, gapStatus: "attached", findingsFile: "researches/narrative-demo/market.md" }, { directory: workspaceRoot }))
-    const closed = JSON.parse(await (decksTool as any).execute({ action: "closeResearchGap", gapId, gapNotes: "Resolved by bound evidence." }, { directory: workspaceRoot }))
+    const updated = await executeDecksTool({ action: "updateResearchGap", gapId, gapStatus: "attached", findingsFile: "researches/narrative-demo/market.md" }, workspaceRoot)
+    const closed = await executeDecksTool({ action: "closeResearchGap", gapId, gapNotes: "Resolved by bound evidence." }, workspaceRoot)
 
     expect(derived.ok).toBe(true)
     expect(updated.result.updated[0]).toMatchObject({ status: "attached", findingsFile: "researches/narrative-demo/market.md" })
