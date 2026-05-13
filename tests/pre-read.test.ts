@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { existsSync, readFileSync, rmSync, writeFileSync } from "fs"
+import { existsSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { zipSync, strToU8 } from "fflate"
 import { preRead } from "../lib/read-hooks/pre-read"
-import { tempWorkspace } from "./helpers/tool-helpers"
+import { readTextFile, tempWorkspace } from "./helpers/tool-helpers"
 
 let workspaceDir = ""
 let previousCwd = ""
@@ -53,7 +53,7 @@ describe("preRead", () => {
     expect(args.filePath.endsWith(".md")).toBe(true)
     expect(existsSync(args.filePath)).toBe(true)
 
-    const view = readFileSync(args.filePath, "utf-8")
+    const view = readTextFile(args.filePath)
     expect(view).toContain("# Extracted from: deck.pptx")
     expect(view).toContain("## Text")
     expect(view).toContain("Growth doubled")
@@ -88,7 +88,7 @@ describe("preRead", () => {
     const args = { filePath }
     await preRead(args)
 
-    const view = readFileSync(args.filePath, "utf-8")
+    const view = readTextFile(args.filePath)
     expect(view).toContain("images/slide-01-image-01.png")
     expect(view).not.toContain("logo-icon")
     expect(view).not.toContain("transparent-overlay")
@@ -144,7 +144,7 @@ describe("preRead", () => {
     const args = { filePath }
     await preRead(args)
 
-    const view = readFileSync(args.filePath, "utf-8")
+    const view = readTextFile(args.filePath)
     expect(view).toContain("slide-01: 1 text, 1 kept image, 2 skipped image")
     expect(view).toContain("likely roles: 1 background image, 1 logo, 2 overlays")
   })
@@ -176,7 +176,7 @@ describe("preRead", () => {
     const args = { filePath }
     await preRead(args)
 
-    const view = readFileSync(args.filePath, "utf-8")
+    const view = readTextFile(args.filePath)
     expect(view).toContain("Quarterly summary")
     expect(view).toContain("## Images")
     expect(view).toContain("- None")

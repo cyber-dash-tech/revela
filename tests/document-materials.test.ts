@@ -1,23 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { existsSync, readFileSync, rmSync, writeFileSync } from "fs"
+import { existsSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { zipSync, strToU8 } from "fflate"
 import { PDFDocument, StandardFonts } from "pdf-lib"
 import { extractDocumentMaterials } from "../lib/document-materials/extract"
 import { createEmptyDecksState, readDecksState, writeDecksState } from "../lib/decks-state"
-import { tempWorkspace } from "./helpers/tool-helpers"
+import { readJsonFile, readTextFile, tempWorkspace, validPngBuffer } from "./helpers/tool-helpers"
 
 let workspaceDir = ""
 
 function pngStub(): Uint8Array {
   return new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
-}
-
-function validPngBuffer(): Uint8Array {
-  return new Uint8Array(Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jx1EAAAAASUVORK5CYII=",
-    "base64",
-  ))
 }
 
 function writeZip(relativePath: string, files: Record<string, Uint8Array>): string {
@@ -100,8 +93,8 @@ describe("extractDocumentMaterials", () => {
       },
     ])
     expect(existsSync(join(workspaceDir, result.images![0].path))).toBe(true)
-    expect(readFileSync(join(workspaceDir, result.text_path!), "utf-8")).toContain("Growth doubled")
-    expect(JSON.parse(readFileSync(join(workspaceDir, result.manifest_path!), "utf-8"))).toMatchObject({
+    expect(readTextFile(join(workspaceDir, result.text_path!))).toContain("Growth doubled")
+    expect(readJsonFile(join(workspaceDir, result.manifest_path!))).toMatchObject({
       source: "deck.pptx",
       type: "pptx",
       slides: [
@@ -185,7 +178,7 @@ describe("extractDocumentMaterials", () => {
       },
     ])
 
-    const manifest = JSON.parse(readFileSync(join(workspaceDir, result.manifest_path!), "utf-8"))
+    const manifest = readJsonFile(join(workspaceDir, result.manifest_path!))
     expect(manifest.images).toHaveLength(1)
     expect(manifest.skipped_assets).toEqual(result.skipped_assets)
   })
@@ -369,7 +362,7 @@ describe("extractDocumentMaterials", () => {
     expect(result.type).toBe("docx")
     expect(result.images).toHaveLength(1)
     expect(result.images?.[0].note).toBe("Document-wide association")
-    expect(readFileSync(join(workspaceDir, result.text_path!), "utf-8")).toContain("Quarterly summary")
+    expect(readTextFile(join(workspaceDir, result.text_path!))).toContain("Quarterly summary")
   })
 
   it("extracts xlsx sheet text and sheet-level image mappings", async () => {
@@ -419,7 +412,7 @@ describe("extractDocumentMaterials", () => {
         note: "Sheet text and tables extracted to text file",
       },
     ])
-    expect(readFileSync(join(workspaceDir, result.text_path!), "utf-8")).toContain("Revenue\t42")
+    expect(readTextFile(join(workspaceDir, result.text_path!))).toContain("Revenue\t42")
   })
 
   it("extracts pdf text and embedded images", async () => {
@@ -440,8 +433,8 @@ describe("extractDocumentMaterials", () => {
       }),
     )
     expect(existsSync(join(workspaceDir, result.images![0].path))).toBe(true)
-    expect(readFileSync(join(workspaceDir, result.text_path!), "utf-8")).toContain("Battery demand is accelerating")
-    expect(JSON.parse(readFileSync(join(workspaceDir, result.manifest_path!), "utf-8"))).toMatchObject({
+    expect(readTextFile(join(workspaceDir, result.text_path!))).toContain("Battery demand is accelerating")
+    expect(readJsonFile(join(workspaceDir, result.manifest_path!))).toMatchObject({
       source: "report.pdf",
       type: "pdf",
       images: [
@@ -463,7 +456,7 @@ describe("extractDocumentMaterials", () => {
     expect(result.status).toBe("processed")
     expect(result.type).toBe("pdf")
     expect(result.images).toEqual([])
-    expect(readFileSync(join(workspaceDir, result.text_path!), "utf-8")).toContain("No visual assets on this page")
+    expect(readTextFile(join(workspaceDir, result.text_path!))).toContain("No visual assets on this page")
   })
 
   it("skips unsupported file types", async () => {

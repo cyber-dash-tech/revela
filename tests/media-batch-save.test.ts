@@ -1,20 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
-import { existsSync, readFileSync, rmSync } from "fs"
+import { existsSync, rmSync } from "fs"
 import { join } from "path"
 import { batchSaveMediaAssets } from "../lib/media/batch-save"
-import { tempWorkspace } from "./helpers/tool-helpers"
+import { mockFetchWith, readJsonFile, tempWorkspace } from "./helpers/tool-helpers"
 
 let workspaceDir = ""
 const originalFetch = globalThis.fetch
-
-function mockFetchWith(
-  responseFactory: (...args: Parameters<typeof fetch>) => Promise<Response> | Response,
-): typeof fetch {
-  return Object.assign(
-    async (...args: Parameters<typeof fetch>) => await responseFactory(...args),
-    { preconnect: originalFetch.preconnect.bind(originalFetch) },
-  ) as typeof fetch
-}
 
 beforeEach(() => {
   workspaceDir = tempWorkspace("revela-media-batch-")
@@ -28,7 +19,7 @@ afterEach(() => {
 describe("batchSaveMediaAssets", () => {
   it("batch-saves selected image leads and deduplicates repeated urls", async () => {
     let fetchCount = 0
-    globalThis.fetch = mockFetchWith(() => {
+    globalThis.fetch = mockFetchWith(originalFetch, () => {
       fetchCount += 1
       return new Response("png-bytes", {
         status: 200,
@@ -88,7 +79,7 @@ describe("batchSaveMediaAssets", () => {
       status: "success",
     }))
     expect(existsSync(join(workspaceDir, "assets/ev-market/media/tesla-logo-tesla-profile-1.png"))).toBe(true)
-    expect(JSON.parse(readFileSync(join(workspaceDir, "assets/ev-market/media-manifest.json"), "utf-8"))).toMatchObject({
+    expect(readJsonFile(join(workspaceDir, "assets/ev-market/media-manifest.json"))).toMatchObject({
       topic: "ev-market",
       assets: [
         expect.objectContaining({ id: "tesla-logo-tesla-profile-1" }),
@@ -125,7 +116,7 @@ describe("batchSaveMediaAssets", () => {
   })
 
   it("returns mixed success and failure results", async () => {
-    globalThis.fetch = mockFetchWith((...args) => {
+    globalThis.fetch = mockFetchWith(originalFetch, (...args) => {
       const url = String(args[0])
       if (url.includes("good")) {
         return new Response("png-bytes", {

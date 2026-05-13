@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { existsSync, readFileSync } from "fs"
+import { existsSync } from "fs"
 import { join } from "path"
 import { createEmptyDecksState, readDecksState, writeDecksState } from "../lib/decks-state"
 import {
@@ -10,7 +10,7 @@ import {
   workspaceStatePath,
   writeWorkspaceState,
 } from "../lib/workspace-state/repository"
-import { tempWorkspace } from "./helpers/tool-helpers"
+import { readJsonFile, readTextFile, tempWorkspace } from "./helpers/tool-helpers"
 
 describe("workspace state repository", () => {
   interface TestState {
@@ -32,7 +32,7 @@ describe("workspace state repository", () => {
     expect(workspaceStatePath(root)).toBe(join(root, "DECKS.json"))
     expect(hasWorkspaceState(root)).toBe(true)
     expect(readWorkspaceState<TestState>(root)).toEqual(state)
-    expect(readFileSync(workspaceStatePath(root), "utf-8").endsWith("\n")).toBe(true)
+    expect(readTextFile(workspaceStatePath(root)).endsWith("\n")).toBe(true)
   })
 
   it("creates state only when missing", () => {
@@ -55,7 +55,7 @@ describe("workspace state repository", () => {
     saveCanonicalState(root, { version: 1, name: "raw" }, { normalize })
 
     expect(readWorkspaceState<TestState>(root, { normalize })).toEqual({ version: 1, name: "raw", normalized: true })
-    expect(JSON.parse(readFileSync(workspaceStatePath(root), "utf-8"))).toEqual({ version: 1, name: "raw", normalized: true })
+    expect(readJsonFile<TestState>(workspaceStatePath(root))).toEqual({ version: 1, name: "raw", normalized: true })
   })
 
   it("keeps DECKS.json IO compatible through the repository", () => {

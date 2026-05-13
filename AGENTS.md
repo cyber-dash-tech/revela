@@ -2,7 +2,7 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-05-13 after the 0.16.1 Story workbench, command handoff, and coverage diagnostics release.
+> Last updated: 2026-05-13 after 0.16.1 release, test-helper lean-down, and 0.16.2 Review Insight planning.
 
 ## Product Baseline
 
@@ -142,6 +142,7 @@ Known 0.15 limits:
 - Story now derives filters, per-claim next actions, artifact coverage work items, no-render-target guidance, filter empty state, selected-claim auto-switching, coverage status notes, primary next command, and primary next reason deterministically.
 - Coverage diagnostics distinguish current, partial, missing, stale, and no-target artifact states; derived PDF/PPTX exports recommend export refresh when the HTML deck is current.
 - `/revela story -l ...` display-model prompting may localize Story workbench labels, but canonical IDs, evidence, coverage, readiness, and commands remain deterministic.
+- Test-helper lean-down extracted shared narrative fixtures, tool execution helpers, temporary workspace helpers, and common media/text/JSON test helpers. Broad slimming should pause unless a concrete pain point appears.
 - Next work should move to `0.16.2` deterministic-first Review Insight unless a release blocker appears.
 
 ## Near-Term Product Priorities
@@ -163,6 +164,7 @@ Refactoring / lean-down guidance:
 - Do not start by deleting tests. The suite is broad but fast; first reduce duplicated fixtures and repeated workspace setup.
 - Prefer extracting reusable test fixtures under `tests/helpers/` before changing production behavior.
 - Best first cleanup target: narrative/deck state fixtures shared by `tests/narrative-map.test.ts`, `tests/narrative-state.test.ts`, and `tests/decks-state.test.ts`.
+- Current helper extraction has already handled the highest-value low-risk duplication. Do not continue broad test normalization for marginal line-count savings; only refactor tests when it reduces friction for adjacent product work.
 - Keep compatibility command surfaces such as `/revela refine --deck`, `/revela edit`, and `/revela inspect` unless there is an explicit product decision to remove them.
 - Split giant production modules only behind stable re-export surfaces first, especially `lib/decks-state.ts` and Review/Edit/Inspect servers.
 
@@ -185,10 +187,13 @@ Priority 2: Story UI from display page to workbench.
 
 Priority 3: deterministic-first Review Insight.
 
+- Treat this as the active next 0.16.2 product slice.
 - For high-confidence selection matches, show deterministic inspection cards first and label any LLM expansion as explanatory rather than official state.
 - For no-match selections, return `no_match` directly instead of stretching weak evidence into a claim match.
 - Make card provenance clear: canonical claim/evidence, artifact coverage, exploratory non-official reading, and source/caveat boundaries.
 - Preserve the current rule that Insight is read-only; mutations go through Comment and must respect narrative-vs-artifact boundaries.
+- Start from `lib/inspection-context/*`, `tools/inspection-result.ts`, `lib/inspect/*`, and Review selection/Insight UI plumbing before changing prompts.
+- Add focused tests for high-confidence deterministic matches, explicit `no_match`, provenance labeling, and stale/partial artifact coverage display.
 
 Priority 4: semi-deterministic research loop.
 
@@ -229,11 +234,11 @@ Priority 7: product positioning cleanup.
 - Users can inspect selected deck text and see canonical claim/evidence/provenance boundaries before any exploratory explanation.
 - Research output clearly distinguishes saved findings, attached findings, bound evidence, and unbound findings with reasons.
 
-First 0.16 implementation ticket:
+Next 0.16.2 implementation ticket:
 
-- Implement deterministic deck plan compiler v2 in `lib/narrative-state/render-plan.ts`.
-- Treat it as the highest-leverage starting point because it improves `/revela make --deck`, Story-to-deck handoff, artifact coverage, stale/remake decisions, and Review traceability.
-- Acceptance: repeated compiles from the same approved narrative produce stable plans; central claims are covered; Cover, TOC, content chapters, risk/objection coverage where relevant, and Closing/Decision Ask are present; primary components use the simplified design grammar; claim refs, evidence binding ids, caveats, supported scope, and unsupported scope are carried into planned slides.
+- Implement deterministic-first Review Insight.
+- Treat deterministic inspection context as the official reading layer: canonical claim match, evidence status, source/caveat boundaries, artifact coverage, and narrative purpose should appear before any LLM explanation.
+- Acceptance: high-confidence selections produce canonical cards without relying on LLM judgement; weak/no-match selections return explicit `no_match`; exploratory copy is labeled non-official; cards distinguish canonical evidence, artifact coverage, source support, risks/objections, and research gaps; Comment remains the mutation path.
 
 ## Deck Render Grammar
 

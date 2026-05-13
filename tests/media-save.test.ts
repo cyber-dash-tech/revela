@@ -1,25 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
-import { existsSync, readFileSync, rmSync, writeFileSync } from "fs"
+import { existsSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { saveMediaAsset } from "../lib/media/save"
-import { tempWorkspace } from "./helpers/tool-helpers"
+import { mockFetchWith, readJsonFile, tempWorkspace, validPngBuffer } from "./helpers/tool-helpers"
 
 let workspaceDir = ""
 const originalFetch = globalThis.fetch
-
-function validPngBuffer(): Uint8Array {
-  return new Uint8Array(Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jx1EAAAAASUVORK5CYII=",
-    "base64",
-  ))
-}
-
-function mockFetchWith(responseFactory: () => Promise<Response> | Response): typeof fetch {
-  return Object.assign(
-    async (..._args: Parameters<typeof fetch>) => await responseFactory(),
-    { preconnect: originalFetch.preconnect.bind(originalFetch) },
-  ) as typeof fetch
-}
 
 beforeEach(() => {
   workspaceDir = tempWorkspace("revela-media-save-")
@@ -54,7 +40,7 @@ describe("saveMediaAsset", () => {
       manifestPath: "assets/ev-market/media-manifest.json",
     })
     expect(existsSync(join(workspaceDir, "assets/ev-market/media/tesla-logo-01.png"))).toBe(true)
-    expect(JSON.parse(readFileSync(join(workspaceDir, "assets/ev-market/media-manifest.json"), "utf-8"))).toMatchObject({
+    expect(readJsonFile(join(workspaceDir, "assets/ev-market/media-manifest.json"))).toMatchObject({
       topic: "ev-market",
       assets: [
         expect.objectContaining({
@@ -69,7 +55,7 @@ describe("saveMediaAsset", () => {
   })
 
   it("downloads a remote image and writes the manifest", async () => {
-    globalThis.fetch = mockFetchWith(() => new Response("png-bytes", {
+    globalThis.fetch = mockFetchWith(originalFetch, () => new Response("png-bytes", {
       status: 200,
       headers: { "content-type": "image/png" },
     }))
@@ -94,7 +80,7 @@ describe("saveMediaAsset", () => {
   })
 
   it("persists remote asset source metadata in the manifest", async () => {
-    globalThis.fetch = mockFetchWith(() => new Response("png-bytes", {
+    globalThis.fetch = mockFetchWith(originalFetch, () => new Response("png-bytes", {
       status: 200,
       headers: { "content-type": "image/png" },
     }))
@@ -122,7 +108,7 @@ describe("saveMediaAsset", () => {
       status: "success",
       path: "assets/ev-market/media/acme-logo.png",
     })
-    expect(JSON.parse(readFileSync(join(workspaceDir, "assets/ev-market/media-manifest.json"), "utf-8"))).toMatchObject({
+    expect(readJsonFile(join(workspaceDir, "assets/ev-market/media-manifest.json"))).toMatchObject({
       assets: [
         expect.objectContaining({
           id: "acme-logo",
@@ -156,7 +142,7 @@ describe("saveMediaAsset", () => {
       status: "invalid-url",
       path: null,
     })
-    expect(JSON.parse(readFileSync(join(workspaceDir, "assets/ev-market/media-manifest.json"), "utf-8"))).toMatchObject({
+    expect(readJsonFile(join(workspaceDir, "assets/ev-market/media-manifest.json"))).toMatchObject({
       assets: [
         expect.objectContaining({
           id: "hero-01",
@@ -169,7 +155,7 @@ describe("saveMediaAsset", () => {
   })
 
   it("records cannot-download failures for non-image responses", async () => {
-    globalThis.fetch = mockFetchWith(() => new Response("<html>not an image</html>", {
+    globalThis.fetch = mockFetchWith(originalFetch, () => new Response("<html>not an image</html>", {
       status: 200,
       headers: { "content-type": "text/html" },
     }))
@@ -265,7 +251,7 @@ describe("saveMediaAsset", () => {
   })
 
   it("preserves an existing successful asset when a later refresh attempt fails", async () => {
-    globalThis.fetch = mockFetchWith(() => new Response("png-bytes", {
+    globalThis.fetch = mockFetchWith(originalFetch, () => new Response("png-bytes", {
       status: 200,
       headers: { "content-type": "image/png" },
     }))
@@ -304,7 +290,7 @@ describe("saveMediaAsset", () => {
       path: null,
     })
     expect(existsSync(join(workspaceDir, "assets/ev-market/media/hero-01.png"))).toBe(true)
-    expect(JSON.parse(readFileSync(join(workspaceDir, "assets/ev-market/media-manifest.json"), "utf-8"))).toMatchObject({
+    expect(readJsonFile(join(workspaceDir, "assets/ev-market/media-manifest.json"))).toMatchObject({
       assets: [
         expect.objectContaining({
           id: "hero-01",
