@@ -158,6 +158,14 @@ Grounded current-state notes:
 - Artifact coverage already tracks current/stale/partial/missing claim coverage. The gap is making coverage drive make/review/remake decisions more explicitly.
 - `lib/narrative-state/render-plan.ts` is the main artifact-handoff weak spot: `compileDeckPlanFromNarrative` is approved-state aware, but slide planning is still basic and partly out of sync with deck-render prompt expectations.
 
+Refactoring / lean-down guidance:
+
+- Do not start by deleting tests. The suite is broad but fast; first reduce duplicated fixtures and repeated workspace setup.
+- Prefer extracting reusable test fixtures under `tests/helpers/` before changing production behavior.
+- Best first cleanup target: narrative/deck state fixtures shared by `tests/narrative-map.test.ts`, `tests/narrative-state.test.ts`, and `tests/decks-state.test.ts`.
+- Keep compatibility command surfaces such as `/revela refine --deck`, `/revela edit`, and `/revela inspect` unless there is an explicit product decision to remove them.
+- Split giant production modules only behind stable re-export surfaces first, especially `lib/decks-state.ts` and Review/Edit/Inspect servers.
+
 Priority 1: deterministic deck plan compiler v2.
 
 - Align `compileDeckPlanFromNarrative` with `/revela make --deck` expectations: deterministic Cover, TOC, content chapters, risks/objections where relevant, and Closing/Decision Ask.

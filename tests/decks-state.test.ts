@@ -4,7 +4,6 @@ import { tmpdir } from "os"
 import { join } from "path"
 import {
   applyEvidenceCandidates,
-  confirmDeckPlan,
   createDeckSpec,
   createEmptyDecksState,
   evaluateDeckStateWriteReadiness,
@@ -15,56 +14,11 @@ import {
 } from "../lib/decks-state"
 import { upsertSourceMaterial } from "../lib/source-materials"
 import { currentReviewInputHash, isReviewSnapshotCurrent } from "../lib/workspace-state/review-snapshots"
+import { confirmTestDeckPlan, readyDeckState } from "./helpers/narrative-fixtures"
 
 describe("DECKS.json state readiness", () => {
-  function confirmPlan(state: ReturnType<typeof createEmptyDecksState>) {
-    return confirmDeckPlan(state, { approvedBy: "user", note: "Confirmed test deck plan.", now: "2026-01-01T00:00:00.000Z" }).state
-  }
-
-  function readyState() {
-    let state = createEmptyDecksState()
-    state = upsertDeck(state, {
-      slug: "test-two-page-deck",
-      goal: "Create a two-slide test deck.",
-      outputPath: "decks/test-two-page-deck.html",
-      theme: { design: "aurora", domain: "general" },
-      requiredInputs: {
-        topicClarified: true,
-        audienceClarified: true,
-        languageDecided: true,
-        visualStyleSelected: true,
-        sourceMaterialsIdentified: true,
-        researchNeedAssessed: true,
-        researchFindingsRead: true,
-        slidePlanConfirmed: true,
-        designLayoutsFetched: true,
-      },
-      researchPlan: [{ axis: "none", needed: false, status: "skipped" }],
-    })
-    state = upsertSlides(state, "test-two-page-deck", [
-      {
-        index: 1,
-        title: "封面",
-        purpose: "Introduce the test deck",
-        layout: "cover",
-        components: ["hero-title"],
-        content: { headline: "测试演示文稿", body: ["验证生成流程"] },
-        evidence: [{ source: "user request" }],
-        status: "ready",
-      },
-      {
-        index: 2,
-        title: "要点",
-        purpose: "Show validation targets",
-        layout: "card-grid",
-        components: ["card"],
-        content: { headline: "验证目标", bullets: ["页面生成", "布局检查"] },
-        evidence: [{ source: "user request" }],
-        status: "ready",
-      },
-    ])
-    return reviewDeckState(confirmPlan(state), "test-two-page-deck").state
-  }
+  const confirmPlan = confirmTestDeckPlan
+  const readyState = readyDeckState
 
   it("marks a complete deck ready through review", () => {
     const reviewed = reviewDeckState(readyState(), "test-two-page-deck")

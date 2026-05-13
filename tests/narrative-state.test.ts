@@ -2,54 +2,16 @@ import { describe, expect, it } from "bun:test"
 import { mkdtempSync } from "fs"
 import { tmpdir } from "os"
 import { join } from "path"
-import { createEmptyDecksState, readDecksState, upsertDeck, upsertSlides, writeDecksState } from "../lib/decks-state"
+import { readDecksState, writeDecksState } from "../lib/decks-state"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { narrativeToBrief } from "../lib/narrative-state/project-compat"
 import { approveNarrativeState, reviewNarrativeState } from "../lib/narrative-state/readiness"
 import { closeResearchGapInState, deriveResearchGapsFromReadiness, updateResearchGapInState } from "../lib/narrative-state/research-gaps"
 import decksTool from "../tools/decks"
+import { legacyDecisionDeck } from "./helpers/narrative-fixtures"
 
 describe("narrative state", () => {
-  function legacyDecisionDeck() {
-    let state = createEmptyDecksState()
-    state = upsertDeck(state, {
-      slug: "narrative-demo",
-      goal: "Recommend whether to approve phased expansion.",
-      audience: "Investment committee",
-      outputPath: "decks/narrative-demo.html",
-      narrativeBrief: {
-        audienceBeliefBefore: "The committee is unsure about demand.",
-        audienceBeliefAfter: "The committee trusts phased expansion.",
-        decisionOrAction: "Approve phased expansion.",
-        narrativeArc: "Demand proof supports a phased approval with explicit execution risk.",
-        keyClaims: ["Demand supports phased expansion."],
-        objections: ["The forecast may be too optimistic."],
-        risks: ["Execution risk remains material."],
-      },
-    })
-    state = upsertSlides(state, "narrative-demo", [{
-      index: 1,
-      title: "Demand Proof",
-      purpose: "Show why phased expansion is credible",
-      narrativeRole: "evidence",
-      layout: "two-col",
-      components: ["card"],
-      content: {
-        headline: "Demand supports phased expansion.",
-        bullets: ["Market demand grew 25% since 2024"],
-      },
-      evidence: [{
-        source: "Market report",
-        findingsFile: "researches/narrative-demo/market.md",
-        location: "page 4",
-        quote: "Demand increased 25% from 2024 to 2025.",
-      }],
-      status: "ready",
-    }])
-    return state
-  }
-
   it("migrates legacy narrativeBrief and slides into canonical narrative state", () => {
     const narrative = normalizeNarrativeState(legacyDecisionDeck())
 
