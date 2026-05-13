@@ -2,7 +2,7 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-05-13 after the 0.16.1 Story workbench and command handoff slices.
+> Last updated: 2026-05-13 after the 0.16.1 Story workbench, command handoff, and coverage diagnostics release.
 
 ## Product Baseline
 
@@ -12,7 +12,7 @@ Product promise:
 
 **Turn source materials, research, data, and user intent into trusted, traceable, presentation-ready decision artifacts.**
 
-Current baseline: `0.15.4`.
+Current baseline: `0.16.1`.
 
 User-facing workflow:
 
@@ -86,7 +86,7 @@ Slash commands are explicit entry points, not the only workflow. Explicit workfl
 - Workbench filters cover missing evidence, partial/weak evidence, non-current artifacts, open gaps, risks, and high-priority objections.
 - Per-claim next actions include research this gap, attach findings, narrow claim, approve narrative, make deck, and remake stale artifact.
 - Artifact coverage work items show affected claims, affected slides, missing required claims, coverage status, status note, and recommended command.
-- Workbench summary shows narrative approval, evidence blocker count, aggregate artifact status, and the deterministic primary next command.
+- Workbench summary shows narrative approval, evidence blocker count, aggregate artifact status, deterministic primary next command, and the deterministic reason that command was chosen.
 - Command handoff rules distinguish HTML deck from derived exports: non-current HTML uses `/revela make --deck`; non-current PDF/PPTX with current HTML uses `/revela export --deck pdf` or `/revela export --deck pptx`; current HTML uses `/revela review --deck`.
 - `/revela story` opens the narrative/story UI rather than printing a readiness report.
 - Do not write artifacts from story mode.
@@ -138,10 +138,11 @@ Known 0.15 limits:
 ## Current 0.16 Progress
 
 - `0.16.0` deterministic deck plan compiler v2 is implemented in `lib/narrative-state/render-plan.ts`.
-- Early `0.16.1` Story workbench slices are implemented in `lib/narrative-state/map.ts` and `lib/narrative-state/map-html.ts`.
-- Story now derives filters, per-claim next actions, artifact coverage work items, no-render-target guidance, filter empty state, selected-claim auto-switching, coverage status notes, and primary next command deterministically.
+- `0.16.1` Story workbench and command handoff slices are implemented in `lib/narrative-state/map.ts` and `lib/narrative-state/map-html.ts`.
+- Story now derives filters, per-claim next actions, artifact coverage work items, no-render-target guidance, filter empty state, selected-claim auto-switching, coverage status notes, primary next command, and primary next reason deterministically.
+- Coverage diagnostics distinguish current, partial, missing, stale, and no-target artifact states; derived PDF/PPTX exports recommend export refresh when the HTML deck is current.
 - `/revela story -l ...` display-model prompting may localize Story workbench labels, but canonical IDs, evidence, coverage, readiness, and commands remain deterministic.
-- Remaining `0.16.1` work should focus on usability and coverage diagnostics polish, not mutation UI or generic chat.
+- Next work should move to `0.16.2` deterministic-first Review Insight unless a release blocker appears.
 
 ## Near-Term Product Priorities
 
@@ -208,7 +209,7 @@ Priority 7: product positioning cleanup.
 0.16 development slices:
 
 - `0.16.0`: ship deterministic deck plan compiler v2, plan quality checks, and coverage-driven make diagnostics.
-- `0.16.1`: ship Story workbench filters, per-claim next actions, artifact coverage work area, and deterministic Story-to-command handoff.
+- `0.16.1`: ship Story workbench filters, per-claim next actions, artifact coverage work area, deterministic Story-to-command handoff, and coverage diagnostic reasons.
 - `0.16.2`: ship deterministic-first Review Insight, stricter no-match behavior, and provenance labeling.
 - `0.16.3`: ship semi-deterministic research target selection, structured binding failure reasons, and a better attach/bind loop.
 

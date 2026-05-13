@@ -143,6 +143,43 @@ describe("narrative map", () => {
     return state
   }
 
+  function resolvedState(): DecksState {
+    const state = narrativeMapState()
+    for (const claim of state.narrative!.claims) {
+      if (claim.id === "claim:supported") claim.evidenceStatus = "supported"
+      else {
+        claim.evidenceRequired = false
+        claim.evidenceStatus = "not_required"
+      }
+      delete claim.unsupportedScope
+    }
+    state.narrative!.researchGaps = []
+    state.narrative = normalizeNarrativeState(state)
+    const hash = computeNarrativeHash(state.narrative)
+    state.narrative.approvals = [{
+      id: "approval:resolved",
+      narrativeHash: hash,
+      approvedAt: "2026-05-07T00:00:00.000Z",
+      approvedBy: "user",
+      scope: "narrative",
+    }]
+    return state
+  }
+
+  function staleApprovalState(): DecksState {
+    const state = resolvedState()
+    state.narrative!.claims[0].text = "Updated phased pilot approval is the safer path."
+    return state
+  }
+
+  function resolvedNarrativeOnlyState(): DecksState {
+    const state = resolvedState()
+    state.activeDeck = ""
+    state.decks = {}
+    state.renderTargets = []
+    return state
+  }
+
   function currentHtmlWithStaleExportsState(): DecksState {
     let state = narrativeMapState()
     state = upsertSlides(state, "map-demo", [
@@ -172,6 +209,37 @@ describe("narrative map", () => {
         status: "planned",
       },
     ])
+    const hash = computeNarrativeHash(state.narrative!)
+    state.renderTargets = []
+    state = upsertRenderTarget(state, {
+      id: renderTargetId("html_deck", "decks/map-demo.html"),
+      type: "html_deck",
+      outputPath: "decks/map-demo.html",
+      sourceNodeIds: [state.narrative!.id],
+      contractStatus: "valid",
+      data: { narrativeHash: hash },
+    })
+    state = upsertRenderTarget(state, {
+      id: renderTargetId("pdf", "decks/map-demo.pdf"),
+      type: "pdf",
+      outputPath: "decks/map-demo.pdf",
+      sourceNodeIds: [],
+      contractStatus: "valid",
+      data: { sourceOutputPath: "decks/map-demo.html", narrativeHash: "old-hash" },
+    })
+    state = upsertRenderTarget(state, {
+      id: renderTargetId("pptx", "decks/map-demo.pptx"),
+      type: "pptx",
+      outputPath: "decks/map-demo.pptx",
+      sourceNodeIds: [],
+      contractStatus: "valid",
+      data: { sourceOutputPath: "decks/map-demo.html", narrativeHash: "old-hash" },
+    })
+    return state
+  }
+
+  function resolvedCurrentHtmlWithStaleExportsState(): DecksState {
+    let state = resolvedState()
     const hash = computeNarrativeHash(state.narrative!)
     state.renderTargets = []
     state = upsertRenderTarget(state, {
@@ -253,6 +321,7 @@ describe("narrative map", () => {
       evidenceBlockersCount: 2,
       artifactStatus: "partial",
       primaryNextCommand: "/revela research",
+      primaryNextReason: "2 evidence-required claims still need stronger support before artifact handoff.",
     }))
   })
 
@@ -280,9 +349,10 @@ describe("narrative map", () => {
     expect(text).toContain("Slide 1: claim:supported [primary]")
     expect(text).toContain("## Story Workbench")
     expect(text).toContain("Summary primary next command: /revela research")
+    expect(text).toContain("Summary primary next reason: 2 evidence-required claims still need stronger support before artifact handoff.")
     expect(text).toContain("Filter missing_evidence: 1 (claim:missing)")
     expect(text).toContain("Artifact work item: html_deck: decks/map-demo.html [partial] -> /revela make --deck")
-    expect(text).toContain("Status note: Artifact coverage is not current; remake the deck from the approved narrative.")
+    expect(text).toContain("Status note: Artifact is partial; remake the deck so all central or evidence-required claims are covered.")
     expect(text).toContain("Next actions: Remake stale artifact (/revela make --deck)")
   })
 
@@ -304,6 +374,7 @@ describe("narrative map", () => {
     expect(html).toContain("/revela make --deck")
     expect(html).toContain("Artifact status")
     expect(html).toContain("Primary next command")
+    expect(html).toContain("Primary next reason")
 
     const workspaceRoot = mkdtempSync(join(tmpdir(), "revela-narrative-no-deck-"))
     const messages: string[] = []
@@ -335,6 +406,8 @@ describe("narrative map", () => {
     expect(html).toContain("Story workbench")
     expect(html).toContain("Evidence blockers")
     expect(html).toContain("Primary next command")
+    expect(html).toContain("Primary next reason")
+    expect(html).toContain("2 evidence-required claims still need stronger support before artifact handoff.")
     expect(html).toContain("No claims match this filter.")
     expect(html).toContain("Missing evidence (1)")
     expect(html).toContain("Partial evidence (1)")
@@ -365,6 +438,7 @@ describe("narrative map", () => {
 
     expect(map.workbench.summary.artifactStatus).toBe("stale")
     expect(map.workbench.summary.primaryNextCommand).toBe("/revela research")
+    expect(map.workbench.summary.primaryNextReason).toBe("2 evidence-required claims still need stronger support before artifact handoff.")
     expect(map.workbench.artifactCoverage).toContainEqual(expect.objectContaining({
       type: "html_deck",
       coverageStatus: "current",
@@ -382,6 +456,43 @@ describe("narrative map", () => {
       coverageStatus: "stale",
       recommendedNextCommand: "/revela export --deck pptx",
       statusNote: "HTML deck is current; refresh the PPTX export.",
+    }))
+  })
+
+  it("explains stale approval as the primary next reason when evidence is resolved", () => {
+    const map = buildNarrativeMap(staleApprovalState())
+
+    expect(map.workbench.summary).toEqual(expect.objectContaining({
+      approval: "stale",
+      evidenceBlockersCount: 0,
+      primaryNextCommand: "/revela story",
+      primaryNextReason: "Narrative approval is stale after meaning changed.",
+    }))
+  })
+
+  it("explains no render target as the primary next reason when narrative is approved", () => {
+    const map = buildNarrativeMap(resolvedNarrativeOnlyState())
+    const text = formatNarrativeMap(map)
+
+    expect(map.workbench.summary).toEqual(expect.objectContaining({
+      approval: "current",
+      evidenceBlockersCount: 0,
+      artifactStatus: "no_target",
+      primaryNextCommand: "/revela make --deck",
+      primaryNextReason: "Approved narrative has no recorded render target yet.",
+    }))
+    expect(text).toContain("Summary primary next reason: Approved narrative has no recorded render target yet.")
+  })
+
+  it("explains stale derived exports when HTML deck is current", () => {
+    const map = buildNarrativeMap(resolvedCurrentHtmlWithStaleExportsState())
+
+    expect(map.workbench.summary).toEqual(expect.objectContaining({
+      approval: "current",
+      evidenceBlockersCount: 0,
+      artifactStatus: "stale",
+      primaryNextCommand: "/revela export --deck pdf",
+      primaryNextReason: "HTML deck coverage is current, but a derived export is stale and should be refreshed.",
     }))
   })
 

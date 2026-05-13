@@ -278,6 +278,7 @@ function renderWorkbenchSummary(map: NarrativeMap, display: ValidatedNarrativeDi
     <div class="summary-item"><span class="summary-label">${escapeHtml(readinessSummaryTerm("evidenceBlockers", display))}</span><span class="summary-value">${summary.evidenceBlockersCount}</span></div>
     <div class="summary-item"><span class="summary-label">${escapeHtml(readinessSummaryTerm("artifactStatus", display))}</span><span class="summary-value">${escapeHtml(localizeValue(summary.artifactStatus, display))}</span></div>
     <div class="summary-item"><span class="summary-label">${escapeHtml(readinessSummaryTerm("primaryNextCommand", display))}</span><span class="summary-value"><code>${escapeHtml(summary.primaryNextCommand)}</code></span></div>
+    <div class="summary-item"><span class="summary-label">${escapeHtml(readinessSummaryTerm("primaryNextReason", display))}</span><span class="summary-value">${escapeHtml(summary.primaryNextReason)}</span></div>
   </div>`
 }
 
@@ -405,9 +406,9 @@ function localizeAction(value: string, display: ValidatedNarrativeDisplayModel):
 }
 
 function readinessSummaryTerm(value: string, display: ValidatedNarrativeDisplayModel): string {
-  const zh: Record<string, string> = { evidenceBlockers: "证据阻塞", artifactStatus: "产物状态", primaryNextCommand: "首要建议命令" }
-  const ja: Record<string, string> = { evidenceBlockers: "根拠ブロッカー", artifactStatus: "成果物ステータス", primaryNextCommand: "最優先コマンド" }
-  const en: Record<string, string> = { evidenceBlockers: "Evidence blockers", artifactStatus: "Artifact status", primaryNextCommand: "Primary next command" }
+  const zh: Record<string, string> = { evidenceBlockers: "证据阻塞", artifactStatus: "产物状态", primaryNextCommand: "首要建议命令", primaryNextReason: "首要建议原因" }
+  const ja: Record<string, string> = { evidenceBlockers: "根拠ブロッカー", artifactStatus: "成果物ステータス", primaryNextCommand: "最優先コマンド", primaryNextReason: "最優先理由" }
+  const en: Record<string, string> = { evidenceBlockers: "Evidence blockers", artifactStatus: "Artifact status", primaryNextCommand: "Primary next command", primaryNextReason: "Primary next reason" }
   return (isChineseLanguage(display.language) ? zh : isJapaneseLanguage(display.language) ? ja : en)[value] ?? value
 }
 
