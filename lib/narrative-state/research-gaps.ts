@@ -4,12 +4,54 @@ import { stableResearchGapId } from "./hash"
 import { normalizeNarrativeState } from "./normalize"
 import { reviewNarrativeState } from "./readiness"
 import type {
+  NarrativeClaim,
   NarrativeReadinessIssue,
   NarrativeResearchGap,
   NarrativeResearchGapStatus,
   NarrativeResearchGapTargetType,
   NarrativeStateV1,
 } from "./types"
+
+export type ResearchTargetKind =
+  | "research_gap"
+  | "missing_evidence"
+  | "weak_evidence"
+  | "unsupported_scope"
+  | "unhandled_objection"
+  | "high_severity_risk"
+  | "unattached_findings"
+  | "claim_chain_gap"
+
+export type EvidenceBindingFailureReason =
+  | "missing_quote"
+  | "unclear_source"
+  | "over_broad_claim"
+  | "weak_source"
+  | "unsupported_scope"
+  | "caveat_conflict"
+  | "source_mismatch"
+  | "context_only_finding"
+
+export interface ResearchTarget {
+  id: string
+  kind: ResearchTargetKind
+  targetType: NarrativeResearchGapTargetType | "findings" | "relation"
+  targetId?: string
+  priority: "high" | "medium" | "low"
+  reason: string
+  question: string
+  status?: NarrativeResearchGapStatus | "unattached"
+  findingsFile?: string
+  claimId?: string
+  claimText?: string
+  requiredEvidence: string[]
+  bindingFailureReasons?: EvidenceBindingFailureReason[]
+}
+
+export interface ResearchTargetsResult {
+  targets: ResearchTarget[]
+  selected?: ResearchTarget
+}
 
 export interface UpsertResearchGapInput {
   id?: string
@@ -44,6 +86,20 @@ export interface CloseResearchGapResult {
   skipped: boolean
   reason?: string
   gap?: NarrativeResearchGap
+}
+
+export function deriveResearchTargets(state: DecksState, options: { now?: string } = {}): ResearchTargetsResult {
+  const reviewed = reviewNarrativeState(state, { now: options.now })
+  const narrative = reviewed.state.narrative!
+  const targets = dedupeTargets([
+    ...targetsFromResearchGaps(narrative),
+    ...targetsFromClaims(narrative),
+    ...targetsFromObjections(narrative),
+    ...targetsFromRisks(narrative),
+    ...targetsFromReadinessIssues(reviewed.result.issues),
+    ...targetsFromUnattachedFindings(reviewed.state, narrative),
+  ]).sort(compareResearchTargets)
+  return { targets, selected: targets[0] }
 }
 
 export function deriveResearchGapsFromReadiness(state: DecksState, options: { now?: string } = {}): { state: DecksState; result: ResearchGapMutationResult } {
@@ -135,6 +191,198 @@ function gapsFromIssues(narrative: NarrativeStateV1, issues: NarrativeReadinessI
       findingsFile: issue.source?.startsWith("researches/") ? issue.source : undefined,
     }]
   })
+}
+
+function targetsFromResearchGaps(narrative: NarrativeStateV1): ResearchTarget[] {
+  return (narrative.researchGaps ?? [])
+    .filter((gap) => gap.status !== "closed" && gap.status !== "evidence_bound")
+    .map((gap) => {
+      const claim = gap.targetType === "claim" ? narrative.claims.find((item) => item.id === gap.targetId) : undefined
+      return {
+        id: `gap:${gap.id}`,
+        kind: "research_gap",
+        targetType: gap.targetType,
+        targetId: gap.targetId,
+        priority: gap.priority,
+        reason: gap.status === "findings_saved" || gap.status === "attached"
+          ? "Saved findings exist; inspect and bind explicit evidence before launching new research."
+          : "Open canonical research gap needs findings or binding progress.",
+        question: gap.question,
+        status: gap.status,
+        findingsFile: gap.findingsFile,
+        claimId: claim?.id,
+        claimText: claim?.text,
+        requiredEvidence: requiredEvidenceForClaim(claim),
+        bindingFailureReasons: gap.findingsFile ? ["missing_quote", "unclear_source", "unsupported_scope"] : undefined,
+      } satisfies ResearchTarget
+    })
+}
+
+function targetsFromClaims(narrative: NarrativeStateV1): ResearchTarget[] {
+  return narrative.claims.flatMap((claim) => {
+    const targets: ResearchTarget[] = []
+    if (claim.evidenceRequired && claim.evidenceStatus === "missing") {
+      targets.push(claimTarget("missing_evidence", claim, claim.importance === "central" ? "high" : "medium", "Evidence-required claim has no bound support."))
+    }
+    if (claim.evidenceRequired && (claim.evidenceStatus === "weak" || claim.evidenceStatus === "partial")) {
+      targets.push(claimTarget("weak_evidence", claim, claim.importance === "central" ? "high" : "medium", `Claim evidence is ${claim.evidenceStatus}; strengthen source trace or narrow scope.`))
+    }
+    if (claim.unsupportedScope) {
+      targets.push(claimTarget("unsupported_scope", claim, claim.importance === "central" ? "high" : "medium", "Claim records unsupported scope that needs evidence, narrowing, or explicit caveat."))
+    }
+    return targets
+  })
+}
+
+function targetsFromObjections(narrative: NarrativeStateV1): ResearchTarget[] {
+  return narrative.objections
+    .filter((objection) => objection.priority === "high" && !objection.response)
+    .map((objection) => ({
+      id: `objection:${objection.id}`,
+      kind: "unhandled_objection",
+      targetType: "objection",
+      targetId: objection.id,
+      priority: "high",
+      reason: "High-priority objection has no recorded response or evidence boundary.",
+      question: `Find response or evidence for objection: ${objection.text}`,
+      claimId: objection.claimId,
+      claimText: narrative.claims.find((claim) => claim.id === objection.claimId)?.text,
+      requiredEvidence: ["response evidence or boundary", "source", "quote/snippet", "caveat"],
+    } satisfies ResearchTarget))
+}
+
+function targetsFromRisks(narrative: NarrativeStateV1): ResearchTarget[] {
+  return narrative.risks
+    .filter((risk) => risk.severity === "high" && !risk.mitigation)
+    .map((risk) => ({
+      id: `risk:${risk.id}`,
+      kind: "high_severity_risk",
+      targetType: "risk",
+      targetId: risk.id,
+      priority: "high",
+      reason: "High-severity risk has no mitigation or evidence boundary.",
+      question: `Find mitigation, evidence boundary, or caveat for risk: ${risk.text}`,
+      claimId: risk.claimId,
+      claimText: narrative.claims.find((claim) => claim.id === risk.claimId)?.text,
+      requiredEvidence: ["mitigation evidence or boundary", "source", "quote/snippet", "caveat"],
+    } satisfies ResearchTarget))
+}
+
+function targetsFromReadinessIssues(issues: NarrativeReadinessIssue[]): ResearchTarget[] {
+  return issues.flatMap((issue) => {
+    if (issue.type !== "claim_chain_gap") return []
+    return [{
+      id: `issue:${issue.type}:${stableResearchGapId(issue.message)}`,
+      kind: "claim_chain_gap",
+      targetType: "relation",
+      priority: issue.severity === "blocker" ? "high" : "medium",
+      reason: issue.message,
+      question: issue.suggestedAction,
+      requiredEvidence: ["claim relation rationale", "supporting source or explicit user rationale", "caveat if relation is assumption-based"],
+    } satisfies ResearchTarget]
+  })
+}
+
+function targetsFromUnattachedFindings(state: DecksState, narrative: NarrativeStateV1): ResearchTarget[] {
+  return (state.actions ?? []).flatMap((action) => {
+    if (action.type !== "research.findings_saved") return []
+    const path = typeof action.outputs?.path === "string" ? action.outputs.path : undefined
+    if (!path || isFindingsAttachedOrBound(state, narrative, path)) return []
+    return [{
+      id: `findings:${path}`,
+      kind: "unattached_findings",
+      targetType: "findings",
+      targetId: path,
+      priority: "medium",
+      reason: "Saved findings are not attached to a research axis or bound as canonical evidence.",
+      question: `Inspect and attach or bind saved findings: ${path}`,
+      status: "unattached",
+      findingsFile: path,
+      requiredEvidence: ["source", "quote/snippet", "support scope", "unsupported scope", "caveat", "strength"],
+      bindingFailureReasons: ["missing_quote", "unclear_source", "context_only_finding", "unsupported_scope"],
+    } satisfies ResearchTarget]
+  })
+}
+
+function claimTarget(kind: Extract<ResearchTargetKind, "missing_evidence" | "weak_evidence" | "unsupported_scope">, claim: NarrativeClaim, priority: "high" | "medium", reason: string): ResearchTarget {
+  return {
+    id: `claim:${kind}:${claim.id}`,
+    kind,
+    targetType: "claim",
+    targetId: claim.id,
+    priority,
+    reason,
+    question: questionForClaimTarget(kind, claim),
+    claimId: claim.id,
+    claimText: claim.text,
+    requiredEvidence: requiredEvidenceForClaim(claim),
+    bindingFailureReasons: bindingFailuresForClaim(claim),
+  }
+}
+
+function questionForClaimTarget(kind: ResearchTargetKind, claim: NarrativeClaim): string {
+  if (kind === "missing_evidence") return `Find evidence for claim: ${claim.text}`
+  if (kind === "weak_evidence") return `Strengthen evidence for claim: ${claim.text}`
+  if (kind === "unsupported_scope") return `Resolve unsupported scope for claim: ${claim.text}`
+  return claim.text
+}
+
+function requiredEvidenceForClaim(claim: NarrativeClaim | undefined): string[] {
+  const base = ["source", "quote/snippet", "support scope", "unsupported scope", "caveat", "strength"]
+  if (!claim) return base
+  if (claim.unsupportedScope) return [...base, `address unsupported scope: ${claim.unsupportedScope}`]
+  return base
+}
+
+function bindingFailuresForClaim(claim: NarrativeClaim): EvidenceBindingFailureReason[] {
+  const reasons: EvidenceBindingFailureReason[] = ["missing_quote", "unclear_source"]
+  if (claim.evidenceStatus === "weak") reasons.push("weak_source")
+  if (claim.unsupportedScope) reasons.push("unsupported_scope", "over_broad_claim")
+  return reasons
+}
+
+function isFindingsAttachedOrBound(state: DecksState, narrative: NarrativeStateV1, path: string): boolean {
+  const attached = Object.values(state.decks ?? {}).some((deck) => deck.researchPlan.some((axis) => axis.findingsFile === path))
+  const bound = narrative.evidenceBindings.some((binding) => binding.findingsFile === path)
+  return attached || bound
+}
+
+function dedupeTargets(targets: ResearchTarget[]): ResearchTarget[] {
+  const seen = new Set<string>()
+  const result: ResearchTarget[] = []
+  for (const target of targets) {
+    const key = `${target.kind}:${target.targetType}:${target.targetId ?? target.claimId ?? target.question}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(target)
+  }
+  return result
+}
+
+function compareResearchTargets(a: ResearchTarget, b: ResearchTarget): number {
+  return priorityValue(a.priority) - priorityValue(b.priority)
+    || kindValue(a.kind) - kindValue(b.kind)
+    || a.question.localeCompare(b.question)
+}
+
+function priorityValue(priority: ResearchTarget["priority"]): number {
+  if (priority === "high") return 0
+  if (priority === "medium") return 1
+  return 2
+}
+
+function kindValue(kind: ResearchTargetKind): number {
+  const values: Record<ResearchTargetKind, number> = {
+    research_gap: 0,
+    unattached_findings: 1,
+    missing_evidence: 2,
+    weak_evidence: 3,
+    unsupported_scope: 4,
+    unhandled_objection: 5,
+    high_severity_risk: 6,
+    claim_chain_gap: 7,
+  }
+  return values[kind]
 }
 
 function researchableIssue(issue: NarrativeReadinessIssue): boolean {

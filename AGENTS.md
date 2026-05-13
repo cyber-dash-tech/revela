@@ -2,7 +2,7 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-05-13 after 0.16.1 release, test-helper lean-down, and 0.16.2 Review Insight planning.
+> Last updated: 2026-05-13 after 0.16.1 release, test-helper lean-down, and 0.16.2 research-loop planning.
 
 ## Product Baseline
 
@@ -143,7 +143,7 @@ Known 0.15 limits:
 - Coverage diagnostics distinguish current, partial, missing, stale, and no-target artifact states; derived PDF/PPTX exports recommend export refresh when the HTML deck is current.
 - `/revela story -l ...` display-model prompting may localize Story workbench labels, but canonical IDs, evidence, coverage, readiness, and commands remain deterministic.
 - Test-helper lean-down extracted shared narrative fixtures, tool execution helpers, temporary workspace helpers, and common media/text/JSON test helpers. Broad slimming should pause unless a concrete pain point appears.
-- Next work should move to `0.16.2` deterministic-first Review Insight unless a release blocker appears.
+- Next work should move to `0.16.2` semi-deterministic research loop unless a release blocker appears. Deterministic-first Review Insight is deferred.
 
 ## Near-Term Product Priorities
 
@@ -187,7 +187,7 @@ Priority 2: Story UI from display page to workbench.
 
 Priority 3: deterministic-first Review Insight.
 
-- Treat this as the active next 0.16.2 product slice.
+- Deferred behind the research loop unless a Review blocker appears.
 - For high-confidence selection matches, show deterministic inspection cards first and label any LLM expansion as explanatory rather than official state.
 - For no-match selections, return `no_match` directly instead of stretching weak evidence into a claim match.
 - Make card provenance clear: canonical claim/evidence, artifact coverage, exploratory non-official reading, and source/caveat boundaries.
@@ -197,6 +197,7 @@ Priority 3: deterministic-first Review Insight.
 
 Priority 4: semi-deterministic research loop.
 
+- Treat this as the active next 0.16.2 product slice.
 - Convert more of `/revela research` from prompt convention into deterministic target selection and status transitions where practical.
 - Produce structured reasons when findings cannot be attached or evidence candidates cannot be bound: missing quote, unclear source, over-broad claim, weak source, unsupported scope, or caveat conflict.
 - Prefer binding/narrowing from existing saved findings before launching external research.
@@ -223,8 +224,8 @@ Priority 7: product positioning cleanup.
 
 - `0.16.0`: ship deterministic deck plan compiler v2, plan quality checks, and coverage-driven make diagnostics.
 - `0.16.1`: ship Story workbench filters, per-claim next actions, artifact coverage work area, deterministic Story-to-command handoff, and coverage diagnostic reasons.
-- `0.16.2`: ship deterministic-first Review Insight, stricter no-match behavior, and provenance labeling.
-- `0.16.3`: ship semi-deterministic research target selection, structured binding failure reasons, and a better attach/bind loop.
+- `0.16.2`: ship semi-deterministic research target selection, structured binding failure reasons, and a better attach/bind loop.
+- `0.16.3`: revisit deterministic-first Review Insight, stricter no-match behavior, and provenance labeling if still valuable.
 
 0.16 user-experience acceptance criteria:
 
@@ -236,9 +237,9 @@ Priority 7: product positioning cleanup.
 
 Next 0.16.2 implementation ticket:
 
-- Implement deterministic-first Review Insight.
-- Treat deterministic inspection context as the official reading layer: canonical claim match, evidence status, source/caveat boundaries, artifact coverage, and narrative purpose should appear before any LLM explanation.
-- Acceptance: high-confidence selections produce canonical cards without relying on LLM judgement; weak/no-match selections return explicit `no_match`; exploratory copy is labeled non-official; cards distinguish canonical evidence, artifact coverage, source support, risks/objections, and research gaps; Comment remains the mutation path.
+- Implement deterministic research target selection and structured binding failure reasons.
+- Treat canonical narrative gaps, unsupported central claims, weak/partial evidence, high-priority objections, high-severity risks, and unattached saved findings as explicit research targets before launching new external research.
+- Acceptance: `/revela research` can explain which target is selected and why; findings are attached or bound only when source, quote/snippet, support scope, unsupported scope, strength, and caveat are explicit; unbound findings report structured reasons such as missing quote, unclear source, over-broad claim, weak source, unsupported scope, caveat conflict, source mismatch, or context-only finding.
 
 ## Deck Render Grammar
 

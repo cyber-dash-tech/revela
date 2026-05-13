@@ -4,8 +4,8 @@ import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { narrativeToBrief } from "../lib/narrative-state/project-compat"
 import { approveNarrativeState, reviewNarrativeState } from "../lib/narrative-state/readiness"
-import { closeResearchGapInState, deriveResearchGapsFromReadiness, updateResearchGapInState } from "../lib/narrative-state/research-gaps"
-import { legacyDecisionDeck } from "./helpers/narrative-fixtures"
+import { closeResearchGapInState, deriveResearchGapsFromReadiness, deriveResearchTargets, updateResearchGapInState } from "../lib/narrative-state/research-gaps"
+import { legacyDecisionDeck, narrativeMapState } from "./helpers/narrative-fixtures"
 import { executeDecksTool, runDecksTool, tempWorkspace } from "./helpers/tool-helpers"
 
 describe("narrative state", () => {
@@ -623,5 +623,49 @@ describe("narrative state", () => {
     expect(derived.ok).toBe(true)
     expect(updated.result.updated[0]).toMatchObject({ status: "attached", findingsFile: "researches/narrative-demo/market.md" })
     expect(closed.result.closed).toBe(true)
+  })
+
+  it("derives ordered research targets with binding failure reasons", () => {
+    const state = narrativeMapState()
+    state.narrative!.claims.find((claim) => claim.id === "claim:supported")!.unsupportedScope = "Supplier proof is not included."
+    state.narrative!.objections.push({ id: "objection:margin", text: "Margins may compress.", priority: "high" })
+    state.narrative!.risks.push({ id: "risk:delivery", text: "Delivery risk is high.", severity: "high" })
+    state.actions.push({
+      id: "action:research:supplier-extra",
+      type: "research.findings_saved",
+      actor: "revela-research-save",
+      timestamp: "2026-05-07T00:00:00.000Z",
+      inputs: { axis: "supplier" },
+      outputs: { path: "researches/map-demo/supplier-extra.md" },
+      status: "success",
+      summary: "Saved findings.",
+    })
+
+    const result = deriveResearchTargets(state, { now: "2026-05-07T00:01:00.000Z" })
+
+    expect(result.selected).toMatchObject({ kind: "research_gap", targetId: "claim:missing", priority: "high" })
+    expect(result.targets).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "missing_evidence", claimId: "claim:missing", bindingFailureReasons: expect.arrayContaining(["missing_quote", "unclear_source"]) }),
+      expect.objectContaining({ kind: "weak_evidence", claimId: "claim:partial", bindingFailureReasons: expect.arrayContaining(["unsupported_scope", "over_broad_claim"]) }),
+      expect.objectContaining({ kind: "unsupported_scope", claimId: "claim:supported", requiredEvidence: expect.arrayContaining(["address unsupported scope: Supplier proof is not included."]) }),
+      expect.objectContaining({ kind: "unhandled_objection", targetId: "objection:margin", priority: "high" }),
+      expect.objectContaining({ kind: "high_severity_risk", targetId: "risk:delivery", priority: "high" }),
+      expect.objectContaining({ kind: "unattached_findings", findingsFile: "researches/map-demo/supplier-extra.md", bindingFailureReasons: expect.arrayContaining(["context_only_finding"]) }),
+    ]))
+  })
+
+  it("exposes deterministic research targets through revela-decks", async () => {
+    const workspaceRoot = tempWorkspace("revela-research-target-tool-")
+    const state = narrativeMapState()
+    writeDecksState(workspaceRoot, state)
+
+    const derived = await executeDecksTool({ action: "deriveResearchTargets" }, workspaceRoot)
+
+    expect(derived.ok).toBe(true)
+    expect(derived.result.selected).toMatchObject({ kind: "research_gap", targetId: "claim:missing" })
+    expect(derived.result.targets).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "missing_evidence", claimId: "claim:missing" }),
+      expect.objectContaining({ kind: "weak_evidence", claimId: "claim:partial" }),
+    ]))
   })
 })

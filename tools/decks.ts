@@ -30,7 +30,7 @@ import {
 } from "../lib/narrative-state/readiness"
 import { compileDeckPlanFromNarrative } from "../lib/narrative-state/render-plan"
 import { backfillSlideClaimRefsFromCoverage } from "../lib/narrative-state/coverage"
-import { closeResearchGapInState, deriveResearchGapsFromReadiness, updateResearchGapInState, upsertResearchGapsInState } from "../lib/narrative-state/research-gaps"
+import { closeResearchGapInState, deriveResearchGapsFromReadiness, deriveResearchTargets, updateResearchGapInState, upsertResearchGapsInState } from "../lib/narrative-state/research-gaps"
 import { normalizeCanonicalNarrativeState, normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { narrativeToBrief } from "../lib/narrative-state/project-compat"
 import type { NarrativeStateV1 } from "../lib/narrative-state/types"
@@ -68,7 +68,7 @@ export default tool({
     "It stores workspace narrative state, active deck specs, per-slide content/layout/components, and computes narrative or deck readiness.",
   args: {
     action: tool.schema
-      .enum(["read", "init", "upsertDeck", "upsertSlides", "upsertNarrative", "compileDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
+      .enum(["read", "init", "upsertDeck", "upsertSlides", "upsertNarrative", "compileDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "deriveResearchTargets", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
       .describe("Action to perform on DECKS.json."),
     summary: tool.schema.boolean().optional().describe("For read: return a compact summary instead of full state."),
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
@@ -482,6 +482,11 @@ export default tool({
         const derived = deriveResearchGapsFromReadiness(state)
         writeDecksState(workspaceRoot, derived.state)
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: derived.result, narrative: derived.state.narrative }, null, 2)
+      }
+
+      if (args.action === "deriveResearchTargets") {
+        const result = deriveResearchTargets(state)
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result }, null, 2)
       }
 
       if (args.action === "upsertResearchGaps") {
