@@ -1,4 +1,6 @@
 import { describe, expect, it } from "bun:test"
+import { mkdirSync, writeFileSync } from "fs"
+import { join } from "path"
 import { readDecksState, writeDecksState } from "../lib/decks-state"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
@@ -654,9 +656,107 @@ describe("narrative state", () => {
     ]))
   })
 
+  it("diagnoses saved findings binding readiness from explicit fields", () => {
+    const workspaceRoot = tempWorkspace("revela-research-target-diagnostics-")
+    mkdirSync(join(workspaceRoot, "researches", "map-demo"), { recursive: true })
+    writeFileSync(join(workspaceRoot, "researches", "map-demo", "supplier-extra.md"), `---
+topic: map-demo
+axis: supplier-extra
+sources:
+  - "https://example.com/supplier-report"
+---
+
+## Data
+- The supplier report says "Pilot suppliers can cover 80% of requested launch volume in the first two quarters."
+- Support scope: supplier launch capacity for the pilot.
+- Unsupported scope: full national rollout capacity remains unverified.
+- Caveat: supplier lead times were measured before the latest demand spike.
+- Strength: partial
+`, "utf-8")
+    const state = narrativeMapState()
+    state.actions.push({
+      id: "action:research:supplier-extra",
+      type: "research.findings_saved",
+      actor: "revela-research-save",
+      timestamp: "2026-05-07T00:00:00.000Z",
+      inputs: { axis: "supplier" },
+      outputs: { path: "researches/map-demo/supplier-extra.md" },
+      status: "success",
+      summary: "Saved findings.",
+    })
+
+    const result = deriveResearchTargets(state, { workspaceRoot })
+    const findings = result.targets.find((target) => target.kind === "unattached_findings" && target.findingsFile === "researches/map-demo/supplier-extra.md")
+
+    expect(findings?.bindingDiagnostic).toMatchObject({
+      findingsFile: "researches/map-demo/supplier-extra.md",
+      bindable: true,
+      failureReasons: [],
+      explicit: {
+        source: true,
+        quoteOrSnippet: true,
+        supportScope: true,
+        unsupportedScope: true,
+        caveat: true,
+        strength: true,
+      },
+    })
+    expect(findings?.bindingFailureReasons).toEqual([])
+  })
+
+  it("reports structured binding failures for context-only findings", () => {
+    const workspaceRoot = tempWorkspace("revela-research-target-context-only-")
+    mkdirSync(join(workspaceRoot, "researches", "map-demo"), { recursive: true })
+    writeFileSync(join(workspaceRoot, "researches", "map-demo", "context-only.md"), `## Data
+- Supplier capacity is mentioned as a broad planning context.
+`, "utf-8")
+    const state = narrativeMapState()
+    const existingGap = state.narrative!.researchGaps!.find((gap) => gap.targetId === "claim:missing")!
+    existingGap.status = "findings_saved"
+    existingGap.findingsFile = "researches/map-demo/context-only.md"
+
+    const result = deriveResearchTargets(state, { workspaceRoot })
+    const gap = result.targets.find((target) => target.kind === "research_gap" && target.targetId === "claim:missing")
+
+    expect(gap?.bindingDiagnostic).toMatchObject({
+      findingsFile: "researches/map-demo/context-only.md",
+      bindable: false,
+      explicit: {
+        source: false,
+        quoteOrSnippet: false,
+        supportScope: false,
+        unsupportedScope: false,
+        caveat: false,
+        strength: false,
+      },
+    })
+    expect(gap?.bindingFailureReasons).toEqual(expect.arrayContaining([
+      "missing_quote",
+      "unclear_source",
+      "unsupported_scope",
+      "caveat_conflict",
+      "weak_source",
+      "context_only_finding",
+    ]))
+  })
+
   it("exposes deterministic research targets through revela-decks", async () => {
     const workspaceRoot = tempWorkspace("revela-research-target-tool-")
     const state = narrativeMapState()
+    mkdirSync(join(workspaceRoot, "researches", "map-demo"), { recursive: true })
+    writeFileSync(join(workspaceRoot, "researches", "map-demo", "supplier-extra.md"), `## Data
+- Context-only supplier note.
+`, "utf-8")
+    state.actions.push({
+      id: "action:research:supplier-extra",
+      type: "research.findings_saved",
+      actor: "revela-research-save",
+      timestamp: "2026-05-07T00:00:00.000Z",
+      inputs: { axis: "supplier" },
+      outputs: { path: "researches/map-demo/supplier-extra.md" },
+      status: "success",
+      summary: "Saved findings.",
+    })
     writeDecksState(workspaceRoot, state)
 
     const derived = await executeDecksTool({ action: "deriveResearchTargets" }, workspaceRoot)
@@ -666,6 +766,7 @@ describe("narrative state", () => {
     expect(derived.result.targets).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: "missing_evidence", claimId: "claim:missing" }),
       expect.objectContaining({ kind: "weak_evidence", claimId: "claim:partial" }),
+      expect.objectContaining({ kind: "unattached_findings", bindingDiagnostic: expect.objectContaining({ bindable: false }) }),
     ]))
   })
 })

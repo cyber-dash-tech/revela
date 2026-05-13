@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "fs"
+import { resolve, sep } from "path"
 import type { DecksState } from "../decks-state"
 import { recordWorkspaceAction } from "../workspace-state/actions"
 import { stableResearchGapId } from "./hash"
@@ -46,11 +48,26 @@ export interface ResearchTarget {
   claimText?: string
   requiredEvidence: string[]
   bindingFailureReasons?: EvidenceBindingFailureReason[]
+  bindingDiagnostic?: EvidenceBindingDiagnostic
 }
 
 export interface ResearchTargetsResult {
   targets: ResearchTarget[]
   selected?: ResearchTarget
+}
+
+export interface EvidenceBindingDiagnostic {
+  findingsFile: string
+  bindable: boolean
+  failureReasons: EvidenceBindingFailureReason[]
+  explicit: {
+    source: boolean
+    quoteOrSnippet: boolean
+    supportScope: boolean
+    unsupportedScope: boolean
+    caveat: boolean
+    strength: boolean
+  }
 }
 
 export interface UpsertResearchGapInput {
@@ -88,16 +105,16 @@ export interface CloseResearchGapResult {
   gap?: NarrativeResearchGap
 }
 
-export function deriveResearchTargets(state: DecksState, options: { now?: string } = {}): ResearchTargetsResult {
+export function deriveResearchTargets(state: DecksState, options: { now?: string; workspaceRoot?: string } = {}): ResearchTargetsResult {
   const reviewed = reviewNarrativeState(state, { now: options.now })
   const narrative = reviewed.state.narrative!
   const targets = dedupeTargets([
-    ...targetsFromResearchGaps(narrative),
+    ...targetsFromResearchGaps(narrative, options.workspaceRoot),
     ...targetsFromClaims(narrative),
     ...targetsFromObjections(narrative),
     ...targetsFromRisks(narrative),
     ...targetsFromReadinessIssues(reviewed.result.issues),
-    ...targetsFromUnattachedFindings(reviewed.state, narrative),
+    ...targetsFromUnattachedFindings(reviewed.state, narrative, options.workspaceRoot),
   ]).sort(compareResearchTargets)
   return { targets, selected: targets[0] }
 }
@@ -193,11 +210,12 @@ function gapsFromIssues(narrative: NarrativeStateV1, issues: NarrativeReadinessI
   })
 }
 
-function targetsFromResearchGaps(narrative: NarrativeStateV1): ResearchTarget[] {
+function targetsFromResearchGaps(narrative: NarrativeStateV1, workspaceRoot: string | undefined): ResearchTarget[] {
   return (narrative.researchGaps ?? [])
     .filter((gap) => gap.status !== "closed" && gap.status !== "evidence_bound")
     .map((gap) => {
       const claim = gap.targetType === "claim" ? narrative.claims.find((item) => item.id === gap.targetId) : undefined
+      const bindingDiagnostic = gap.findingsFile ? evidenceBindingDiagnostic(workspaceRoot, gap.findingsFile) : undefined
       return {
         id: `gap:${gap.id}`,
         kind: "research_gap",
@@ -213,7 +231,8 @@ function targetsFromResearchGaps(narrative: NarrativeStateV1): ResearchTarget[] 
         claimId: claim?.id,
         claimText: claim?.text,
         requiredEvidence: requiredEvidenceForClaim(claim),
-        bindingFailureReasons: gap.findingsFile ? ["missing_quote", "unclear_source", "unsupported_scope"] : undefined,
+        bindingFailureReasons: bindingDiagnostic?.failureReasons ?? (gap.findingsFile ? ["missing_quote", "unclear_source", "unsupported_scope"] : undefined),
+        bindingDiagnostic,
       } satisfies ResearchTarget
     })
 }
@@ -283,11 +302,12 @@ function targetsFromReadinessIssues(issues: NarrativeReadinessIssue[]): Research
   })
 }
 
-function targetsFromUnattachedFindings(state: DecksState, narrative: NarrativeStateV1): ResearchTarget[] {
+function targetsFromUnattachedFindings(state: DecksState, narrative: NarrativeStateV1, workspaceRoot: string | undefined): ResearchTarget[] {
   return (state.actions ?? []).flatMap((action) => {
     if (action.type !== "research.findings_saved") return []
     const path = typeof action.outputs?.path === "string" ? action.outputs.path : undefined
     if (!path || isFindingsAttachedOrBound(state, narrative, path)) return []
+    const bindingDiagnostic = evidenceBindingDiagnostic(workspaceRoot, path)
     return [{
       id: `findings:${path}`,
       kind: "unattached_findings",
@@ -299,9 +319,73 @@ function targetsFromUnattachedFindings(state: DecksState, narrative: NarrativeSt
       status: "unattached",
       findingsFile: path,
       requiredEvidence: ["source", "quote/snippet", "support scope", "unsupported scope", "caveat", "strength"],
-      bindingFailureReasons: ["missing_quote", "unclear_source", "context_only_finding", "unsupported_scope"],
+      bindingFailureReasons: bindingDiagnostic?.failureReasons ?? ["missing_quote", "unclear_source", "context_only_finding", "unsupported_scope"],
+      bindingDiagnostic,
     } satisfies ResearchTarget]
   })
+}
+
+function evidenceBindingDiagnostic(workspaceRoot: string | undefined, findingsFile: string): EvidenceBindingDiagnostic | undefined {
+  const text = readWorkspaceText(workspaceRoot, findingsFile)
+  if (text === undefined) return undefined
+
+  const explicit = {
+    source: hasSourceTrace(text),
+    quoteOrSnippet: hasQuoteOrSnippet(text),
+    supportScope: hasField(text, ["support scope", "supported scope", "supports", "support"]),
+    unsupportedScope: hasField(text, ["unsupported scope", "unsupported", "not supported", "gaps"]),
+    caveat: hasField(text, ["caveat", "limitation", "limits", "boundary"]),
+    strength: hasField(text, ["strength", "support strength", "evidence strength"]),
+  }
+  const failureReasons: EvidenceBindingFailureReason[] = []
+  if (!explicit.quoteOrSnippet) failureReasons.push("missing_quote")
+  if (!explicit.source) failureReasons.push("unclear_source")
+  if (!explicit.supportScope || !explicit.unsupportedScope) failureReasons.push("unsupported_scope")
+  if (!explicit.caveat) failureReasons.push("caveat_conflict")
+  if (!explicit.strength) failureReasons.push("weak_source")
+  if (looksContextOnly(text, explicit)) failureReasons.push("context_only_finding")
+
+  return {
+    findingsFile,
+    bindable: failureReasons.length === 0,
+    failureReasons,
+    explicit,
+  }
+}
+
+function readWorkspaceText(workspaceRoot: string | undefined, relativePath: string): string | undefined {
+  if (!workspaceRoot) return undefined
+  const root = resolve(workspaceRoot)
+  const target = resolve(root, relativePath)
+  if (target !== root && !target.startsWith(root + sep)) return undefined
+  if (!existsSync(target)) return undefined
+  return readFileSync(target, "utf-8")
+}
+
+function hasSourceTrace(text: string): boolean {
+  return /^sources:\s*$/im.test(text)
+    || /\[source:\s*[^\]]+\]/i.test(text)
+    || /^\s*-?\s*source:\s*\S+/im.test(text)
+    || /^\s*source\s+(path|url):\s*\S+/im.test(text)
+}
+
+function hasQuoteOrSnippet(text: string): boolean {
+  return hasField(text, ["quote", "snippet"])
+    || /["“][^"”]{20,}["”]/.test(text)
+    || /^>\s*\S.{20,}/m.test(text)
+}
+
+function hasField(text: string, labels: string[]): boolean {
+  return labels.some((label) => new RegExp(`(^|\\n)\\s*(?:[-*]\\s*)?${escapeRegex(label)}\\s*[:：]\\s*\\S`, "i").test(text)
+    || new RegExp(`^##+\\s+.*${escapeRegex(label)}`, "im").test(text))
+}
+
+function looksContextOnly(text: string, explicit: EvidenceBindingDiagnostic["explicit"]): boolean {
+  return /^##+\s+data\b/im.test(text) && !explicit.quoteOrSnippet && (!explicit.supportScope || !explicit.caveat)
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
 function claimTarget(kind: Extract<ResearchTargetKind, "missing_evidence" | "weak_evidence" | "unsupported_scope">, claim: NarrativeClaim, priority: "high" | "medium", reason: string): ResearchTarget {

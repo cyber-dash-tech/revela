@@ -485,7 +485,7 @@ export default tool({
       }
 
       if (args.action === "deriveResearchTargets") {
-        const result = deriveResearchTargets(state)
+        const result = deriveResearchTargets(state, { workspaceRoot })
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result }, null, 2)
       }
 
