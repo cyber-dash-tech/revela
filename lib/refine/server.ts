@@ -11,6 +11,7 @@ import { createInspectRequest, failInspectRequest, getInspectRequest } from "../
 import { saveMediaAsset } from "../media/save"
 import { searchRemoteImages, type ImageCandidate } from "../media/search"
 import type { MediaAssetRecord, MediaPurpose } from "../media/types"
+import { annotateVisualEditTargets, applyVisualTargetChanges, type VisualEditTarget } from "./visual-targets"
 
 const TOKEN_BYTES = 24
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000
@@ -36,6 +37,8 @@ interface EditSession {
   createdAt: number
   lastActiveAt: number
   defaultMode: RefineMode
+  visualTargets: Map<string, VisualEditTarget>
+  visualTargetDeckVersion?: string
 }
 
 export type RefineMode = "edit" | "inspect"
@@ -79,6 +82,7 @@ export function startRefineServer(): RefineServerHandle {
         existing.session.file = input.deck.file
         existing.session.workspaceRoot = resolve(input.workspaceRoot)
         existing.session.defaultMode = input.mode ?? "edit"
+        existing.session.visualTargets = existing.session.visualTargets ?? new Map()
         return {
           token: existing.token,
           reused: true,
@@ -101,6 +105,7 @@ export function startRefineServer(): RefineServerHandle {
         createdAt: Date.now(),
         lastActiveAt: Date.now(),
         defaultMode: input.mode ?? "edit",
+        visualTargets: new Map(),
       })
       return { token, reused: false, live: false }
     },
@@ -191,6 +196,12 @@ async function handleRequest(req: Request): Promise<Response> {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
     return handleDeckVersion(session.value)
+  }
+
+  if (url.pathname === "/api/visual-changes" && req.method === "POST") {
+    const session = validateSession(url.searchParams.get("token"))
+    if (!session.ok) return session.response
+    return handleVisualChanges(req, session.value)
   }
 
   if (url.pathname === "/api/assets/search" && req.method === "GET") {
@@ -339,8 +350,12 @@ function handleDeck(session: EditSession): Response {
   session.assets.clear()
   session.assetKeys.clear()
   session.nextAssetId = 1
-  const html = readFileSync(session.absoluteFile, "utf-8")
-  return htmlResponse(rewriteLocalAssetRefs(html, {
+  const sourceHtml = readFileSync(session.absoluteFile, "utf-8")
+  const version = readDeckVersion(session).version
+  const annotated = annotateVisualEditTargets(sourceHtml)
+  session.visualTargets = annotated.targets
+  session.visualTargetDeckVersion = version
+  return htmlResponse(rewriteLocalAssetRefs(annotated.html, {
     session,
     sourceFile: session.absoluteFile,
     contentType: "html",
@@ -548,6 +563,33 @@ function readDeckVersion(session: EditSession): { mtimeMs: number; size: number;
   const stat = statSync(session.absoluteFile)
   const version = `${stat.mtimeMs}:${stat.size}`
   return { mtimeMs: stat.mtimeMs, size: stat.size, version }
+}
+
+async function handleVisualChanges(req: Request, session: EditSession): Promise<Response> {
+  let body: any
+  try {
+    body = await req.json()
+  } catch {
+    return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400)
+  }
+
+  const changes = Array.isArray(body?.changes) ? body.changes : []
+  if (!changes.length) return jsonResponse({ ok: false, error: "No visual changes to save." }, 400)
+  try {
+    const result = applyVisualTargetChanges({
+      file: session.absoluteFile,
+      deckVersion: typeof body?.deckVersion === "string" ? body.deckVersion : undefined,
+      targetDeckVersion: session.visualTargetDeckVersion,
+      targets: session.visualTargets,
+      changes,
+    })
+    session.lastActiveAt = Date.now()
+    scheduleIdleStop()
+    return jsonResponse({ ok: true, deckVersion: result.deckVersion, changeCount: result.changeCount })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return jsonResponse({ ok: false, error: message }, 400)
+  }
 }
 
 async function handleComment(req: Request, session: EditSession): Promise<Response> {
@@ -778,6 +820,12 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .resize-handle:hover::before, body.resizing .resize-handle::before { height: 52px; background: #94a3b8; box-shadow: 0 0 0 4px rgba(148,163,184,.16); }
     iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
     .hitbox { position: absolute; inset: 0; z-index: 2; cursor: crosshair; background: transparent; }
+    .visual-resize-handle { position: absolute; z-index: 3; width: 14px; height: 14px; border: 2px solid #111827; border-radius: 4px; background: #fbfaf7; box-shadow: 0 6px 16px rgba(31,41,51,.22); transform: translate(-50%, -50%); pointer-events: none; display: none; }
+    .visual-resize-handle[data-mode="text-width"] { width: 10px; height: 28px; border-radius: 999px; cursor: ew-resize; }
+    .visual-edit-toolbar { position: absolute; top: 14px; left: 50%; z-index: 6; display: none; align-items: center; gap: 8px; transform: translateX(-50%); padding: 8px 10px; border: 1px solid rgba(148,163,184,.42); border-radius: 999px; background: rgba(17,24,39,.88); color: #fbfaf7; box-shadow: 0 16px 40px rgba(31,41,51,.26); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); font-size: 12px; font-weight: 800; }
+    .visual-edit-toolbar.active { display: inline-flex; }
+    .visual-edit-toolbar button { width: auto; min-width: 0; padding: 7px 10px; border-radius: 999px; border-color: rgba(255,255,255,.2); background: rgba(255,255,255,.12); color: #fff; box-shadow: none; font-size: 12px; }
+    .visual-edit-toolbar .save-visual { background: #fbfaf7; color: #111827; }
     .deck-nav { position: absolute; left: 50%; bottom: 18px; z-index: 4; display: inline-flex; align-items: center; gap: 8px; transform: translateX(-50%); padding: 7px; border: 1px solid rgba(148,163,184,.42); border-radius: 999px; background: rgba(15,23,42,.76); box-shadow: 0 16px 44px rgba(15,23,42,.24); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); pointer-events: auto; }
     .deck-nav button { width: auto; min-width: 84px; padding: 8px 12px; border-radius: 999px; background: rgba(255,255,255,.12); color: #fff; box-shadow: none; font-size: 12px; font-weight: 900; }
     .deck-nav button:hover:not(:disabled) { background: rgba(255,255,255,.22); }
@@ -882,7 +930,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 </head>
 <body>
   <main class="app">
-    <section class="preview"><iframe id="deck" src="/deck?token=${encodeURIComponent(token)}"></iframe><div id="hitbox" class="hitbox" aria-label="Deck element selection layer"></div><nav class="deck-nav" aria-label="Deck navigation"><button id="deckPrev" type="button" title="Previous slide (ArrowLeft / ArrowUp / PageUp)">Previous</button><div id="deckCounter" class="deck-nav-status" aria-live="polite">-- / --</div><button id="deckNext" type="button" title="Next slide (ArrowRight / ArrowDown / Space / PageDown)">Next</button></nav></section>
+    <section class="preview"><iframe id="deck" src="/deck?token=${encodeURIComponent(token)}"></iframe><div id="hitbox" class="hitbox" aria-label="Deck element selection layer"></div><div id="visualResizeHandle" class="visual-resize-handle" aria-hidden="true"></div><div id="visualEditToolbar" class="visual-edit-toolbar" aria-live="polite"><span id="visualEditCount">No unsaved visual changes</span><button id="visualUndo" type="button">Undo</button><button id="visualReset" type="button">Reset</button><button id="visualSave" class="save-visual" type="button">Save Changes</button></div><nav class="deck-nav" aria-label="Deck navigation"><button id="deckPrev" type="button" title="Previous slide (ArrowLeft / ArrowUp / PageUp)">Previous</button><div id="deckCounter" class="deck-nav-status" aria-live="polite">-- / --</div><button id="deckNext" type="button" title="Next slide (ArrowRight / ArrowDown / Space / PageDown)">Next</button></nav></section>
     <div id="resizeHandle" class="resize-handle" role="separator" aria-label="Resize editor panel" aria-orientation="vertical" title="Drag to resize editor. Double-click to reset."></div>
     <aside>
       <div>
@@ -988,11 +1036,21 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         assetSearchKey: '',
         assetVisibleCount: 0,
         assetPendingCount: 0,
+        visualChanges: [],
+        activeVisualResize: null,
+        hoverResizeTarget: null,
+        savingVisualChanges: false,
       };
       const els = {
         frame: null,
         hitbox: null,
         resizeHandle: null,
+        visualResizeHandle: null,
+        visualEditToolbar: null,
+        visualEditCount: null,
+        visualUndo: null,
+        visualReset: null,
+        visualSave: null,
         deckPrev: null,
         deckNext: null,
         deckCounter: null,
@@ -1036,6 +1094,12 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           els.frame = document.getElementById('deck');
           els.hitbox = document.getElementById('hitbox');
           els.resizeHandle = document.getElementById('resizeHandle');
+          els.visualResizeHandle = document.getElementById('visualResizeHandle');
+          els.visualEditToolbar = document.getElementById('visualEditToolbar');
+          els.visualEditCount = document.getElementById('visualEditCount');
+          els.visualUndo = document.getElementById('visualUndo');
+          els.visualReset = document.getElementById('visualReset');
+          els.visualSave = document.getElementById('visualSave');
           els.deckPrev = document.getElementById('deckPrev');
           els.deckNext = document.getElementById('deckNext');
           els.deckCounter = document.getElementById('deckCounter');
@@ -1065,7 +1129,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
           els.inspectLanguage = document.getElementById('inspectLanguage');
 
-          if (!els.frame || !els.hitbox || !els.resizeHandle || !els.deckPrev || !els.deckNext || !els.deckCounter || !els.selectionSummary || !els.selectionChips || !els.editTab || !els.inspectTab || !els.editPanel || !els.inspectPanel || !els.comment || !els.commentThread || !els.send || !els.inspectComment || !els.inspectButton || !els.inspectLanguage || !els.inspectCards || !els.inspectStale || !els.assetSearchToggle || !els.assetSearchBack || !els.assetSearchView || !els.assetQuery || !els.assetPurpose || !els.assetSearchButton || !els.assetShuffleButton || !els.assetResults || !els.editSavedAssets || !els.status) {
+          if (!els.frame || !els.hitbox || !els.resizeHandle || !els.visualResizeHandle || !els.visualEditToolbar || !els.visualEditCount || !els.visualUndo || !els.visualReset || !els.visualSave || !els.deckPrev || !els.deckNext || !els.deckCounter || !els.selectionSummary || !els.selectionChips || !els.editTab || !els.inspectTab || !els.editPanel || !els.inspectPanel || !els.comment || !els.commentThread || !els.send || !els.inspectComment || !els.inspectButton || !els.inspectLanguage || !els.inspectCards || !els.inspectStale || !els.assetSearchToggle || !els.assetSearchBack || !els.assetSearchView || !els.assetQuery || !els.assetPurpose || !els.assetSearchButton || !els.assetShuffleButton || !els.assetResults || !els.editSavedAssets || !els.status) {
             throw new Error('Editor boot failed: required DOM nodes are missing.');
           }
 
@@ -1132,6 +1196,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         }, { passive: false });
         els.resizeHandle.addEventListener('pointerdown', startEditorResize);
         els.resizeHandle.addEventListener('dblclick', resetEditorWidth);
+        els.visualUndo.addEventListener('click', undoVisualChange);
+        els.visualReset.addEventListener('click', resetVisualChanges);
+        els.visualSave.addEventListener('click', saveVisualChanges);
         els.deckPrev.addEventListener('click', prevDeckSlide);
         els.deckNext.addEventListener('click', nextDeckSlide);
         els.send.addEventListener('click', sendComment);
@@ -1223,6 +1290,191 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         setEditorWidth(DEFAULT_EDITOR_WIDTH, true);
       }
 
+      function isDirectResizable(target) {
+        if (!target || !target.dataset || !target.dataset.revelaEditId || !target.dataset.revelaEditKind) return false;
+        if (target.dataset.revelaEditKind === 'image') return target.tagName?.toLowerCase() === 'img';
+        if (target.dataset.revelaEditKind === 'text-width') {
+          const computed = els.frame.contentWindow?.getComputedStyle(target);
+          return computed ? computed.display !== 'inline' : true;
+        }
+        return false;
+      }
+
+      function visualResizeMode(target) {
+        return target?.dataset?.revelaEditKind === 'text-width' ? 'text-width' : 'box';
+      }
+
+      function visualChangeKey(payload) {
+        return payload?.editId || '';
+      }
+
+      function upsertVisualChange(change) {
+        const key = visualChangeKey(change);
+        const existing = state.visualChanges.find((item) => visualChangeKey(item) === key);
+        if (existing) {
+          existing.after = change.after;
+          return;
+        }
+        state.visualChanges.push(change);
+      }
+
+      function boundedImageSize(active, event) {
+        const dx = event.clientX - active.startX;
+        const dy = event.clientY - active.startY;
+        const width = Math.max(24, Math.round(active.startWidth + dx));
+        if (event.shiftKey) return { width, height: Math.max(24, Math.round(active.startHeight + dy)) };
+        const ratio = active.startHeight && active.startWidth ? active.startHeight / active.startWidth : 1;
+        return { width, height: Math.max(24, Math.round(width * ratio)) };
+      }
+
+      function boundedTextWidth(active, event) {
+        return Math.max(80, Math.round(active.startWidth + event.clientX - active.startX));
+      }
+
+      function renderVisualResizeHandle(target) {
+        if (!els.visualResizeHandle) return;
+        if (!target || !isDirectResizable(target) || state.activeVisualResize) {
+          els.visualResizeHandle.style.display = 'none';
+          state.hoverResizeTarget = null;
+          return;
+        }
+        const rect = target.getBoundingClientRect();
+        const mode = visualResizeMode(target);
+        state.hoverResizeTarget = target;
+        els.visualResizeHandle.dataset.mode = mode;
+        els.visualResizeHandle.style.display = 'block';
+        els.visualResizeHandle.style.left = rect.right + 'px';
+        els.visualResizeHandle.style.top = (mode === 'text-width' ? rect.top + rect.height / 2 : rect.bottom) + 'px';
+      }
+
+      function pointerIsOnVisualResizeHandle(event) {
+        if (!state.hoverResizeTarget || !els.visualResizeHandle || els.visualResizeHandle.style.display === 'none') return false;
+        const rect = els.visualResizeHandle.getBoundingClientRect();
+        return event.clientX >= rect.left - 6 && event.clientX <= rect.right + 6 && event.clientY >= rect.top - 6 && event.clientY <= rect.bottom + 6;
+      }
+
+      function startVisualResize(event) {
+        const target = state.hoverResizeTarget;
+        if (!target || !isDirectResizable(target)) return false;
+        event.preventDefault();
+        event.stopPropagation();
+        const rect = target.getBoundingClientRect();
+        const tag = target.tagName.toLowerCase();
+        const beforeStyle = target.getAttribute('style') || '';
+        state.activeVisualResize = {
+          target,
+          payload: { editId: target.dataset.revelaEditId, kind: target.dataset.revelaEditKind },
+          tag,
+          startX: event.clientX,
+          startY: event.clientY,
+          startWidth: rect.width,
+          startHeight: rect.height,
+          beforeStyle,
+          mode: visualResizeMode(target),
+          before: { width: rect.width, height: rect.height },
+        };
+        setStatus('Resizing preview only. Click Save Changes to write the deck.');
+        window.addEventListener('pointermove', updateVisualResize);
+        window.addEventListener('pointerup', finishVisualResize, { once: true });
+        return true;
+      }
+
+      function updateVisualResize(event) {
+        const active = state.activeVisualResize;
+        if (!active) return;
+        if (active.mode === 'text-width') {
+          const width = boundedTextWidth(active, event);
+          active.target.style.width = width + 'px';
+          active.target.style.maxWidth = width + 'px';
+        } else {
+          const size = boundedImageSize(active, event);
+          const width = size.width;
+          const height = size.height;
+          active.target.style.width = width + 'px';
+          active.target.style.height = height + 'px';
+        }
+        renderHoverOutline(active.target);
+        renderVisualResizeHandle(active.target);
+      }
+
+      function finishVisualResize() {
+        const active = state.activeVisualResize;
+        state.activeVisualResize = null;
+        window.removeEventListener('pointermove', updateVisualResize);
+        if (!active) return;
+        const rect = active.target.getBoundingClientRect();
+        const stylePatch = active.mode === 'text-width'
+          ? { width: Math.round(rect.width) + 'px', 'max-width': Math.round(rect.width) + 'px' }
+          : { width: Math.round(rect.width) + 'px', height: Math.round(rect.height) + 'px' };
+        upsertVisualChange({
+          type: 'resize',
+          editId: active.payload.editId,
+          kind: active.payload.kind,
+          before: { style: active.beforeStyle, width: active.before.width, height: active.before.height },
+          after: { stylePatch, width: rect.width, height: rect.height },
+        });
+        updateVisualToolbar();
+        renderVisualResizeHandle(active.target);
+      }
+
+      function undoVisualChange() {
+        const change = state.visualChanges.pop();
+        if (!change) return;
+        const target = elementFromVisualChange(change);
+        if (target) target.setAttribute('style', change.before.style || '');
+        updateVisualToolbar();
+        renderHoverOutline(state.hoverEl);
+        renderVisualResizeHandle(state.hoverEl);
+        setStatus('Undid last visual resize.');
+      }
+
+      function resetVisualChanges() {
+        while (state.visualChanges.length) {
+          const change = state.visualChanges.pop();
+          const target = change ? elementFromVisualChange(change) : null;
+          if (target) target.setAttribute('style', change.before.style || '');
+        }
+        updateVisualToolbar();
+        renderHoverOutline(state.hoverEl);
+        renderVisualResizeHandle(state.hoverEl);
+        setStatus('Reset unsaved visual changes.');
+      }
+
+      function updateVisualToolbar() {
+        const count = state.visualChanges.length;
+        els.visualEditToolbar.classList.toggle('active', count > 0);
+        els.visualEditCount.textContent = count + ' unsaved visual change' + (count === 1 ? '' : 's');
+        els.visualUndo.disabled = count === 0 || state.savingVisualChanges;
+        els.visualReset.disabled = count === 0 || state.savingVisualChanges;
+        els.visualSave.disabled = count === 0 || state.savingVisualChanges;
+      }
+
+      async function saveVisualChanges() {
+        if (!state.visualChanges.length || state.savingVisualChanges) return;
+        state.savingVisualChanges = true;
+        updateVisualToolbar();
+        setStatus('Saving visual changes...');
+        try {
+          const res = await fetch('/api/visual-changes?token=' + encodeURIComponent(token), {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ deckVersion: state.deckVersion, changes: state.visualChanges }),
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok || !body.ok) throw new Error(body.error || 'Could not save visual changes.');
+          state.visualChanges = [];
+          state.deckVersion = body.deckVersion || state.deckVersion;
+          updateVisualToolbar();
+          refreshDeckPreview(Date.now());
+          setStatus('Visual changes saved. Refreshing preview...');
+        } catch (error) {
+          reportError(error);
+        } finally {
+          state.savingVisualChanges = false;
+          updateVisualToolbar();
+        }
+      }
+
       function setEditorWidth(width, persist) {
         const nextWidth = clampEditorWidth(width);
         document.querySelector('.app')?.style.setProperty('--editor-width', nextWidth + 'px');
@@ -1255,6 +1507,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           state.referenceOutlines = [];
           doc.addEventListener('scroll', () => {
             renderHoverOutline(state.hoverEl);
+            renderVisualResizeHandle(state.hoverEl);
             renderReferenceOutlines();
           }, true);
           const slides = getSlides(doc);
@@ -1342,6 +1595,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           updateDeckNavControls();
           if (changed) clearHoverSilently();
           else renderHoverOutline(state.hoverEl);
+          renderVisualResizeHandle(state.hoverEl);
           renderReferenceOutlines();
         } catch (error) {
           reportError(error);
@@ -1401,9 +1655,13 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function refreshDeckPreview(version) {
         state.pendingRefreshMessage = true;
         state.initializedDoc = null;
+        state.visualChanges = [];
+        updateVisualToolbar();
         clearReferences(true);
         state.hoverEl = null;
         if (state.hoverOutline) state.hoverOutline.style.display = 'none';
+        if (els.visualResizeHandle) els.visualResizeHandle.style.display = 'none';
+        state.hoverResizeTarget = null;
         state.assetDropTarget = null;
         if (state.assetDropOutline) state.assetDropOutline.style.display = 'none';
         state.referenceOutlines.forEach((outline) => outline.style.display = 'none');
@@ -1416,14 +1674,17 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function onHover(event) {
         try {
           initFrame();
-          const target = selectable(targetFromPointer(event));
+          const directTarget = visualTargetFromPointer(event);
+          const target = directTarget || selectable(targetFromPointer(event));
           if (!target || isReferenced(target)) {
             state.hoverEl = null;
             renderHoverOutline(null);
+            renderVisualResizeHandle(null);
             return;
           }
           state.hoverEl = target;
           renderHoverOutline(target);
+          renderVisualResizeHandle(target);
         } catch (error) {
           reportError(error);
         }
@@ -1446,6 +1707,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function onPointerDown(event) {
+        if (!event.ctrlKey && !event.metaKey && pointerIsOnVisualResizeHandle(event)) {
+          if (startVisualResize(event)) return;
+        }
         if (!event.ctrlKey && !event.metaKey) return;
         try {
           initFrame();
@@ -1779,6 +2043,17 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         return slide;
       }
 
+      function elementFromVisualChange(change) {
+        const editId = change?.editId;
+        const doc = els.frame.contentDocument;
+        if (!editId || !doc) return null;
+        try {
+          return doc.querySelector('[data-revela-edit-id="' + cssEscape(editId) + '"]');
+        } catch {
+          return null;
+        }
+      }
+
       async function sendAssetPlacement(asset, placement) {
         const modeText = placement.targetMode === 'replace'
           ? 'replace the image at the drop target'
@@ -1968,6 +2243,12 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         return doc.elementFromPoint(x, y);
       }
 
+      function visualTargetFromPointer(event) {
+        const raw = targetFromPointer(event);
+        const target = raw?.closest?.('[data-revela-edit-id]') || null;
+        return isDirectResizable(target) ? target : null;
+      }
+
       function createOutline(doc, border, fill) {
         const outline = doc.createElement('div');
         outline.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;border:2px solid ' + border + ';background:' + fill + ';border-radius:6px;display:none;';
@@ -2020,12 +2301,14 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function clearHoverSilently() {
         state.hoverEl = null;
         if (state.hoverOutline) state.hoverOutline.style.display = 'none';
+        renderVisualResizeHandle(null);
       }
 
       function clearHover() {
         state.hoverEl = null;
         setStatus('Hover cleared. Existing references are kept.');
         if (state.hoverOutline) state.hoverOutline.style.display = 'none';
+        renderVisualResizeHandle(null);
       }
 
       function updateSendState() {

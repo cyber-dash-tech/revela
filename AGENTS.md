@@ -147,7 +147,7 @@ Known 0.15 limits:
 - Research targets expose structured binding diagnostics for saved findings when workspace files are available: bindable state, explicit source/quote/support-scope/unsupported-scope/caveat/strength fields, and failure reasons.
 - `/revela research` prompt orchestration now starts from `deriveResearchTargets`, works the selected target first, prefers existing findings before external research, and reports fixed sections for selected target, inspected findings, attachments, bound evidence, unbound findings, gap updates, narrative changes, remaining caveats, and next smallest action.
 - `0.16.3` hardens research safety: the `revela-research` subagent cannot call `revela-decks`, and `/revela research` must not use `upsertNarrative` for partial canonical narrative changes.
-- Deterministic-first Review Insight remains deferred unless a Review blocker appears. Next work should be 0.16.3 release hardening unless new research-loop or Story localization bugs appear.
+- Review Prep Mode is the next useful Review direction after 0.16.3 release hardening: add meeting rehearsal, audience-lens challenge framing, and meeting-prep export without turning Review into generic chat or mutating canonical state from exploratory reading.
 
 ## Near-Term Product Priorities
 
@@ -188,15 +188,18 @@ Priority 2: Story UI as focused claim-flow reading.
 - Localized display models may translate selected-claim reading cards only; they must preserve claim IDs, source facts, quotes, findings paths, URLs, numbers, and canonical evidence boundaries.
 - Readiness, artifact coverage, and command handoff diagnostics should remain deterministic services for Make, Review, Research, and textual diagnostics, not clutter the Story reading UI.
 
-Priority 3: deterministic-first Review Insight.
+Priority 3: Review Prep Mode.
 
-- Deferred behind the research loop unless a Review blocker appears.
-- For high-confidence selection matches, show deterministic inspection cards first and label any LLM expansion as explanatory rather than official state.
-- For no-match selections, return `no_match` directly instead of stretching weak evidence into a claim match.
-- Make card provenance clear: canonical claim/evidence, artifact coverage, exploratory non-official reading, and source/caveat boundaries.
-- Preserve the current rule that Insight is read-only; mutations go through Comment and must respect narrative-vs-artifact boundaries.
-- Start from `lib/inspection-context/*`, `tools/inspection-result.ts`, `lib/inspect/*`, and Review selection/Insight UI plumbing before changing prompts.
-- Add focused tests for high-confidence deterministic matches, explicit `no_match`, provenance labeling, and stale/partial artifact coverage display.
+- Position `/revela review --deck` as the post-artifact workspace for meeting readiness, not only deck inspection and visual fixes.
+- Keep the tab model clear: `Comment` edits deck artifacts, `Insight` explains selected content and source boundaries, and the planned `Rehearsal` tab stress-tests selected slides/elements for likely meeting challenges.
+- Phase 1 is `Rehearsal` tab MVP: select a slide or element, run rehearsal, return 3-5 pointed challenge questions, show why each question matters, classify the attack type such as evidence, logic, ROI, risk, execution, or ask clarity, preserve answer boundaries from canonical claims/evidence/caveats, and allow `Turn into Comment` for targeted follow-up edits.
+- Phase 2 is Audience Lens expansion inside `Rehearsal`, not a separate top-level workflow: support lenses such as Decision Maker, Finance, Technical, Legal/Risk, Customer/Buyer, and General. Lens changes question priority and framing only; it must not rewrite canonical narrative or imply new evidence.
+- Phase 3 is Meeting Prep Pack export: generate a deck-level Markdown prep artifact with likely questions, answer boundaries, slide-by-slide watchouts, caveats to say aloud, do-not-overclaim notes, and a short-deck path such as "if you only have 5 minutes".
+- Reuse existing inspection foundations first: `lib/inspection-context/*`, `lib/inspect/*`, `tools/inspection-result.ts`, and Review selection/Insight UI plumbing. Prefer extending the current inspect request/result flow with a mode such as `insight` vs `rehearsal` before adding a separate server path.
+- Deterministic context comes first: selected slide, matched claim, evidence bindings, supported/unsupported scope, caveats, objections, risks, artifact coverage, and gaps must come from inspection projection/state. LLM output may package challenge wording, but must not invent claim ids, evidence, sources, quotes, URLs, page references, caveats, or artifact coverage.
+- Preserve the current rule that Insight and Rehearsal are read-only. Mutations go through Comment and must respect narrative-vs-artifact boundaries; meaning-changing comments must update canonical narrative first and then re-make artifacts.
+- For high-confidence selection matches, show deterministic inspection/prep context first and label generated expansion as exploratory. For no-match selections, return `no_match` or limited rehearsal instead of stretching weak evidence into a claim match.
+- Add focused tests for rehearsal prompt/result structure, audience lens fallback and prompt injection, `Turn into Comment` UI plumbing, no-match rehearsal behavior, provenance boundaries, and Meeting Prep Pack preservation of caveats/unsupported scope/objections.
 
 Priority 4: semi-deterministic research loop.
 
