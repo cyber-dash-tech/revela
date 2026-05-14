@@ -66,10 +66,22 @@ describe("revela research command prompt", () => {
 
     expect(prompt).toContain("Automatically bind evidence only when all binding criteria are met")
     expect(prompt).toContain("diagnostic is `bindable: true` or the same fields are explicit")
+    expect(prompt).toContain("Do not use `upsertNarrative` during research")
+    expect(prompt).toContain("Use `revela-decks applyEvidenceCandidates`")
     expect(prompt).toContain("claimId exists")
     expect(prompt).toContain("supportScope and unsupportedScope are explicit")
     expect(prompt).toContain("binding does not expand the claim beyond the evidence")
     expect(prompt).toContain("report `findingsFile`, `bindingDiagnostic.bindable`, `failureReasons`")
+  })
+
+  it("reports claim narrowing instead of mutating canonical narrative during research", () => {
+    const prompt = buildResearchPrompt({ exists: true })
+
+    expect(prompt).toContain("do not mutate canonical claims during research")
+    expect(prompt).toContain("Report the needed claim/relation narrowing in `Narrative changes`")
+    expect(prompt).toContain("broader narrative rewrites must be reported for Story/user confirmation")
+    expect(prompt).not.toContain("through `upsertNarrative` only when")
+    expect(prompt).not.toContain("or `upsertNarrative` to preserve canonical evidence bindings")
   })
 
   it("requires a stable structured research report", () => {
@@ -91,16 +103,20 @@ describe("revela research command prompt", () => {
 })
 
 describe("revela-research subagent prompt", () => {
-  it("uses DECKS.json before workspace freshness checks", () => {
-    expect(RESEARCH_PROMPT).toContain("Use `DECKS.json` through `revela-decks` as the workspace material index")
-    expect(RESEARCH_PROMPT).toContain("Use `revela-decks` action `read` first")
+  it("uses primary-agent context before workspace freshness checks", () => {
+    expect(RESEARCH_PROMPT).toContain("Use the workspace and narrative context supplied by the primary agent")
+    expect(RESEARCH_PROMPT).toContain("Do not call `revela-decks`")
+    expect(RESEARCH_PROMPT).toContain("The primary agent owns canonical workspace state")
     expect(RESEARCH_PROMPT).toContain("lightweight freshness check")
     expect(RESEARCH_PROMPT).toContain("revela-workspace-scan")
+    expect(RESEARCH_PROMPT).not.toContain("Use `DECKS.json` through `revela-decks` as the workspace material index")
+    expect(RESEARCH_PROMPT).not.toContain("Use `revela-decks` action `read` first")
   })
 
   it("keeps research output scoped to revela-research-save", () => {
     expect(RESEARCH_PROMPT).toContain("revela-research-save")
     expect(RESEARCH_PROMPT).toContain("NEVER** write or patch `DECKS.json`")
+    expect(RESEARCH_PROMPT).toContain("NEVER** call `revela-decks`")
     expect(RESEARCH_PROMPT).toContain("One file only")
   })
 
@@ -159,6 +175,14 @@ describe("revela-narrative-reviewer subagent prompt", () => {
 })
 
 describe("revela subagent registration", () => {
+  it("registers research agent without access to revela-decks", () => {
+    expect(plugin).toContain('opencodeConfig.agent["revela-research"]')
+    expect(plugin).toContain('tools: {')
+    expect(plugin).toContain('"revela-decks": false')
+    expect(plugin).toContain('websearch = "allow"')
+    expect(plugin).toContain("systemText.includes(RESEARCH_AGENT_SIGNATURE)")
+  })
+
   it("registers narrative reviewer as read-only and skips prompt injection", () => {
     expect(plugin).toContain("NARRATIVE_REVIEWER_PROMPT")
     expect(plugin).toContain('opencodeConfig.agent["revela-narrative-reviewer"]')

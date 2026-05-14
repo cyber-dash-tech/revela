@@ -29,16 +29,6 @@ export interface NarrativeDisplayLabels {
   risks: string
   researchGaps: string
   coveredSlides: string
-  storyWorkbench: string
-  workbenchNote: string
-  artifactCoverage: string
-  noRenderTargets: string
-  nextActions: string
-  missingClaims: string
-  affectedClaims: string
-  affectedSlides: string
-  notes: string
-  recommendedNextCommand: string
   noClaims: string
   none: string
 }
@@ -49,7 +39,13 @@ export interface NarrativeDisplayClaimCard {
   roleLabel?: string
   narrativeJob?: string
   evidenceSummary?: string
+  supportRationale?: string
+  supportedScope?: string
+  unsupportedScope?: string
+  objectionsSummary?: string
+  risksSummary?: string
   riskOrGapSummary?: string
+  researchGapsSummary?: string
 }
 
 export interface NarrativeDisplayRelation {
@@ -89,16 +85,6 @@ export function defaultNarrativeDisplayLabels(language: NarrativeViewLanguage): 
       risks: "风险",
       researchGaps: "研究缺口",
       coveredSlides: "已覆盖页面",
-      storyWorkbench: "Story 工作台",
-      workbenchNote: "按证据缺口、风险、异议和产物覆盖过滤主张；这里只读展示下一步命令，不修改叙事状态。",
-      artifactCoverage: "产物覆盖",
-      noRenderTargets: "未记录 render target",
-      nextActions: "下一步",
-      missingClaims: "缺失主张",
-      affectedClaims: "受影响主张",
-      affectedSlides: "受影响页面",
-      notes: "说明",
-      recommendedNextCommand: "建议命令",
       noClaims: "没有记录主张",
       none: "无",
     }
@@ -121,16 +107,6 @@ export function defaultNarrativeDisplayLabels(language: NarrativeViewLanguage): 
       risks: "リスク",
       researchGaps: "調査ギャップ",
       coveredSlides: "対応スライド",
-      storyWorkbench: "Story ワークベンチ",
-      workbenchNote: "根拠ギャップ、リスク、反論、成果物カバレッジでクレームを絞り込みます。ここでは次のコマンドだけを読み取り専用で示し、ナラティブ状態は変更しません。",
-      artifactCoverage: "成果物カバレッジ",
-      noRenderTargets: "render target は記録されていません",
-      nextActions: "次のアクション",
-      missingClaims: "不足クレーム",
-      affectedClaims: "影響クレーム",
-      affectedSlides: "影響スライド",
-      notes: "メモ",
-      recommendedNextCommand: "推奨コマンド",
       noClaims: "クレームは記録されていません",
       none: "なし",
     }
@@ -152,16 +128,6 @@ export function defaultNarrativeDisplayLabels(language: NarrativeViewLanguage): 
     risks: "Risks",
     researchGaps: "Research gaps",
     coveredSlides: "Covered slides",
-    storyWorkbench: "Story workbench",
-    workbenchNote: "Filter claims by evidence gaps, risks, objections, and artifact coverage. This view only suggests next commands; it does not mutate narrative state.",
-    artifactCoverage: "Artifact coverage",
-    noRenderTargets: "No render targets recorded",
-    nextActions: "Next actions",
-    missingClaims: "Missing claims",
-    affectedClaims: "Affected claims",
-    affectedSlides: "Affected slides",
-    notes: "Notes",
-    recommendedNextCommand: "Recommended next command",
     noClaims: "No claims recorded",
     none: "None",
   }
@@ -234,7 +200,13 @@ function cleanClaimCard(card: NarrativeDisplayClaimCard): NarrativeDisplayClaimC
     roleLabel: clean(card.roleLabel),
     narrativeJob: clean(card.narrativeJob),
     evidenceSummary: clean(card.evidenceSummary),
+    supportRationale: clean(card.supportRationale),
+    supportedScope: clean(card.supportedScope),
+    unsupportedScope: clean(card.unsupportedScope),
+    objectionsSummary: clean(card.objectionsSummary),
+    risksSummary: clean(card.risksSummary),
     riskOrGapSummary: clean(card.riskOrGapSummary),
+    researchGapsSummary: clean(card.researchGapsSummary),
   }
 }
 

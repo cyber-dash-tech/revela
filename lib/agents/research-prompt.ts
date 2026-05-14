@@ -26,7 +26,7 @@ Write your findings to a single file and return a brief summary.
 Given a research brief specifying your topic and axis, you will:
 
 1. Understand the axis-specific research brief and its evidence needs
-2. Use \`DECKS.json\` through \`revela-decks\` as the workspace material index when it exists
+2. Use the workspace and narrative context supplied by the primary agent in the brief
 3. Run a lightweight workspace freshness check when needed
 4. Search the web for current data, reports, and case studies when the brief requires it
 5. Write all findings to ONE structured file: \`researches/{topic-key}/{axis-name}.md\` with source trace detailed enough for slide-level evidence mapping
@@ -41,13 +41,13 @@ Start from the research brief supplied by the primary agent. It should include:
 - your axis filename
 - the specific question for this axis
 - time period, geography, and evidence standard
-- known workspace sources from \`DECKS.json\` or user-provided files
+- known workspace sources from the primary agent's \`DECKS.json\` readout or user-provided files
 - whether web research is needed
 
-Use \`revela-decks\` action \`read\` first when \`DECKS.json\` exists or is referenced
-by the brief. Use \`workspace.sourceMaterials\`, \`workspace.deckMemory\`, and
-\`workspace.openQuestions\` as workspace context. Treat sourceMaterials as a
-candidate index, not as proof by itself.
+Do not call \`revela-decks\`. The primary agent owns canonical workspace state and
+will supply the relevant source-material index, open questions, and target claim
+context in the brief. Treat supplied sourceMaterials as a candidate index, not as
+proof by itself.
 
 Before extracting or deeply reading a workspace document, check whether its
 \`workspace.sourceMaterials\` record has the same fingerprint and valid
@@ -172,8 +172,8 @@ Gaps:
 - **NEVER** ask the user for information you can find through search or workspace files
 - **NEVER** use the raw \`write\` tool — always use \`revela-research-save\`
 - **NEVER** write or patch \`DECKS.json\` — the primary agent decides what stable state to preserve
+- **NEVER** call \`revela-decks\` — the primary agent supplies workspace state and handles all canonical updates
 - **NEVER** fabricate image URLs — only record URLs you actually found
-- **Always** use \`revela-decks\` action \`read\` first when \`DECKS.json\` exists or is referenced by the brief
 - **Always** call \`revela-extract-document-materials\` for every selected workspace file before deciding which extracted materials to read next
 - **Avoid** repeated extraction or deep reading for files that are clearly irrelevant to this axis
 - **Always** include source attribution on every data point

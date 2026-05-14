@@ -2,7 +2,7 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-05-13 after 0.16.1 release, test-helper lean-down, and 0.16.2 research-loop implementation.
+> Last updated: 2026-05-14 after 0.16.3 research safety and Story simplification/localization fixes.
 
 ## Product Baseline
 
@@ -12,7 +12,7 @@ Product promise:
 
 **Turn source materials, research, data, and user intent into trusted, traceable, presentation-ready decision artifacts.**
 
-Current baseline: `0.16.1`.
+Current baseline: `0.16.3`.
 
 User-facing workflow:
 
@@ -76,18 +76,18 @@ Slash commands are explicit entry points, not the only workflow. Explicit workfl
 - Avoid generic internet research when workspace evidence already supports the claim.
 - Save findings through research tools, attach findings, and bind evidence automatically when binding criteria are met.
 - `/revela research` authorizes automatic binding only when source, quote/snippet, support scope, unsupported scope, strength, and caveat are explicit and the binding does not expand the claim.
+- Research subagents must not call `revela-decks`; the primary workflow owns canonical state reads/writes and supplies target context to research agents.
+- Do not use `upsertNarrative` during `/revela research`. Research may update gaps, attach findings, and apply explicit evidence candidates; broader claim/relation rewrites must be reported for Story/user confirmation.
 - Ask for user confirmation only for strategic meaning changes, central claim deletion/rewrite, suspicious or weak sources, packaging partial evidence as strong, or approving the resulting narrative.
 - Preserve source path, URL, location/page/sheet/slide, quote/snippet, support scope, unsupported scope, and caveat.
 
 `story` means open the read-only story workspace UI.
 
-- Show audience, decision/action, thesis, claim flow, evidence strength, unsupported scope, caveats, objections, risks, research gaps, artifact coverage, approval state, and next actions.
-- Story workbench next-action decisions are deterministic from canonical state. The LLM may localize or organize display copy only; it must not decide readiness, evidence status, artifact coverage, or recommended commands.
-- Workbench filters cover missing evidence, partial/weak evidence, non-current artifacts, open gaps, risks, and high-priority objections.
-- Per-claim next actions include research this gap, attach findings, narrow claim, approve narrative, make deck, and remake stale artifact.
-- Artifact coverage work items show affected claims, affected slides, missing required claims, coverage status, status note, and recommended command.
-- Workbench summary shows narrative approval, evidence blocker count, aggregate artifact status, deterministic primary next command, and the deterministic reason that command was chosen.
-- Command handoff rules distinguish HTML deck from derived exports: non-current HTML uses `/revela make --deck`; non-current PDF/PPTX with current HTML uses `/revela export --deck pdf` or `/revela export --deck pptx`; current HTML uses `/revela review --deck`.
+- Show the claim flow and selected-claim reading context: what the claim says, what evidence supports it, why the evidence supports or does not fully support it, and the immediate relation context.
+- Keep Story as a read-only narrative-reading surface, not a workflow dashboard. Do not show per-claim command suggestions, Story workbench filters, or next-action cards in Story UI.
+- The LLM may localize or organize display copy only; it must not decide readiness, evidence status, artifact coverage, commands, or canonical meaning.
+- `/revela story -l ...` display copy must localize selected-claim cards, including displayTitle, evidenceSummary, supportRationale, supportedScope, unsupportedScope, objectionsSummary, risksSummary, and researchGapsSummary when the corresponding canonical text exists.
+- Preserve claim ids, relation endpoints, source paths, findings files, URLs, numbers, and quoted/source facts in Story localization.
 - `/revela story` opens the narrative/story UI rather than printing a readiness report.
 - Do not write artifacts from story mode.
 
@@ -138,16 +138,16 @@ Known 0.15 limits:
 ## Current 0.16 Progress
 
 - `0.16.0` deterministic deck plan compiler v2 is implemented in `lib/narrative-state/render-plan.ts`.
-- `0.16.1` Story workbench and command handoff slices are implemented in `lib/narrative-state/map.ts` and `lib/narrative-state/map-html.ts`.
-- Story now derives filters, per-claim next actions, artifact coverage work items, no-render-target guidance, filter empty state, selected-claim auto-switching, coverage status notes, primary next command, and primary next reason deterministically.
-- Coverage diagnostics distinguish current, partial, missing, stale, and no-target artifact states; derived PDF/PPTX exports recommend export refresh when the HTML deck is current.
-- `/revela story -l ...` display-model prompting may localize Story workbench labels, but canonical IDs, evidence, coverage, readiness, and commands remain deterministic.
+- `0.16.1` Story workbench and command handoff slices shipped, then `0.16.3` simplified Story back to a focused read-only claim-flow reading surface.
+- Story no longer renders workbench filters, per-claim command suggestions, next-action cards, or artifact-coverage dashboard UI. Readiness and artifact coverage remain deterministic state/services for Make, Review, and Research handoff.
+- `/revela story -l ...` display-model prompting localizes selected-claim cards, including claim title, evidence summary, support rationale, supported/unsupported scope, objections, risks, and research gaps, while preserving canonical IDs and source facts.
 - Test-helper lean-down extracted shared narrative fixtures, tool execution helpers, temporary workspace helpers, and common media/text/JSON test helpers. Broad slimming should pause unless a concrete pain point appears.
 - `0.16.2` semi-deterministic research-loop slices are implemented in `lib/narrative-state/research-gaps.ts`, `tools/decks.ts`, and `lib/commands/research.ts`.
 - Research now derives ordered targets deterministically, including research gaps, missing/weak evidence, unsupported scope, high-priority objections, high-severity risks, claim-chain gaps, and unattached saved findings.
 - Research targets expose structured binding diagnostics for saved findings when workspace files are available: bindable state, explicit source/quote/support-scope/unsupported-scope/caveat/strength fields, and failure reasons.
 - `/revela research` prompt orchestration now starts from `deriveResearchTargets`, works the selected target first, prefers existing findings before external research, and reports fixed sections for selected target, inspected findings, attachments, bound evidence, unbound findings, gap updates, narrative changes, remaining caveats, and next smallest action.
-- Deterministic-first Review Insight remains deferred unless a Review blocker appears. Next work should be 0.16.2 release hardening unless new research-loop bugs appear.
+- `0.16.3` hardens research safety: the `revela-research` subagent cannot call `revela-decks`, and `/revela research` must not use `upsertNarrative` for partial canonical narrative changes.
+- Deterministic-first Review Insight remains deferred unless a Review blocker appears. Next work should be 0.16.3 release hardening unless new research-loop or Story localization bugs appear.
 
 ## Near-Term Product Priorities
 
@@ -181,13 +181,12 @@ Priority 1: deterministic deck plan compiler v2.
 - Carry claim refs, evidence binding ids, supported/unsupported scope, caveats, and narrative role into every planned slide so artifact coverage remains reliable.
 - Prefer deterministic plan quality checks before writing HTML: missing TOC/closing, unsupported central claims, stale approval, and incompatible component names should be caught early.
 
-Priority 2: Story UI from display page to workbench.
+Priority 2: Story UI as focused claim-flow reading.
 
-- Keep `/revela story` read-only for now, but make it more decision-oriented: filters for missing evidence, partial evidence, stale artifacts, open gaps, risks, and high-priority objections.
-- Show per-claim next actions: research this gap, attach findings, narrow claim, approve narrative, make deck, remake stale artifact.
-- Surface artifact coverage as a work area, not only metadata: affected claims, affected slides, missing required claims, stale render targets, and recommended next command.
-- Keep command recommendations deterministic and source them from canonical narrative readiness plus artifact coverage, not from LLM judgement.
-- Do not turn Story into generic chat or mutation UI unless there is a clear structured action path.
+- Keep `/revela story` read-only and focused on understanding the narrative chain: claim, evidence, why the evidence supports or does not fully support the claim, and immediate relation context.
+- Do not reintroduce Story workbench filters, per-claim command suggestions, next-action cards, or artifact dashboard UI unless there is a clear product decision to make Story a workflow surface again.
+- Localized display models may translate selected-claim reading cards only; they must preserve claim IDs, source facts, quotes, findings paths, URLs, numbers, and canonical evidence boundaries.
+- Readiness, artifact coverage, and command handoff diagnostics should remain deterministic services for Make, Review, Research, and textual diagnostics, not clutter the Story reading UI.
 
 Priority 3: deterministic-first Review Insight.
 
@@ -207,6 +206,8 @@ Priority 4: semi-deterministic research loop.
 - Prefer binding/narrowing from existing saved findings before launching external research.
 - Keep the fixed research report sections stable so users can distinguish selected target, inspected findings, attachments, bound evidence, unbound findings, gap updates, narrative changes, remaining caveats, and next smallest action.
 - Keep research agents write-limited to findings files; primary workflow remains responsible for canonical attachment and evidence binding.
+- Do not expose `revela-decks` to the `revela-research` subagent; it may save findings, while the primary workflow performs safe state attachment/binding.
+- Do not use `upsertNarrative` during research for partial claim, relation, or evidence array updates; report narrative rewrites for Story/user confirmation instead.
 
 Priority 5: coverage-driven make/review/remake decisions.
 
@@ -230,7 +231,7 @@ Priority 7: product positioning cleanup.
 - `0.16.0`: ship deterministic deck plan compiler v2, plan quality checks, and coverage-driven make diagnostics.
 - `0.16.1`: ship Story workbench filters, per-claim next actions, artifact coverage work area, deterministic Story-to-command handoff, and coverage diagnostic reasons.
 - `0.16.2`: ship semi-deterministic research target selection, structured binding failure reasons, and fixed research-loop reporting.
-- `0.16.3`: revisit deterministic-first Review Insight, stricter no-match behavior, and provenance labeling if still valuable.
+- `0.16.3`: harden research tool boundaries, remove unsafe partial `upsertNarrative` research guidance, and simplify/localize Story selected-claim reading.
 
 0.16 user-experience acceptance criteria:
 
@@ -240,11 +241,11 @@ Priority 7: product positioning cleanup.
 - Users can inspect selected deck text and see canonical claim/evidence/provenance boundaries before any exploratory explanation.
 - Research output clearly distinguishes saved findings, attached findings, bound evidence, and unbound findings with reasons.
 
-Next 0.16.2 release-hardening ticket:
+Next 0.16.3 release-hardening ticket:
 
-- Run release verification for 0.16.2: `bun test`, `bun run typecheck`, and `npm pack --dry-run`.
-- Before release, inspect the 0.16.2 research-loop command path for stale docs or tests: `deriveResearchTargets`, binding diagnostics, `/revela research` prompt reporting, and `revela-decks` tool action output.
-- Acceptance: `/revela research` can explain which target is selected and why; findings are attached or bound only when source, quote/snippet, support scope, unsupported scope, strength, and caveat are explicit; unbound findings report structured reasons such as missing quote, unclear source, over-broad claim, weak source, unsupported scope, caveat conflict, source mismatch, or context-only finding.
+- Run release verification for 0.16.3: `bun test`, `bun run typecheck`, and `npm pack --dry-run`.
+- Before release, inspect the research safety path and Story localization path: `revela-research` tool permissions, `/revela research` prompt wording, `NarrativeDisplayClaimCard`, `/revela story -l ...`, and Story HTML selected-claim rendering.
+- Acceptance: research subagents cannot call `revela-decks`; `/revela research` does not use `upsertNarrative` for partial narrative mutations; Story shows focused claim/evidence/support reading without workbench clutter; localized Story selected-claim cards do not leak canonical English user-facing text when localized display fields exist.
 
 ## Deck Render Grammar
 

@@ -5,7 +5,7 @@ import { buildNarrativeViewPrompt, handleNarrative, parseNarrativeArgs, parseSto
 import { validateNarrativeDisplayModel } from "../lib/narrative-state/display"
 import { buildNarrativeMap, formatNarrativeMap } from "../lib/narrative-state/map"
 import { renderNarrativeMapHtml } from "../lib/narrative-state/map-html"
-import { currentHtmlWithStaleExportsState, narrativeMapState, narrativeOnlyState, resolvedCurrentHtmlWithStaleExportsState, resolvedNarrativeOnlyState, staleApprovalState } from "./helpers/narrative-fixtures"
+import { narrativeMapState, narrativeOnlyState } from "./helpers/narrative-fixtures"
 import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("narrative map", () => {
@@ -41,29 +41,6 @@ describe("narrative map", () => {
     }))
     expect(map.artifactCoverage).toContainEqual(expect.objectContaining({ type: "pdf", outputPath: "decks/map-demo.pdf" }))
     expect(map.artifactCoverage).toContainEqual(expect.objectContaining({ type: "pptx", outputPath: "decks/map-demo.pptx" }))
-    expect(map.claimFlow.find((claim) => claim.id === "claim:missing")?.nextActions).toContainEqual(expect.objectContaining({ label: "Research this gap", command: "/revela research" }))
-    expect(map.claimFlow.find((claim) => claim.id === "claim:partial")?.nextActions).toContainEqual(expect.objectContaining({ label: "Narrow claim", command: "/revela story" }))
-    expect(map.claimFlow.find((claim) => claim.id === "claim:supported")?.nextActions).toContainEqual(expect.objectContaining({ label: "Remake stale artifact", command: "/revela make --deck" }))
-    expect(map.workbench.filters).toContainEqual(expect.objectContaining({ id: "missing_evidence", count: 1, claimIds: ["claim:missing"] }))
-    expect(map.workbench.filters).toContainEqual(expect.objectContaining({ id: "partial_evidence", count: 1, claimIds: ["claim:partial"] }))
-    expect(map.workbench.filters).toContainEqual(expect.objectContaining({ id: "stale_artifacts", count: 3, claimIds: ["claim:supported", "claim:partial", "claim:missing"] }))
-    expect(map.workbench.filters).toContainEqual(expect.objectContaining({ id: "open_gaps", count: 1, claimIds: ["claim:missing"] }))
-    expect(map.workbench.filters).toContainEqual(expect.objectContaining({ id: "risks", count: 1, claimIds: ["claim:partial"] }))
-    expect(map.workbench.filters).toContainEqual(expect.objectContaining({ id: "high_priority_objections", count: 1, claimIds: ["claim:supported"] }))
-    expect(map.workbench.artifactCoverage).toContainEqual(expect.objectContaining({
-      type: "html_deck",
-      outputPath: "decks/map-demo.html",
-      coverageStatus: "partial",
-      missingClaimIds: ["claim:missing"],
-      recommendedNextCommand: "/revela make --deck",
-    }))
-    expect(map.workbench.summary).toEqual(expect.objectContaining({
-      approval: "current",
-      evidenceBlockersCount: 2,
-      artifactStatus: "partial",
-      primaryNextCommand: "/revela research",
-      primaryNextReason: "2 evidence-required claims still need stronger support before artifact handoff.",
-    }))
   })
 
   it("formats the narrative map as a stable markdown workspace view", () => {
@@ -88,13 +65,8 @@ describe("narrative map", () => {
     expect(text).toContain("Missing claim refs: claim:missing")
     expect(text).toContain("Coverage note: Artifact does not cover 1 central or evidence-required claim.")
     expect(text).toContain("Slide 1: claim:supported [primary]")
-    expect(text).toContain("## Story Workbench")
-    expect(text).toContain("Summary primary next command: /revela research")
-    expect(text).toContain("Summary primary next reason: 2 evidence-required claims still need stronger support before artifact handoff.")
-    expect(text).toContain("Filter missing_evidence: 1 (claim:missing)")
-    expect(text).toContain("Artifact work item: html_deck: decks/map-demo.html [partial] -> /revela make --deck")
-    expect(text).toContain("Status note: Artifact is partial; remake the deck so all central or evidence-required claims are covered.")
-    expect(text).toContain("Next actions: Remake stale artifact (/revela make --deck)")
+    expect(text).not.toContain("## Story Workbench")
+    expect(text).not.toContain("Next actions:")
   })
 
   it("renders narrative map without an active deck or render target", async () => {
@@ -105,17 +77,12 @@ describe("narrative map", () => {
     expect(map.snapshot.primaryAudience).toBe("Board")
     expect(map.claimFlow.map((claim) => claim.id)).toEqual(["claim:supported", "claim:partial", "claim:missing", "claim:not-required"])
     expect(map.artifactCoverage).toEqual([])
-    expect(map.workbench.renderTargetAction).toEqual(expect.objectContaining({ label: "Make deck", command: "/revela make --deck" }))
     expect(text).toContain("## Render Target Coverage")
     expect(text).toContain("- No render targets recorded")
-    expect(text).toContain("Render target action: Make deck (/revela make --deck)")
+    expect(text).not.toContain("Render target action")
     const html = renderNarrativeMapHtml(map)
-    expect(html).toContain("No render targets recorded")
-    expect(html).toContain("Recommended next command")
-    expect(html).toContain("/revela make --deck")
-    expect(html).toContain("Artifact status")
-    expect(html).toContain("Primary next command")
-    expect(html).toContain("Primary next reason")
+    expect(html).not.toContain("Recommended next command")
+    expect(html).not.toContain("Primary next command")
 
     const workspaceRoot = tempWorkspace("revela-narrative-no-deck-")
     const messages: string[] = []
@@ -142,29 +109,14 @@ describe("narrative map", () => {
     expect(html).toContain("Phased pilot approval is the safer path.")
     expect(html).toContain("slide 1")
     expect(html).toContain("coverage:partial")
-    expect(html).toContain("Artifact coverage")
     expect(html).toContain("Artifact does not cover 1 central or evidence-required claim.")
-    expect(html).toContain("Story workbench")
-    expect(html).toContain("Evidence blockers")
-    expect(html).toContain("Primary next command")
-    expect(html).toContain("Primary next reason")
-    expect(html).toContain("2 evidence-required claims still need stronger support before artifact handoff.")
-    expect(html).toContain("No claims match this filter.")
-    expect(html).toContain("Missing evidence (1)")
-    expect(html).toContain("Partial evidence (1)")
-    expect(html).toContain("Stale artifacts (3)")
-    expect(html).toContain("Open gaps (1)")
-    expect(html).toContain("High-priority objections (1)")
-    expect(html).toContain("data-filter-id=\"missing_evidence\"")
-    expect(html).toContain("id=\"filter-empty\"")
-    expect(html).toContain("visibleButtons.length > 0")
-    expect(html).toContain("selectClaim(visibleButtons[0].dataset.nodeId)")
-    expect(html).toContain("data-filters=\"all high_priority_objections stale_artifacts\"")
-    expect(html).toContain("Next actions")
-    expect(html).toContain("Research this gap")
-    expect(html).toContain("Narrow claim")
-    expect(html).toContain("Recommended next command")
-    expect(html).toContain("/revela make --deck")
+    expect(html).not.toContain("Story workbench")
+    expect(html).not.toContain("Next actions")
+    expect(html).not.toContain("Narrow claim")
+    expect(html).not.toContain("Recommended next command")
+    expect(html).not.toContain("data-filter-id")
+    expect(html).not.toContain("data-filters")
+    expect(html).not.toContain("coverage-slide-list")
     expect(html).toContain("claim:supported")
     expect(html).toContain("claim-card")
     expect(html).toContain("claim-section")
@@ -172,69 +124,6 @@ describe("narrative map", () => {
     expect(html).toContain("relation-badge")
     expect(html).toContain("relation-target")
     expect(html).toContain("data-node-id=\"claim-claim-supported\"")
-  })
-
-  it("recommends export commands for stale PDF and PPTX when HTML is current", () => {
-    const map = buildNarrativeMap(currentHtmlWithStaleExportsState())
-
-    expect(map.workbench.summary.artifactStatus).toBe("stale")
-    expect(map.workbench.summary.primaryNextCommand).toBe("/revela research")
-    expect(map.workbench.summary.primaryNextReason).toBe("2 evidence-required claims still need stronger support before artifact handoff.")
-    expect(map.workbench.artifactCoverage).toContainEqual(expect.objectContaining({
-      type: "html_deck",
-      coverageStatus: "current",
-      recommendedNextCommand: "/revela review --deck",
-      statusNote: "Current HTML deck is ready for review or export.",
-    }))
-    expect(map.workbench.artifactCoverage).toContainEqual(expect.objectContaining({
-      type: "pdf",
-      coverageStatus: "stale",
-      recommendedNextCommand: "/revela export --deck pdf",
-      statusNote: "HTML deck is current; refresh the PDF export.",
-    }))
-    expect(map.workbench.artifactCoverage).toContainEqual(expect.objectContaining({
-      type: "pptx",
-      coverageStatus: "stale",
-      recommendedNextCommand: "/revela export --deck pptx",
-      statusNote: "HTML deck is current; refresh the PPTX export.",
-    }))
-  })
-
-  it("explains stale approval as the primary next reason when evidence is resolved", () => {
-    const map = buildNarrativeMap(staleApprovalState())
-
-    expect(map.workbench.summary).toEqual(expect.objectContaining({
-      approval: "stale",
-      evidenceBlockersCount: 0,
-      primaryNextCommand: "/revela story",
-      primaryNextReason: "Narrative approval is stale after meaning changed.",
-    }))
-  })
-
-  it("explains no render target as the primary next reason when narrative is approved", () => {
-    const map = buildNarrativeMap(resolvedNarrativeOnlyState())
-    const text = formatNarrativeMap(map)
-
-    expect(map.workbench.summary).toEqual(expect.objectContaining({
-      approval: "current",
-      evidenceBlockersCount: 0,
-      artifactStatus: "no_target",
-      primaryNextCommand: "/revela make --deck",
-      primaryNextReason: "Approved narrative has no recorded render target yet.",
-    }))
-    expect(text).toContain("Summary primary next reason: Approved narrative has no recorded render target yet.")
-  })
-
-  it("explains stale derived exports when HTML deck is current", () => {
-    const map = buildNarrativeMap(resolvedCurrentHtmlWithStaleExportsState())
-
-    expect(map.workbench.summary).toEqual(expect.objectContaining({
-      approval: "current",
-      evidenceBlockersCount: 0,
-      artifactStatus: "stale",
-      primaryNextCommand: "/revela export --deck pdf",
-      primaryNextReason: "HTML deck coverage is current, but a derived export is stale and should be refreshed.",
-    }))
   })
 
   it("renders localized display-only claim card organization", () => {
@@ -251,12 +140,23 @@ describe("narrative map", () => {
         roleLabel: "核心建议",
         narrativeJob: "把决策从泛化 AI 投入收敛到可控试点。",
         evidenceSummary: "运营研究支持试点范围。",
+        supportRationale: "运营证据说明试点范围符合当前约束，因此支撑分阶段批准。",
+        supportedScope: "仅支持试点范围。",
+        objectionsSummary: "ROI 不确定性通过阶段门控制。",
         riskOrGapSummary: "ROI 风险通过阶段门控制。",
       }, {
         claimId: "claim:partial",
         displayTitle: "当前产线数据支持初始自动化收益",
         roleLabel: "证据主张",
         narrativeJob: "说明试点建议已有运营数据支撑。",
+        evidenceSummary: "产线数据只支持初始自动化收益。",
+        supportRationale: "人工干预下降说明存在初始自动化收益，但不能证明全无人化制造。",
+        unsupportedScope: "尚未证明全无人化制造。",
+        risksSummary: "供应商准备度可能滞后，需要单独设置集成关口。",
+      }, {
+        claimId: "claim:missing",
+        displayTitle: "供应商生态准备度仍需证明",
+        researchGapsSummary: "仍需寻找供应商生态准备度证据。",
       }],
       relations: [{ fromClaimId: "claim:supported", toClaimId: "claim:partial", relation: "supports", displayLabel: "由证据支撑", displayRationale: "试点建议由当前产线证据支撑。" }],
     }, "zh-CN")
@@ -270,9 +170,15 @@ describe("narrative map", () => {
     expect(html).toContain("核心建议")
     expect(html).toContain("由证据支撑")
     expect(html).toContain("试点建议由当前产线证据支撑。")
+    expect(html).toContain("运营证据说明试点范围符合当前约束，因此支撑分阶段批准。")
+    expect(html).toContain("仅支持试点范围。")
+    expect(html).toContain("ROI 不确定性通过阶段门控制。")
+    expect(html).toContain("尚未证明全无人化制造。")
+    expect(html).toContain("供应商准备度可能滞后，需要单独设置集成关口。")
+    expect(html).toContain("仍需寻找供应商生态准备度证据。")
     expect(html).toContain("自定义当前主张")
-    expect(html).toContain("Story 工作台")
-    expect(html).toContain("建议命令")
+    expect(html).not.toContain("Story 工作台")
+    expect(html).not.toContain("建议命令")
     expect(html).toContain("已支持范围")
     expect(html).toContain("前置关系")
     expect(html).toContain("后续关系")
@@ -288,6 +194,12 @@ describe("narrative map", () => {
     expect(html).not.toContain("Supported scope")
     expect(html).not.toContain("Incoming relations")
     expect(html).not.toContain("Outgoing relations")
+    expect(html).not.toContain("Phased pilot approval is the safer path.")
+    expect(html).not.toContain("Pilot scope only.")
+    expect(html).not.toContain("Does not prove lights-out manufacturing.")
+    expect(html).not.toContain("ROI may be too uncertain.")
+    expect(html).not.toContain("Supplier readiness may lag.")
+    expect(html).not.toContain("Find supplier ecosystem readiness evidence.")
     expect(html).toContain("claim:supported")
     expect(html).toContain("Operations study")
   })
@@ -410,9 +322,6 @@ describe("narrative map", () => {
         selectedClaim: "Thèse sélectionnée",
         claimFlow: "Progression des thèses",
         evidence: "Preuve",
-        storyWorkbench: "Atelier narratif",
-        workbenchNote: "Filtrez les thèses sans modifier l'état narratif.",
-        recommendedNextCommand: "Commande recommandée",
       },
       claimCards: [{ claimId: "claim:supported", displayTitle: "Approuver le pilote par étapes" }],
     }, "fr")
@@ -424,9 +333,6 @@ describe("narrative map", () => {
     expect(html).toContain("Thèse sélectionnée")
     expect(html).toContain("Progression des thèses")
     expect(html).toContain("Preuve")
-    expect(html).toContain("Atelier narratif")
-    expect(html).toContain("Filtrez les thèses sans modifier l'état narratif.")
-    expect(html).toContain("Commande recommandée")
     expect(html).toContain("Approuver le pilote par étapes")
   })
 
@@ -441,7 +347,15 @@ describe("narrative map", () => {
       expect(prompt).toContain("Target language request: fr")
       expect(prompt).toContain("--fr, --de, --es, --ko, --Arabic, --Portuguese-BR")
       expect(prompt).toContain("Translate normal UI/display text into the target language request")
-      expect(prompt).toContain("Story workbench labels")
+      expect(prompt).toContain("supportRationale")
+      expect(prompt).toContain("supportedScope")
+      expect(prompt).toContain("unsupportedScope")
+      expect(prompt).toContain("objectionsSummary")
+      expect(prompt).toContain("risksSummary")
+      expect(prompt).toContain("researchGapsSummary")
+      expect(prompt).toContain("For every claim in a non-English target language, provide displayTitle")
+      expect(prompt).toContain("For every selected-claim detail field that has canonical user-facing text")
+      expect(prompt).not.toContain("Story workbench labels")
       expect(prompt).toContain("Preserve every claimId exactly")
       expect(prompt).toContain("relation displayRationale may only localize or clarify an existing canonical relation rationale")
       expect(prompt).toContain("when the target language request is Chinese")
@@ -452,6 +366,8 @@ describe("narrative map", () => {
       expect(prompt).toContain("claim:supported")
       expect(prompt).toContain("relation:supported-partial")
       expect(prompt).toContain("Operations study")
+      expect(prompt).toContain("ROI may be too uncertain.")
+      expect(prompt).toContain("Supplier readiness may lag.")
     } finally {
       rmSync(workspaceRoot, { recursive: true, force: true })
     }

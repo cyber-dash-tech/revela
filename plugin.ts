@@ -243,6 +243,9 @@ const server: Plugin = (async (pluginCtx) => {
         description: "Revela research agent — searches and collects raw materials for presentations",
         mode: "subagent",
         prompt: RESEARCH_PROMPT,
+        tools: {
+          "revela-decks": false,
+        },
         permission: {
           edit: "deny",
           bash: {

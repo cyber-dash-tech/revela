@@ -221,6 +221,7 @@ describe("research command", () => {
     expect(prompt).toContain("up to 3 research loops")
     expect(prompt).toContain("Automatically bind evidence")
     expect(prompt).toContain("Binding criteria")
+    expect(prompt).toContain("Do not use `upsertNarrative` during research")
     expect(prompt).toContain("evidence_bound")
     expect(prompt).toContain("Re-run `reviewNarrative` and `deriveResearchTargets` after each loop")
     expect(prompt).toContain("Treat the returned `selected` target as the deterministic first target")
