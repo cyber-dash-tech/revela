@@ -47,11 +47,13 @@ Use `revela-decks` for state operations:
 - `init` to register discovered source material candidates during workspace initialization
 - `exportNarrativeVault` to export existing `DECKS.json.narrative` into `revela-narrative/` when no vault exists
 - `compileNarrativeVault` to compile Markdown vault nodes, refresh cache, and mirror compiled narrative into `DECKS.json`
+- `upsertVaultEvidence` to create or update `revela-narrative/evidence/*.md` with explicit source trace in vault workspaces
+- `updateVaultResearchGap` to update `revela-narrative/research-gaps/*.md` lifecycle fields in vault workspaces
 - `upsertNarrative` to preserve canonical audience, decision, thesis, claims, evidence bindings, objections, risks, and research gaps only when no Markdown vault exists
 - `reviewNarrative` to run deterministic story readiness
-- `deriveResearchGaps`, `upsertResearchGaps`, `updateResearchGap`, and `closeResearchGap` to manage research gap lifecycle only when no Markdown vault exists; otherwise edit `research-gaps/*.md`
+- `deriveResearchGaps`, `upsertResearchGaps`, `updateResearchGap`, and `closeResearchGap` to manage research gap lifecycle only when no Markdown vault exists; otherwise use `updateVaultResearchGap`
 - `attachResearchFindings` to attach saved findings to research state
-- `applyEvidenceCandidates` only when selected candidates should become canonical support and no Markdown vault exists; otherwise create or edit `evidence/*.md` with explicit source trace
+- `applyEvidenceCandidates` only when selected candidates should become canonical support and no Markdown vault exists; otherwise use `upsertVaultEvidence` with explicit source trace
 - `approveNarrative` only when the user explicitly approves or requests an override
 - `compileDeckPlan`, `upsertDeck`, `upsertSlides`, and `review` only inside make-deck or artifact-readiness workflows
 
@@ -78,7 +80,7 @@ During research:
 - delegate external web search to the `revela-research` subagent
 - save findings through `revela-research-save`
 - treat `/revela research` as permission to attach findings and bind clearly supported evidence without item-by-item user confirmation
-- create canonical evidence bindings only when claim id, quote/snippet, source, support scope, unsupported scope, caveat, and strength are explicit; in vault workspaces edit `evidence/*.md` and compile, otherwise use `applyEvidenceCandidates` for candidates or `upsertNarrative` for compatibility-state updates
+- create canonical evidence bindings only when claim id, quote/snippet, source, support scope, unsupported scope, caveat, and strength are explicit; in vault workspaces use `upsertVaultEvidence`, otherwise use `applyEvidenceCandidates` for candidates or `upsertNarrative` for compatibility-state updates
 - narrow overbroad claim scope or relation rationale when the narrower wording preserves strategic meaning and better matches the evidence
 - preserve source path, URL, location/page/sheet/slide, quote/snippet, support scope, unsupported scope, and caveat
 - keep missing or partial evidence visible instead of filling it with model assumptions; classify remaining caveats as internal-data-needed, not-publicly-researchable, source-quality-limit, or still-open

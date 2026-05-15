@@ -34,7 +34,7 @@ import { closeResearchGapInState, deriveResearchGapsFromReadiness, deriveResearc
 import { normalizeCanonicalNarrativeState, normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { narrativeToBrief } from "../lib/narrative-state/project-compat"
 import type { NarrativeStateV1 } from "../lib/narrative-state/types"
-import { compileNarrativeVault, exportNarrativeStateToVault, hasNarrativeVault, writeNarrativeVaultCache } from "../lib/narrative-vault"
+import { compileNarrativeVault, exportNarrativeStateToVault, hasNarrativeVault, updateVaultResearchGapNode, upsertVaultEvidenceNode, writeNarrativeVaultCache } from "../lib/narrative-vault"
 
 function mergeNarrativeInput(current: NarrativeStateV1, input: Partial<NarrativeStateV1>): Partial<NarrativeStateV1> {
   return {
@@ -69,7 +69,7 @@ export default tool({
     "It stores workspace narrative state, active deck specs, per-slide content/layout/components, and computes narrative or deck readiness.",
   args: {
     action: tool.schema
-      .enum(["read", "init", "upsertDeck", "upsertSlides", "upsertNarrative", "compileNarrativeVault", "exportNarrativeVault", "compileDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "deriveResearchTargets", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
+      .enum(["read", "init", "upsertDeck", "upsertSlides", "upsertNarrative", "compileNarrativeVault", "exportNarrativeVault", "upsertVaultEvidence", "updateVaultResearchGap", "compileDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "deriveResearchTargets", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
       .describe("Action to perform on DECKS.json."),
     summary: tool.schema.boolean().optional().describe("For read: return a compact summary instead of full state."),
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
@@ -250,6 +250,20 @@ export default tool({
       notes: tool.schema.string().optional().describe("Implementation notes for this slide."),
     })).optional().describe("For upsertSlides: complete or partial slide specs."),
     candidateIds: tool.schema.array(tool.schema.string()).optional().describe("For applyEvidenceCandidates: candidate IDs returned by revela-decks review to explicitly bind proposed evidenceDraft records into slide evidence."),
+    evidence: tool.schema.object({
+      id: tool.schema.string().describe("For upsertVaultEvidence: canonical evidence binding id."),
+      claimId: tool.schema.string().describe("For upsertVaultEvidence: canonical claim id this evidence supports."),
+      source: tool.schema.string().describe("For upsertVaultEvidence: source name, file, URL, or research finding label."),
+      sourcePath: tool.schema.string().optional(),
+      findingsFile: tool.schema.string().optional(),
+      quote: tool.schema.string().describe("For upsertVaultEvidence: exact quote or snippet supporting the claim."),
+      location: tool.schema.string().optional(),
+      url: tool.schema.string().optional(),
+      caveat: tool.schema.string().describe("For upsertVaultEvidence: evidence limitation that must travel with the claim."),
+      supportScope: tool.schema.string().describe("For upsertVaultEvidence: scope explicitly supported by the evidence."),
+      unsupportedScope: tool.schema.string().describe("For upsertVaultEvidence: scope not supported by the evidence."),
+      strength: tool.schema.enum(["strong", "partial", "weak"]).describe("For upsertVaultEvidence: support strength."),
+    }).optional().describe("For upsertVaultEvidence: canonical evidence node to write under revela-narrative/evidence/*.md."),
     findingsFile: tool.schema.string().optional().describe("For attachResearchFindings: workspace-relative researches/{topic}/{axis}.md file to attach to researchPlan."),
     researchAxis: tool.schema.string().optional().describe("For attachResearchFindings: researchPlan axis to attach the findings file to. Required when filename matching would be ambiguous."),
     researchStatus: tool.schema.enum(["done", "read"]).optional().describe("For attachResearchFindings: optional explicit status to set on the matched research axis."),
@@ -329,6 +343,41 @@ export default tool({
           writeDecksState(workspaceRoot, state)
         }
         return JSON.stringify({ ok: compiled.ok, path: "revela-narrative", result, diagnostics: compiled.diagnostics }, null, 2)
+      }
+
+      if (args.action === "upsertVaultEvidence") {
+        if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "upsertVaultEvidence requires revela-narrative/ to exist. Use applyEvidenceCandidates or upsertNarrative only in compatibility JSON workspaces." })
+        if (!args.evidence) return JSON.stringify({ ok: false, error: "evidence is required for upsertVaultEvidence" })
+        const mutation = upsertVaultEvidenceNode(workspaceRoot, args.evidence as any)
+        if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
+        const compiled = compileNarrativeVault(workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] })
+        writeNarrativeVaultCache(workspaceRoot, compiled)
+        if (compiled.ok && compiled.narrative) {
+          state.narrative = compiled.narrative
+          writeDecksState(workspaceRoot, state)
+        }
+        return JSON.stringify({ ok: compiled.ok, path: mutation.file, mutation, diagnostics: compiled.diagnostics, narrative: compiled.narrative }, null, 2)
+      }
+
+      if (args.action === "updateVaultResearchGap") {
+        if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "updateVaultResearchGap requires revela-narrative/ to exist. Use updateResearchGap only in compatibility JSON workspaces." })
+        if (!args.gapId?.trim()) return JSON.stringify({ ok: false, error: "gapId is required for updateVaultResearchGap" })
+        const mutation = updateVaultResearchGapNode(workspaceRoot, {
+          ...(args.researchGaps?.[0] as any ?? {}),
+          id: args.gapId,
+          status: args.gapStatus as any,
+          findingsFile: args.findingsFile,
+          evidenceBindingIds: args.evidenceBindingIds,
+          notes: args.gapNotes,
+        })
+        if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
+        const compiled = compileNarrativeVault(workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] })
+        writeNarrativeVaultCache(workspaceRoot, compiled)
+        if (compiled.ok && compiled.narrative) {
+          state.narrative = compiled.narrative
+          writeDecksState(workspaceRoot, state)
+        }
+        return JSON.stringify({ ok: compiled.ok, path: mutation.file, mutation, diagnostics: compiled.diagnostics, narrative: compiled.narrative }, null, 2)
       }
 
       if (args.action === "upsertDeck") {
