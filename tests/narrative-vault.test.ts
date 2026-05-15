@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 import { readDecksState, writeDecksState } from "../lib/decks-state"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
-import { compileNarrativeVault, exportNarrativeStateToVault, parseRelations, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
+import { compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticMarkdown, formatVaultDiagnosticReport, parseRelations, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
 import { narrativeMapState } from "./helpers/narrative-fixtures"
 import { executeDecksTool, tempWorkspace } from "./helpers/tool-helpers"
 
@@ -48,6 +48,24 @@ describe("narrative vault", () => {
     expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: "unknown_node_type", nodeId: "claim:bad-type" }))
     expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: "illegal_relation_target", nodeId: "evidence:bad-relation" }))
     expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: "illegal_relation_target", nodeId: "claim:bad-target" }))
+  })
+
+  it("formats diagnostic reports with suggested fixes and next actions", () => {
+    const report = formatVaultDiagnosticReport([
+      { severity: "error", code: "broken_link", message: "Relation points to unknown node: claim:missing", file: "claims/pilot.md", nodeId: "claim:pilot" },
+      { severity: "warning", code: "claim_missing_evidence", message: "Evidence-required claim claim:pilot has no evidence binding.", nodeId: "claim:pilot" },
+      { severity: "warning", code: "evidence_trace_incomplete", message: "Evidence node evidence:pilot is missing trace.", nodeId: "evidence:pilot" },
+    ])
+    const markdown = formatVaultDiagnosticMarkdown(report)
+
+    expect(report.ok).toBe(false)
+    expect(report.errorCount).toBe(1)
+    expect(report.warningCount).toBe(2)
+    expect(report.blockers[0]).toMatchObject({ code: "broken_link", file: "claims/pilot.md", suggestedAction: "Repair the wikilink and rerun compileNarrativeVault." })
+    expect(report.warnings).toContainEqual(expect.objectContaining({ code: "claim_missing_evidence", suggestedAction: "Run /revela research or use upsertVaultEvidence when source trace is explicit." }))
+    expect(report.warnings).toContainEqual(expect.objectContaining({ code: "evidence_trace_incomplete", suggestedAction: "Use upsertVaultEvidence with complete source trace fields." }))
+    expect(markdown).toContain("Narrative vault diagnostics")
+    expect(markdown).toContain("claims/pilot.md / claim:pilot")
   })
 
   it("exports existing narrative to vault without approvals and round-trips source trace", () => {
@@ -108,6 +126,8 @@ describe("narrative vault", () => {
 
     const compile = await executeDecksTool({ action: "compileNarrativeVault" }, root)
     expect(compile.result.narrative.id).toBe(state.narrative?.id)
+    expect(compile.diagnosticReport).toMatchObject({ ok: true, errorCount: 0 })
+    expect(compile.diagnosticReport.warningCount).toBeGreaterThan(0)
 
     const blocked = await executeDecksTool({ action: "upsertNarrative", narrative: { audience: { primary: "New audience" } } }, root)
     expect(blocked.ok).toBe(false)
@@ -115,6 +135,20 @@ describe("narrative vault", () => {
 
     const approved = readDecksState(root).narrative!.approvals[0]
     expect(approved.narrativeHash).toBe(computeNarrativeHash(state.narrative!))
+  })
+
+  it("tool read summary and compile expose vault diagnostic reports", async () => {
+    const root = tempWorkspace("revela-vault-tool-diagnostic-report-")
+    writeDecksState(root, narrativeMapState())
+    writeSampleVault(root)
+
+    const summary = await executeDecksTool({ action: "read", summary: true }, root)
+    const compile = await executeDecksTool({ action: "compileNarrativeVault" }, root)
+
+    expect(summary.vaultDiagnostics).toMatchObject({ ok: false, errorCount: 1 })
+    expect(summary.vaultDiagnostics.blockers).toContainEqual(expect.objectContaining({ code: "broken_link", suggestedAction: "Repair the wikilink and rerun compileNarrativeVault." }))
+    expect(compile.ok).toBe(false)
+    expect(compile.diagnosticReport).toMatchObject({ ok: false, errorCount: 1 })
   })
 
   it("upserts evidence Markdown nodes without rewriting unrelated vault nodes", () => {
@@ -215,6 +249,7 @@ describe("narrative vault", () => {
     const mirrored = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
 
     expect(evidence.ok).toBe(true)
+    expect(evidence.diagnosticReport.warningCount).toBeGreaterThan(0)
     expect(gap.ok).toBe(true)
     expect(mirrored.narrative.evidenceBindings).toContainEqual(expect.objectContaining({ id: "evidence:pilot:ops" }))
     expect(mirrored.narrative.researchGaps).toContainEqual(expect.objectContaining({ id: "gap:pilot-evidence", status: "evidence_bound" }))

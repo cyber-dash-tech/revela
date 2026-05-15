@@ -34,7 +34,7 @@ import { closeResearchGapInState, deriveResearchGapsFromReadiness, deriveResearc
 import { normalizeCanonicalNarrativeState, normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { narrativeToBrief } from "../lib/narrative-state/project-compat"
 import type { NarrativeStateV1 } from "../lib/narrative-state/types"
-import { compileNarrativeVault, exportNarrativeStateToVault, hasNarrativeVault, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode, writeNarrativeVaultCache } from "../lib/narrative-vault"
+import { compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticReport, hasNarrativeVault, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode, writeNarrativeVaultCache } from "../lib/narrative-vault"
 
 function mergeNarrativeInput(current: NarrativeStateV1, input: Partial<NarrativeStateV1>): Partial<NarrativeStateV1> {
   return {
@@ -317,19 +317,23 @@ export default tool({
         const deckKey = state.activeDeck
         if (args.summary) {
           const deck = deckKey ? state.decks[deckKey] : undefined
-          return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, activeDeck: state.activeDeck, deck }, null, 2)
+          const vaultDiagnostics = hasNarrativeVault(workspaceRoot)
+            ? formatVaultDiagnosticReport(compileNarrativeVault(workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] }).diagnostics)
+            : undefined
+          return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, activeDeck: state.activeDeck, deck, vaultDiagnostics }, null, 2)
         }
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, state }, null, 2)
       }
 
       if (args.action === "compileNarrativeVault") {
         const result = compileNarrativeVault(workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] })
+        const diagnosticReport = formatVaultDiagnosticReport(result.diagnostics)
         writeNarrativeVaultCache(workspaceRoot, result)
-        if (result.narrative) {
+        if (result.ok && result.narrative) {
           state.narrative = result.narrative
           writeDecksState(workspaceRoot, state)
         }
-        return JSON.stringify({ ok: result.ok, path: DECKS_STATE_FILE, result }, null, 2)
+        return JSON.stringify({ ok: result.ok, path: DECKS_STATE_FILE, result, diagnosticReport }, null, 2)
       }
 
       if (args.action === "exportNarrativeVault") {
@@ -337,12 +341,13 @@ export default tool({
         const narrative = state.narrative ?? normalizeNarrativeState(state)
         const result = exportNarrativeStateToVault(workspaceRoot, narrative)
         const compiled = compileNarrativeVault(workspaceRoot, { fallbackApprovals: narrative.approvals })
+        const diagnosticReport = formatVaultDiagnosticReport(compiled.diagnostics)
         writeNarrativeVaultCache(workspaceRoot, compiled)
-        if (compiled.narrative) {
+        if (compiled.ok && compiled.narrative) {
           state.narrative = compiled.narrative
           writeDecksState(workspaceRoot, state)
         }
-        return JSON.stringify({ ok: compiled.ok, path: "revela-narrative", result, diagnostics: compiled.diagnostics }, null, 2)
+        return JSON.stringify({ ok: compiled.ok, path: "revela-narrative", result, diagnostics: compiled.diagnostics, diagnosticReport }, null, 2)
       }
 
       if (args.action === "upsertVaultEvidence") {
@@ -351,12 +356,13 @@ export default tool({
         const mutation = upsertVaultEvidenceNode(workspaceRoot, args.evidence as any)
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
         const compiled = compileNarrativeVault(workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] })
+        const diagnosticReport = formatVaultDiagnosticReport(compiled.diagnostics)
         writeNarrativeVaultCache(workspaceRoot, compiled)
         if (compiled.ok && compiled.narrative) {
           state.narrative = compiled.narrative
           writeDecksState(workspaceRoot, state)
         }
-        return JSON.stringify({ ok: compiled.ok, path: mutation.file, mutation, diagnostics: compiled.diagnostics, narrative: compiled.narrative }, null, 2)
+        return JSON.stringify({ ok: compiled.ok, path: mutation.file, mutation, diagnostics: compiled.diagnostics, diagnosticReport, narrative: compiled.narrative }, null, 2)
       }
 
       if (args.action === "updateVaultResearchGap") {
@@ -372,12 +378,13 @@ export default tool({
         })
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
         const compiled = compileNarrativeVault(workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] })
+        const diagnosticReport = formatVaultDiagnosticReport(compiled.diagnostics)
         writeNarrativeVaultCache(workspaceRoot, compiled)
         if (compiled.ok && compiled.narrative) {
           state.narrative = compiled.narrative
           writeDecksState(workspaceRoot, state)
         }
-        return JSON.stringify({ ok: compiled.ok, path: mutation.file, mutation, diagnostics: compiled.diagnostics, narrative: compiled.narrative }, null, 2)
+        return JSON.stringify({ ok: compiled.ok, path: mutation.file, mutation, diagnostics: compiled.diagnostics, diagnosticReport, narrative: compiled.narrative }, null, 2)
       }
 
       if (args.action === "upsertVaultClaim") {
@@ -387,12 +394,13 @@ export default tool({
         const mutation = upsertVaultClaimNode(workspaceRoot, claim)
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
         const compiled = compileNarrativeVault(workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] })
+        const diagnosticReport = formatVaultDiagnosticReport(compiled.diagnostics)
         writeNarrativeVaultCache(workspaceRoot, compiled)
         if (compiled.ok && compiled.narrative) {
           state.narrative = compiled.narrative
           writeDecksState(workspaceRoot, state)
         }
-        return JSON.stringify({ ok: compiled.ok, path: mutation.file, mutation, diagnostics: compiled.diagnostics, narrative: compiled.narrative }, null, 2)
+        return JSON.stringify({ ok: compiled.ok, path: mutation.file, mutation, diagnostics: compiled.diagnostics, diagnosticReport, narrative: compiled.narrative }, null, 2)
       }
 
       if (args.action === "upsertVaultObjection") {
@@ -402,12 +410,13 @@ export default tool({
         const mutation = upsertVaultObjectionNode(workspaceRoot, objection)
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
         const compiled = compileNarrativeVault(workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] })
+        const diagnosticReport = formatVaultDiagnosticReport(compiled.diagnostics)
         writeNarrativeVaultCache(workspaceRoot, compiled)
         if (compiled.ok && compiled.narrative) {
           state.narrative = compiled.narrative
           writeDecksState(workspaceRoot, state)
         }
-        return JSON.stringify({ ok: compiled.ok, path: mutation.file, mutation, diagnostics: compiled.diagnostics, narrative: compiled.narrative }, null, 2)
+        return JSON.stringify({ ok: compiled.ok, path: mutation.file, mutation, diagnostics: compiled.diagnostics, diagnosticReport, narrative: compiled.narrative }, null, 2)
       }
 
       if (args.action === "upsertVaultRisk") {
@@ -417,12 +426,13 @@ export default tool({
         const mutation = upsertVaultRiskNode(workspaceRoot, risk)
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
         const compiled = compileNarrativeVault(workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] })
+        const diagnosticReport = formatVaultDiagnosticReport(compiled.diagnostics)
         writeNarrativeVaultCache(workspaceRoot, compiled)
         if (compiled.ok && compiled.narrative) {
           state.narrative = compiled.narrative
           writeDecksState(workspaceRoot, state)
         }
-        return JSON.stringify({ ok: compiled.ok, path: mutation.file, mutation, diagnostics: compiled.diagnostics, narrative: compiled.narrative }, null, 2)
+        return JSON.stringify({ ok: compiled.ok, path: mutation.file, mutation, diagnostics: compiled.diagnostics, diagnosticReport, narrative: compiled.narrative }, null, 2)
       }
 
       if (args.action === "updateVaultCoreNarrative") {
@@ -430,12 +440,13 @@ export default tool({
         const mutation = updateVaultCoreNodes(workspaceRoot, args.narrative as any ?? {})
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
         const compiled = compileNarrativeVault(workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] })
+        const diagnosticReport = formatVaultDiagnosticReport(compiled.diagnostics)
         writeNarrativeVaultCache(workspaceRoot, compiled)
         if (compiled.ok && compiled.narrative) {
           state.narrative = compiled.narrative
           writeDecksState(workspaceRoot, state)
         }
-        return JSON.stringify({ ok: compiled.ok, path: mutation.file, mutation, diagnostics: compiled.diagnostics, narrative: compiled.narrative }, null, 2)
+        return JSON.stringify({ ok: compiled.ok, path: mutation.file, mutation, diagnostics: compiled.diagnostics, diagnosticReport, narrative: compiled.narrative }, null, 2)
       }
 
       if (args.action === "upsertDeck") {

@@ -44,6 +44,7 @@ Use `DECKS.json` as Revela's compatibility workspace-state and render-state file
 Use `revela-decks` for state operations:
 
 - `read` to inspect current workspace state
+- `read` with `summary: true` to inspect compact deck state plus `vaultDiagnostics` when a Markdown vault exists
 - `init` to register discovered source material candidates during workspace initialization
 - `exportNarrativeVault` to export existing `DECKS.json.narrative` into `revela-narrative/` when no vault exists
 - `compileNarrativeVault` to compile Markdown vault nodes, refresh cache, and mirror compiled narrative into `DECKS.json`
@@ -61,6 +62,8 @@ Use `revela-decks` for state operations:
 - `compileDeckPlan`, `upsertDeck`, `upsertSlides`, and `review` only inside make-deck or artifact-readiness workflows
 
 Never treat `writeReadiness.status`, old review snapshots, existing `decks/*.html`, workspace scans, extraction cache paths, or saved research actions as narrative approval or proof by themselves.
+
+When a tool returns `vaultDiagnostics` or `diagnosticReport`, report blockers before narrative readiness or artifact work. Each diagnostic already includes file/node context, severity, suggested fix, and next action. Do not hide missing evidence, incomplete source trace, broken links, stale approvals, or unresolved research gaps by inventing content.
 
 ## Init Rules
 
@@ -84,6 +87,7 @@ During research:
 - save findings through `revela-research-save`
 - treat `/revela research` as permission to attach findings and bind clearly supported evidence without item-by-item user confirmation
 - create canonical evidence bindings only when claim id, quote/snippet, source, support scope, unsupported scope, caveat, and strength are explicit; in vault workspaces use `upsertVaultEvidence`, otherwise use `applyEvidenceCandidates` for candidates or `upsertNarrative` for compatibility-state updates
+- inspect returned `diagnosticReport` after vault mutation actions and report remaining blockers or warnings in the research summary
 - narrow overbroad claim scope with `upsertVaultClaim` in vault workspaces only when the narrower wording preserves strategic meaning and better matches the evidence; report relation rewrites or strategic claim changes for Story/user confirmation
 - preserve source path, URL, location/page/sheet/slide, quote/snippet, support scope, unsupported scope, and caveat
 - keep missing or partial evidence visible instead of filling it with model assumptions; classify remaining caveats as internal-data-needed, not-publicly-researchable, source-quality-limit, or still-open
@@ -91,6 +95,8 @@ During research:
 ## Story Rules
 
 When the user invokes `/revela story`, open the read-only story workspace UI. Do not turn that command into a blocking readiness report.
+
+If a Markdown vault has compile diagnostics, surface the diagnostic summary alongside the Story output without mutating state. Errors should identify the Markdown file/node and the next smallest fix.
 
 When the user explicitly asks for a readiness report, call `revela-decks` action `reviewNarrative` and report the tool result as authoritative.
 
@@ -113,6 +119,7 @@ For `/revela make --deck` deck handoff:
 
 - switch to deck-render mode through the command workflow
 - check narrative readiness and current approval before compiling deck specs
+- stop before deck planning when `vaultDiagnostics.blockers` exist; report the Markdown file/node/code and suggested next action
 - use `compileDeckPlan` as the canonical narrative-to-deck planning path
 - run the deck/artifact gate with `revela-decks review` before writing HTML
 - fetch design layouts/components only after narrative handoff is valid

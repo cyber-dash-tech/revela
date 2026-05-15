@@ -6,6 +6,8 @@ import { hasDecksState, readDecksState } from "../decks-state"
 import { buildNarrativeMap, formatNarrativeMap } from "../narrative-state/map"
 import { renderNarrativeMapHtmlWithDisplay } from "../narrative-state/map-html"
 import { emptyDisplayModel, type NarrativeViewLanguage, type ValidatedNarrativeDisplayModel } from "../narrative-state/display"
+import type { NarrativeApproval } from "../narrative-state/types"
+import { compileNarrativeVault, formatVaultDiagnosticMarkdown, formatVaultDiagnosticReport, hasNarrativeVault } from "../narrative-vault"
 
 export interface NarrativeArgs {
   language: NarrativeViewLanguage
@@ -82,7 +84,8 @@ export async function handleNarrative(
 
     const state = readDecksState(options.workspaceRoot)
     const map = buildNarrativeMap(state)
-    const markdown = formatNarrativeMap(map)
+    const diagnosticsMarkdown = vaultDiagnosticsMarkdown(options.workspaceRoot, state.narrative?.approvals ?? [])
+    const markdown = [diagnosticsMarkdown, formatNarrativeMap(map)].filter(Boolean).join("\n\n")
 
     if (options.openBrowser) {
       const htmlPath = writeNarrativeMapHtml(map, options.display ?? emptyDisplayModel(options.language ?? "en"))
@@ -100,6 +103,12 @@ export async function handleNarrative(
   } catch (e: any) {
     await send(`**Narrative map failed:** ${e.message || String(e)}`)
   }
+}
+
+function vaultDiagnosticsMarkdown(workspaceRoot: string, fallbackApprovals: NarrativeApproval[]): string {
+  if (!hasNarrativeVault(workspaceRoot)) return ""
+  const result = compileNarrativeVault(workspaceRoot, { fallbackApprovals })
+  return formatVaultDiagnosticMarkdown(formatVaultDiagnosticReport(result.diagnostics))
 }
 
 export function buildNarrativeViewPrompt(options: { workspaceRoot: string; language: NarrativeViewLanguage }): string {

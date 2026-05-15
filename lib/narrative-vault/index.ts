@@ -1,5 +1,6 @@
 export * from "./cache"
 export * from "./compile"
+export * from "./diagnostic-report"
 export * from "./export"
 export * from "./frontmatter"
 export * from "./markdown"

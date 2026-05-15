@@ -157,6 +157,7 @@ Known 0.15 limits:
 - When a vault exists, `readDecksState`, `readOrCreateDecksState`, and `writeDecksState` prefer the vault and mirror compiled narrative into `DECKS.json.narrative`, preserving approvals from `DECKS.json`.
 - Vault cache artifacts are written under `.opencode/revela/narrative-cache/`: `compiled-narrative.json`, `graph.json`, and `diagnostics.json`.
 - `revela-decks` supports `exportNarrativeVault`, `compileNarrativeVault`, `updateVaultCoreNarrative`, `upsertVaultClaim`, `upsertVaultEvidence`, `upsertVaultObjection`, `upsertVaultRisk`, and `updateVaultResearchGap`.
+- Vault diagnostic reports summarize compiler errors/warnings with file/node context, suggested fixes, and next actions for tools and command prompts.
 - When a vault exists, direct JSON narrative mutations such as `upsertNarrative`, compatibility research-gap mutation actions, and `applyEvidenceCandidates` are blocked; use vault mutation actions or edit Markdown nodes and compile instead.
 - The MVP does not move approvals, render targets, artifact coverage, review snapshots, or deck specs into Markdown.
 
@@ -207,6 +208,7 @@ Implemented behavior:
 - State reads and writes prefer the vault when present and fall back to `DECKS.json.narrative` for old workspaces.
 - Successful vault compiles mirror into `DECKS.json.narrative` and write cache artifacts under `.opencode/revela/narrative-cache/`.
 - `revela-decks` supports `exportNarrativeVault`, `compileNarrativeVault`, `updateVaultCoreNarrative`, `upsertVaultClaim`, `upsertVaultEvidence`, `upsertVaultObjection`, `upsertVaultRisk`, and `updateVaultResearchGap`.
+- `revela-decks` read/compile/vault mutation paths expose `vaultDiagnostics` or `diagnosticReport` so Story, Research, Make, and Review can report blockers before rendering or evidence binding.
 - Direct JSON narrative mutations are blocked when a vault exists: `upsertNarrative`, compatibility research-gap mutation actions, and `applyEvidenceCandidates` should not rewrite the mirror. Use vault mutation actions for evidence/gap updates, or edit Markdown nodes and compile instead.
 - Empty vaults do not overwrite existing JSON narrative mirrors; compiler emits an `empty_vault` diagnostic.
 
@@ -258,6 +260,8 @@ Priority 1: research binding in vault workspaces.
 
 Priority 2: vault diagnostics UX.
 
+- Implemented diagnostic report formatting in `lib/narrative-vault/diagnostic-report.ts` for raw compiler diagnostics, including severity, file/node, suggested fix, and next action.
+- `revela-decks` should return `vaultDiagnostics`/`diagnosticReport` from summary reads, vault compile/export, and vault mutation actions.
 - Surface compile diagnostics clearly in Story, Research, Make, and Review reports when they affect trust or rendering.
 - Diagnostics should identify the Markdown file/node when possible and state the next smallest fix.
 - Keep missing evidence visible as gaps. Do not let compiler or prompt logic fill missing quotes, source paths, URLs, locations, or caveats.

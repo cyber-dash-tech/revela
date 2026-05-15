@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "fs"
 import { dirname, isAbsolute, join, normalize, resolve } from "path"
 import { readDecksState, writeDecksState } from "../decks-state"
 import { compileExecutiveBrief, DEFAULT_EXECUTIVE_BRIEF_PATH } from "../narrative-state/executive-brief"
+import { compileNarrativeVault, formatVaultDiagnosticMarkdown, formatVaultDiagnosticReport, hasNarrativeVault } from "../narrative-vault"
 
 export interface BriefArgs {
   outputPath?: string
@@ -29,6 +30,14 @@ export async function handleBrief(
   }
 
   const state = readDecksState(input.workspaceRoot)
+  if (hasNarrativeVault(input.workspaceRoot)) {
+    const vault = compileNarrativeVault(input.workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] })
+    const report = formatVaultDiagnosticReport(vault.diagnostics)
+    if (!report.ok) {
+      await send(`**Executive brief not rendered**\n\n${formatVaultDiagnosticMarkdown(report)}\n\nFix the narrative vault blockers before rendering.`)
+      return
+    }
+  }
   const result = compileExecutiveBrief(state, { outputPath: input.outputPath })
   if (!result.ok) {
     await send(

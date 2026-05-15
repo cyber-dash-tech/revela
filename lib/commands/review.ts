@@ -35,10 +35,10 @@ Workspace boundary rules:
 - For Glob/file searches, use the current workspace as the search root. Do not set the search root to a parent directory or home directory.
 
 Workflow:
-1. Call \`revela-decks\` with action \`read\` to inspect the current workspace state.
+1. Call \`revela-decks\` with action \`read\` and \`summary: true\` to inspect the current workspace state and any \`vaultDiagnostics\`.
 2. If ${DECKS_STATE_FILE} is missing or empty, do not invent a deck plan, slide count, design, output path, or visual style. Report the smallest narrative inputs needed, usually audience, belief-before, belief-after, decision/action, thesis, central claims, evidence availability, objections, and risks.
 3. If legacy deck state exists, let the tool-normalized canonical narrative derived from \`narrativeBrief\`, slide roles, slide content, and slide evidence be reviewed. Do not assume old deck readiness means approval.
-4. Call \`revela-decks\` action \`reviewNarrative\`. Use its returned \`status\`, \`blockers\`, \`warnings\`, \`issues\`, \`narrativeHash\`, \`approval\`, and \`nextActions\` as authoritative.
+4. Call \`revela-decks\` action \`reviewNarrative\`. Use its returned \`status\`, \`blockers\`, \`warnings\`, \`issues\`, \`narrativeHash\`, \`approval\`, and \`nextActions\` as authoritative. If the read summary returned \`vaultDiagnostics\`, report blocker diagnostics before readiness blockers and include file/node/code plus suggested next action.
 5. If research findings have been saved but not attached or evidence-bound, report them as unattached research state, not proof.
 6. If central claims lack required evidence, report the named claim and the exact next action: attach findings, bind evidence, run targeted research, narrow unsupported scope, or rewrite the claim.
 7. If approval is missing or stale, clearly distinguish \`ready_for_approval\`, \`approved\`, and render override.
@@ -89,9 +89,9 @@ Current state:
 ${workspaceRoot ? `- Current workspace root: \`${workspaceRoot}\`` : ""}
 
 Workflow:
-1. Call \`revela-decks\` action \`read\`.
+1. Call \`revela-decks\` action \`read\` with \`summary: true\`.
 2. Call \`revela-decks\` action \`reviewNarrative\` before planning deck slides.
-3. If narrative readiness is \`approved\`, continue. If it is \`ready_for_approval\`, ask the user for explicit approval before continuing. If it is blocked, stale, or needs research, stop and report the smallest next action. Do not call \`approveNarrative\` unless the user explicitly approves or requests a render override.
+3. If the read summary returned \`vaultDiagnostics.blockers\`, stop before deck planning and report the Markdown file/node/code and suggested next action. If narrative readiness is \`approved\`, continue. If it is \`ready_for_approval\`, ask the user for explicit approval before continuing. If it is blocked, stale, or needs research, stop and report the smallest next action. Do not call \`approveNarrative\` unless the user explicitly approves or requests a render override.
 4. After approval or explicit render override exists, call \`revela-decks\` action \`compileDeckPlan\`. This projects canonical narrative claims and evidence bindings into compatibility \`slides[]\` and \`slides[].evidence[]\`; it must not write HTML.
 5. If \`compileDeckPlan\` returns \`skipped\`, stop and report the reason. Do not invent slide specs manually to bypass approval.
 6. Present the compiled deck plan to the user and include a low-fidelity layout sketch for every slide. The plan must identify the chapter structure first: 3-5 chapter headings, each chapter's slide range, and which non-structural slides belong to each chapter. The sketch is ASCII/text structure only; do not generate visual images or HTML mockups.
@@ -107,6 +107,7 @@ Workflow:
 Deck plan report format:
 - Start with \`Deck plan: awaiting confirmation\` when a plan was compiled and has not yet been confirmed.
 - Include narrative readiness status and narrative hash when available.
+- Include vault diagnostic blockers or warnings when returned by \`read(summary: true)\`; blockers prevent deck planning until fixed.
 - Include whether \`compileDeckPlan\` compiled or skipped.
 - Include \`Required structure: Cover + Table of Contents + Closing\` and do not omit any of those slides.
 - Include a \`Chapters\` section before the slide list. It must list 3-5 TOC headings, their slide ranges, and the non-structural slides assigned to each chapter.
