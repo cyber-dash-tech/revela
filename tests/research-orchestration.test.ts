@@ -67,7 +67,8 @@ describe("revela research command prompt", () => {
     expect(prompt).toContain("Automatically bind evidence only when all binding criteria are met")
     expect(prompt).toContain("diagnostic is `bindable: true` or the same fields are explicit")
     expect(prompt).toContain("Do not use `upsertNarrative` during research")
-    expect(prompt).toContain("Use `revela-decks applyEvidenceCandidates`")
+    expect(prompt).toContain("revela-narrative/evidence/*.md")
+    expect(prompt).toContain("use `revela-decks applyEvidenceCandidates`")
     expect(prompt).toContain("claimId exists")
     expect(prompt).toContain("supportScope and unsupportedScope are explicit")
     expect(prompt).toContain("binding does not expand the claim beyond the evidence")
@@ -79,7 +80,7 @@ describe("revela research command prompt", () => {
 
     expect(prompt).toContain("do not mutate canonical claims during research")
     expect(prompt).toContain("Report the needed claim/relation narrowing in `Narrative changes`")
-    expect(prompt).toContain("broader narrative rewrites must be reported for Story/user confirmation")
+    expect(prompt).toContain("Broader narrative rewrites must be reported for Story/user confirmation")
     expect(prompt).not.toContain("through `upsertNarrative` only when")
     expect(prompt).not.toContain("or `upsertNarrative` to preserve canonical evidence bindings")
   })
