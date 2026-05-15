@@ -820,6 +820,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .resize-handle:hover::before, body.resizing .resize-handle::before { height: 52px; background: #94a3b8; box-shadow: 0 0 0 4px rgba(148,163,184,.16); }
     iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
     .hitbox { position: absolute; inset: 0; z-index: 2; cursor: crosshair; background: transparent; }
+    .visual-move-handle { position: absolute; z-index: 4; width: 16px; height: 16px; border: 2px solid #111827; border-radius: 999px; background: #fbfaf7; box-shadow: 0 6px 16px rgba(31,41,51,.22); transform: translate(-50%, -50%); pointer-events: none; display: none; }
+    .visual-move-handle::before { content: ""; position: absolute; inset: 4px; border-top: 2px solid #111827; border-left: 2px solid #111827; transform: rotate(45deg); }
     .visual-resize-handle { position: absolute; z-index: 3; width: 14px; height: 14px; border: 2px solid #111827; border-radius: 4px; background: #fbfaf7; box-shadow: 0 6px 16px rgba(31,41,51,.22); transform: translate(-50%, -50%); pointer-events: none; display: none; }
     .visual-resize-handle[data-mode="text-width"] { width: 10px; height: 28px; border-radius: 999px; cursor: ew-resize; }
     .visual-edit-toolbar { position: absolute; top: 14px; left: 50%; z-index: 6; display: none; align-items: center; gap: 8px; transform: translateX(-50%); padding: 8px 10px; border: 1px solid rgba(148,163,184,.42); border-radius: 999px; background: rgba(17,24,39,.88); color: #fbfaf7; box-shadow: 0 16px 40px rgba(31,41,51,.26); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); font-size: 12px; font-weight: 800; }
@@ -930,7 +932,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 </head>
 <body>
   <main class="app">
-    <section class="preview"><iframe id="deck" src="/deck?token=${encodeURIComponent(token)}"></iframe><div id="hitbox" class="hitbox" aria-label="Deck element selection layer"></div><div id="visualResizeHandle" class="visual-resize-handle" aria-hidden="true"></div><div id="visualEditToolbar" class="visual-edit-toolbar" aria-live="polite"><span id="visualEditCount">No unsaved visual changes</span><button id="visualUndo" type="button">Undo</button><button id="visualReset" type="button">Reset</button><button id="visualSave" class="save-visual" type="button">Save Changes</button></div><nav class="deck-nav" aria-label="Deck navigation"><button id="deckPrev" type="button" title="Previous slide (ArrowLeft / ArrowUp / PageUp)">Previous</button><div id="deckCounter" class="deck-nav-status" aria-live="polite">-- / --</div><button id="deckNext" type="button" title="Next slide (ArrowRight / ArrowDown / Space / PageDown)">Next</button></nav></section>
+    <section class="preview"><iframe id="deck" src="/deck?token=${encodeURIComponent(token)}"></iframe><div id="hitbox" class="hitbox" aria-label="Deck element selection layer"></div><div id="visualMoveHandle" class="visual-move-handle" aria-hidden="true"></div><div id="visualResizeHandle" class="visual-resize-handle" aria-hidden="true"></div><div id="visualEditToolbar" class="visual-edit-toolbar" aria-live="polite"><span id="visualEditCount">No unsaved visual changes</span><button id="visualUndo" type="button">Undo</button><button id="visualReset" type="button">Reset</button><button id="visualSave" class="save-visual" type="button">Save Changes</button></div><nav class="deck-nav" aria-label="Deck navigation"><button id="deckPrev" type="button" title="Previous slide (ArrowLeft / ArrowUp / PageUp)">Previous</button><div id="deckCounter" class="deck-nav-status" aria-live="polite">-- / --</div><button id="deckNext" type="button" title="Next slide (ArrowRight / ArrowDown / Space / PageDown)">Next</button></nav></section>
     <div id="resizeHandle" class="resize-handle" role="separator" aria-label="Resize editor panel" aria-orientation="vertical" title="Drag to resize editor. Double-click to reset."></div>
     <aside>
       <div>
@@ -1018,6 +1020,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         resizeDrag: null,
         deckSlideIndex: 0,
         deckSlideCount: 0,
+        pendingDeckSlideRestore: null,
         mode: defaultMode === 'inspect' ? 'inspect' : 'edit',
         inspecting: false,
         activeInspectRequestId: '',
@@ -1037,14 +1040,16 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         assetVisibleCount: 0,
         assetPendingCount: 0,
         visualChanges: [],
+        activeVisualMove: null,
         activeVisualResize: null,
-        hoverResizeTarget: null,
+        hoverVisualTarget: null,
         savingVisualChanges: false,
       };
       const els = {
         frame: null,
         hitbox: null,
         resizeHandle: null,
+        visualMoveHandle: null,
         visualResizeHandle: null,
         visualEditToolbar: null,
         visualEditCount: null,
@@ -1094,6 +1099,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           els.frame = document.getElementById('deck');
           els.hitbox = document.getElementById('hitbox');
           els.resizeHandle = document.getElementById('resizeHandle');
+          els.visualMoveHandle = document.getElementById('visualMoveHandle');
           els.visualResizeHandle = document.getElementById('visualResizeHandle');
           els.visualEditToolbar = document.getElementById('visualEditToolbar');
           els.visualEditCount = document.getElementById('visualEditCount');
@@ -1129,7 +1135,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
           els.inspectLanguage = document.getElementById('inspectLanguage');
 
-          if (!els.frame || !els.hitbox || !els.resizeHandle || !els.visualResizeHandle || !els.visualEditToolbar || !els.visualEditCount || !els.visualUndo || !els.visualReset || !els.visualSave || !els.deckPrev || !els.deckNext || !els.deckCounter || !els.selectionSummary || !els.selectionChips || !els.editTab || !els.inspectTab || !els.editPanel || !els.inspectPanel || !els.comment || !els.commentThread || !els.send || !els.inspectComment || !els.inspectButton || !els.inspectLanguage || !els.inspectCards || !els.inspectStale || !els.assetSearchToggle || !els.assetSearchBack || !els.assetSearchView || !els.assetQuery || !els.assetPurpose || !els.assetSearchButton || !els.assetShuffleButton || !els.assetResults || !els.editSavedAssets || !els.status) {
+          if (!els.frame || !els.hitbox || !els.resizeHandle || !els.visualMoveHandle || !els.visualResizeHandle || !els.visualEditToolbar || !els.visualEditCount || !els.visualUndo || !els.visualReset || !els.visualSave || !els.deckPrev || !els.deckNext || !els.deckCounter || !els.selectionSummary || !els.selectionChips || !els.editTab || !els.inspectTab || !els.editPanel || !els.inspectPanel || !els.comment || !els.commentThread || !els.send || !els.inspectComment || !els.inspectButton || !els.inspectLanguage || !els.inspectCards || !els.inspectStale || !els.assetSearchToggle || !els.assetSearchBack || !els.assetSearchView || !els.assetQuery || !els.assetPurpose || !els.assetSearchButton || !els.assetShuffleButton || !els.assetResults || !els.editSavedAssets || !els.status) {
             throw new Error('Editor boot failed: required DOM nodes are missing.');
           }
 
@@ -1293,6 +1299,10 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function isDirectResizable(target) {
         if (!target || !target.dataset || !target.dataset.revelaEditId || !target.dataset.revelaEditKind) return false;
         if (target.dataset.revelaEditKind === 'image') return target.tagName?.toLowerCase() === 'img';
+        if (target.dataset.revelaEditKind === 'box') {
+          const computed = els.frame.contentWindow?.getComputedStyle(target);
+          return computed ? computed.display !== 'inline' : true;
+        }
         if (target.dataset.revelaEditKind === 'text-width') {
           const computed = els.frame.contentWindow?.getComputedStyle(target);
           return computed ? computed.display !== 'inline' : true;
@@ -1300,12 +1310,18 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         return false;
       }
 
+      function isDirectMovable(target) {
+        return isDirectResizable(target);
+      }
+
       function visualResizeMode(target) {
-        return target?.dataset?.revelaEditKind === 'text-width' ? 'text-width' : 'box';
+        if (target?.dataset?.revelaEditKind === 'text-width') return 'text-width';
+        if (target?.dataset?.revelaEditKind === 'image') return 'image';
+        return 'box';
       }
 
       function visualChangeKey(payload) {
-        return payload?.editId || '';
+        return (payload?.type || '') + ':' + (payload?.editId || '');
       }
 
       function upsertVisualChange(change) {
@@ -1318,6 +1334,53 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         state.visualChanges.push(change);
       }
 
+      function currentTranslate(target) {
+        const computed = els.frame.contentWindow?.getComputedStyle(target);
+        return simpleTranslateFromTranslate(target.style.translate)
+          || simpleTranslateFromTranslate(computed?.translate)
+          || simpleTranslateFromTransform(target.style.transform)
+          || simpleTranslateFromTransform(computed?.transform)
+          || { x: 0, y: 0 };
+      }
+
+      function simpleTranslateFromTranslate(translate) {
+        const normalized = String(translate || '').trim();
+        if (!normalized || normalized === 'none') return null;
+        const match = /^(-?\d+(?:\.\d+)?)px(?:\s+|\s*,\s*)(-?\d+(?:\.\d+)?)px$/.exec(normalized);
+        return match ? finitePoint(Number(match[1]), Number(match[2])) : null;
+      }
+
+      function simpleTranslateFromTransform(transform) {
+        const normalized = String(transform || '').trim();
+        if (!normalized || normalized === 'none') return { x: 0, y: 0 };
+        const translate = /^translate\(\s*(-?\d+(?:\.\d+)?)px(?:\s*,\s*|\s+)(-?\d+(?:\.\d+)?)px\s*\)$/.exec(normalized);
+        if (translate) return finitePoint(Number(translate[1]), Number(translate[2]));
+        const matrix = /^matrix\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/.exec(normalized);
+        if (!matrix) return null;
+        const a = Number(matrix[1]);
+        const b = Number(matrix[2]);
+        const c = Number(matrix[3]);
+        const d = Number(matrix[4]);
+        if (a !== 1 || b !== 0 || c !== 0 || d !== 1) return null;
+        return finitePoint(Number(matrix[5]), Number(matrix[6]));
+      }
+
+      function finitePoint(x, y) {
+        return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+      }
+
+      function renderVisualMoveHandle(target) {
+        if (!els.visualMoveHandle) return;
+        if (!target || !isDirectMovable(target) || state.activeVisualMove) {
+          els.visualMoveHandle.style.display = 'none';
+          return;
+        }
+        const rect = target.getBoundingClientRect();
+        els.visualMoveHandle.style.display = 'block';
+        els.visualMoveHandle.style.left = rect.left + 'px';
+        els.visualMoveHandle.style.top = rect.top + 'px';
+      }
+
       function boundedImageSize(active, event) {
         const dx = event.clientX - active.startX;
         const dy = event.clientY - active.startY;
@@ -1325,6 +1388,13 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         if (event.shiftKey) return { width, height: Math.max(24, Math.round(active.startHeight + dy)) };
         const ratio = active.startHeight && active.startWidth ? active.startHeight / active.startWidth : 1;
         return { width, height: Math.max(24, Math.round(width * ratio)) };
+      }
+
+      function boundedBoxSize(active, event) {
+        return {
+          width: Math.max(40, Math.round(active.startWidth + event.clientX - active.startX)),
+          height: Math.max(24, Math.round(active.startHeight + event.clientY - active.startY)),
+        };
       }
 
       function boundedTextWidth(active, event) {
@@ -1335,26 +1405,94 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         if (!els.visualResizeHandle) return;
         if (!target || !isDirectResizable(target) || state.activeVisualResize) {
           els.visualResizeHandle.style.display = 'none';
-          state.hoverResizeTarget = null;
           return;
         }
         const rect = target.getBoundingClientRect();
         const mode = visualResizeMode(target);
-        state.hoverResizeTarget = target;
         els.visualResizeHandle.dataset.mode = mode;
         els.visualResizeHandle.style.display = 'block';
         els.visualResizeHandle.style.left = rect.right + 'px';
         els.visualResizeHandle.style.top = (mode === 'text-width' ? rect.top + rect.height / 2 : rect.bottom) + 'px';
       }
 
+      function renderVisualHandles(target) {
+        state.hoverVisualTarget = target && (isDirectResizable(target) || isDirectMovable(target)) ? target : null;
+        renderVisualMoveHandle(state.hoverVisualTarget);
+        renderVisualResizeHandle(state.hoverVisualTarget);
+      }
+
+      function pointerIsOnVisualMoveHandle(event) {
+        if (!state.hoverVisualTarget || !els.visualMoveHandle || els.visualMoveHandle.style.display === 'none') return false;
+        const rect = els.visualMoveHandle.getBoundingClientRect();
+        return event.clientX >= rect.left - 6 && event.clientX <= rect.right + 6 && event.clientY >= rect.top - 6 && event.clientY <= rect.bottom + 6;
+      }
+
       function pointerIsOnVisualResizeHandle(event) {
-        if (!state.hoverResizeTarget || !els.visualResizeHandle || els.visualResizeHandle.style.display === 'none') return false;
+        if (!state.hoverVisualTarget || !els.visualResizeHandle || els.visualResizeHandle.style.display === 'none') return false;
         const rect = els.visualResizeHandle.getBoundingClientRect();
         return event.clientX >= rect.left - 6 && event.clientX <= rect.right + 6 && event.clientY >= rect.top - 6 && event.clientY <= rect.bottom + 6;
       }
 
+      function startVisualMove(event) {
+        const target = state.hoverVisualTarget;
+        if (!target || !isDirectMovable(target)) return false;
+        event.preventDefault();
+        event.stopPropagation();
+        const beforeStyle = target.getAttribute('style') || '';
+        const startTranslate = currentTranslate(target);
+        state.activeVisualMove = {
+          target,
+          payload: { editId: target.dataset.revelaEditId, kind: target.dataset.revelaEditKind },
+          startX: event.clientX,
+          startY: event.clientY,
+          beforeStyle,
+          startTranslate,
+        };
+        setStatus('Moving preview only. Click Save Changes to write the deck.');
+        window.addEventListener('pointermove', updateVisualMove);
+        window.addEventListener('pointerup', finishVisualMove, { once: true });
+        return true;
+      }
+
+      function updateVisualMove(event) {
+        const active = state.activeVisualMove;
+        if (!active) return;
+        let dx = Math.round(event.clientX - active.startX);
+        let dy = Math.round(event.clientY - active.startY);
+        if (event.shiftKey) {
+          if (Math.abs(dx) >= Math.abs(dy)) dy = 0;
+          else dx = 0;
+        }
+        const nextX = active.startTranslate.x + dx;
+        const nextY = active.startTranslate.y + dy;
+        active.target.style.translate = nextX + 'px ' + nextY + 'px';
+        renderHoverOutline(active.target);
+        renderVisualMoveHandle(active.target);
+        renderVisualResizeHandle(active.target);
+      }
+
+      function finishVisualMove() {
+        const active = state.activeVisualMove;
+        state.activeVisualMove = null;
+        window.removeEventListener('pointermove', updateVisualMove);
+        if (!active) return;
+        const translate = active.target.style.translate || 'none';
+        if (translate !== 'none') {
+          upsertVisualChange({
+            type: 'move',
+            editId: active.payload.editId,
+            kind: active.payload.kind,
+            before: { style: active.beforeStyle },
+            after: { stylePatch: { translate } },
+          });
+        }
+        updateVisualToolbar();
+        renderVisualMoveHandle(active.target);
+        renderVisualResizeHandle(active.target);
+      }
+
       function startVisualResize(event) {
-        const target = state.hoverResizeTarget;
+        const target = state.hoverVisualTarget;
         if (!target || !isDirectResizable(target)) return false;
         event.preventDefault();
         event.stopPropagation();
@@ -1386,14 +1524,19 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           const width = boundedTextWidth(active, event);
           active.target.style.width = width + 'px';
           active.target.style.maxWidth = width + 'px';
-        } else {
+        } else if (active.mode === 'image') {
           const size = boundedImageSize(active, event);
           const width = size.width;
           const height = size.height;
           active.target.style.width = width + 'px';
           active.target.style.height = height + 'px';
+        } else {
+          const size = boundedBoxSize(active, event);
+          active.target.style.width = size.width + 'px';
+          active.target.style.height = size.height + 'px';
         }
         renderHoverOutline(active.target);
+        renderVisualMoveHandle(active.target);
         renderVisualResizeHandle(active.target);
       }
 
@@ -1414,6 +1557,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           after: { stylePatch, width: rect.width, height: rect.height },
         });
         updateVisualToolbar();
+        renderVisualMoveHandle(active.target);
         renderVisualResizeHandle(active.target);
       }
 
@@ -1424,8 +1568,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         if (target) target.setAttribute('style', change.before.style || '');
         updateVisualToolbar();
         renderHoverOutline(state.hoverEl);
-        renderVisualResizeHandle(state.hoverEl);
-        setStatus('Undid last visual resize.');
+        renderVisualHandles(state.hoverEl);
+        setStatus('Undid last visual change.');
       }
 
       function resetVisualChanges() {
@@ -1436,7 +1580,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         }
         updateVisualToolbar();
         renderHoverOutline(state.hoverEl);
-        renderVisualResizeHandle(state.hoverEl);
+        renderVisualHandles(state.hoverEl);
         setStatus('Reset unsaved visual changes.');
       }
 
@@ -1507,11 +1651,12 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           state.referenceOutlines = [];
           doc.addEventListener('scroll', () => {
             renderHoverOutline(state.hoverEl);
-            renderVisualResizeHandle(state.hoverEl);
+            renderVisualHandles(state.hoverEl);
             renderReferenceOutlines();
           }, true);
           const slides = getSlides(doc);
           syncDeckNavigation();
+          restoreDeckSlideAfterRefresh();
           updateSendState();
           if (state.pendingRefreshMessage) {
             state.pendingRefreshMessage = false;
@@ -1595,8 +1740,42 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           updateDeckNavControls();
           if (changed) clearHoverSilently();
           else renderHoverOutline(state.hoverEl);
-          renderVisualResizeHandle(state.hoverEl);
+          renderVisualHandles(state.hoverEl);
           renderReferenceOutlines();
+        } catch (error) {
+          reportError(error);
+        }
+      }
+
+      function restoreDeckSlideAfterRefresh() {
+        if (state.pendingDeckSlideRestore === null || state.pendingDeckSlideRestore === undefined) return;
+        const targetIndex = state.pendingDeckSlideRestore;
+        state.pendingDeckSlideRestore = null;
+        restoreDeckSlide(targetIndex);
+      }
+
+      function restoreDeckSlide(index) {
+        try {
+          const doc = els.frame.contentDocument;
+          const win = els.frame.contentWindow;
+          if (!doc || !win) return;
+          const slides = getSlides(doc);
+          if (!slides.length) {
+            syncDeckNavigation();
+            return;
+          }
+          const clamped = Math.max(0, Math.min(slides.length - 1, index));
+          const nav = win.RevelaDeckNav;
+          let handled = false;
+          if (nav && typeof nav.goTo === 'function') {
+            try {
+              nav.goTo(clamped);
+              handled = true;
+            } catch {}
+          }
+          if (!handled) applyFallbackDeckNavigation(win, doc, slides, clamped);
+          state.deckSlideIndex = clamped;
+          updateDeckNavControls();
         } catch (error) {
           reportError(error);
         }
@@ -1654,14 +1833,16 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
       function refreshDeckPreview(version) {
         state.pendingRefreshMessage = true;
+        state.pendingDeckSlideRestore = state.deckSlideIndex;
         state.initializedDoc = null;
         state.visualChanges = [];
         updateVisualToolbar();
         clearReferences(true);
         state.hoverEl = null;
         if (state.hoverOutline) state.hoverOutline.style.display = 'none';
+        if (els.visualMoveHandle) els.visualMoveHandle.style.display = 'none';
         if (els.visualResizeHandle) els.visualResizeHandle.style.display = 'none';
-        state.hoverResizeTarget = null;
+        state.hoverVisualTarget = null;
         state.assetDropTarget = null;
         if (state.assetDropOutline) state.assetDropOutline.style.display = 'none';
         state.referenceOutlines.forEach((outline) => outline.style.display = 'none');
@@ -1679,12 +1860,12 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           if (!target || isReferenced(target)) {
             state.hoverEl = null;
             renderHoverOutline(null);
-            renderVisualResizeHandle(null);
+            renderVisualHandles(null);
             return;
           }
           state.hoverEl = target;
           renderHoverOutline(target);
-          renderVisualResizeHandle(target);
+          renderVisualHandles(target);
         } catch (error) {
           reportError(error);
         }
@@ -1707,6 +1888,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function onPointerDown(event) {
+        if (!event.ctrlKey && !event.metaKey && pointerIsOnVisualMoveHandle(event)) {
+          if (startVisualMove(event)) return;
+        }
         if (!event.ctrlKey && !event.metaKey && pointerIsOnVisualResizeHandle(event)) {
           if (startVisualResize(event)) return;
         }
@@ -2246,7 +2430,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function visualTargetFromPointer(event) {
         const raw = targetFromPointer(event);
         const target = raw?.closest?.('[data-revela-edit-id]') || null;
-        return isDirectResizable(target) ? target : null;
+        return isDirectResizable(target) || isDirectMovable(target) ? target : null;
       }
 
       function createOutline(doc, border, fill) {
@@ -2301,14 +2485,14 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function clearHoverSilently() {
         state.hoverEl = null;
         if (state.hoverOutline) state.hoverOutline.style.display = 'none';
-        renderVisualResizeHandle(null);
+        renderVisualHandles(null);
       }
 
       function clearHover() {
         state.hoverEl = null;
         setStatus('Hover cleared. Existing references are kept.');
         if (state.hoverOutline) state.hoverOutline.style.display = 'none';
-        renderVisualResizeHandle(null);
+        renderVisualHandles(null);
       }
 
       function updateSendState() {
