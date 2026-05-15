@@ -156,7 +156,7 @@ Known 0.15 limits:
 - `revela-narrative/` compiles deterministically into existing `NarrativeStateV1`; Story, Research, Make, Review, readiness, hashing, and approval checks continue to use that stable internal interface.
 - When a vault exists, `readDecksState`, `readOrCreateDecksState`, and `writeDecksState` prefer the vault and mirror compiled narrative into `DECKS.json.narrative`, preserving approvals from `DECKS.json`.
 - Vault cache artifacts are written under `.opencode/revela/narrative-cache/`: `compiled-narrative.json`, `graph.json`, and `diagnostics.json`.
-- `revela-decks` supports `exportNarrativeVault`, `compileNarrativeVault`, `upsertVaultEvidence`, and `updateVaultResearchGap`.
+- `revela-decks` supports `exportNarrativeVault`, `compileNarrativeVault`, `updateVaultCoreNarrative`, `upsertVaultClaim`, `upsertVaultEvidence`, `upsertVaultObjection`, `upsertVaultRisk`, and `updateVaultResearchGap`.
 - When a vault exists, direct JSON narrative mutations such as `upsertNarrative`, compatibility research-gap mutation actions, and `applyEvidenceCandidates` are blocked; use vault mutation actions or edit Markdown nodes and compile instead.
 - The MVP does not move approvals, render targets, artifact coverage, review snapshots, or deck specs into Markdown.
 
@@ -206,7 +206,7 @@ Implemented behavior:
 - `compileNarrativeVault` compiles `revela-narrative/` deterministically into existing `NarrativeStateV1`; Story, Research, Make, Review, readiness, hashing, and approval checks continue to use that stable interface.
 - State reads and writes prefer the vault when present and fall back to `DECKS.json.narrative` for old workspaces.
 - Successful vault compiles mirror into `DECKS.json.narrative` and write cache artifacts under `.opencode/revela/narrative-cache/`.
-- `revela-decks` supports `exportNarrativeVault`, `compileNarrativeVault`, `upsertVaultEvidence`, and `updateVaultResearchGap`.
+- `revela-decks` supports `exportNarrativeVault`, `compileNarrativeVault`, `updateVaultCoreNarrative`, `upsertVaultClaim`, `upsertVaultEvidence`, `upsertVaultObjection`, `upsertVaultRisk`, and `updateVaultResearchGap`.
 - Direct JSON narrative mutations are blocked when a vault exists: `upsertNarrative`, compatibility research-gap mutation actions, and `applyEvidenceCandidates` should not rewrite the mirror. Use vault mutation actions for evidence/gap updates, or edit Markdown nodes and compile instead.
 - Empty vaults do not overwrite existing JSON narrative mirrors; compiler emits an `empty_vault` diagnostic.
 
@@ -242,7 +242,7 @@ Refactoring / lean-down guidance:
 
 Priority 0: Vault Markdown mutation helpers.
 
-- Implemented first executable helpers cover `evidence/*.md` and `research-gaps/*.md` through `upsertVaultEvidence` and `updateVaultResearchGap`; remaining targeted helpers for `claims/*.md`, `objections/*.md`, and `risks/*.md` should follow the same preservation rules.
+- Implemented executable helpers cover `evidence/*.md`, `research-gaps/*.md`, `claims/*.md`, `objections/*.md`, `risks/*.md`, plus core audience/decision/thesis/status fields through targeted `revela-decks` actions.
 - Preserve stable frontmatter ids, relation sections, source trace, quote/snippet, support scope, unsupported scope, caveats, and strength.
 - Keep the implementation simple: current frontmatter and section parser are sufficient; do not add a Markdown AST dependency unless there is a concrete need.
 - After Markdown mutations, compile the vault and mirror successful compiles into `DECKS.json.narrative`.
@@ -251,6 +251,7 @@ Priority 0: Vault Markdown mutation helpers.
 Priority 1: research binding in vault workspaces.
 
 - `/revela research` should use the executable vault path for bindable findings: `upsertVaultEvidence` creates/updates canonical `evidence/*.md`, references the claim id, preserves explicit source trace, and compiles.
+- Safe claim narrowing in vault workspaces may use `upsertVaultClaim` only when it preserves strategic meaning and evidence boundaries; broader claim/relation rewrites require Story/user confirmation.
 - Research gap status updates in vault workspaces should use `updateVaultResearchGap` instead of blocked JSON mutation actions.
 - Do not treat raw `researches/**/*.md` findings as support until an evidence node preserves explicit source, quote/snippet, supported scope, unsupported scope, caveat, and strength.
 - Keep broader claim/relation rewrites out of automatic research unless the change is a safe narrowing that preserves strategic meaning; otherwise report for Story/user confirmation.

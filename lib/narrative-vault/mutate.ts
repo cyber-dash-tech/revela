@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "fs"
 import { dirname, join } from "path"
-import type { NarrativeEvidenceBinding, NarrativeResearchGap } from "../narrative-state/types"
+import type { AudienceIntent, DecisionIntent, NarrativeClaim, NarrativeEvidenceBinding, NarrativeObjection, NarrativeResearchGap, NarrativeRisk, NarrativeStateV1, NarrativeThesis } from "../narrative-state/types"
 import { narrativeVaultPath } from "./paths"
 import { readNarrativeVaultDocuments } from "./read"
 
@@ -13,12 +13,132 @@ export type UpdateVaultResearchGapInput = Partial<NarrativeResearchGap> & {
   id: string
 }
 
+export type UpsertVaultClaimInput = Partial<NarrativeClaim> & {
+  id: string
+}
+
+export type UpsertVaultObjectionInput = Partial<NarrativeObjection> & {
+  id: string
+}
+
+export type UpsertVaultRiskInput = Partial<NarrativeRisk> & {
+  id: string
+}
+
+export interface UpdateVaultCoreInput {
+  status?: NarrativeStateV1["status"]
+  audience?: Partial<AudienceIntent>
+  decision?: Partial<DecisionIntent>
+  thesis?: Partial<NarrativeThesis>
+}
+
 export interface VaultNodeMutationResult {
   ok: boolean
   file?: string
+  files?: string[]
   nodeId?: string
   missingFields?: string[]
   error?: string
+}
+
+export function upsertVaultClaimNode(workspaceRoot: string, input: UpsertVaultClaimInput): VaultNodeMutationResult {
+  const existingPath = existingNodePath(workspaceRoot, "claim", input.id)
+  const existing = existingPath ? readNarrativeVaultDocuments(workspaceRoot).documents.find((doc) => doc.relativePath === existingPath) : undefined
+  const missing = existing ? [] : missingNewClaimFields(input)
+  if (missing.length > 0) return { ok: false, nodeId: input.id, missingFields: missing, error: `Claim node is missing required fields for creation: ${missing.join(", ")}.` }
+
+  const root = narrativeVaultPath(workspaceRoot)
+  const relativePath = existingPath ?? join("claims", `${safeFileName(input.id)}.md`)
+  const frontmatter = {
+    ...(existing?.frontmatter ?? {}),
+    type: "claim",
+    id: input.id,
+    kind: input.kind ?? existing?.frontmatter.kind,
+    importance: input.importance ?? existing?.frontmatter.importance,
+    evidenceRequired: input.evidenceRequired ?? existing?.frontmatter.evidenceRequired,
+    supportedScope: input.supportedScope ?? existing?.frontmatter.supportedScope,
+    unsupportedScope: input.unsupportedScope ?? existing?.frontmatter.unsupportedScope,
+    text: input.text ?? existing?.frontmatter.text,
+    caveats: input.caveats ? undefined : existing?.frontmatter.caveats,
+  }
+  const body = buildNodeBody(input.text ?? (stringValue(existing?.frontmatter.text) || existing?.body.trim() || ""), existing?.sections, input.caveats ? { caveats: formatList(input.caveats) } : {})
+  writeVaultNode(root, relativePath, frontmatter, body)
+  return { ok: true, file: relativePath, nodeId: input.id }
+}
+
+export function upsertVaultObjectionNode(workspaceRoot: string, input: UpsertVaultObjectionInput): VaultNodeMutationResult {
+  const existingPath = existingNodePath(workspaceRoot, "objection", input.id)
+  const existing = existingPath ? readNarrativeVaultDocuments(workspaceRoot).documents.find((doc) => doc.relativePath === existingPath) : undefined
+  const missing = existing ? [] : missingNewTextNodeFields(input)
+  if (missing.length > 0) return { ok: false, nodeId: input.id, missingFields: missing, error: `Objection node is missing required fields for creation: ${missing.join(", ")}.` }
+
+  const root = narrativeVaultPath(workspaceRoot)
+  const relativePath = existingPath ?? join("objections", `${safeFileName(input.id)}.md`)
+  const frontmatter = {
+    ...(existing?.frontmatter ?? {}),
+    type: "objection",
+    id: input.id,
+    text: input.text ?? existing?.frontmatter.text,
+    claimId: input.claimId ?? existing?.frontmatter.claimId,
+    priority: input.priority ?? existing?.frontmatter.priority,
+    response: input.response ?? existing?.frontmatter.response,
+  }
+  const body = buildNodeBody(input.text ?? (stringValue(existing?.frontmatter.text) || existing?.body.trim() || ""), existing?.sections, input.response ? { response: input.response } : {})
+  writeVaultNode(root, relativePath, frontmatter, body)
+  return { ok: true, file: relativePath, nodeId: input.id }
+}
+
+export function upsertVaultRiskNode(workspaceRoot: string, input: UpsertVaultRiskInput): VaultNodeMutationResult {
+  const existingPath = existingNodePath(workspaceRoot, "risk", input.id)
+  const existing = existingPath ? readNarrativeVaultDocuments(workspaceRoot).documents.find((doc) => doc.relativePath === existingPath) : undefined
+  const missing = existing ? [] : missingNewTextNodeFields(input)
+  if (missing.length > 0) return { ok: false, nodeId: input.id, missingFields: missing, error: `Risk node is missing required fields for creation: ${missing.join(", ")}.` }
+
+  const root = narrativeVaultPath(workspaceRoot)
+  const relativePath = existingPath ?? join("risks", `${safeFileName(input.id)}.md`)
+  const frontmatter = {
+    ...(existing?.frontmatter ?? {}),
+    type: "risk",
+    id: input.id,
+    text: input.text ?? existing?.frontmatter.text,
+    claimId: input.claimId ?? existing?.frontmatter.claimId,
+    severity: input.severity ?? existing?.frontmatter.severity,
+    mitigation: input.mitigation ?? existing?.frontmatter.mitigation,
+  }
+  const body = buildNodeBody(input.text ?? (stringValue(existing?.frontmatter.text) || existing?.body.trim() || ""), existing?.sections, input.mitigation ? { mitigation: input.mitigation } : {})
+  writeVaultNode(root, relativePath, frontmatter, body)
+  return { ok: true, file: relativePath, nodeId: input.id }
+}
+
+export function updateVaultCoreNodes(workspaceRoot: string, input: UpdateVaultCoreInput): VaultNodeMutationResult {
+  const root = narrativeVaultPath(workspaceRoot)
+  const read = readNarrativeVaultDocuments(workspaceRoot)
+  const files: string[] = []
+  if (input.status) {
+    const existing = read.documents.find((doc) => doc.relativePath === "index.md")
+    writeVaultNode(root, "index.md", { ...(existing?.frontmatter ?? {}), type: "index", id: stringValue(existing?.frontmatter.id) || "narrative:vault", status: input.status }, existing?.body ? `${existing.body.trim()}\n` : "")
+    files.push("index.md")
+  }
+  if (input.audience) {
+    const existing = read.documents.find((doc) => doc.relativePath === "audience.md")
+    const frontmatter = { ...(existing?.frontmatter ?? {}), type: "audience", ...input.audience }
+    writeVaultNode(root, "audience.md", frontmatter, `${input.audience.primary ?? existing?.body.trim() ?? ""}\n`)
+    files.push("audience.md")
+  }
+  if (input.decision) {
+    const existing = read.documents.find((doc) => doc.relativePath === "decision.md")
+    const frontmatter = { ...(existing?.frontmatter ?? {}), type: "decision", ...input.decision }
+    writeVaultNode(root, "decision.md", frontmatter, `${input.decision.action ?? existing?.body.trim() ?? ""}\n`)
+    files.push("decision.md")
+  }
+  if (input.thesis) {
+    const existing = read.documents.find((doc) => doc.relativePath === "thesis.md")
+    const frontmatter = { ...(existing?.frontmatter ?? {}), type: "thesis", id: input.thesis.id ?? existing?.frontmatter.id ?? "thesis:main", confidence: input.thesis.confidence ?? existing?.frontmatter.confidence, caveat: input.thesis.caveat ?? existing?.frontmatter.caveat }
+    writeVaultNode(root, "thesis.md", frontmatter, `${input.thesis.statement ?? existing?.body.trim() ?? ""}\n`)
+    files.push("thesis.md")
+  }
+  if (files.length === 0) return { ok: false, missingFields: ["status|audience|decision|thesis"], error: "No core narrative fields were provided." }
+  return { ok: true, file: files[0], files, nodeId: "narrative:core" }
 }
 
 export function upsertVaultEvidenceNode(workspaceRoot: string, input: UpsertVaultEvidenceInput): VaultNodeMutationResult {
@@ -100,6 +220,22 @@ function missingNewResearchGapFields(input: UpdateVaultResearchGapInput): string
   return missing
 }
 
+function missingNewClaimFields(input: UpsertVaultClaimInput): string[] {
+  const missing = missingNewTextNodeFields(input)
+  for (const key of ["kind", "importance", "evidenceRequired"] as const) {
+    if (input[key] === undefined || !String(input[key]).trim()) missing.push(key)
+  }
+  return missing
+}
+
+function missingNewTextNodeFields(input: { id?: string; text?: string }): string[] {
+  const missing: string[] = []
+  for (const key of ["id", "text"] as const) {
+    if (!String(input[key] ?? "").trim()) missing.push(key)
+  }
+  return missing
+}
+
 function existingNodePath(workspaceRoot: string, type: string, id: string): string | undefined {
   if (!existsSync(narrativeVaultPath(workspaceRoot))) return undefined
   return readNarrativeVaultDocuments(workspaceRoot).documents.find((doc) => doc.frontmatter.type === type && doc.frontmatter.id === id)?.relativePath
@@ -126,6 +262,25 @@ function formatFrontmatter(values: Record<string, unknown>): string {
   }
   lines.push("---")
   return lines.join("\n")
+}
+
+function buildNodeBody(main: string, existingSections: Record<string, string> = {}, overrides: Record<string, string> = {}): string {
+  const sections = { ...existingSections, ...overrides }
+  const chunks = [main.trim()]
+  for (const [name, value] of Object.entries(sections)) {
+    const trimmed = value.trim()
+    if (!trimmed) continue
+    chunks.push(`## ${sectionTitle(name)}\n\n${trimmed}`)
+  }
+  return `${chunks.filter(Boolean).join("\n\n")}\n`
+}
+
+function formatList(items: string[]): string {
+  return items.map((item) => `- ${item}`).join("\n")
+}
+
+function sectionTitle(name: string): string {
+  return name.split("-").map((part) => part ? `${part[0].toUpperCase()}${part.slice(1)}` : part).join(" ")
 }
 
 function quote(value: string): string {

@@ -39,7 +39,7 @@ Deprecated compatibility aliases such as `/revela review`, `/revela narrative`, 
 
 ## Workspace State
 
-Use `DECKS.json` as Revela's compatibility workspace-state and render-state file. Do not write or patch it directly. When `revela-narrative/` exists, edit Markdown nodes for narrative meaning and let tools compile the mirror in `DECKS.json.narrative`.
+Use `DECKS.json` as Revela's compatibility workspace-state and render-state file. Do not write or patch it directly. When `revela-narrative/` exists, use targeted vault actions for common narrative meaning updates and let tools compile the mirror in `DECKS.json.narrative`.
 
 Use `revela-decks` for state operations:
 
@@ -47,7 +47,10 @@ Use `revela-decks` for state operations:
 - `init` to register discovered source material candidates during workspace initialization
 - `exportNarrativeVault` to export existing `DECKS.json.narrative` into `revela-narrative/` when no vault exists
 - `compileNarrativeVault` to compile Markdown vault nodes, refresh cache, and mirror compiled narrative into `DECKS.json`
+- `updateVaultCoreNarrative` to update vault audience, decision, thesis, or status fields
+- `upsertVaultClaim` to create or update targeted `claims/*.md` nodes while preserving relations and unrelated sections
 - `upsertVaultEvidence` to create or update `revela-narrative/evidence/*.md` with explicit source trace in vault workspaces
+- `upsertVaultObjection` and `upsertVaultRisk` to create or update targeted objection/risk nodes in vault workspaces
 - `updateVaultResearchGap` to update `revela-narrative/research-gaps/*.md` lifecycle fields in vault workspaces
 - `upsertNarrative` to preserve canonical audience, decision, thesis, claims, evidence bindings, objections, risks, and research gaps only when no Markdown vault exists
 - `reviewNarrative` to run deterministic story readiness
@@ -81,7 +84,7 @@ During research:
 - save findings through `revela-research-save`
 - treat `/revela research` as permission to attach findings and bind clearly supported evidence without item-by-item user confirmation
 - create canonical evidence bindings only when claim id, quote/snippet, source, support scope, unsupported scope, caveat, and strength are explicit; in vault workspaces use `upsertVaultEvidence`, otherwise use `applyEvidenceCandidates` for candidates or `upsertNarrative` for compatibility-state updates
-- narrow overbroad claim scope or relation rationale when the narrower wording preserves strategic meaning and better matches the evidence
+- narrow overbroad claim scope with `upsertVaultClaim` in vault workspaces only when the narrower wording preserves strategic meaning and better matches the evidence; report relation rewrites or strategic claim changes for Story/user confirmation
 - preserve source path, URL, location/page/sheet/slide, quote/snippet, support scope, unsupported scope, and caveat
 - keep missing or partial evidence visible instead of filling it with model assumptions; classify remaining caveats as internal-data-needed, not-publicly-researchable, source-quality-limit, or still-open
 

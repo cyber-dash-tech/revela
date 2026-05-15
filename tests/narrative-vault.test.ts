@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 import { readDecksState, writeDecksState } from "../lib/decks-state"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
-import { compileNarrativeVault, exportNarrativeStateToVault, parseRelations, updateVaultResearchGapNode, upsertVaultEvidenceNode } from "../lib/narrative-vault"
+import { compileNarrativeVault, exportNarrativeStateToVault, parseRelations, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
 import { narrativeMapState } from "./helpers/narrative-fixtures"
 import { executeDecksTool, tempWorkspace } from "./helpers/tool-helpers"
 
@@ -220,6 +220,97 @@ describe("narrative vault", () => {
     expect(mirrored.narrative.researchGaps).toContainEqual(expect.objectContaining({ id: "gap:pilot-evidence", status: "evidence_bound" }))
     expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("evidence:pilot:ops")
   })
+
+  it("upserts claim nodes while preserving existing relations", () => {
+    const root = tempWorkspace("revela-vault-mutate-claim-")
+    writeMutableVault(root)
+
+    const mutation = upsertVaultClaimNode(root, {
+      id: "claim:pilot",
+      text: "Approve a tightly bounded pilot.",
+      supportedScope: "Pilot decision and pilot budget only.",
+      caveats: ["Does not approve full rollout."],
+    })
+    const claimFile = readFileSync(join(root, "revela-narrative", "claims", "pilot.md"), "utf-8")
+    const compiled = compileNarrativeVault(root)
+
+    expect(mutation).toMatchObject({ ok: true, file: "claims/pilot.md" })
+    expect(claimFile).toContain("Approve a tightly bounded pilot.")
+    expect(claimFile).toContain("## Relations")
+    expect(claimFile).toContain("supports: [[claim:execution]]")
+    expect(compiled.narrative?.claims).toContainEqual(expect.objectContaining({ id: "claim:pilot", text: "Approve a tightly bounded pilot.", caveats: ["Does not approve full rollout."] }))
+    expect(compiled.narrative?.claimRelations).toContainEqual(expect.objectContaining({ fromClaimId: "claim:pilot", toClaimId: "claim:execution", relation: "supports" }))
+  })
+
+  it("rejects new claim mutation when required fields are missing", () => {
+    const root = tempWorkspace("revela-vault-mutate-claim-missing-")
+    writeMutableVault(root)
+
+    const mutation = upsertVaultClaimNode(root, { id: "claim:new" })
+
+    expect(mutation.ok).toBe(false)
+    expect(mutation.missingFields).toContain("text")
+    expect(mutation.missingFields).toContain("kind")
+    expect(mutation.missingFields).toContain("importance")
+    expect(mutation.missingFields).toContain("evidenceRequired")
+  })
+
+  it("updates objection and risk nodes while preserving existing fields", () => {
+    const root = tempWorkspace("revela-vault-mutate-objection-risk-")
+    writeMutableVault(root)
+
+    const objection = upsertVaultObjectionNode(root, { id: "objection:budget", response: "Pilot spend is capped before rollout." })
+    const risk = upsertVaultRiskNode(root, { id: "risk:execution", mitigation: "Use a two-week readiness checkpoint." })
+    const compiled = compileNarrativeVault(root)
+
+    expect(objection).toMatchObject({ ok: true, file: "objections/budget.md" })
+    expect(risk).toMatchObject({ ok: true, file: "risks/execution.md" })
+    expect(compiled.narrative?.objections).toContainEqual(expect.objectContaining({ id: "objection:budget", claimId: "claim:pilot", priority: "high", response: "Pilot spend is capped before rollout." }))
+    expect(compiled.narrative?.risks).toContainEqual(expect.objectContaining({ id: "risk:execution", claimId: "claim:pilot", severity: "high", mitigation: "Use a two-week readiness checkpoint." }))
+  })
+
+  it("updates core narrative Markdown nodes", () => {
+    const root = tempWorkspace("revela-vault-mutate-core-")
+    writeMutableVault(root)
+
+    const mutation = updateVaultCoreNodes(root, {
+      status: "ready_for_approval",
+      audience: { primary: "Executive committee", beliefAfter: "Pilot evidence is decision-ready." },
+      decision: { action: "Approve pilot funding.", owner: "COO" },
+      thesis: { statement: "A funded pilot is justified with bounded scope.", confidence: "high" },
+    })
+    const compiled = compileNarrativeVault(root)
+
+    expect(mutation.ok).toBe(true)
+    expect(mutation.files).toEqual(["index.md", "audience.md", "decision.md", "thesis.md"])
+    expect(compiled.narrative).toMatchObject({
+      status: "ready_for_approval",
+      audience: { primary: "Executive committee", beliefAfter: "Pilot evidence is decision-ready." },
+      decision: { action: "Approve pilot funding.", owner: "COO" },
+      thesis: { statement: "A funded pilot is justified with bounded scope.", confidence: "high" },
+    })
+  })
+
+  it("tool actions mutate targeted vault nodes and mirror DECKS narrative", async () => {
+    const root = tempWorkspace("revela-vault-tool-targeted-")
+    writeDecksState(root, narrativeMapState())
+    writeMutableVault(root)
+
+    const claim = await executeDecksTool({ action: "upsertVaultClaim", narrative: { claims: [{ id: "claim:pilot", text: "Approve a tightly bounded pilot." }] } }, root)
+    const objection = await executeDecksTool({ action: "upsertVaultObjection", narrative: { objections: [{ id: "objection:budget", response: "Budget is capped." }] } }, root)
+    const risk = await executeDecksTool({ action: "upsertVaultRisk", narrative: { risks: [{ id: "risk:execution", mitigation: "Use a readiness checkpoint." }] } }, root)
+    const core = await executeDecksTool({ action: "updateVaultCoreNarrative", narrative: { audience: { primary: "Executive committee" } } }, root)
+    const mirrored = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
+
+    expect(claim.ok).toBe(true)
+    expect(objection.ok).toBe(true)
+    expect(risk.ok).toBe(true)
+    expect(core.ok).toBe(true)
+    expect(mirrored.narrative.claims).toContainEqual(expect.objectContaining({ id: "claim:pilot", text: "Approve a tightly bounded pilot." }))
+    expect(mirrored.narrative.objections).toContainEqual(expect.objectContaining({ id: "objection:budget", response: "Budget is capped." }))
+    expect(mirrored.narrative.risks).toContainEqual(expect.objectContaining({ id: "risk:execution", mitigation: "Use a readiness checkpoint." }))
+    expect(mirrored.narrative.audience.primary).toBe("Executive committee")
+  })
 })
 
 function writeSampleVault(root: string): void {
@@ -239,11 +330,16 @@ function writeMutableVault(root: string): void {
   const vault = join(root, "revela-narrative")
   mkdirSync(join(vault, "claims"), { recursive: true })
   mkdirSync(join(vault, "evidence"), { recursive: true })
+  mkdirSync(join(vault, "objections"), { recursive: true })
+  mkdirSync(join(vault, "risks"), { recursive: true })
   mkdirSync(join(vault, "research-gaps"), { recursive: true })
   writeFileSync(join(vault, "index.md"), "---\ntype: index\nid: narrative:mutable-demo\nstatus: needs_research\n---\n", "utf-8")
   writeFileSync(join(vault, "audience.md"), "---\ntype: audience\nprimary: Board\nbeliefBefore: Pilot evidence is incomplete.\nbeliefAfter: Pilot evidence is bounded and traceable.\n---\n", "utf-8")
   writeFileSync(join(vault, "decision.md"), "---\ntype: decision\naction: Approve a bounded pilot.\ndecisionType: approve\n---\n", "utf-8")
   writeFileSync(join(vault, "thesis.md"), "---\ntype: thesis\nid: thesis:pilot\nconfidence: medium\n---\nA bounded pilot is the right next step.\n", "utf-8")
-  writeFileSync(join(vault, "claims", "pilot.md"), "---\ntype: claim\nid: claim:pilot\nkind: recommendation\nimportance: central\nevidenceRequired: true\nsupportedScope: Pilot decision only.\nunsupportedScope: Full rollout remains unsupported.\n---\nApprove a bounded pilot.\n", "utf-8")
+  writeFileSync(join(vault, "claims", "pilot.md"), "---\ntype: claim\nid: claim:pilot\nkind: recommendation\nimportance: central\nevidenceRequired: true\nsupportedScope: Pilot decision only.\nunsupportedScope: Full rollout remains unsupported.\n---\nApprove a bounded pilot.\n\n## Relations\n\n- supports: [[claim:execution]]\n", "utf-8")
+  writeFileSync(join(vault, "claims", "execution.md"), "---\ntype: claim\nid: claim:execution\nkind: evidence\nimportance: supporting\nevidenceRequired: false\n---\nExecution can be checked before rollout.\n", "utf-8")
+  writeFileSync(join(vault, "objections", "budget.md"), "---\ntype: objection\nid: objection:budget\nclaimId: claim:pilot\npriority: high\n---\nBudget could exceed pilot guardrails.\n", "utf-8")
+  writeFileSync(join(vault, "risks", "execution.md"), "---\ntype: risk\nid: risk:execution\nclaimId: claim:pilot\nseverity: high\n---\nPilot execution may slip.\n", "utf-8")
   writeFileSync(join(vault, "research-gaps", "pilot.md"), "---\ntype: research-gap\nid: gap:pilot-evidence\ntargetType: claim\ntargetId: claim:pilot\nquestion: What evidence supports the pilot decision?\nstatus: open\npriority: high\ncreatedFromIssueType: claim_missing_evidence\n---\nWhat evidence supports the pilot decision?\n", "utf-8")
 }

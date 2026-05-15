@@ -75,11 +75,12 @@ describe("revela research command prompt", () => {
     expect(prompt).toContain("report `findingsFile`, `bindingDiagnostic.bindable`, `failureReasons`")
   })
 
-  it("reports claim narrowing instead of mutating canonical narrative during research", () => {
+  it("limits claim narrowing to safe vault actions during research", () => {
     const prompt = buildResearchPrompt({ exists: true })
 
-    expect(prompt).toContain("do not mutate canonical claims during research")
-    expect(prompt).toContain("Report the needed claim/relation narrowing in `Narrative changes`")
+    expect(prompt).toContain("can be safely narrowed without changing strategic meaning")
+    expect(prompt).toContain("update the claim boundary with `upsertVaultClaim` in vault workspaces")
+    expect(prompt).toContain("Relation rewrites and strategic claim changes must be reported in `Narrative changes`")
     expect(prompt).toContain("Broader narrative rewrites must be reported for Story/user confirmation")
     expect(prompt).not.toContain("through `upsertNarrative` only when")
     expect(prompt).not.toContain("or `upsertNarrative` to preserve canonical evidence bindings")
