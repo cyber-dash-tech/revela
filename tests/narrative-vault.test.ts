@@ -86,6 +86,18 @@ describe("narrative vault", () => {
     expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("narrative:vault-demo")
   })
 
+  it("does not replace existing DECKS narrative when the vault is empty", () => {
+    const root = tempWorkspace("revela-vault-empty-")
+    const state = narrativeMapState()
+    writeDecksState(root, state)
+    mkdirSync(join(root, "revela-narrative"), { recursive: true })
+
+    const read = readDecksState(root)
+
+    expect(read.narrative?.id).toBe(state.narrative?.id)
+    expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "diagnostics.json"), "utf-8")).toContain("empty_vault")
+  })
+
   it("tool actions compile/export vault and block JSON narrative mutation when vault exists", async () => {
     const root = tempWorkspace("revela-vault-tools-")
     const state = narrativeMapState()

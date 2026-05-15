@@ -28,6 +28,13 @@ export function compileNarrativeVault(workspaceRoot: string, options: CompileNar
   const read = readNarrativeVaultDocuments(workspaceRoot)
   const diagnostics: VaultDiagnostic[] = [...read.diagnostics]
   const docs = read.documents
+  if (docs.length === 0) {
+    return {
+      ok: false,
+      diagnostics: [{ severity: "error", code: "empty_vault", message: "revela-narrative/ exists but contains no Markdown narrative nodes." }],
+      graph: { nodes: [], relations: [] },
+    }
+  }
   const nodeDocs = docs.filter((doc) => stringField(doc, "id"))
   const duplicateIds = duplicateValues(nodeDocs.map((doc) => stringField(doc, "id")))
   for (const id of duplicateIds) diagnostics.push({ severity: "error", code: "duplicate_id", message: `Duplicate narrative vault id: ${id}`, nodeId: id })
