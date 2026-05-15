@@ -37,12 +37,20 @@ export function compileNarrativeVault(workspaceRoot: string, options: CompileNar
 
   for (const doc of docs) {
     if (!stringField(doc, "type")) diagnostics.push({ severity: "error", code: "missing_type", message: "Missing required frontmatter field: type", file: doc.relativePath })
+    else if (!isVaultNodeType(stringField(doc, "type"))) diagnostics.push({ severity: "error", code: "unknown_node_type", message: `Unknown narrative vault node type: ${stringField(doc, "type")}`, file: doc.relativePath, nodeId: stringField(doc, "id") })
     if (requiresId(doc) && !stringField(doc, "id")) diagnostics.push({ severity: "error", code: "missing_id", message: "Missing required frontmatter field: id", file: doc.relativePath })
   }
 
   const relations = docs.flatMap((doc) => doc.relations)
   for (const relation of relations) {
-    if (!byId.has(relation.toId)) diagnostics.push({ severity: "error", code: "broken_link", message: `Relation points to unknown node: ${relation.toId}`, file: relation.file, nodeId: relation.fromId })
+    const from = byId.get(relation.fromId)
+    const to = byId.get(relation.toId)
+    if (!to) {
+      diagnostics.push({ severity: "error", code: "broken_link", message: `Relation points to unknown node: ${relation.toId}`, file: relation.file, nodeId: relation.fromId })
+      continue
+    }
+    const illegalReason = illegalRelationReason(typeField(from), typeField(to), relation.relation)
+    if (illegalReason) diagnostics.push({ severity: "error", code: "illegal_relation_target", message: illegalReason, file: relation.file, nodeId: relation.fromId })
   }
 
   const narrative: Partial<NarrativeStateV1> = {
@@ -185,9 +193,26 @@ function findType(docs: VaultDocument[], type: VaultNodeType): VaultDocument | u
 
 function typeField(doc: VaultDocument | undefined): VaultNodeType {
   const value = stringField(doc, "type")
-  if (value === "research-gap") return value
-  if (["index", "audience", "decision", "thesis", "claim", "evidence", "objection", "risk"].includes(value)) return value as VaultNodeType
+  if (isVaultNodeType(value)) return value
   return "index"
+}
+
+function isVaultNodeType(value: string): value is VaultNodeType {
+  return value === "research-gap" || ["index", "audience", "decision", "thesis", "claim", "evidence", "objection", "risk"].includes(value)
+}
+
+function illegalRelationReason(fromType: VaultNodeType, toType: VaultNodeType, relation: string): string | undefined {
+  if (fromType !== "claim") return `Relation ${relation} must start from a claim node, not ${fromType}.`
+  const allowedTargets: Record<string, VaultNodeType[]> = {
+    leads_to: ["claim"],
+    supports: ["claim"],
+    contrasts_with: ["claim"],
+    depends_on: ["claim", "evidence"],
+    constrains: ["claim", "risk"],
+    answers: ["claim", "objection"],
+  }
+  if (!allowedTargets[relation]?.includes(toType)) return `Relation ${relation} from a claim cannot target ${toType}.`
+  return undefined
 }
 
 function requiresId(doc: VaultDocument): boolean {
