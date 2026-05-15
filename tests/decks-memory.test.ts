@@ -208,6 +208,8 @@ describe("review command", () => {
     expect(prompt).toContain("evidenceDraft")
     expect(prompt).toContain("unsupportedScope")
     expect(prompt).toContain("recommendedRewrite")
+    expect(prompt).toContain("revela-narrative/evidence/*.md")
+    expect(prompt).toContain("compileNarrativeVault")
     expect(prompt).toContain("applyEvidenceCandidates")
     expect(prompt).toContain("candidateIds")
     expect(prompt).toContain("evidenceCandidateSearch")

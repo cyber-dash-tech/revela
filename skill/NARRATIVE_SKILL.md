@@ -78,7 +78,7 @@ During research:
 - delegate external web search to the `revela-research` subagent
 - save findings through `revela-research-save`
 - treat `/revela research` as permission to attach findings and bind clearly supported evidence without item-by-item user confirmation
-- use `applyEvidenceCandidates` or `upsertNarrative` to create canonical evidence bindings when claim id, quote/snippet, source, support scope, unsupported scope, caveat, and strength are explicit
+- create canonical evidence bindings only when claim id, quote/snippet, source, support scope, unsupported scope, caveat, and strength are explicit; in vault workspaces edit `evidence/*.md` and compile, otherwise use `applyEvidenceCandidates` for candidates or `upsertNarrative` for compatibility-state updates
 - narrow overbroad claim scope or relation rationale when the narrower wording preserves strategic meaning and better matches the evidence
 - preserve source path, URL, location/page/sheet/slide, quote/snippet, support scope, unsupported scope, and caveat
 - keep missing or partial evidence visible instead of filling it with model assumptions; classify remaining caveats as internal-data-needed, not-publicly-researchable, source-quality-limit, or still-open
