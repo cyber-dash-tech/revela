@@ -17,7 +17,16 @@ export interface CompileDeckPlanResult {
   narrativeHash: string
   slideCount: number
   slides: SlideSpec[]
+  chapters?: DeckPlanChapter[]
   qualityChecks?: DeckPlanQualityCheck[]
+}
+
+export interface DeckPlanChapter {
+  title: string
+  role: "context" | "tension" | "evidence" | "recommendation" | "risk" | "ask"
+  slideIndexes: number[]
+  claimIds: string[]
+  evidenceBindingIds: string[]
 }
 
 export interface DeckPlanQualityCheck {
@@ -47,8 +56,9 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
   const deckKey = state.activeDeck ?? Object.keys(state.decks)[0]
   const deck = deckKey ? state.decks[deckKey] : undefined
   const slug = deck?.slug ?? state.activeDeck ?? "deck"
-  const slides = buildSlides(narrative)
-  const qualityChecks = checkPlanQuality(narrative, slides)
+  const plan = buildDeckPlan(narrative)
+  const { slides, chapters } = plan
+  const qualityChecks = checkPlanQuality(narrative, slides, chapters)
   const planCoverage = deckPlanCoverage(narrative, slides)
   const requiredInputs: Partial<RequiredInputs> = {
     topicClarified: true,
@@ -91,8 +101,9 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
       ...(htmlTarget.data ?? {}),
       narrativeId: narrative.id,
       narrativeHash,
-      planQualityChecks: qualityChecks,
-      requiredClaimIds: planCoverage.requiredClaimIds,
+        planQualityChecks: qualityChecks,
+        planChapters: chapters,
+        requiredClaimIds: planCoverage.requiredClaimIds,
       coveredClaimIds: planCoverage.coveredClaimIds,
       missingClaimIds: planCoverage.missingClaimIds,
       claimSlideRefs: getClaimSlideRefs(next).map((ref) => ({
@@ -115,33 +126,45 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
         narrativeHash,
         slideCount: slides.length,
         slides,
+        chapters,
         qualityChecks,
       },
     }
 }
 
-function buildSlides(narrative: NarrativeStateV1): SlideSpec[] {
+function buildDeckPlan(narrative: NarrativeStateV1): { slides: SlideSpec[]; chapters: DeckPlanChapter[] } {
   const slides: SlideSpec[] = []
   const evidenceByClaim = evidenceBindingsByClaim(narrative.evidenceBindings)
   const centralClaims = orderedClaims(narrative, (claim) => claim.importance === "central")
   const supportingClaims = orderedClaims(narrative, (claim) => claim.importance !== "central")
-  const chapters = deriveChapters(narrative, centralClaims, supportingClaims)
+  const chapters = deriveChapters(narrative, centralClaims, supportingClaims).map((chapter) => ({ ...chapter }))
 
   slides.push(coverSlide(slides.length + 1, narrative))
+  assignSlideToChapter(chapters, "context", slides[slides.length - 1])
   slides.push(tocSlide(slides.length + 1, chapters))
 
   for (const claim of centralClaims) {
-    slides.push(claimSlide(slides.length + 1, claim, evidenceByClaim.get(claim.id) ?? []))
+    const slide = claimSlide(slides.length + 1, claim, evidenceByClaim.get(claim.id) ?? [])
+    slides.push(slide)
+    assignSlideToChapter(chapters, chapterRoleForClaim(claim), slide)
   }
-  if (supportingClaims.length > 0) slides.push(supportingLogicSlide(slides.length + 1, supportingClaims, evidenceByClaim))
+  if (supportingClaims.length > 0) {
+    const slide = supportingLogicSlide(slides.length + 1, supportingClaims, evidenceByClaim)
+    slides.push(slide)
+    assignSlideToChapter(chapters, "evidence", slide)
+  }
 
   if (narrative.risks.length > 0 || narrative.objections.length > 0) {
-    slides.push(riskObjectionSlide(slides.length + 1, narrative))
+    const slide = riskObjectionSlide(slides.length + 1, narrative, evidenceByClaim)
+    slides.push(slide)
+    assignSlideToChapter(chapters, "risk", slide)
   }
 
-  slides.push(decisionAskSlide(slides.length + 1, narrative))
+  const decisionSlide = decisionAskSlide(slides.length + 1, narrative)
+  slides.push(decisionSlide)
+  assignSlideToChapter(chapters, "ask", decisionSlide)
 
-  return slides
+  return { slides, chapters }
 }
 
 function coverSlide(index: number, narrative: NarrativeStateV1): SlideSpec {
@@ -166,7 +189,7 @@ function coverSlide(index: number, narrative: NarrativeStateV1): SlideSpec {
   }
 }
 
-function tocSlide(index: number, chapters: string[]): SlideSpec {
+function tocSlide(index: number, chapters: DeckPlanChapter[]): SlideSpec {
   return {
     index,
     title: "Storyline",
@@ -177,7 +200,8 @@ function tocSlide(index: number, chapters: string[]): SlideSpec {
     components: ["toc", "text-panel"],
     content: {
       headline: "How the decision story is organized",
-      bullets: chapters,
+      bullets: chapters.map((chapter) => chapter.title),
+      data: { chapters: chapters.map((chapter) => ({ title: chapter.title, role: chapter.role })) },
     },
     evidence: [],
     status: "planned",
@@ -220,19 +244,20 @@ function supportingLogicSlide(index: number, claims: NarrativeClaim[], evidenceB
     evidenceBindingIds: supportingBindings.map((binding) => binding.id),
     content: {
       headline: "Supporting claims and boundaries",
-      bullets: claims.slice(0, 5).flatMap((claim) => [claim.text, ...claimBoundaryBullets(claim)]).slice(0, 8),
+      bullets: claims.slice(0, 5).flatMap((claim) => [claim.text, ...claimBoundaryBullets(claim), evidenceGapBullet(claim, evidenceByClaim.get(claim.id) ?? [])]).filter((item): item is string => Boolean(item)).slice(0, 8),
     },
     evidence: supportingBindings.map(evidenceRefFromBinding),
     status: "planned",
   }
 }
 
-function riskObjectionSlide(index: number, narrative: NarrativeStateV1): SlideSpec {
+function riskObjectionSlide(index: number, narrative: NarrativeStateV1, evidenceByClaim: Map<string, NarrativeEvidenceBinding[]>): SlideSpec {
   const challengedClaimRefs = [
     ...narrative.risks.map((risk) => risk.claimId ? { claimId: risk.claimId, role: "risk" as const } : undefined).filter((ref): ref is { claimId: string; role: "risk" } => Boolean(ref)),
     ...narrative.objections.map((objection) => objection.claimId ? { claimId: objection.claimId, role: "objection" as const } : undefined).filter((ref): ref is { claimId: string; role: "objection" } => Boolean(ref)),
   ]
   const challengedClaimIds = [...new Set(challengedClaimRefs.map((ref) => ref.claimId))]
+  const challengedBindings = challengedClaimIds.flatMap((claimId) => evidenceByClaim.get(claimId) ?? [])
   return {
     index,
     title: "Risks And Objections",
@@ -243,6 +268,7 @@ function riskObjectionSlide(index: number, narrative: NarrativeStateV1): SlideSp
     components: ["box", "text-panel"],
     claimIds: challengedClaimIds,
     claimRefs: dedupeClaimRefs(challengedClaimRefs),
+    evidenceBindingIds: challengedBindings.map((binding) => binding.id),
     content: {
       headline: "What could break the recommendation",
       bullets: [
@@ -250,7 +276,7 @@ function riskObjectionSlide(index: number, narrative: NarrativeStateV1): SlideSp
         ...narrative.objections.slice(0, 3).map((objection) => objection.response ? `${objection.text} Response: ${objection.response}` : objection.text),
       ],
     },
-    evidence: [],
+    evidence: challengedBindings.map(evidenceRefFromBinding),
     status: "planned",
   }
 }
@@ -302,20 +328,49 @@ function orderedClaims(narrative: NarrativeStateV1, predicate: (claim: Narrative
     .sort((a, b) => (relationScore.get(b.id) ?? 0) - (relationScore.get(a.id) ?? 0) || (sourceOrder.get(a.id) ?? 0) - (sourceOrder.get(b.id) ?? 0))
 }
 
-function deriveChapters(narrative: NarrativeStateV1, centralClaims: NarrativeClaim[], supportingClaims: NarrativeClaim[]): string[] {
-  const chapters: string[] = []
-  addUnique(chapters, narrative.audience.decisionContext ? "Decision context" : "Context and belief shift")
-  if (hasClaimKind([...centralClaims, ...supportingClaims], ["problem", "opportunity"])) addUnique(chapters, "Tension and opportunity")
-  if (centralClaims.some((claim) => claim.kind === "evidence") || supportingClaims.some((claim) => claim.kind === "evidence")) addUnique(chapters, "Evidence and proof")
-  if (centralClaims.some((claim) => claim.kind === "recommendation" || claim.kind === "ask") || narrative.decision.action) addUnique(chapters, "Recommendation and decision")
-  if (narrative.risks.length > 0 || narrative.objections.length > 0 || centralClaims.some((claim) => claim.unsupportedScope || (claim.caveats ?? []).length > 0)) addUnique(chapters, "Risks and boundaries")
-  addUnique(chapters, "Decision ask")
-  if (chapters.length < 3) addUnique(chapters, "Evidence and proof")
-  return chapters.slice(0, 5)
+function deriveChapters(narrative: NarrativeStateV1, centralClaims: NarrativeClaim[], supportingClaims: NarrativeClaim[]): DeckPlanChapter[] {
+  const claims = [...centralClaims, ...supportingClaims]
+  const chapters: DeckPlanChapter[] = []
+  addChapter(chapters, narrative.audience.decisionContext ? "Decision context" : "Context and belief shift", "context")
+  if (hasClaimKind(claims, ["problem", "opportunity"])) addChapter(chapters, "Tension and opportunity", "tension")
+  if (claims.some((claim) => claim.kind === "evidence") || narrative.evidenceBindings.length > 0) addChapter(chapters, "Evidence and proof", "evidence")
+  if (claims.some((claim) => claim.kind === "recommendation" || claim.kind === "ask") || narrative.decision.action) addChapter(chapters, "Recommendation and decision", "recommendation")
+  if (narrative.risks.length > 0 || narrative.objections.length > 0 || centralClaims.some((claim) => claim.unsupportedScope || (claim.caveats ?? []).length > 0)) addChapter(chapters, "Risks and boundaries", "risk")
+  addChapter(chapters, "Decision ask", "ask")
+  if (chapters.length < 3) addChapter(chapters, "Evidence and proof", "evidence")
+  while (chapters.length > 5) {
+    const tensionIndex = chapters.findIndex((chapter) => chapter.role === "tension")
+    if (tensionIndex >= 0) chapters.splice(tensionIndex, 1)
+    else chapters.splice(Math.max(1, chapters.length - 2), 1)
+  }
+  return chapters
+}
+
+function addChapter(chapters: DeckPlanChapter[], title: string, role: DeckPlanChapter["role"]): void {
+  if (chapters.some((chapter) => chapter.role === role || chapter.title === title)) return
+  chapters.push({ title, role, slideIndexes: [], claimIds: [], evidenceBindingIds: [] })
+}
+
+function assignSlideToChapter(chapters: DeckPlanChapter[], role: DeckPlanChapter["role"], slide: SlideSpec): void {
+  const chapter = chapters.find((item) => item.role === role) ?? chapters.find((item) => item.role === "evidence") ?? chapters[chapters.length - 1]
+  if (!chapter) return
+  chapter.slideIndexes.push(slide.index)
+  for (const claimId of slide.claimIds ?? []) addUnique(chapter.claimIds, claimId)
+  for (const ref of slide.claimRefs ?? []) addUnique(chapter.claimIds, ref.claimId)
+  for (const bindingId of slide.evidenceBindingIds ?? []) addUnique(chapter.evidenceBindingIds, bindingId)
 }
 
 function addUnique(items: string[], item: string): void {
   if (!items.includes(item)) items.push(item)
+}
+
+function chapterRoleForClaim(claim: NarrativeClaim): DeckPlanChapter["role"] {
+  if (claim.kind === "problem" || claim.kind === "opportunity") return "tension"
+  if (claim.kind === "recommendation") return "recommendation"
+  if (claim.kind === "ask") return "ask"
+  if (claim.kind === "risk" || claim.kind === "assumption") return "risk"
+  if (claim.kind === "context") return "context"
+  return "evidence"
 }
 
 function hasClaimKind(claims: NarrativeClaim[], kinds: NarrativeClaim["kind"][]): boolean {
@@ -332,7 +387,13 @@ function claimBullets(claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[
   return [
     ...claimBoundaryBullets(claim),
     ...bindings.slice(0, 2).map((binding) => binding.supportScope ? `Evidence supports: ${binding.supportScope}` : undefined),
+    evidenceGapBullet(claim, bindings),
   ].filter((item): item is string => Boolean(item))
+}
+
+function evidenceGapBullet(claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): string | undefined {
+  if (!claim.evidenceRequired || bindings.length > 0) return undefined
+  return `Evidence gap: ${claim.evidenceStatus === "missing" ? "no binding yet" : "support remains incomplete"}.`
 }
 
 function claimBoundaryBullets(claim: NarrativeClaim): string[] {
@@ -370,13 +431,29 @@ function evidenceRefFromBinding(binding: NarrativeEvidenceBinding): EvidenceRef 
   }
 }
 
-function checkPlanQuality(narrative: NarrativeStateV1, slides: SlideSpec[]): DeckPlanQualityCheck[] {
+function checkPlanQuality(narrative: NarrativeStateV1, slides: SlideSpec[], chapters: DeckPlanChapter[]): DeckPlanQualityCheck[] {
   const coverage = deckPlanCoverage(narrative, slides)
   const centralClaimIds = narrative.claims.filter((claim) => claim.importance === "central").map((claim) => claim.id)
   const missingCentralClaims = centralClaimIds.filter((claimId) => coverage.missingClaimIds.includes(claimId))
   const incompatibleComponents = [...new Set(slides.flatMap((slide) => slide.components).filter((component) => component === "card"))]
+  const toc = slides.find((slide) => slide.components.includes("toc"))
+  const tocBullets = toc?.content.bullets ?? []
+  const chapterTitles = chapters.map((chapter) => chapter.title)
+  const evidenceRequiredWithoutBindings = narrative.claims.filter((claim) => claim.evidenceRequired && !narrative.evidenceBindings.some((binding) => binding.claimId === claim.id))
+  const invisibleEvidenceGaps = evidenceRequiredWithoutBindings.filter((claim) => coverage.missingClaimIds.includes(claim.id))
+  const risksOrObjectionsVisible = narrative.risks.length === 0 && narrative.objections.length === 0 || slides.some((slide) => slide.narrativeRole === "risk")
 
   return [
+    {
+      id: "chapter_structure_present",
+      status: chapters.length >= 3 && chapters.length <= 5 && chapters.every((chapter) => chapter.slideIndexes.length > 0) ? "pass" : "blocker",
+      message: chapters.length >= 3 && chapters.length <= 5 && chapters.every((chapter) => chapter.slideIndexes.length > 0) ? `Deck plan includes ${chapters.length} deterministic chapters with slide ranges.` : "Deck plan must include 3-5 deterministic chapters, each mapped to at least one slide.",
+    },
+    {
+      id: "toc_matches_chapters",
+      status: chapterTitles.length > 0 && chapterTitles.every((title) => tocBullets.includes(title)) ? "pass" : "blocker",
+      message: chapterTitles.length > 0 && chapterTitles.every((title) => tocBullets.includes(title)) ? "TOC headings match the deterministic chapter plan." : "TOC headings do not match the deterministic chapter plan.",
+    },
     {
       id: "toc_present",
       status: slides.some((slide) => slide.components.includes("toc")) ? "pass" : "blocker",
@@ -396,6 +473,16 @@ function checkPlanQuality(narrative: NarrativeStateV1, slides: SlideSpec[]): Dec
       id: "unsupported_central_claims_visible",
       status: narrative.claims.some((claim) => claim.importance === "central" && (claim.unsupportedScope || (claim.caveats ?? []).length > 0)) ? "warning" : "pass",
       message: narrative.claims.some((claim) => claim.importance === "central" && (claim.unsupportedScope || (claim.caveats ?? []).length > 0)) ? "Central claim boundaries are visible and should remain explicit in the rendered artifact." : "No unsupported central claim boundaries were found.",
+    },
+    {
+      id: "evidence_required_claims_have_evidence_or_visible_gap",
+      status: invisibleEvidenceGaps.length === 0 ? evidenceRequiredWithoutBindings.length > 0 ? "warning" : "pass" : "blocker",
+      message: invisibleEvidenceGaps.length > 0 ? `Evidence-required claims missing from planned slides: ${invisibleEvidenceGaps.map((claim) => claim.id).join(", ")}` : evidenceRequiredWithoutBindings.length > 0 ? `Evidence gaps remain visible for claims: ${evidenceRequiredWithoutBindings.map((claim) => claim.id).join(", ")}` : "Every evidence-required claim has at least one evidence binding.",
+    },
+    {
+      id: "risk_or_objection_visible",
+      status: risksOrObjectionsVisible ? "pass" : "warning",
+      message: risksOrObjectionsVisible ? "Risks and objections are visible when present." : "Narrative risks or objections exist but no risk/objection slide is planned.",
     },
     {
       id: "simplified_design_grammar",

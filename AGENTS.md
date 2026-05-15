@@ -159,6 +159,7 @@ Known 0.15 limits:
 - `revela-decks` supports `exportNarrativeVault`, `compileNarrativeVault`, `updateVaultCoreNarrative`, `upsertVaultClaim`, `upsertVaultEvidence`, `upsertVaultObjection`, `upsertVaultRisk`, and `updateVaultResearchGap`.
 - Vault diagnostic reports summarize compiler errors/warnings with file/node context, suggested fixes, and next actions for tools and command prompts.
 - JSON narrative workspaces without `revela-narrative/` now receive a summary-read migration hint pointing to `exportNarrativeVault`; export responses list files written plus fields that remain in `DECKS.json`.
+- `compileDeckPlanFromNarrative` now returns deterministic chapter metadata, maps TOC headings to slide ranges, carries claim/evidence/caveat boundaries into planned slides, and records chapter data on render targets.
 - When a vault exists, direct JSON narrative mutations such as `upsertNarrative`, compatibility research-gap mutation actions, and `applyEvidenceCandidates` are blocked; use vault mutation actions or edit Markdown nodes and compile instead.
 - The MVP does not move approvals, render targets, artifact coverage, review snapshots, or deck specs into Markdown.
 
@@ -279,12 +280,12 @@ Priority 3: init/export migration polish.
 
 Priority 4: deterministic deck plan compiler v2.
 
-- Align `compileDeckPlanFromNarrative` with `/revela make --deck` expectations: deterministic Cover, TOC, content chapters, risks/objections where relevant, and Closing/Decision Ask.
-- Generate 3-5 chapter headings from claim roles, claim relations, objections, risks, and decision context instead of leaving chapter structure mostly to the LLM.
+- Implemented deterministic Cover, TOC, content chapters, risks/objections where relevant, and Closing/Decision Ask in `compileDeckPlanFromNarrative`.
+- Implemented 3-5 chapter headings with slide-index mappings and render-target `planChapters` metadata.
 - Use the simplified built-in design grammar in slide specs: `box`, `text-panel`, `media`, `echart-panel`, `data-table`, `steps`, `roadmap-horizontal`, `roadmap-vertical`, `hero`, `stat-card`, `quote`, `toc`.
 - Avoid old primary component names such as `card` in new slide specs unless needed as compatibility internals.
-- Carry claim refs, evidence binding ids, supported/unsupported scope, caveats, and narrative role into every planned slide so artifact coverage remains reliable.
-- Prefer deterministic plan quality checks before writing HTML: missing TOC/closing, unsupported central claims, stale approval, and incompatible component names should be caught early.
+- Carry claim refs, evidence binding ids, supported/unsupported scope, caveats, visible evidence gaps, and narrative role into planned slides so artifact coverage remains reliable.
+- Deterministic plan quality checks now catch missing chapters/TOC/closing, uncovered central claims, evidence-required claims without bindings or visible gaps, risk/objection visibility, and incompatible component names before writing HTML.
 
 Priority 5: Story UI as focused claim-flow reading.
 

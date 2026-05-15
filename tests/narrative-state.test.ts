@@ -412,10 +412,19 @@ describe("narrative state", () => {
 
     expect(result.ok).toBe(true)
     expect(result.result).toMatchObject({ compiled: true, skipped: false, slideCount: 6 })
+    expect(result.result.chapters).toEqual(expect.arrayContaining([
+      expect.objectContaining({ title: "Context and belief shift", role: "context", slideIndexes: [1] }),
+      expect.objectContaining({ title: "Evidence and proof", role: "evidence", slideIndexes: expect.arrayContaining([4]) }),
+      expect.objectContaining({ title: "Decision ask", role: "ask", slideIndexes: [6] }),
+    ]))
     expect(result.result.qualityChecks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "chapter_structure_present", status: "pass" }),
+      expect.objectContaining({ id: "toc_matches_chapters", status: "pass" }),
       expect.objectContaining({ id: "toc_present", status: "pass" }),
       expect.objectContaining({ id: "closing_ask_present", status: "pass" }),
       expect.objectContaining({ id: "central_claims_covered", status: "pass" }),
+      expect.objectContaining({ id: "evidence_required_claims_have_evidence_or_visible_gap", status: "pass" }),
+      expect.objectContaining({ id: "risk_or_objection_visible", status: "pass" }),
       expect.objectContaining({ id: "simplified_design_grammar", status: "pass" }),
     ]))
     expect(deck.slides.map((slide) => slide.narrativeRole)).toEqual(["context", "context", "recommendation", "evidence", "risk", "ask"])
@@ -457,6 +466,7 @@ describe("narrative state", () => {
       data: expect.objectContaining({
         narrativeHash: result.result.narrativeHash,
         planQualityChecks: expect.arrayContaining([expect.objectContaining({ id: "simplified_design_grammar", status: "pass" })]),
+        planChapters: expect.arrayContaining([expect.objectContaining({ title: "Decision ask", slideIndexes: [6] })]),
         requiredClaimIds: expect.arrayContaining([expect.stringMatching(/^claim:/)]),
         coveredClaimIds: expect.arrayContaining([expect.stringMatching(/^claim:/)]),
         claimSlideRefs: expect.arrayContaining([expect.objectContaining({ claimId: expect.stringMatching(/^claim:/), slideIndex: 3, match: "metadata", role: "primary", location: "claimRefs:primary" })]),
@@ -499,6 +509,30 @@ describe("narrative state", () => {
 
     expect(secondDeck.planReview?.planHash).toBe(firstPlanHash)
     expect(secondPlan).toEqual(firstPlan)
+  })
+
+  it("keeps unsupported evidence-required claims visible in the deterministic deck plan", async () => {
+    const workspaceRoot = tempWorkspace("revela-narrative-compile-gaps-")
+    writeDecksState(workspaceRoot, narrativeMapState())
+
+    const result = await executeDecksTool({ action: "compileDeckPlan" }, workspaceRoot)
+    const reloaded = readDecksState(workspaceRoot)
+    const deck = reloaded.decks[reloaded.activeDeck!]
+
+    expect(result.result.qualityChecks).toContainEqual(expect.objectContaining({
+      id: "evidence_required_claims_have_evidence_or_visible_gap",
+      status: "warning",
+      message: expect.stringContaining("claim:missing"),
+    }))
+    expect(deck.slides).toContainEqual(expect.objectContaining({
+      title: "Supporting Logic",
+      claimRefs: expect.arrayContaining([expect.objectContaining({ claimId: "claim:missing", role: "supporting" })]),
+      content: expect.objectContaining({ bullets: expect.arrayContaining([expect.stringContaining("Evidence gap")]) }),
+    }))
+    expect(result.result.chapters).toEqual(expect.arrayContaining([
+      expect.objectContaining({ title: "Risks and boundaries", role: "risk", slideIndexes: expect.arrayContaining([5]) }),
+      expect.objectContaining({ title: "Decision ask", role: "ask", slideIndexes: [6] }),
+    ]))
   })
 
   it("records user confirmation for the current compiled deck plan", async () => {
