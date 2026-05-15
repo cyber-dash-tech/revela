@@ -2,7 +2,7 @@
 
 [English](README.md) | **中文**
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-462%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-464%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
@@ -178,7 +178,7 @@ Active domain 只进入 narrative pipeline。它帮助 `init`、`research`、`st
 - active HTML deck 以及派生 PDF、PPTX 等 render targets
 - 带 input hash 的 review snapshots，使重要状态变化后旧的 readiness 自动变 stale
 
-已有的根目录 `DECKS.json` 工作区继续兼容。`revela-decks` 的 `exportNarrativeVault` action 可以把已有 canonical narrative state 导出到 `revela-narrative/`，同时不会把 approvals、render targets、review snapshots 或 artifact coverage 搬进 Markdown。生成缓存位于 `.opencode/revela/narrative-cache/`，不应手工编辑。`writeReadiness.status: "ready"` 只代表 deck/artifact readiness，永远不等于 narrative approval。
+已有的根目录 `DECKS.json` 工作区继续兼容。当 JSON narrative 已存在但还没有导出 Markdown vault 时，`revela-decks` 的 `read` 加 `summary: true` 会返回 migration hint；随后可以用 `exportNarrativeVault` 把已有 canonical narrative state 导出到 `revela-narrative/`，同时不会把 approvals、render targets、review snapshots、artifact coverage、actions、deck specs 或 source material records 搬进 Markdown。生成缓存位于 `.opencode/revela/narrative-cache/`，不应手工编辑。`writeReadiness.status: "ready"` 只代表 deck/artifact readiness，永远不等于 narrative approval。
 
 Deck 仍然是主要 authored artifact，但现在它是从同一份 workspace state 渲染出来的目标之一。后续 briefs、appendix material、Evidence Inspector views、Q&A 和 interactive reading layers 都可以复用同一套来源/证据逻辑，而不是各自生成孤立内容。
 

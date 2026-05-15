@@ -34,7 +34,7 @@ import { closeResearchGapInState, deriveResearchGapsFromReadiness, deriveResearc
 import { normalizeCanonicalNarrativeState, normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { narrativeToBrief } from "../lib/narrative-state/project-compat"
 import type { NarrativeStateV1 } from "../lib/narrative-state/types"
-import { compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticReport, hasNarrativeVault, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode, writeNarrativeVaultCache } from "../lib/narrative-vault"
+import { compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, hasNarrativeVault, VAULT_MIGRATION_PRESERVED_IN_DECKS_JSON, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode, writeNarrativeVaultCache } from "../lib/narrative-vault"
 
 function mergeNarrativeInput(current: NarrativeStateV1, input: Partial<NarrativeStateV1>): Partial<NarrativeStateV1> {
   return {
@@ -320,7 +320,8 @@ export default tool({
           const vaultDiagnostics = hasNarrativeVault(workspaceRoot)
             ? formatVaultDiagnosticReport(compileNarrativeVault(workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] }).diagnostics)
             : undefined
-          return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, activeDeck: state.activeDeck, deck, vaultDiagnostics }, null, 2)
+          const migration = getNarrativeVaultMigrationHint(workspaceRoot, state)
+          return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, activeDeck: state.activeDeck, deck, vaultDiagnostics, migration }, null, 2)
         }
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, state }, null, 2)
       }
@@ -347,7 +348,21 @@ export default tool({
           state.narrative = compiled.narrative
           writeDecksState(workspaceRoot, state)
         }
-        return JSON.stringify({ ok: compiled.ok, path: "revela-narrative", result, diagnostics: compiled.diagnostics, diagnosticReport }, null, 2)
+        return JSON.stringify({
+          ok: compiled.ok,
+          path: "revela-narrative",
+          result,
+          files: result.files,
+          diagnostics: compiled.diagnostics,
+          diagnosticReport,
+          migrationNote: "Exported canonical narrative nodes to revela-narrative/. Approvals, render targets, reviews, artifact coverage, actions, deck specs, and source material records remain in DECKS.json.",
+          preservedInDecksJson: VAULT_MIGRATION_PRESERVED_IN_DECKS_JSON,
+          nextActions: [
+            "Review diagnosticReport for any source trace, evidence, relation, or approval warnings.",
+            "Edit narrative meaning through targeted vault actions or Markdown nodes, then run compileNarrativeVault.",
+            "Keep approvals, render targets, reviews, artifact coverage, actions, deck specs, and source material records in DECKS.json.",
+          ],
+        }, null, 2)
       }
 
       if (args.action === "upsertVaultEvidence") {

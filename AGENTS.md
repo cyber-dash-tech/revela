@@ -158,6 +158,7 @@ Known 0.15 limits:
 - Vault cache artifacts are written under `.opencode/revela/narrative-cache/`: `compiled-narrative.json`, `graph.json`, and `diagnostics.json`.
 - `revela-decks` supports `exportNarrativeVault`, `compileNarrativeVault`, `updateVaultCoreNarrative`, `upsertVaultClaim`, `upsertVaultEvidence`, `upsertVaultObjection`, `upsertVaultRisk`, and `updateVaultResearchGap`.
 - Vault diagnostic reports summarize compiler errors/warnings with file/node context, suggested fixes, and next actions for tools and command prompts.
+- JSON narrative workspaces without `revela-narrative/` now receive a summary-read migration hint pointing to `exportNarrativeVault`; export responses list files written plus fields that remain in `DECKS.json`.
 - When a vault exists, direct JSON narrative mutations such as `upsertNarrative`, compatibility research-gap mutation actions, and `applyEvidenceCandidates` are blocked; use vault mutation actions or edit Markdown nodes and compile instead.
 - The MVP does not move approvals, render targets, artifact coverage, review snapshots, or deck specs into Markdown.
 
@@ -209,6 +210,7 @@ Implemented behavior:
 - Successful vault compiles mirror into `DECKS.json.narrative` and write cache artifacts under `.opencode/revela/narrative-cache/`.
 - `revela-decks` supports `exportNarrativeVault`, `compileNarrativeVault`, `updateVaultCoreNarrative`, `upsertVaultClaim`, `upsertVaultEvidence`, `upsertVaultObjection`, `upsertVaultRisk`, and `updateVaultResearchGap`.
 - `revela-decks` read/compile/vault mutation paths expose `vaultDiagnostics` or `diagnosticReport` so Story, Research, Make, and Review can report blockers before rendering or evidence binding.
+- `revela-decks read(summary: true)` exposes `migration` guidance when a JSON narrative can be exported to `revela-narrative/`, and `exportNarrativeVault` reports files written, diagnostics, cache/mirror result, and provenance fields preserved in `DECKS.json`.
 - Direct JSON narrative mutations are blocked when a vault exists: `upsertNarrative`, compatibility research-gap mutation actions, and `applyEvidenceCandidates` should not rewrite the mirror. Use vault mutation actions for evidence/gap updates, or edit Markdown nodes and compile instead.
 - Empty vaults do not overwrite existing JSON narrative mirrors; compiler emits an `empty_vault` diagnostic.
 
@@ -268,6 +270,9 @@ Priority 2: vault diagnostics UX.
 
 Priority 3: init/export migration polish.
 
+- Implemented migration hinting in summary reads through `lib/narrative-vault/migration.ts`.
+- `exportNarrativeVault` should report files written, diagnostics, next actions, and the fields that remain in `DECKS.json`.
+- `/revela init` should read summary state first and avoid reinitializing existing JSON narrative when migration is available.
 - When a workspace has `DECKS.json.narrative` but no vault, guide users toward `exportNarrativeVault` without implying approvals/render targets moved to Markdown.
 - Export must preserve ids, evidence binding ids, relation endpoints, source paths, findings files, URLs, locations, quotes/snippets, support scope, unsupported scope, and caveats.
 - Do not invent evidence nodes from source-material records or generated deck text.

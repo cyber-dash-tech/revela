@@ -70,6 +70,10 @@ describe("buildInitPrompt", () => {
     expect(prompt).toContain("already exists")
     expect(prompt).toContain("already exists")
     expect(prompt).toContain("revela-decks")
+    expect(prompt).toContain("read` with `summary: true")
+    expect(prompt).toContain("migration.available: true")
+    expect(prompt).toContain("exportNarrativeVault")
+    expect(prompt).toContain("do not reinitialize or overwrite the existing narrative")
   })
 
   it("keeps init source trace adoption conservative", () => {

@@ -44,9 +44,9 @@ Use `DECKS.json` as Revela's compatibility workspace-state and render-state file
 Use `revela-decks` for state operations:
 
 - `read` to inspect current workspace state
-- `read` with `summary: true` to inspect compact deck state plus `vaultDiagnostics` when a Markdown vault exists
+- `read` with `summary: true` to inspect compact deck state plus `vaultDiagnostics` when a Markdown vault exists and `migration` guidance when JSON narrative state can be exported to a vault
 - `init` to register discovered source material candidates during workspace initialization
-- `exportNarrativeVault` to export existing `DECKS.json.narrative` into `revela-narrative/` when no vault exists
+- `exportNarrativeVault` to export existing `DECKS.json.narrative` into `revela-narrative/` when no vault exists; its result states which Markdown files were written and which provenance/render fields remain in `DECKS.json`
 - `compileNarrativeVault` to compile Markdown vault nodes, refresh cache, and mirror compiled narrative into `DECKS.json`
 - `updateVaultCoreNarrative` to update vault audience, decision, thesis, or status fields
 - `upsertVaultClaim` to create or update targeted `claims/*.md` nodes while preserving relations and unrelated sections
@@ -69,12 +69,14 @@ When a tool returns `vaultDiagnostics` or `diagnosticReport`, report blockers be
 
 During init:
 
+- if `read(summary: true)` returns `migration.available: true`, recommend `exportNarrativeVault` instead of recreating or overwriting the existing narrative; only update meaning when the user supplied new information
 - scan local workspace materials before asking broad questions
 - reuse `workspace.sourceMaterials` and extraction cache when fingerprints match
 - extract or read only relevant local materials; do not exhaustively process large workspaces
 - derive claims, evidence bindings, caveats, unsupported scope, source paths, quotes/snippets, pages, sheets, or slide references only when explicit support exists
 - ask the smallest missing intent questions after local evidence has been considered
 - do not require slide count, design choice, layout choice, output path, or visual style unless the user explicitly asks to make an artifact immediately
+- when exporting a vault, say that approvals, render targets, reviews, artifact coverage, actions, deck specs, and source material records remain in `DECKS.json`
 
 ## Research Rules
 

@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-462%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-464%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
@@ -180,7 +180,7 @@ The state records:
 - render targets such as the active HTML deck plus derived PDF and PPTX artifacts
 - review snapshots with input hashes so old readiness results become stale after meaningful state changes
 
-Existing root `DECKS.json` workspaces remain compatible. The `revela-decks` action `exportNarrativeVault` can export existing canonical narrative state into `revela-narrative/` without moving approvals, render targets, review snapshots, or artifact coverage into Markdown. Generated cache files live under `.opencode/revela/narrative-cache/` and should not be edited by hand. `writeReadiness.status: "ready"` is deck/artifact readiness only; it is never narrative approval.
+Existing root `DECKS.json` workspaces remain compatible. `revela-decks` `read` with `summary: true` reports a migration hint when a JSON narrative exists but no Markdown vault has been exported yet. The `exportNarrativeVault` action can then export existing canonical narrative state into `revela-narrative/` without moving approvals, render targets, review snapshots, artifact coverage, actions, deck specs, or source material records into Markdown. Generated cache files live under `.opencode/revela/narrative-cache/` and should not be edited by hand. `writeReadiness.status: "ready"` is deck/artifact readiness only; it is never narrative approval.
 
 Decks remain the primary authored artifact, but they are now treated as render targets from the same workspace state that can later support briefs, appendix material, Evidence Inspector views, Q&A, and interactive reading layers without duplicating source/evidence logic.
 

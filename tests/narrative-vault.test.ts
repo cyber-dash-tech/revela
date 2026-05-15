@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 import { readDecksState, writeDecksState } from "../lib/decks-state"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
-import { compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticMarkdown, formatVaultDiagnosticReport, parseRelations, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
+import { compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticMarkdown, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, parseRelations, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
 import { narrativeMapState } from "./helpers/narrative-fixtures"
 import { executeDecksTool, tempWorkspace } from "./helpers/tool-helpers"
 
@@ -123,6 +123,10 @@ describe("narrative vault", () => {
 
     const exported = await executeDecksTool({ action: "exportNarrativeVault" }, root)
     expect(exported.ok).toBe(true)
+    expect(exported.files).toContain("index.md")
+    expect(exported.migrationNote).toContain("Approvals")
+    expect(exported.preservedInDecksJson).toContain("renderTargets")
+    expect(exported.nextActions).toContain("Review diagnosticReport for any source trace, evidence, relation, or approval warnings.")
 
     const compile = await executeDecksTool({ action: "compileNarrativeVault" }, root)
     expect(compile.result.narrative.id).toBe(state.narrative?.id)
@@ -135,6 +139,33 @@ describe("narrative vault", () => {
 
     const approved = readDecksState(root).narrative!.approvals[0]
     expect(approved.narrativeHash).toBe(computeNarrativeHash(state.narrative!))
+  })
+
+  it("reports migration hints for JSON narrative workspaces without a vault", async () => {
+    const root = tempWorkspace("revela-vault-migration-hint-")
+    const state = narrativeMapState()
+    writeDecksState(root, state)
+
+    const direct = getNarrativeVaultMigrationHint(root, readDecksState(root))
+    const summary = await executeDecksTool({ action: "read", summary: true }, root)
+
+    expect(direct).toMatchObject({ available: true, suggestedAction: "exportNarrativeVault" })
+    expect(summary.migration).toMatchObject({ available: true, suggestedAction: "exportNarrativeVault" })
+    expect(summary.migration.reason).toContain("no revela-narrative/ vault exists yet")
+    expect(summary.migration.preservedInDecksJson).toContain("approvals")
+    expect(summary.migration.nextActions).toContain("Run revela-decks action exportNarrativeVault to create editable Markdown narrative files.")
+  })
+
+  it("does not suggest migration when a Markdown vault already exists", async () => {
+    const root = tempWorkspace("revela-vault-migration-existing-")
+    writeDecksState(root, narrativeMapState())
+    writeMutableVault(root)
+
+    const summary = await executeDecksTool({ action: "read", summary: true }, root)
+
+    expect(summary.migration).toMatchObject({ available: false })
+    expect(summary.migration.reason).toContain("already exists")
+    expect(summary.vaultDiagnostics).toBeDefined()
   })
 
   it("tool read summary and compile expose vault diagnostic reports", async () => {
