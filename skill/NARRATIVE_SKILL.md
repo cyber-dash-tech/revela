@@ -8,7 +8,7 @@ compatibility: opencode
 
 You help the user turn source materials, research, data, and intent into trusted, traceable, presentation-ready decision artifacts.
 
-Decks are important, but they are render targets. The durable source of truth is the canonical narrative state: audience, decision, thesis, claims, evidence boundaries, objections, risks, research gaps, approval provenance, and artifact coverage.
+Decks are important, but they are render targets. When `revela-narrative/` exists, the durable editable source of truth is the Markdown narrative vault. Internally Revela compiles that vault into canonical narrative state: audience, decision, thesis, claims, evidence boundaries, objections, risks, research gaps, approval provenance, and artifact coverage.
 
 Default mode is narrative-first. Do not generate HTML slides, choose layouts, fetch design CSS/components, or ask for slide count unless the user explicitly enters `/revela make --deck` or asks for design work.
 
@@ -16,7 +16,7 @@ Default mode is narrative-first. Do not generate HTML slides, choose layouts, fe
 
 Use the same phase semantics whether the user invokes a slash command or asks in normal chat:
 
-- `Init` discovers local workspace materials, captures intent, initializes or refreshes `DECKS.json`, and creates conservative narrative state only from explicit user statements or source traces.
+- `Init` discovers local workspace materials, captures intent, initializes or refreshes workspace state, and creates conservative narrative state only from explicit user statements or source traces.
 - `Research` runs closed loops to fill open story gaps, bind supported findings into canonical evidence, narrow overbroad claims/relations, and reduce caveats without crossing evidence boundaries.
 - `Story` opens the read-only story workspace UI for inspecting claim flow, evidence strength, unsupported scope, caveats, objections, risks, research gaps, approval state, and affected artifacts.
 - `Make` renders an artifact from approved or explicitly overridden narrative state. Supported 0.15 targets are deck and executive brief.
@@ -39,17 +39,19 @@ Deprecated compatibility aliases such as `/revela review`, `/revela narrative`, 
 
 ## Workspace State
 
-Use `DECKS.json` as Revela's current compatibility workspace-state file. Do not write or patch it directly.
+Use `DECKS.json` as Revela's compatibility workspace-state and render-state file. Do not write or patch it directly. When `revela-narrative/` exists, edit Markdown nodes for narrative meaning and let tools compile the mirror in `DECKS.json.narrative`.
 
 Use `revela-decks` for state operations:
 
 - `read` to inspect current workspace state
 - `init` to register discovered source material candidates during workspace initialization
-- `upsertNarrative` to preserve canonical audience, decision, thesis, claims, evidence bindings, objections, risks, and research gaps
+- `exportNarrativeVault` to export existing `DECKS.json.narrative` into `revela-narrative/` when no vault exists
+- `compileNarrativeVault` to compile Markdown vault nodes, refresh cache, and mirror compiled narrative into `DECKS.json`
+- `upsertNarrative` to preserve canonical audience, decision, thesis, claims, evidence bindings, objections, risks, and research gaps only when no Markdown vault exists
 - `reviewNarrative` to run deterministic story readiness
-- `deriveResearchGaps`, `upsertResearchGaps`, `updateResearchGap`, and `closeResearchGap` to manage research gap lifecycle
+- `deriveResearchGaps`, `upsertResearchGaps`, `updateResearchGap`, and `closeResearchGap` to manage research gap lifecycle only when no Markdown vault exists; otherwise edit `research-gaps/*.md`
 - `attachResearchFindings` to attach saved findings to research state
-- `applyEvidenceCandidates` only when selected candidates should become canonical support
+- `applyEvidenceCandidates` only when selected candidates should become canonical support and no Markdown vault exists; otherwise create or edit `evidence/*.md` with explicit source trace
 - `approveNarrative` only when the user explicitly approves or requests an override
 - `compileDeckPlan`, `upsertDeck`, `upsertSlides`, and `review` only inside make-deck or artifact-readiness workflows
 

@@ -2,7 +2,7 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-05-14 after 0.16.3 research safety and Story simplification/localization fixes.
+> Last updated: 2026-05-15 after 0.17.0 Markdown Narrative Vault MVP.
 
 ## Product Baseline
 
@@ -12,7 +12,7 @@ Product promise:
 
 **Turn source materials, research, data, and user intent into trusted, traceable, presentation-ready decision artifacts.**
 
-Current baseline: `0.16.3`.
+Current baseline: `0.17.0`.
 
 User-facing workflow:
 
@@ -25,9 +25,10 @@ Decks are render targets. The durable core is source trust, canonical narrative 
 
 ## Active Product Rules
 
-- Canonical narrative state is the source of truth for communication meaning.
+- `revela-narrative/` is the editable source of truth for communication meaning when present; otherwise `DECKS.json.narrative` remains the compatibility source.
+- Canonical narrative state (`NarrativeStateV1`) is the compiled internal interface for communication meaning.
 - Artifacts such as HTML decks, PDF, PPTX, executive briefs, speaker notes, appendix material, and future interactive pages are render targets from the same workspace state.
-- `DECKS.json` is the current compatibility workspace-state store for source materials, narrative state, research gaps, evidence bindings, actions, render targets, review snapshots, deck specs, and artifact coverage.
+- `DECKS.json` is the compatibility/render-state store for source materials, compiled narrative mirror, actions, render targets, review snapshots, deck specs, approvals, and artifact coverage.
 - `writeReadiness.status: "ready"` is deck/artifact readiness only. It is never narrative approval.
 - Saved research findings are not evidence support until explicitly attached to research state or bound to canonical narrative/slide evidence.
 - Do not invent quotes, source paths, URLs, page references, caveats, claim ids, evidence ids, or artifact coverage.
@@ -149,6 +150,72 @@ Known 0.15 limits:
 - `0.16.3` hardens research safety: the `revela-research` subagent cannot call `revela-decks`, and `/revela research` must not use `upsertNarrative` for partial canonical narrative changes.
 - Review Prep Mode is the next useful Review direction after 0.16.3 release hardening: add meeting rehearsal, audience-lens challenge framing, and meeting-prep export without turning Review into generic chat or mutating canonical state from exploratory reading.
 
+## Current 0.17 Progress
+
+- `0.17.0` Markdown Narrative Vault MVP is implemented in `lib/narrative-vault/*`.
+- `revela-narrative/` compiles deterministically into existing `NarrativeStateV1`; Story, Research, Make, Review, readiness, hashing, and approval checks continue to use that stable internal interface.
+- When a vault exists, `readDecksState`, `readOrCreateDecksState`, and `writeDecksState` prefer the vault and mirror compiled narrative into `DECKS.json.narrative`, preserving approvals from `DECKS.json`.
+- Vault cache artifacts are written under `.opencode/revela/narrative-cache/`: `compiled-narrative.json`, `graph.json`, and `diagnostics.json`.
+- `revela-decks` supports `exportNarrativeVault` and `compileNarrativeVault`.
+- When a vault exists, direct JSON narrative mutations such as `upsertNarrative`, research-gap mutation actions, and `applyEvidenceCandidates` are blocked; edit Markdown nodes instead.
+- The MVP does not move approvals, render targets, artifact coverage, review snapshots, or deck specs into Markdown.
+
+## 0.17 Narrative Vault Direction
+
+Recommended 0.17 theme: **Markdown Narrative Vault**.
+
+The 0.17 direction is to make `revela-narrative/` the visible, editable canonical narrative source, inspired by Obsidian-style local Markdown vaults. `DECKS.json` is now a compatibility/render-state mirror for current tools when the vault exists, and `.opencode/revela/narrative-cache/` holds deterministic compiled cache files that can be regenerated.
+
+Target workspace boundaries:
+
+- `revela-narrative/` is canonical editable narrative source for audience, decision, thesis, claims, evidence nodes, objections, risks, research gaps, and typed narrative relations.
+- `researches/` remains raw saved findings. Findings are not canonical evidence until an evidence node in `revela-narrative/evidence/` references them with explicit source trace, quote/snippet, support scope, unsupported scope, caveat, and strength.
+- `.opencode/revela/narrative-cache/` stores compiled projections such as `graph.json`, `compiled-narrative.json`, and `diagnostics.json`; it is cache/internal state, not the editable source of truth.
+- `DECKS.json` remains compatibility and render state during migration: active deck specs, render targets, reviews, actions, approvals, artifact coverage, and a compiled narrative mirror for older paths.
+
+Initial vault shape:
+
+```text
+revela-narrative/
+  index.md
+  audience.md
+  decision.md
+  thesis.md
+  claims/
+  evidence/
+  objections/
+  risks/
+  research-gaps/
+```
+
+Canonical relation syntax should use standard wikilinks plus explicit typed relation lines, not custom link targets that mix identity with edge metadata:
+
+```md
+## Relations
+
+- supports: [[claim-recommendation]]
+- depends_on: [[evidence-customer-interviews]]
+- contrasts_with: [[claim-generic-slide-maker]]
+- constrains: [[risk-implementation]]
+- answers: [[objection-budget-concern]]
+```
+
+Implementation sequence:
+
+- Add `lib/narrative-vault/*` parser, frontmatter reader, wikilink/relation extractor, graph projection, and diagnostics without changing command behavior first.
+- Compile `revela-narrative/` deterministically into existing `NarrativeStateV1`; keep `NarrativeStateV1` as the internal stable interface for Story, Research, Make, Review, readiness, hashing, and approval checks.
+- Add a source loader that prefers vault when present and falls back to `DECKS.json.narrative` for old workspaces.
+- Sync successful vault compiles into `DECKS.json.narrative` as a compatibility mirror, then write cache artifacts under `.opencode/revela/narrative-cache/`.
+- Update `/revela init` or an internal migration action to export existing `DECKS.json.narrative` into `revela-narrative/` without inventing claims or evidence.
+- Shift LLM narrative mutations toward Markdown node edits; avoid asking the LLM to rewrite large JSON arrays directly.
+
+Validation requirements:
+
+- Detect duplicate ids, missing required frontmatter, broken links, unknown relation types, illegal edge combinations, orphan central claims, evidence-required claims without bindings, evidence nodes missing trace fields, unresolved research gaps, and stale approval hashes.
+- Preserve claim ids, evidence binding ids, source paths, findings files, URLs, locations, quotes/snippets, support scope, unsupported scope, caveats, and approval boundaries during compile.
+- Do not move approvals, render targets, artifact coverage, or review snapshots into Markdown in the MVP; these remain provenance/render state.
+- Do not introduce a graph database, vector database, Obsidian plugin dependency, or complex inline edge DSL for 0.17.
+
 ## Near-Term Product Priorities
 
 Recommended 0.16 theme: **Deterministic Story-to-Artifact Handoff**.
@@ -171,6 +238,14 @@ Refactoring / lean-down guidance:
 - Current helper extraction has already handled the highest-value low-risk duplication. Do not continue broad test normalization for marginal line-count savings; only refactor tests when it reduces friction for adjacent product work.
 - Keep compatibility command surfaces such as `/revela refine --deck`, `/revela edit`, and `/revela inspect` unless there is an explicit product decision to remove them.
 - Split giant production modules only behind stable re-export surfaces first, especially `lib/decks-state.ts` and Review/Edit/Inspect servers.
+
+Priority 0: Markdown narrative vault migration.
+
+- Build `revela-narrative/` as the human/LLM-editable source of truth while preserving `NarrativeStateV1` as the compiled internal interface.
+- Use frontmatter for stable node identity and typed fields; use `## Relations` lists with typed wikilinks for graph edges.
+- Keep raw findings in `researches/`; create canonical evidence nodes only when explicit evidence boundaries are present.
+- Treat `DECKS.json.narrative` as a compatibility mirror when a vault exists, not the primary editing surface.
+- Prefer deterministic vault diagnostics before Story, Research, Make, or approval actions so missing evidence and broken graph structure stay visible.
 
 Priority 1: deterministic deck plan compiler v2.
 
@@ -311,8 +386,10 @@ remote candidate -> workspace asset -> deck usage
 
 ## Workspace State
 
-- Root `DECKS.json` remains the compatibility persistence file.
-- Canonical narrative state lives under top-level `narrative` and includes audience, decision, thesis, claims, claim relations, evidence bindings, objections, risks, research gaps, approvals, and status.
+- Root `DECKS.json` remains the compatibility persistence file for current tools and render state.
+- Current canonical narrative state is compiled from `revela-narrative/` when present; top-level `DECKS.json.narrative` is a compatibility mirror in vault workspaces.
+- `revela-narrative/` contains audience, decision, thesis, claims, evidence nodes, objections, risks, research gaps, and typed relations as Markdown files with stable frontmatter ids.
+- `.opencode/revela/narrative-cache/` should contain regenerated projections only, including graph, compiled narrative, and diagnostics.
 - `deck.narrativeBrief`, `slides[].narrativeRole`, `slides[].evidence[]`, `slides[].claimRefs[]`, `slides[].claimIds[]`, and `slides[].evidenceBindingIds[]` are compatibility/projection fields.
 - `workspace.sourceMaterials[]` indexes local source candidates and extraction cache paths. It is candidate context, not proof by itself.
 - `actions[]` records compact provenance such as workspace scan, source extraction, findings saved/attached, evidence binding applied, review performed, artifact rendered, and coverage backfilled.
@@ -322,8 +399,10 @@ remote candidate -> workspace asset -> deck usage
 ## Tool And State Rules
 
 - Do not patch `DECKS.json` directly. Use `revela-decks` actions or internal state helpers.
+- During the 0.17 vault migration, do not patch generated cache files as source. Edit `revela-narrative/**/*.md` for narrative meaning and regenerate compiled projections.
 - Do not let research agents mutate canonical state directly. Research agents save findings; the primary workflow attaches findings and binds evidence through approved tools.
 - `revela-research-save` writes findings markdown under `researches/{topic}/{filename}.md`; it does not automatically make findings canonical support.
+- Saved findings become canonical support only through explicit evidence nodes or evidence bindings that preserve source, quote/snippet, support scope, unsupported scope, caveat, and strength.
 - `revela-workspace-scan` discovers candidate documents and records provenance when possible; scan actions are not proof.
 - `revela-extract-document-materials` writes reusable extraction cache under `.opencode/revela/doc-materials/{fingerprint}/` and updates `workspace.sourceMaterials` when `DECKS.json` exists.
 - `revela-decks attachResearchFindings` attaches a workspace-relative `researches/**/*.md` file to a matching research axis. It does not mutate slide evidence or deck HTML.
@@ -341,6 +420,7 @@ remote candidate -> workspace asset -> deck usage
 | Prompt building | `lib/prompt-builder.ts`, `skill/NARRATIVE_SKILL.md`, `skill/SKILL.md` |
 | Workspace state | `lib/decks-state.ts`, `lib/workspace-state/*`, `tools/decks.ts` |
 | Narrative state | `lib/narrative-state/*`, especially `render-plan.ts` for story-to-deck handoff |
+| Narrative vault | `lib/narrative-vault/*` planned for 0.17 parser, graph projection, diagnostics, compiler, and source loader |
 | Research/source materials | `tools/workspace-scan.ts`, `tools/extract-document-materials.ts`, `tools/research-save.ts`, `lib/source-materials.ts` |
 | Review/refine/inspect | `lib/refine/*`, `lib/inspect/*`, `lib/inspection-context/*`, `tools/inspection-result.ts` |
 | Media assets | `lib/media/*`, `tools/media-save.ts`, `tools/media-batch-save.ts`, `tools/research-images-list.ts` |

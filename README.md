@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-380%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-449%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
@@ -20,7 +20,7 @@ Its first render target is still the HTML slide deck: start a Revela workflow co
 - injects one-shot workflow instructions for explicit commands such as `/revela init`, `/revela story`, and `/revela make --deck`
 - switches into deck-render prompt mode only when you explicitly start `/revela make --deck`
 - supports workspace document discovery, transparent text extraction for `.pdf`, `.docx`, `.pptx`, and `.xlsx`, and cached embedded-material extraction for those formats
-- keeps `DECKS.json` as the current workspace state engine for sources, research actions, findings, claims, evidence, narrative intent, render targets, and readiness
+- uses `revela-narrative/` as the editable Markdown narrative vault when present, with `DECKS.json` as the compatibility/render-state mirror
 - reviews narrative readiness before artifact rendering, then separately gates deck HTML writes through deck/artifact readiness
 - records review snapshots so stale readiness cannot silently authorize new deck HTML after important state changes
 - treats HTML decks, PDF, and PPTX as render targets from shared workspace state rather than isolated output files
@@ -168,17 +168,19 @@ The ambient enabled or disabled state is session-level only.
 
 ### Workspace State
 
-`DECKS.json` is Revela's workspace state engine and compatibility file. It is still stored at the workspace root and remains readable as the current deck project state, but internally Revela now treats it as a lightweight persistence layer for more than a deck checklist.
+`revela-narrative/` is Revela's editable Markdown narrative vault when present. It stores the human/LLM-editable source for audience, decision, thesis, claims, evidence nodes, objections, risks, research gaps, and typed narrative relations.
+
+`DECKS.json` remains Revela's compatibility and render-state file. It is still stored at the workspace root and remains readable as the current deck project state, but when a vault exists its top-level `narrative` is a compiled mirror from Markdown rather than the primary editing surface.
 
 The state records:
 
 - workspace source materials and reusable extraction cache paths
 - research plans, saved findings, and compact action provenance
-- canonical narrative state, approvals, objections, risks, slide specs, claim candidates, and evidence trace
+- compiled canonical narrative mirror, approvals, objections, risks, slide specs, claim candidates, and evidence trace
 - render targets such as the active HTML deck plus derived PDF and PPTX artifacts
 - review snapshots with input hashes so old readiness results become stale after meaningful state changes
 
-Existing root `DECKS.json` workspaces remain compatible. Running `/revela init` or `/revela story` on an older project can normalize canonical narrative state and refresh projection fields without requiring a manual migration, moving files, or replacing `DECKS.json` with a database. `writeReadiness.status: "ready"` is deck/artifact readiness only; it is never narrative approval.
+Existing root `DECKS.json` workspaces remain compatible. The `revela-decks` action `exportNarrativeVault` can export existing canonical narrative state into `revela-narrative/` without moving approvals, render targets, review snapshots, or artifact coverage into Markdown. Generated cache files live under `.opencode/revela/narrative-cache/` and should not be edited by hand. `writeReadiness.status: "ready"` is deck/artifact readiness only; it is never narrative approval.
 
 Decks remain the primary authored artifact, but they are now treated as render targets from the same workspace state that can later support briefs, appendix material, Evidence Inspector views, Q&A, and interactive reading layers without duplicating source/evidence logic.
 

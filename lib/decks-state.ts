@@ -21,6 +21,7 @@ import { normalizeCanonicalNarrativeState, normalizeNarrativeState } from "./nar
 import { computeNarrativeHash } from "./narrative-state/hash"
 import { getArtifactClaimRefs } from "./narrative-state/queries"
 import type { NarrativeStateV1 } from "./narrative-state/types"
+import { hasNarrativeVault, loadNarrativeFromPreferredSource } from "./narrative-vault"
 
 export const DECKS_STATE_FILE = WORKSPACE_STATE_FILE
 
@@ -483,15 +484,30 @@ export function confirmDeckPlan(state: DecksState, options: ConfirmDeckPlanOptio
 }
 
 export function readDecksState(workspaceRoot: string): DecksState {
-  return readWorkspaceState(workspaceRoot, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksStateWithNarrative })
+  return applyPreferredNarrativeSource(workspaceRoot, readWorkspaceState(workspaceRoot, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksStateWithNarrative }))
 }
 
 export function writeDecksState(workspaceRoot: string, state: DecksState): void {
-  writeWorkspaceState(workspaceRoot, state, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksStateWithNarrative })
+  writeWorkspaceState(workspaceRoot, prepareStateForWrite(workspaceRoot, state), { fileName: DECKS_STATE_FILE, normalize: normalizeDecksStateWithNarrative })
 }
 
 export function readOrCreateDecksState(workspaceRoot: string): DecksState {
-  return readOrCreateWorkspaceState(workspaceRoot, createEmptyDecksState, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksStateWithNarrative })
+  return applyPreferredNarrativeSource(workspaceRoot, readOrCreateWorkspaceState(workspaceRoot, createEmptyDecksState, { fileName: DECKS_STATE_FILE, normalize: normalizeDecksStateWithNarrative }))
+}
+
+function applyPreferredNarrativeSource(workspaceRoot: string, state: DecksState): DecksState {
+  const normalized = normalizeDecksStateWithNarrative(state)
+  const loaded = loadNarrativeFromPreferredSource(workspaceRoot, normalized.narrative)
+  if (loaded.source !== "vault" || !loaded.narrative) return normalized
+  return normalizeDecksStateWithNarrative({ ...normalized, narrative: loaded.narrative })
+}
+
+function prepareStateForWrite(workspaceRoot: string, state: DecksState): DecksState {
+  const normalized = normalizeDecksStateWithNarrative(state)
+  if (!hasNarrativeVault(workspaceRoot)) return normalized
+  const loaded = loadNarrativeFromPreferredSource(workspaceRoot, normalized.narrative)
+  if (!loaded.narrative) return normalized
+  return normalizeDecksStateWithNarrative({ ...normalized, narrative: loaded.narrative })
 }
 
 export function upsertDeck(state: DecksState, input: Partial<DeckSpec> & { slug: string }): DecksState {
