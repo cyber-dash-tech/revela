@@ -83,6 +83,9 @@ describe("buildInitPrompt", () => {
     expect(prompt).toContain("exportNarrativeVault")
     expect(prompt).toContain("complete payload")
     expect(prompt).toContain("read the current Markdown node first")
+    expect(prompt).toContain("Do not use JSON-era compatibility actions such as `upsertResearchGaps`")
+    expect(prompt).toContain("revela-narrative/research-gaps/*.md")
+    expect(prompt).toContain("updateVaultResearchGap")
   })
 
   it("keeps init source trace adoption conservative", () => {
@@ -110,6 +113,11 @@ describe("buildInitPrompt", () => {
     expect(prompt).toContain("Do not duplicate stable headings")
     expect(prompt).toContain("## Caveats")
     expect(prompt).toContain("## Evidence")
+    expect(prompt).toContain("Do not append a second frontmatter block")
+    expect(prompt).toContain("Supported `type` values")
+    expect(prompt).toContain("`research-gap`, not `researchGap` or `research_gap`")
+    expect(prompt).toContain("Do not write typed targets such as `[[claim:claim-belief-change-purpose]]`")
+    expect(prompt).toContain("Evidence nodes require `claimId`")
     expect(prompt).toContain("Do not use `upsertNarrative`")
     expect(prompt).toContain("structurally valid")
     expect(prompt).toContain("not evidence readiness")

@@ -84,6 +84,9 @@ Slash commands are explicit entry points, not the only workflow. Explicit workfl
 - `revela-decks init` and `initNarrativeVault` are expected controlled state/vault boundaries during init; empty-looking optional tool fields are schema noise, not evidence.
 - Targeted vault helpers are for complete node/action payloads. When modifying existing nodes or multiple related sections, read the Markdown node and patch existing sections in place.
 - Do not duplicate stable vault headings such as `## Evidence`, `## Caveats`, `## Relations`, `## Response`, or `## Mitigation` when patching Markdown.
+- Do not append a second frontmatter block to vault Markdown; each node has one leading `---` frontmatter block.
+- Use valid vault node types: `index`, `audience`, `decision`, `thesis`, `claim`, `evidence`, `objection`, `risk`, and `research-gap`. Use plain node-id wikilinks such as `[[claim-belief-change-purpose]]`, not typed targets like `[[claim:claim-belief-change-purpose]]`.
+- In vault workspaces, research gaps live in `revela-narrative/research-gaps/*.md` or targeted `updateVaultResearchGap` lifecycle updates; do not use JSON-era `upsertResearchGaps` as the authoring path.
 - Intent briefs and proposals may support audience, decision, thesis, stakeholder framing, and stated internal intent, but they do not by themselves prove external market, competitor, product, or operating-model claims.
 - Ask the smallest missing intent questions after local evidence has been considered.
 - Do not require slide count, design choice, layout choice, output path, or visual style unless the user explicitly asks to make an artifact immediately.
@@ -182,6 +185,7 @@ Known 0.15 limits:
 - Direct JSON narrative mutation through `upsertNarrative` is deprecated. New workspaces bootstrap `revela-narrative/` first, then use vault mutation actions or edit Markdown nodes and compile.
 - `/revela init` now supports repeatable ingest: source materials are classified as added, changed, newer-than-vault, unchanged, and ingest candidates; stable findings should be distilled into Markdown vault nodes.
 - Plugin-side narrative vault auto-compile is implemented: after `write`, `edit`, or `apply_patch` touches workspace-contained `revela-narrative/**/*.md`, the hook compiles, writes cache diagnostics, updates render state without persisting `DECKS.json.narrative` in vault workspaces, and appends a compact report to the tool result.
+- The vault write hook also runs an authoring guard before reporting: duplicate frontmatter, duplicate stable headings, invalid node types such as `researchGap`/`research_gap`, typed wikilink targets such as `[[claim:...]]`, and evidence nodes missing `claimId` are surfaced as authoring blockers.
 - Vault compiler diagnostics now catch evidence nodes with missing or unknown `claimId` before normalization can drop invalid bindings, so auto-compile treats them as hard blockers and preserves the previous mirror.
 - `lib/narrative-vault/compile-mirror.ts` centralizes compile/cache/hydrate behavior for plugin auto-compile and `revela-decks` vault actions while `writeDecksState` prevents persisted narrative mirrors in vault workspaces.
 - Research findings binding eval is implemented in `lib/narrative-state/research-binding-eval.ts`; `revela-research-save` returns a read-only binding eval after saving, `revela-decks evaluateResearchFindings` evaluates saved findings without mutating canonical evidence, and `revela-decks bindResearchFindings` writes bindable findings into canonical vault evidence through a safe boundary.

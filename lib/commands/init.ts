@@ -34,8 +34,16 @@ Workspace boundary rules:
 Expected tool use during init:
 - \`revela-decks init\` and \`revela-decks initNarrativeVault\` are expected controlled workspace-state/vault boundaries. Empty-looking optional fields in tool UI are a schema display artifact, not user-provided evidence.
 - Use targeted vault helpers such as \`updateVaultCoreNarrative\`, \`upsertVaultClaim\`, \`upsertVaultEvidence\`, \`upsertVaultObjection\`, \`upsertVaultRisk\`, and \`updateVaultResearchGap\` only when you have a complete payload for that node/action.
+- Do not use JSON-era compatibility actions such as \`upsertResearchGaps\` in vault workspaces. Write research gaps to \`revela-narrative/research-gaps/*.md\` or use \`updateVaultResearchGap\` for existing gap lifecycle updates.
 - When modifying an existing vault node or making multiple related meaning edits, read the current Markdown node first and patch \`revela-narrative/**/*.md\` directly if that is clearer than multiple helper calls.
 - Direct Markdown patches must update existing sections in place. Do not duplicate stable headings such as \`## Evidence\`, \`## Caveats\`, \`## Relations\`, \`## Response\`, or \`## Mitigation\`.
+- Do not append a second frontmatter block. A vault Markdown file must have one leading \`---\` frontmatter block only.
+
+Minimum vault authoring contract:
+- Supported \`type\` values are \`index\`, \`audience\`, \`decision\`, \`thesis\`, \`claim\`, \`evidence\`, \`objection\`, \`risk\`, and \`research-gap\`. Use \`research-gap\`, not \`researchGap\` or \`research_gap\`.
+- Relation lines use the relation type before the wikilink and the plain node id inside the wikilink, for example \`- supports: [[claim-belief-change-purpose]]\`. Do not write typed targets such as \`[[claim:claim-belief-change-purpose]]\`.
+- Evidence nodes require \`claimId\`, \`source\`, \`sourcePath\` or \`url\` when known, \`location\` when known, \`supportScope\`, \`unsupportedScope\`, \`caveat\`, \`strength\`, and a quoted/snippet body.
+- When fixing a new node created earlier in the same turn, patch the broken line or section. Do not delete and recreate existing nodes just to fix \`type\`, frontmatter, or relation syntax.
 
 Required workflow:
 1. If ${DECKS_STATE_FILE} exists, call \`revela-decks read\` with \`summary: true\`. If \`migration.available: true\`, prefer \`exportNarrativeVault\`; if no vault exists, call \`initNarrativeVault\` before recording narrative meaning.

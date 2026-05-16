@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join, resolve } from "path"
 import { DECKS_STATE_FILE, writeDecksState } from "../lib/decks-state"
 import { autoCompileNarrativeVault, formatAutoCompileReport } from "../lib/narrative-vault/auto-compile"
+import { inspectVaultMarkdown } from "../lib/narrative-vault/authoring-guard"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
 import {
   extractNarrativeVaultMarkdownTargetsFromPatch,
@@ -88,6 +89,68 @@ describe("narrative vault auto-compile hook", () => {
     expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "diagnostics.json"), "utf-8")).toContain("evidence_claim_missing")
   })
 
+  it("reports authoring guard blockers for duplicate frontmatter, headings, typed links, invalid types, and missing claimId", () => {
+    const diagnostics = inspectVaultMarkdown("research-gaps/bad.md", `---
+type: "researchGap"
+id: "gap-bad"
+---
+Body
+---
+type: "research_gap"
+---
+## Caveats
+- One
+## Caveats
+- Two
+## Relations
+- supports: [[claim:claim-demo]]
+`)
+
+    expect(diagnostics).toContainEqual(expect.objectContaining({ code: "duplicate_frontmatter", severity: "error" }))
+    expect(diagnostics).toContainEqual(expect.objectContaining({ code: "duplicate_stable_heading", severity: "error" }))
+    expect(diagnostics).toContainEqual(expect.objectContaining({ code: "typed_wikilink_target", severity: "error" }))
+    expect(diagnostics).toContainEqual(expect.objectContaining({ code: "invalid_node_type_authoring", severity: "error" }))
+    expect(diagnostics.find((diagnostic) => diagnostic.code === "invalid_node_type_authoring")?.suggestedFix).toContain("research-gap")
+
+    const evidenceDiagnostics = inspectVaultMarkdown("evidence/bad.md", `---
+type: "evidence"
+id: "evidence-bad"
+source: "proposal.md"
+---
+Quote body.
+`)
+    expect(evidenceDiagnostics).toContainEqual(expect.objectContaining({ code: "evidence_claim_id_missing_authoring", severity: "error" }))
+  })
+
+  it("includes authoring guard blockers in auto-compile report", () => {
+    const root = tempWorkspace("revela-vault-authoring-guard-")
+    writeValidVault(root, "Board")
+    writeFileSync(join(root, "revela-narrative", "claims", "pilot.md"), `---
+type: claim
+id: claim:pilot
+kind: recommendation
+importance: central
+evidenceRequired: true
+---
+Approve a bounded pilot.
+## Caveats
+- One.
+## Caveats
+- Two.
+## Relations
+- supports: [[claim:another]]
+`, "utf-8")
+
+    const result = autoCompileNarrativeVault(root, ["revela-narrative/claims/pilot.md"])
+
+    expect(result.ok).toBe(false)
+    expect(result.authoringGuard?.ok).toBe(false)
+    expect(result.markdown).toContain("Authoring guard: blocked")
+    expect(result.markdown).toContain("Authoring blockers")
+    expect(result.markdown).toContain("duplicate_stable_heading")
+    expect(result.markdown).toContain("typed_wikilink_target")
+  })
+
   it("reports invalid evidence claimId before normalization can drop the binding", () => {
     const root = tempWorkspace("revela-vault-auto-evidence-diagnostic-")
     writeValidVault(root, "Board")
@@ -135,8 +198,15 @@ describe("narrative vault auto-compile hook", () => {
         message: `Warning ${index}`,
         suggestedFix: "Check it.",
       })),
+      authoringGuard: {
+        ok: false,
+        blockers: [{ code: "duplicate_frontmatter", severity: "error", message: "Duplicate", suggestedFix: "Fix" }],
+        warnings: [],
+      },
     })
 
+    expect(markdown).toContain("Authoring guard: blocked")
+    expect(markdown).toContain("duplicate_frontmatter")
     expect(markdown).toContain("... 2 more")
     expect(markdown).toContain("`blocker_7`")
     expect(markdown).not.toContain("`blocker_8`")

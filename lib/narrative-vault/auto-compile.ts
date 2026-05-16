@@ -1,4 +1,5 @@
 import { DECKS_STATE_FILE } from "../decks-state"
+import { runVaultAuthoringGuard, type VaultAuthoringGuardReport } from "./authoring-guard"
 import { compileCacheMirrorNarrativeVault } from "./compile-mirror"
 import { narrativeVaultCachePath } from "./paths"
 import type { VaultDiagnosticDisplay } from "./diagnostic-report"
@@ -8,6 +9,7 @@ export interface AutoCompileNarrativeVaultResult {
   mirrored: "updated" | "skipped_no_decks" | "preserved_failed_compile" | "failed"
   cachePath: string
   touched: string[]
+  authoringGuard?: VaultAuthoringGuardReport
   error?: string
   markdown: string
 }
@@ -17,19 +19,23 @@ export function autoCompileNarrativeVault(workspaceRoot: string, touched: string
   const cachePath = relativeCachePath(workspaceRoot)
 
   try {
+    const authoringGuard = runVaultAuthoringGuard(workspaceRoot, uniqueTouched)
     const compiled = compileCacheMirrorNarrativeVault(workspaceRoot)
     const mirrored = compiled.mirrorStatus
+    const ok = compiled.result.ok && authoringGuard.ok
 
     return {
-      ok: compiled.result.ok,
+      ok,
       mirrored,
       cachePath,
       touched: uniqueTouched,
+      authoringGuard,
       markdown: formatAutoCompileReport({
-        ok: compiled.result.ok,
+        ok,
         mirrored,
         cachePath,
         touched: uniqueTouched,
+        authoringGuard,
         blockers: compiled.diagnosticReport.blockers,
         warnings: compiled.diagnosticReport.warnings,
       }),
@@ -52,6 +58,7 @@ export function formatAutoCompileReport(input: {
   mirrored: AutoCompileNarrativeVaultResult["mirrored"]
   cachePath: string
   touched: string[]
+  authoringGuard?: VaultAuthoringGuardReport
   blockers?: VaultDiagnosticDisplay[]
   warnings?: VaultDiagnosticDisplay[]
   error?: string
@@ -63,9 +70,18 @@ export function formatAutoCompileReport(input: {
   lines.push(`Touched Markdown: ${formatTouched(input.touched)}`)
 
   if (input.error) lines.push("", `Hook error: ${input.error}`)
+  appendAuthoringGuard(lines, input.authoringGuard)
   appendDiagnostics(lines, "Blockers", input.blockers ?? [])
   appendDiagnostics(lines, "Warnings", input.warnings ?? [])
   return lines.join("\n")
+}
+
+function appendAuthoringGuard(lines: string[], report?: VaultAuthoringGuardReport): void {
+  if (!report) return
+  const total = report.blockers.length + report.warnings.length
+  lines.push(`Authoring guard: ${report.ok ? "clean" : "blocked"}${total > 0 ? ` (${report.blockers.length} blocker(s), ${report.warnings.length} warning(s))` : ""}`)
+  appendDiagnostics(lines, "Authoring blockers", report.blockers)
+  appendDiagnostics(lines, "Authoring warnings", report.warnings)
 }
 
 function appendDiagnostics(lines: string[], label: string, diagnostics: VaultDiagnosticDisplay[]): void {
