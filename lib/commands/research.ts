@@ -38,12 +38,13 @@ Tool-driven research contract:
 - For external research, use the \`revela-research\` subagent and save findings with \`revela-research-save\`. Ask for source URLs/paths, quotes/snippets, supportScope, unsupportedScope, caveat, strength, and claimId when available.
 - Re-run \`deriveResearchTargets\` after attachment, binding, or explicit vault edits. Stop after at most 3 rounds.
 - After explicit Markdown edits, rely on the write hook feedback or call \`revela-decks markdownQa\`, then \`compileNarrativeVault\`; keep Markdown QA repair cards separate from compiler diagnostics and repair both before treating the edit as usable research state.
+- For relation changes, update content nodes first, then add explicit edges through \`revela-narrative/relations.md\` or a relation helper when available. Do not add new inline \`## Relations\` sections to claim/evidence/risk/objection/gap node files.
 
 Allowed mutations:
 - Canonical evidence: use \`bindResearchFindings\` for bindable saved findings; the safe boundary writes \`revela-narrative/evidence/*.md\` and compiles the vault.
 - Research gap lifecycle: after checking inventory and reading the target node, edit \`revela-narrative/research-gaps/*.md\` or use \`updateVaultResearchGap\` when the update is explicit.
 - Safe claim narrowing: after checking inventory and reading the target node, edit \`revela-narrative/claims/*.md\` only when it preserves strategic meaning and evidence boundaries.
-- Relation rewrites and strategic claim changes must be reported in \`Narrative changes\`; broader narrative rewrites require Story/user confirmation.
+- Relation rewrites must use \`relations.md\`/relation helpers and be reported in \`Narrative changes\`; broader strategic claim changes require Story/user confirmation.
 - Initialize the vault with \`initNarrativeVault\` if a canonical vault is needed and missing.
 - Never call \`upsertNarrative\` during research.
 

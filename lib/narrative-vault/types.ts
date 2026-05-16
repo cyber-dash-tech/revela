@@ -13,11 +13,13 @@ export interface VaultDiagnostic {
 }
 
 export interface VaultRelation {
+  id?: string
   fromId: string
   relation: NarrativeClaimRelationType
   toId: string
   rationale?: string
   file: string
+  source?: "inline" | "registry"
 }
 
 export interface VaultDocument {

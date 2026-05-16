@@ -303,6 +303,8 @@ export default tool({
     gapStatus: tool.schema.enum(["open", "in_progress", "findings_saved", "attached", "evidence_bound", "closed"]).optional().describe("For updateResearchGap: lifecycle status."),
     gapNotes: tool.schema.string().optional().describe("For updateResearchGap/closeResearchGap: notes or close reason."),
     evidenceBindingIds: tool.schema.array(tool.schema.string()).optional().describe("For updateResearchGap: canonical narrative evidence binding ids associated with the gap."),
+    markdownQaScope: tool.schema.enum(["touched", "affected", "full"]).optional().describe("For markdownQa: relation sync scope. Hook usage should stay touched; manual checks usually use full."),
+    markdownQaStrictness: tool.schema.enum(["authoring", "readiness", "render"]).optional().describe("For markdownQa: relation sync strictness. Render/readiness can upgrade relation sync gaps to blockers."),
   },
   async execute(args, context) {
     try {
@@ -358,7 +360,7 @@ export default tool({
 
       if (args.action === "markdownQa") {
         if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, path: "revela-narrative", error: "markdownQa requires revela-narrative/ to exist. Use initNarrativeVault or exportNarrativeVault first." }, null, 2)
-        const markdownQa = runNarrativeMarkdownQa(workspaceRoot)
+        const markdownQa = runNarrativeMarkdownQa(workspaceRoot, { scope: args.markdownQaScope ?? "full", strictness: args.markdownQaStrictness ?? "authoring" })
         return JSON.stringify({ ok: markdownQa.ok, path: "revela-narrative", markdownQa, narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract() }, null, 2)
       }
 

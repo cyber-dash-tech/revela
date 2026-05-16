@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 import { readDecksState, writeDecksState } from "../lib/decks-state"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
-import { buildNarrativeVaultInventory, compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticMarkdown, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, initNarrativeVault, parseRelations, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
+import { buildNarrativeVaultInventory, compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticMarkdown, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, initNarrativeVault, parseRelationRegistry, parseRelations, runNarrativeMarkdownQa, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
 import { narrativeMapState } from "./helpers/narrative-fixtures"
 import { executeDecksTool, tempWorkspace } from "./helpers/tool-helpers"
 
@@ -11,8 +11,30 @@ describe("narrative vault", () => {
   it("parses typed wikilink relations", () => {
     const result = parseRelations("- supports: [[claim:partial|Line data]] - because it proves the path\n- unknown: [[claim:x]]", "claim:supported", "claims/supported.md")
 
-    expect(result.relations).toEqual([{ fromId: "claim:supported", relation: "supports", toId: "claim:partial", rationale: "because it proves the path", file: "claims/supported.md" }])
+    expect(result.relations).toEqual([{ fromId: "claim:supported", relation: "supports", toId: "claim:partial", rationale: "because it proves the path", file: "claims/supported.md", source: "inline" }])
     expect(result.unknownTypes).toEqual(["unknown"])
+  })
+
+  it("parses relation registry edges", () => {
+    const result = parseRelationRegistry("edges:\n  - id: rel-pilot-supports-execution\n    from: claim:pilot\n    to: claim:execution\n    type: supports\n    rationale: Pilot path supports execution readiness.\n  - id: rel-bad\n    from: claim:pilot\n    to: claim:execution\n    type: unknown\n")
+
+    expect(result.relations).toContainEqual(expect.objectContaining({ id: "rel-pilot-supports-execution", fromId: "claim:pilot", toId: "claim:execution", relation: "supports", source: "registry" }))
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: "invalid_relation_type", edgeId: "rel-bad" }))
+  })
+
+  it("compiles registry relations and derives evidence claim bindings", () => {
+    const root = tempWorkspace("revela-vault-registry-compile-")
+    writeRegistryVault(root)
+
+    const result = compileNarrativeVault(root)
+    const inventory = buildNarrativeVaultInventory(root)
+
+    expect(result.ok).toBe(true)
+    expect(result.narrative?.claimRelations).toContainEqual(expect.objectContaining({ fromClaimId: "claim:pilot", toClaimId: "claim:execution", relation: "supports" }))
+    expect(result.narrative?.evidenceBindings).toContainEqual(expect.objectContaining({ id: "evidence:pilot", claimId: "claim:pilot", strength: "partial" }))
+    expect(result.graph.relations).toContainEqual(expect.objectContaining({ id: "rel-evidence-pilot-supports-claim", source: "registry" }))
+    expect(inventory.relationCoverage.danglingEdges).toEqual([])
+    expect(inventory.evidence).toContainEqual(expect.objectContaining({ id: "evidence:pilot", claimId: "claim:pilot" }))
   })
 
   it("compiles Markdown nodes into NarrativeStateV1 and diagnostics", () => {
@@ -321,6 +343,32 @@ describe("narrative vault", () => {
     expect(result.markdownQa.repairCards).toContainEqual(expect.objectContaining({ issueCode: "broken_relation_target", file: "claims/partial.md", smallestRepair: expect.stringContaining("narrativeInventory") }))
     expect(result.narrativeInventory.counts.unresolvedRefs).toBe(1)
     expect(after).toBe(before)
+  })
+
+  it("Markdown QA warns on legacy inline relations and supports scoped relation sync", () => {
+    const root = tempWorkspace("revela-vault-relation-qa-scope-")
+    writeSampleVault(root)
+
+    const touched = runNarrativeMarkdownQa(root, { touched: ["revela-narrative/claims/supported.md"], scope: "touched", strictness: "authoring" })
+    const full = runNarrativeMarkdownQa(root, { scope: "full", strictness: "readiness" })
+
+    expect(touched.repairCards).toContainEqual(expect.objectContaining({ issueCode: "inline_relation_section", file: "claims/supported.md" }))
+    expect(touched.repairCards).not.toContainEqual(expect.objectContaining({ issueCode: "isolated_central_claim" }))
+    expect(full.repairCards).toContainEqual(expect.objectContaining({ issueCode: "legacy_inline_relation", file: "claims/supported.md" }))
+    expect(full.repairCards).toContainEqual(expect.objectContaining({ issueCode: "broken_relation_target", file: "claims/partial.md" }))
+  })
+
+  it("inventory exposes relation coverage for unbound nodes", () => {
+    const root = tempWorkspace("revela-vault-relation-coverage-")
+    writeRegistryVault(root)
+    writeFileSync(join(root, "revela-narrative", "evidence", "unbound.md"), "---\ntype: evidence\nid: evidence:unbound\nsource: Proposal\nsourcePath: proposal.md\nquote: Unbound quote.\nsupportScope: Narrow support.\nunsupportedScope: No broader support.\ncaveat: Needs binding.\nstrength: partial\n---\n", "utf-8")
+
+    const inventory = buildNarrativeVaultInventory(root)
+    const qa = runNarrativeMarkdownQa(root, { scope: "full", strictness: "readiness" })
+
+    expect(inventory.relationCoverage.unboundEvidence).toContain("evidence:unbound")
+    expect(inventory.relationCoverage.orphanNodes).toContain("evidence:unbound")
+    expect(qa.repairCards).toContainEqual(expect.objectContaining({ issueCode: "unbound_evidence", nodeId: "evidence:unbound", severity: "error" }))
   })
 
   it("builds a read-only narrative inventory for existing vault nodes", async () => {
@@ -744,4 +792,18 @@ function writeWeakEvidenceVault(root: string): void {
   writeFileSync(join(vault, "thesis.md"), "---\ntype: thesis\nid: thesis:weak-demo\nconfidence: medium\n---\nA pilot needs stronger evidence before rollout.\n", "utf-8")
   writeFileSync(join(vault, "claims", "pilot.md"), "---\ntype: claim\nid: claim:pilot\nkind: recommendation\nimportance: central\nevidenceRequired: true\nsupportedScope: Supports only a cautious pilot discussion.\nunsupportedScope: Rollout readiness remains unsupported.\n---\nConsider a bounded pilot.\n\n## Caveats\n\n- Evidence is weak and internal only.\n", "utf-8")
   writeFileSync(join(vault, "evidence", "pilot.md"), "---\ntype: evidence\nid: evidence:pilot\nclaimId: claim:pilot\nsource: Internal note\nsourcePath: notes/pilot.md\nquote: The team believes a pilot may be feasible.\nsupportScope: Supports only internal interest in a pilot.\nunsupportedScope: Does not prove rollout readiness.\ncaveat: Internal note, not external validation.\nstrength: weak\n---\n", "utf-8")
+}
+
+function writeRegistryVault(root: string): void {
+  const vault = join(root, "revela-narrative")
+  mkdirSync(join(vault, "claims"), { recursive: true })
+  mkdirSync(join(vault, "evidence"), { recursive: true })
+  writeFileSync(join(vault, "index.md"), "---\ntype: index\nid: narrative:registry-demo\nstatus: needs_research\n---\n", "utf-8")
+  writeFileSync(join(vault, "audience.md"), "---\ntype: audience\nprimary: Board\n---\n", "utf-8")
+  writeFileSync(join(vault, "decision.md"), "---\ntype: decision\naction: Approve pilot.\ndecisionType: approve\n---\n", "utf-8")
+  writeFileSync(join(vault, "thesis.md"), "---\ntype: thesis\nid: thesis:registry-demo\nconfidence: medium\n---\nA bounded pilot is the recommended next step.\n", "utf-8")
+  writeFileSync(join(vault, "claims", "pilot.md"), "---\ntype: claim\nid: claim:pilot\nkind: recommendation\nimportance: central\nevidenceRequired: true\n---\nApprove a bounded pilot.\n", "utf-8")
+  writeFileSync(join(vault, "claims", "execution.md"), "---\ntype: claim\nid: claim:execution\nkind: evidence\nimportance: supporting\nevidenceRequired: false\n---\nExecution risk is bounded by pilot scope.\n", "utf-8")
+  writeFileSync(join(vault, "evidence", "pilot.md"), "---\ntype: evidence\nid: evidence:pilot\nsource: Proposal\nsourcePath: proposal.md\nquote: Pilot approval is requested.\nsupportScope: Supports the internal pilot request.\nunsupportedScope: Does not prove external market demand.\ncaveat: Intent evidence only.\nstrength: partial\n---\n", "utf-8")
+  writeFileSync(join(vault, "relations.md"), "edges:\n  - id: rel-pilot-supports-execution\n    from: claim:pilot\n    to: claim:execution\n    type: supports\n    rationale: Pilot recommendation is supported by execution framing.\n  - id: rel-evidence-pilot-supports-claim\n    from: evidence:pilot\n    to: claim:pilot\n    type: supports\n    rationale: Proposal states the pilot request.\n", "utf-8")
 }

@@ -24,15 +24,25 @@ export interface MarkdownQaReport {
   warnings: MarkdownQaRepairCard[]
 }
 
-export function runNarrativeMarkdownQa(workspaceRoot: string, touched?: string[]): MarkdownQaReport {
+export interface MarkdownQaOptions {
+  touched?: string[]
+  scope?: "touched" | "affected" | "full"
+  strictness?: "authoring" | "readiness" | "render"
+}
+
+export function runNarrativeMarkdownQa(workspaceRoot: string, touchedOrOptions?: string[] | MarkdownQaOptions): MarkdownQaReport {
+  const options = Array.isArray(touchedOrOptions) ? { touched: touchedOrOptions, scope: "touched" as const, strictness: "authoring" as const } : touchedOrOptions ?? {}
   const { documents } = readNarrativeVaultDocuments(workspaceRoot)
-  const touchedSet = touched ? new Set(touched.map(normalizeVaultFile).filter(Boolean)) : undefined
+  const scope = options.scope ?? (options.touched ? "touched" : "full")
+  const strictness = options.strictness ?? "authoring"
+  const touchedSet = options.touched ? new Set(options.touched.map(normalizeVaultFile).filter(Boolean)) : undefined
   const selected = touchedSet ? documents.filter((doc) => touchedSet.has(doc.relativePath)) : documents
   const repairCards: MarkdownQaRepairCard[] = []
 
   for (const doc of selected) {
     repairCards.push(...inspectVaultMarkdown(doc.relativePath, readFileSync(doc.path, "utf-8")).map(cardFromDiagnostic))
     repairCards.push(...evidenceTraceCards(doc))
+    repairCards.push(...legacyInlineRelationCards(doc, scope))
   }
 
   repairCards.push(...unsupportedRootMarkdownCards(workspaceRoot, touchedSet))
@@ -42,11 +52,40 @@ export function runNarrativeMarkdownQa(workspaceRoot: string, touched?: string[]
     if (touchedSet && !touchedSet.has(unresolved.file)) continue
     repairCards.push(cardFromUnresolved(unresolved))
   }
+  if (scope !== "touched") repairCards.push(...relationCoverageCards(inventory, strictness))
 
   const deduped = dedupeCards(repairCards)
   const blockers = deduped.filter((card) => card.severity === "error")
   const warnings = deduped.filter((card) => card.severity === "warning")
   return { ok: blockers.length === 0, repairCards: deduped, blockers, warnings }
+}
+
+function legacyInlineRelationCards(doc: VaultDocument, scope: MarkdownQaOptions["scope"]): MarkdownQaRepairCard[] {
+  if (doc.relations.length === 0) return []
+  return [{
+    severity: "warning",
+    file: doc.relativePath,
+    nodeId: stringField(doc, "id"),
+    issueCode: scope === "touched" ? "inline_relation_section" : "legacy_inline_relation",
+    message: "Relation edges are written inside a node file. New relation authoring should use revela-narrative/relations.md instead.",
+    smallestRepair: "Move relation edges into relations.md with id/from/to/type/rationale, then remove the inline ## Relations section when safe.",
+    examples: ["- id: rel-claim-a-supports-claim-b\n  from: claim-a\n  to: claim-b\n  type: supports\n  rationale: Claim A supports Claim B."],
+  }]
+}
+
+function relationCoverageCards(inventory: ReturnType<typeof buildNarrativeVaultInventory>, strictness: NonNullable<MarkdownQaOptions["strictness"]>): MarkdownQaRepairCard[] {
+  const cards: MarkdownQaRepairCard[] = []
+  const severity = strictness === "authoring" ? "warning" : "error"
+  for (const id of inventory.relationCoverage.unboundEvidence) cards.push(relationCoverageCard(severity, id, "unbound_evidence", "Evidence node has no claim-support relation.", "Add a supports edge in relations.md or bind the evidence through bindResearchFindings."))
+  for (const id of inventory.relationCoverage.unboundObjections) cards.push(relationCoverageCard(severity, id, "unbound_objection", "Objection node has no claim relation.", "Add an answers or contrasts_with edge in relations.md, or set an explicit claim target if preserving legacy shape."))
+  for (const id of inventory.relationCoverage.unboundRisks) cards.push(relationCoverageCard(severity, id, "unbound_risk", "Risk node has no claim relation.", "Add a constrains edge in relations.md, or set an explicit claim target if preserving legacy shape."))
+  for (const id of inventory.relationCoverage.unboundResearchGaps) cards.push(relationCoverageCard("warning", id, "unbound_research_gap", "Research gap has no target relation or target id.", "Add a depends_on edge in relations.md or a targetId after checking narrativeInventory."))
+  for (const id of inventory.relationCoverage.isolatedClaims) cards.push(relationCoverageCard(strictness === "render" ? "error" : "warning", id, "isolated_central_claim", "Central claim is not connected to the claim-flow graph.", "Add a claim-flow edge in relations.md, or downgrade importance if it is background context."))
+  return cards
+}
+
+function relationCoverageCard(severity: "error" | "warning", nodeId: string, issueCode: string, message: string, smallestRepair: string): MarkdownQaRepairCard {
+  return { severity, file: "relations.md", nodeId, issueCode, message, smallestRepair }
 }
 
 function cardFromDiagnostic(diagnostic: VaultDiagnosticDisplay): MarkdownQaRepairCard {
