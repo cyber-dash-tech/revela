@@ -14,7 +14,7 @@ export async function handleHelp(
 ): Promise<void> {
   const design = activeDesign()
   const domain = activeDomain()
-  const status = ctx.enabled ? "enabled ✓" : "disabled"
+  const status = ctx.enabled ? "active - Revela prompt is loaded" : "idle - workflow commands auto-enable Revela"
   await send(
     `\`\`\`\n` +
     `             R E V E L A   H e l p   v${pkg.version}\n` +
@@ -23,7 +23,8 @@ export async function handleHelp(
     `**Current**\n\n` +
     `Status: ${status}\n` +
     `Design: \`${design}\`\n` +
-    `Domain: \`${domain}\`\n\n` +
+    `Domain: \`${domain}\`\n` +
+    `No separate enable command is needed. Run \`/revela init\`, \`/revela research\`, \`/revela story\`, or \`/revela make --deck\` to start the workflow.\n\n` +
     `---\n\n` +
     `**Workflow**\n\n` +
     `1. \`init\` — discover workspace sources and capture intent\n` +

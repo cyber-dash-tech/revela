@@ -69,7 +69,7 @@ Primary commands:
 
 Deprecated compatibility aliases should return migration/help text instead of executing legacy behavior, except `/revela refine --deck`, which aliases `/revela review --deck` during the naming migration.
 
-Slash commands are explicit entry points, not the only workflow. Explicit workflow commands auto-enable Revela and choose the correct prompt mode.
+Slash commands are explicit entry points, not the only workflow. Explicit workflow commands auto-enable Revela and choose the correct prompt mode; `/revela enable` is no longer needed or public.
 
 ## Phase Semantics
 
