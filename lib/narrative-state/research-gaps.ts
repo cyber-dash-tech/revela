@@ -1,7 +1,6 @@
-import { existsSync, readFileSync } from "fs"
-import { resolve, sep } from "path"
 import type { DecksState } from "../decks-state"
 import { recordWorkspaceAction } from "../workspace-state/actions"
+import { evidenceBindingDiagnostic, type EvidenceBindingDiagnostic, type EvidenceBindingFailureReason } from "./research-binding-eval"
 import { stableResearchGapId } from "./hash"
 import { normalizeNarrativeState } from "./normalize"
 import { reviewNarrativeState } from "./readiness"
@@ -24,15 +23,7 @@ export type ResearchTargetKind =
   | "unattached_findings"
   | "claim_chain_gap"
 
-export type EvidenceBindingFailureReason =
-  | "missing_quote"
-  | "unclear_source"
-  | "over_broad_claim"
-  | "weak_source"
-  | "unsupported_scope"
-  | "caveat_conflict"
-  | "source_mismatch"
-  | "context_only_finding"
+export type { EvidenceBindingDiagnostic, EvidenceBindingFailureReason } from "./research-binding-eval"
 
 export interface ResearchTarget {
   id: string
@@ -54,20 +45,6 @@ export interface ResearchTarget {
 export interface ResearchTargetsResult {
   targets: ResearchTarget[]
   selected?: ResearchTarget
-}
-
-export interface EvidenceBindingDiagnostic {
-  findingsFile: string
-  bindable: boolean
-  failureReasons: EvidenceBindingFailureReason[]
-  explicit: {
-    source: boolean
-    quoteOrSnippet: boolean
-    supportScope: boolean
-    unsupportedScope: boolean
-    caveat: boolean
-    strength: boolean
-  }
 }
 
 export interface UpsertResearchGapInput {
@@ -323,69 +300,6 @@ function targetsFromUnattachedFindings(state: DecksState, narrative: NarrativeSt
       bindingDiagnostic,
     } satisfies ResearchTarget]
   })
-}
-
-function evidenceBindingDiagnostic(workspaceRoot: string | undefined, findingsFile: string): EvidenceBindingDiagnostic | undefined {
-  const text = readWorkspaceText(workspaceRoot, findingsFile)
-  if (text === undefined) return undefined
-
-  const explicit = {
-    source: hasSourceTrace(text),
-    quoteOrSnippet: hasQuoteOrSnippet(text),
-    supportScope: hasField(text, ["support scope", "supported scope", "supports", "support"]),
-    unsupportedScope: hasField(text, ["unsupported scope", "unsupported", "not supported", "gaps"]),
-    caveat: hasField(text, ["caveat", "limitation", "limits", "boundary"]),
-    strength: hasField(text, ["strength", "support strength", "evidence strength"]),
-  }
-  const failureReasons: EvidenceBindingFailureReason[] = []
-  if (!explicit.quoteOrSnippet) failureReasons.push("missing_quote")
-  if (!explicit.source) failureReasons.push("unclear_source")
-  if (!explicit.supportScope || !explicit.unsupportedScope) failureReasons.push("unsupported_scope")
-  if (!explicit.caveat) failureReasons.push("caveat_conflict")
-  if (!explicit.strength) failureReasons.push("weak_source")
-  if (looksContextOnly(text, explicit)) failureReasons.push("context_only_finding")
-
-  return {
-    findingsFile,
-    bindable: failureReasons.length === 0,
-    failureReasons,
-    explicit,
-  }
-}
-
-function readWorkspaceText(workspaceRoot: string | undefined, relativePath: string): string | undefined {
-  if (!workspaceRoot) return undefined
-  const root = resolve(workspaceRoot)
-  const target = resolve(root, relativePath)
-  if (target !== root && !target.startsWith(root + sep)) return undefined
-  if (!existsSync(target)) return undefined
-  return readFileSync(target, "utf-8")
-}
-
-function hasSourceTrace(text: string): boolean {
-  return /^sources:\s*$/im.test(text)
-    || /\[source:\s*[^\]]+\]/i.test(text)
-    || /^\s*-?\s*source:\s*\S+/im.test(text)
-    || /^\s*source\s+(path|url):\s*\S+/im.test(text)
-}
-
-function hasQuoteOrSnippet(text: string): boolean {
-  return hasField(text, ["quote", "snippet"])
-    || /["“][^"”]{20,}["”]/.test(text)
-    || /^>\s*\S.{20,}/m.test(text)
-}
-
-function hasField(text: string, labels: string[]): boolean {
-  return labels.some((label) => new RegExp(`(^|\\n)\\s*(?:[-*]\\s*)?${escapeRegex(label)}\\s*[:：]\\s*\\S`, "i").test(text)
-    || new RegExp(`^##+\\s+.*${escapeRegex(label)}`, "im").test(text))
-}
-
-function looksContextOnly(text: string, explicit: EvidenceBindingDiagnostic["explicit"]): boolean {
-  return /^##+\s+data\b/im.test(text) && !explicit.quoteOrSnippet && (!explicit.supportScope || !explicit.caveat)
-}
-
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
 function claimTarget(kind: Extract<ResearchTargetKind, "missing_evidence" | "weak_evidence" | "unsupported_scope">, claim: NarrativeClaim, priority: "high" | "medium", reason: string): ResearchTarget {

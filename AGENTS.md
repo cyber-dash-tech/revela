@@ -180,6 +180,7 @@ Known 0.15 limits:
 - Plugin-side narrative vault auto-compile is implemented: after `write`, `edit`, or `apply_patch` touches workspace-contained `revela-narrative/**/*.md`, the hook compiles, writes cache diagnostics, mirrors `DECKS.json.narrative` only on successful compiles, and appends a compact report to the tool result.
 - Vault compiler diagnostics now catch evidence nodes with missing or unknown `claimId` before normalization can drop invalid bindings, so auto-compile treats them as hard blockers and preserves the previous mirror.
 - `lib/narrative-vault/compile-mirror.ts` centralizes compile/cache/mirror behavior for plugin auto-compile and `revela-decks` vault actions, keeping manual compile, export, init, and targeted mutation paths aligned.
+- Research findings binding eval is implemented in `lib/narrative-state/research-binding-eval.ts`; `revela-research-save` returns a read-only binding eval after saving, and `revela-decks evaluateResearchFindings` evaluates saved findings without mutating canonical evidence.
 - The MVP does not move approvals, render targets, artifact coverage, review snapshots, or deck specs into Markdown.
 
 ## 0.17 Narrative Vault Baseline
@@ -246,14 +247,14 @@ Validation requirements:
 
 ## Near-Term Product Priorities
 
-Remaining 0.17.0 theme: harden the **Narrative Vault Auto-Compile Hook**, then plugin-evaluated workflow boundaries where they add concrete value.
+Remaining 0.17.0 theme: harden research/init workflow boundaries where deterministic eval adds concrete value, without replacing the narrow Narrative Vault Auto-Compile Hook with a generic framework.
 
 Do not move on to 0.17.1 yet. Markdown vault authoring now compiles automatically after vault Markdown writes. Keep hardening this narrow compile/cache/mirror hook for `revela-narrative/**/*.md` before introducing broader workflow eval; do not replace it with a generic workflow-eval framework.
 
 Grounded current-state notes:
 
 - Story UI, research gaps, artifact coverage/staleness, Review Insight, Review asset search, and executive brief generation already exist. Treat them as foundations to harden rather than blank-slate future features.
-- `/revela research` still relies too heavily on prompt-orchestrated closed-loop instructions. The next gap after auto-compile stabilization is plugin-evaluated research targets, findings/binding eval, and vault-write diagnostics that guide the LLM through concrete task cards.
+- `/revela research` still relies too heavily on prompt-orchestrated closed-loop instructions. Findings/binding eval now exists as a first deterministic boundary; the next gap is using it plus vault-write diagnostics to guide the LLM through concrete task cards.
 - Review Insight already has deterministic inspection context/result builders plus LLM inspector prompts. The gap is clearer deterministic-first UX and provenance labeling, not generic chat.
 - Artifact coverage already tracks current/stale/partial/missing claim coverage. The gap is making coverage drive make/review/remake decisions more explicitly.
 - `lib/commands/*` and `skill/NARRATIVE_SKILL.md` remain too procedural. They should shrink only after the vault auto-compile hook remains stable and later workflow eval modules become authoritative.
@@ -267,28 +268,28 @@ Refactoring / lean-down guidance:
 - Keep compatibility command surfaces such as `/revela refine --deck`, `/revela edit`, and `/revela inspect` unless there is an explicit product decision to remove them.
 - Split giant production modules only behind stable re-export surfaces first, especially `lib/decks-state.ts` and Review/Edit/Inspect servers.
 
-Priority 0: narrative vault auto-compile hook.
+Priority 0: ~~narrative vault auto-compile hook.~~
 
-- Implemented in `plugin.ts`, `lib/narrative-vault/auto-compile.ts`, and `lib/narrative-vault/hook-targets.ts`; keep this hook narrow and stable before adding broader workflow eval.
-- The hook automatically runs the narrative vault compiler after `write`, `edit`, or `apply_patch` touches workspace-contained `revela-narrative/**/*.md`.
-- The hook is a compile/cache/mirror safety boundary, not an LLM planning engine: it appends a compact compile report and diagnostics to the tool result.
-- On successful compile, it writes `.opencode/revela/narrative-cache/*` and mirrors the compiled narrative into `DECKS.json.narrative` when `DECKS.json` exists.
-- On failed compile, it still writes cache diagnostics, but preserves the previous `DECKS.json.narrative` mirror.
-- If `DECKS.json` does not exist, it compiles and writes cache/report only; it does not create workspace state from the hook.
-- Keep `compileNarrativeVault` as the manual diagnostic/recovery tool.
-- Tests cover path detection, patch target parsing, successful mirror, failed-compile mirror preservation, bad evidence `claimId` blockers, plugin hook ordering around state gates/deck QA, write/edit compile-before-QA contracts, cache diagnostics, and compact report formatting in `tests/narrative-vault-auto-compile.test.ts`.
+- ~~Implemented in `plugin.ts`, `lib/narrative-vault/auto-compile.ts`, and `lib/narrative-vault/hook-targets.ts`; keep this hook narrow and stable before adding broader workflow eval.~~
+- ~~The hook automatically runs the narrative vault compiler after `write`, `edit`, or `apply_patch` touches workspace-contained `revela-narrative/**/*.md`.~~
+- ~~The hook is a compile/cache/mirror safety boundary, not an LLM planning engine: it appends a compact compile report and diagnostics to the tool result.~~
+- ~~On successful compile, it writes `.opencode/revela/narrative-cache/*` and mirrors the compiled narrative into `DECKS.json.narrative` when `DECKS.json` exists.~~
+- ~~On failed compile, it still writes cache diagnostics, but preserves the previous `DECKS.json.narrative` mirror.~~
+- ~~If `DECKS.json` does not exist, it compiles and writes cache/report only; it does not create workspace state from the hook.~~
+- ~~Keep `compileNarrativeVault` as the manual diagnostic/recovery tool.~~
+- ~~Tests cover path detection, patch target parsing, successful mirror, failed-compile mirror preservation, bad evidence `claimId` blockers, plugin hook ordering around state gates/deck QA, write/edit compile-before-QA contracts, cache diagnostics, and compact report formatting in `tests/narrative-vault-auto-compile.test.ts`.~~
 
-Priority 1: vault Markdown write/patch hook details.
+Priority 1: ~~vault Markdown write/patch hook details.~~
 
-- When `write`, `edit`, or `apply_patch` touches `revela-narrative/**/*.md`, plugin-side logic should run the narrative vault compiler or equivalent eval automatically.
-- The hook should write cache artifacts, mirror `DECKS.json.narrative` only on successful compile, and append a compact diagnostic/task-card summary to the tool result.
-- Compile/cache/mirror behavior is centralized in `lib/narrative-vault/compile-mirror.ts` and reused by plugin auto-compile plus `revela-decks` compile/export/init/targeted mutation actions.
-- Hard compile blockers should not mirror over the previous compiled narrative. Warnings may mirror while remaining visible.
-- This hook replaces prompt instructions that tell the LLM to remember calling `compileNarrativeVault` after every Markdown edit.
-- Keep `compileNarrativeVault` as a manual diagnostic/recovery tool, but normal init/research authoring should not depend on the LLM remembering to call it.
-- The hook should only target workspace-contained Markdown files under `revela-narrative/`; ignore `researches/**/*.md`, `.opencode/revela/narrative-cache/**`, non-Markdown files, and paths outside the workspace.
-- For `apply_patch`, parse `Add File`, `Update File`, `Delete File`, and `Move to` headers, dedupe targets, and cap the displayed touched list at 10 paths.
-- The compact report should display status, mirror result, cache location, touched Markdown, and blockers/warnings capped at a small number such as 8 each.
+- ~~When `write`, `edit`, or `apply_patch` touches `revela-narrative/**/*.md`, plugin-side logic should run the narrative vault compiler or equivalent eval automatically.~~
+- ~~The hook should write cache artifacts, mirror `DECKS.json.narrative` only on successful compile, and append a compact diagnostic/task-card summary to the tool result.~~
+- ~~Compile/cache/mirror behavior is centralized in `lib/narrative-vault/compile-mirror.ts` and reused by plugin auto-compile plus `revela-decks` compile/export/init/targeted mutation actions.~~
+- ~~Hard compile blockers should not mirror over the previous compiled narrative. Warnings may mirror while remaining visible.~~
+- ~~This hook replaces prompt instructions that tell the LLM to remember calling `compileNarrativeVault` after every Markdown edit.~~
+- ~~Keep `compileNarrativeVault` as a manual diagnostic/recovery tool, but normal init/research authoring should not depend on the LLM remembering to call it.~~
+- ~~The hook should only target workspace-contained Markdown files under `revela-narrative/`; ignore `researches/**/*.md`, `.opencode/revela/narrative-cache/**`, non-Markdown files, and paths outside the workspace.~~
+- ~~For `apply_patch`, parse `Add File`, `Update File`, `Delete File`, and `Move to` headers, dedupe targets, and cap the displayed touched list at 10 paths.~~
+- ~~The compact report should display status, mirror result, cache location, touched Markdown, and blockers/warnings capped at a small number such as 8 each.~~
 
 Priority 2: plugin-evaluated workflow backbone after auto-compile.
 
@@ -309,7 +310,7 @@ Priority 3: init eval and ingest task cards.
 Priority 4: research eval and findings/binding hooks.
 
 - `/revela research` should start from deterministic eval combining vault diagnostics, story readiness, research targets, unattached findings, weak evidence, unsupported scope, objections, risks, and claim-chain gaps.
-- Saved findings should trigger binding eval: whether an evidence node can be written, what fields are missing, whether claim narrowing is safe, or whether external research/user input is still needed.
+- ~~Saved findings should trigger binding eval: whether an evidence node can be written, what fields are missing, whether claim narrowing is safe, or whether external research/user input is still needed.~~ Implemented as read-only `bindingEval` from `revela-research-save` and `revela-decks evaluateResearchFindings`; it does not auto-write canonical evidence.
 - Research agents remain write-limited to `researches/**/*.md`; primary workflow writes canonical Markdown nodes after eval says the binding is explicit enough.
 - Safe claim narrowing may edit `claims/*.md` only when it preserves strategic meaning and evidence boundaries. Broader rewrites require Story/user confirmation.
 

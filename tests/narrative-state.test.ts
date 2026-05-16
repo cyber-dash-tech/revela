@@ -6,6 +6,7 @@ import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { narrativeToBrief } from "../lib/narrative-state/project-compat"
 import { approveNarrativeState, reviewNarrativeState } from "../lib/narrative-state/readiness"
+import { evaluateResearchFindingsBinding } from "../lib/narrative-state/research-binding-eval"
 import { closeResearchGapInState, deriveResearchGapsFromReadiness, deriveResearchTargets, updateResearchGapInState } from "../lib/narrative-state/research-gaps"
 import { legacyDecisionDeck, narrativeMapState } from "./helpers/narrative-fixtures"
 import { executeDecksTool, runDecksTool, tempWorkspace } from "./helpers/tool-helpers"
@@ -712,6 +713,84 @@ sources:
       },
     })
     expect(findings?.bindingFailureReasons).toEqual([])
+  })
+
+  it("evaluates bindable findings with a recommended evidence draft", () => {
+    const workspaceRoot = tempWorkspace("revela-research-binding-eval-")
+    mkdirSync(join(workspaceRoot, "researches", "map-demo"), { recursive: true })
+    writeFileSync(join(workspaceRoot, "researches", "map-demo", "supplier-extra.md"), `---
+topic: map-demo
+axis: supplier-extra
+sources:
+  - "https://example.com/supplier-report"
+---
+
+## Recommended evidence bindings
+- claimId: claim:missing
+- Quote: "Pilot suppliers can cover 80% of requested launch volume in the first two quarters."
+- Support scope: supplier launch capacity for the pilot.
+- Unsupported scope: full national rollout capacity remains unverified.
+- Caveat: supplier lead times were measured before the latest demand spike.
+- Strength: partial
+`, "utf-8")
+
+    const result = evaluateResearchFindingsBinding(narrativeMapState(), workspaceRoot, "researches/map-demo/supplier-extra.md")
+
+    expect(result).toMatchObject({
+      status: "bindable",
+      claimId: "claim:missing",
+      missingFields: [],
+      failureReasons: [],
+      recommendedEvidenceDraft: {
+        claimId: "claim:missing",
+        source: "https://example.com/supplier-report",
+        url: "https://example.com/supplier-report",
+        findingsFile: "researches/map-demo/supplier-extra.md",
+        quote: "Pilot suppliers can cover 80% of requested launch volume in the first two quarters.",
+        supportScope: "supplier launch capacity for the pilot.",
+        unsupportedScope: "full national rollout capacity remains unverified.",
+        caveat: "supplier lead times were measured before the latest demand spike.",
+        strength: "partial",
+      },
+    })
+  })
+
+  it("evaluates findings with missing fields without recommending binding", () => {
+    const workspaceRoot = tempWorkspace("revela-research-binding-missing-")
+    mkdirSync(join(workspaceRoot, "researches", "map-demo"), { recursive: true })
+    writeFileSync(join(workspaceRoot, "researches", "map-demo", "supplier-extra.md"), `## Data
+- claimId: claim:missing
+- Support scope: supplier launch capacity for the pilot.
+`, "utf-8")
+
+    const result = evaluateResearchFindingsBinding(narrativeMapState(), workspaceRoot, "researches/map-demo/supplier-extra.md")
+
+    expect(result.status).toBe("needs_fields")
+    expect(result.claimId).toBe("claim:missing")
+    expect(result.missingFields).toEqual(expect.arrayContaining(["source", "quoteOrSnippet", "unsupportedScope", "caveat", "strength"]))
+    expect(result.failureReasons).toEqual(expect.arrayContaining(["missing_quote", "unclear_source", "unsupported_scope", "caveat_conflict", "weak_source"]))
+    expect(result.recommendedEvidenceDraft).toBeUndefined()
+  })
+
+  it("treats findings with an unknown claimId as unsafe", () => {
+    const workspaceRoot = tempWorkspace("revela-research-binding-unsafe-")
+    mkdirSync(join(workspaceRoot, "researches", "map-demo"), { recursive: true })
+    writeFileSync(join(workspaceRoot, "researches", "map-demo", "supplier-extra.md"), `## Data
+- claimId: claim:does-not-exist
+- Source: https://example.com/supplier-report
+- Quote: "Pilot suppliers can cover 80% of requested launch volume in the first two quarters."
+- Support scope: supplier launch capacity for the pilot.
+- Unsupported scope: full national rollout capacity remains unverified.
+- Caveat: supplier lead times were measured before the latest demand spike.
+- Strength: partial
+`, "utf-8")
+
+    const result = evaluateResearchFindingsBinding(narrativeMapState(), workspaceRoot, "researches/map-demo/supplier-extra.md")
+
+    expect(result.status).toBe("unsafe")
+    expect(result.claimId).toBe("claim:does-not-exist")
+    expect(result.failureReasons).toEqual(expect.arrayContaining(["source_mismatch"]))
+    expect(result.nextAction).toContain("does not exist")
   })
 
   it("reports structured binding failures for context-only findings", () => {

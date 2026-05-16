@@ -31,6 +31,7 @@ import {
 import { compileDeckPlanFromNarrative } from "../lib/narrative-state/render-plan"
 import { backfillSlideClaimRefsFromCoverage } from "../lib/narrative-state/coverage"
 import { closeResearchGapInState, deriveResearchGapsFromReadiness, deriveResearchTargets, updateResearchGapInState, upsertResearchGapsInState } from "../lib/narrative-state/research-gaps"
+import { evaluateResearchFindingsBinding } from "../lib/narrative-state/research-binding-eval"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, hasNarrativeVault, initNarrativeVault, narrativeVaultTimestampMs, VAULT_MIGRATION_PRESERVED_IN_DECKS_JSON, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
 import { compileCacheMirrorNarrativeVault } from "../lib/narrative-vault/compile-mirror"
@@ -42,7 +43,7 @@ export default tool({
     "It stores workspace narrative state, active deck specs, per-slide content/layout/components, and computes narrative or deck readiness.",
   args: {
     action: tool.schema
-      .enum(["read", "init", "initNarrativeVault", "upsertDeck", "upsertSlides", "upsertNarrative", "compileNarrativeVault", "exportNarrativeVault", "upsertVaultEvidence", "updateVaultResearchGap", "upsertVaultClaim", "upsertVaultObjection", "upsertVaultRisk", "updateVaultCoreNarrative", "compileDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "deriveResearchTargets", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
+      .enum(["read", "init", "initNarrativeVault", "upsertDeck", "upsertSlides", "upsertNarrative", "compileNarrativeVault", "exportNarrativeVault", "upsertVaultEvidence", "updateVaultResearchGap", "upsertVaultClaim", "upsertVaultObjection", "upsertVaultRisk", "updateVaultCoreNarrative", "compileDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "deriveResearchTargets", "evaluateResearchFindings", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
       .describe("Action to perform on DECKS.json."),
     summary: tool.schema.boolean().optional().describe("For read: return a compact summary instead of full state."),
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
@@ -553,6 +554,16 @@ export default tool({
       if (args.action === "deriveResearchTargets") {
         const result = deriveResearchTargets(state, { workspaceRoot })
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result }, null, 2)
+      }
+
+      if (args.action === "evaluateResearchFindings") {
+        if (!args.findingsFile?.trim()) return JSON.stringify({ ok: false, error: "findingsFile is required for evaluateResearchFindings" })
+        const bindingEval = evaluateResearchFindingsBinding(state, workspaceRoot, args.findingsFile)
+        const targets = deriveResearchTargets(state, { workspaceRoot })
+        const vaultDiagnostics = hasNarrativeVault(workspaceRoot)
+          ? formatVaultDiagnosticReport(compileNarrativeVault(workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] }).diagnostics)
+          : undefined
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: { bindingEval, selected: targets.selected, vaultDiagnostics } }, null, 2)
       }
 
       if (args.action === "upsertResearchGaps") {

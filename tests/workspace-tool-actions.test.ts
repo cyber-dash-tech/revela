@@ -5,6 +5,7 @@ import { confirmDeckPlan, createEmptyDecksState, readDecksState, upsertDeck, ups
 import { currentReviewInputHash } from "../lib/workspace-state/review-snapshots"
 import researchSaveTool from "../tools/research-save"
 import workspaceScanTool from "../tools/workspace-scan"
+import { narrativeMapState } from "./helpers/narrative-fixtures"
 import { executeDecksTool, executeTool, tempWorkspace } from "./helpers/tool-helpers"
 
 describe("workspace tool action provenance", () => {
@@ -73,6 +74,39 @@ describe("workspace tool action provenance", () => {
       nodeIds: ["finding:researches/market-study/demand-data.md"],
     }))
     expect(JSON.stringify(state.actions)).not.toContain("large finding")
+  })
+
+  it("returns binding eval when saving findings in an initialized workspace", async () => {
+    const root = tempRoot()
+    writeDecksState(root, narrativeMapState())
+
+    const result = await executeTool(researchSaveTool, {
+      topic: "Map Demo",
+      filename: "Supplier Extra",
+      content: `## Recommended evidence bindings
+- claimId: claim:missing
+- Quote: "Pilot suppliers can cover 80% of requested launch volume in the first two quarters."
+- Support scope: supplier launch capacity for the pilot.
+- Unsupported scope: full national rollout capacity remains unverified.
+- Caveat: supplier lead times were measured before the latest demand spike.
+- Strength: partial
+`,
+      sources: ["https://example.com/supplier-report"],
+    }, root)
+
+    expect(result).toMatchObject({
+      ok: true,
+      path: "researches/map-demo/supplier-extra.md",
+      bindingEval: {
+        status: "bindable",
+        claimId: "claim:missing",
+        recommendedEvidenceDraft: expect.objectContaining({ findingsFile: "researches/map-demo/supplier-extra.md" }),
+      },
+    })
+    expect(readDecksState(root).actions).toContainEqual(expect.objectContaining({
+      type: "research.findings_saved",
+      outputs: expect.objectContaining({ path: "researches/map-demo/supplier-extra.md" }),
+    }))
   })
 
   it("records source discovery through revela-decks init", async () => {
@@ -258,6 +292,34 @@ describe("workspace tool action provenance", () => {
       outputs: expect.objectContaining({ axis: "Demand Data", findingsFile: "researches/market/demand-data.md", status: "done" }),
       nodeIds: ["finding:researches/market/demand-data.md"],
     }))
+  })
+
+  it("evaluates research findings through revela-decks without mutating narrative evidence", async () => {
+    const root = tempRoot()
+    const state = narrativeMapState()
+    mkdirSync(join(root, "researches", "map-demo"), { recursive: true })
+    writeFileSync(join(root, "researches", "map-demo", "supplier-extra.md"), `## Recommended evidence bindings
+- claimId: claim:missing
+- Source: https://example.com/supplier-report
+- Quote: "Pilot suppliers can cover 80% of requested launch volume in the first two quarters."
+- Support scope: supplier launch capacity for the pilot.
+- Unsupported scope: full national rollout capacity remains unverified.
+- Caveat: supplier lead times were measured before the latest demand spike.
+- Strength: partial
+`, "utf-8")
+    const beforeBindings = state.narrative?.evidenceBindings.length ?? 0
+    writeDecksState(root, state)
+
+    const result = await executeDecksTool({
+      action: "evaluateResearchFindings",
+      findingsFile: "researches/map-demo/supplier-extra.md",
+    }, root)
+    const next = readDecksState(root)
+
+    expect(result.ok).toBe(true)
+    expect(result.result.bindingEval).toMatchObject({ status: "bindable", claimId: "claim:missing" })
+    expect(result.result.selected).toMatchObject({ kind: "research_gap", targetId: "claim:missing" })
+    expect(next.narrative?.evidenceBindings.length ?? 0).toBe(beforeBindings)
   })
 
   it("refuses ambiguous or unsafe research findings attachment", async () => {

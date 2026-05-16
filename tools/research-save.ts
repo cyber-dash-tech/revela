@@ -2,6 +2,7 @@ import { tool } from "@opencode-ai/plugin"
 import { mkdirSync, writeFileSync } from "fs"
 import { join } from "path"
 import { hasDecksState, readDecksState, writeDecksState } from "../lib/decks-state"
+import { evaluateResearchFindingsBinding } from "../lib/narrative-state/research-binding-eval"
 import { recordWorkspaceAction } from "../lib/workspace-state/actions"
 
 /**
@@ -100,7 +101,9 @@ export default tool({
           summary: `Saved research findings for ${topicKey}/${fileKey}.`,
           nodeIds: [`finding:${relPath}`],
         })
+        const bindingEval = evaluateResearchFindingsBinding(state, workspaceDir, relPath)
         writeDecksState(workspaceDir, state)
+        return JSON.stringify({ ok: true, path: relPath, bindingEval })
       }
 
       return JSON.stringify({ ok: true, path: relPath })
