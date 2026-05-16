@@ -1,8 +1,11 @@
-import { existsSync, mkdirSync, writeFileSync } from "fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { dirname, join } from "path"
-import type { AudienceIntent, DecisionIntent, NarrativeClaim, NarrativeClaimRelation, NarrativeEvidenceBinding, NarrativeObjection, NarrativeResearchGap, NarrativeRisk, NarrativeStateV1, NarrativeThesis } from "../narrative-state/types"
+import type { AudienceIntent, DecisionIntent, NarrativeClaim, NarrativeClaimRelation, NarrativeClaimRelationType, NarrativeEvidenceBinding, NarrativeObjection, NarrativeResearchGap, NarrativeRisk, NarrativeStateV1, NarrativeThesis } from "../narrative-state/types"
+import { NARRATIVE_VAULT_RELATION_TYPES } from "./constants"
 import { narrativeVaultPath } from "./paths"
 import { readNarrativeVaultDocuments } from "./read"
+import { parseRelationRegistry } from "./relations"
+import type { VaultRelation } from "./types"
 
 export type UpsertVaultEvidenceInput = Partial<NarrativeEvidenceBinding> & {
   id: string
@@ -16,6 +19,14 @@ export type UpdateVaultResearchGapInput = Partial<NarrativeResearchGap> & {
 export type UpsertVaultClaimInput = Partial<NarrativeClaim> & {
   id: string
   relations?: Array<Pick<NarrativeClaimRelation, "relation" | "toClaimId" | "rationale">>
+}
+
+export interface UpsertVaultRelationInput {
+  id: string
+  fromId: string
+  toId: string
+  relation: NarrativeClaimRelationType
+  rationale?: string
 }
 
 export type UpsertVaultObjectionInput = Partial<NarrativeObjection> & {
@@ -40,7 +51,10 @@ export interface VaultNodeMutationResult {
   nodeId?: string
   missingFields?: string[]
   error?: string
+  skipped?: boolean
 }
+
+type RelationRegistryMutationRead = { ok: true; relations: VaultRelation[] } | (VaultNodeMutationResult & { ok: false })
 
 export function upsertVaultClaimNode(workspaceRoot: string, input: UpsertVaultClaimInput): VaultNodeMutationResult {
   const existingPath = existingNodePath(workspaceRoot, "claim", input.id)
@@ -64,10 +78,38 @@ export function upsertVaultClaimNode(workspaceRoot: string, input: UpsertVaultCl
   }
   const overrides: Record<string, string> = {}
   if (input.caveats) overrides.caveats = formatList(input.caveats)
-  if (input.relations) overrides.relations = formatRelations(input.relations)
   const body = buildNodeBody(input.text ?? (stringValue(existing?.frontmatter.text) || existing?.body.trim() || ""), existing?.sections, overrides)
   writeVaultNode(root, relativePath, frontmatter, body)
   return { ok: true, file: relativePath, nodeId: input.id }
+}
+
+export function upsertVaultRelation(workspaceRoot: string, input: UpsertVaultRelationInput): VaultNodeMutationResult {
+  const missing = missingRelationFields(input)
+  if (missing.length > 0) return { ok: false, file: "relations.md", nodeId: input.id, missingFields: missing, error: `Relation edge is missing required fields: ${missing.join(", ")}.` }
+  if (!isRelationType(input.relation)) return { ok: false, file: "relations.md", nodeId: input.id, error: `Invalid relation type: ${input.relation}.` }
+
+  const registry = readRelationRegistryForMutation(workspaceRoot)
+  if (!registry.ok) return registry
+  const relations = registry.relations
+  const next = [
+    ...relations.filter((relation) => relation.id !== input.id),
+    { id: input.id, fromId: input.fromId, toId: input.toId, relation: input.relation, rationale: input.rationale, file: "relations.md", source: "registry" as const },
+  ].sort((a, b) => String(a.id).localeCompare(String(b.id)))
+  writeRelationRegistry(workspaceRoot, next)
+  return { ok: true, file: "relations.md", nodeId: input.id }
+}
+
+export function removeVaultRelation(workspaceRoot: string, id: string): VaultNodeMutationResult {
+  const edgeId = id.trim()
+  if (!edgeId) return { ok: false, file: "relations.md", missingFields: ["id"], error: "Relation id is required for removal." }
+
+  const registry = readRelationRegistryForMutation(workspaceRoot)
+  if (!registry.ok) return registry
+  const relations = registry.relations
+  const next = relations.filter((relation) => relation.id !== edgeId)
+  if (next.length === relations.length) return { ok: false, skipped: true, file: "relations.md", nodeId: edgeId, error: `Relation edge was not found: ${edgeId}.` }
+  writeRelationRegistry(workspaceRoot, next)
+  return { ok: true, file: "relations.md", nodeId: edgeId }
 }
 
 export function upsertVaultObjectionNode(workspaceRoot: string, input: UpsertVaultObjectionInput): VaultNodeMutationResult {
@@ -216,6 +258,54 @@ function missingEvidenceFields(input: UpsertVaultEvidenceInput): string[] {
   return missing
 }
 
+function missingRelationFields(input: Partial<UpsertVaultRelationInput>): string[] {
+  const missing: string[] = []
+  for (const key of ["id", "fromId", "toId", "relation"] as const) {
+    if (!String(input[key] ?? "").trim()) missing.push(key)
+  }
+  return missing
+}
+
+function readRelationRegistryForMutation(workspaceRoot: string): RelationRegistryMutationRead {
+  const filePath = join(narrativeVaultPath(workspaceRoot), "relations.md")
+  if (!existsSync(filePath)) return { ok: true, relations: [] }
+  const parsed = parseRelationRegistry(readFileSync(filePath, "utf-8"), "relations.md")
+  if (parsed.diagnostics.length > 0) {
+    return {
+      ok: false,
+      file: "relations.md",
+      error: `relations.md has parse diagnostics and must be repaired before helper mutation: ${parsed.diagnostics.map((diagnostic) => diagnostic.code).join(", ")}.`,
+    }
+  }
+  return { ok: true, relations: parsed.relations }
+}
+
+function writeRelationRegistry(workspaceRoot: string, relations: VaultRelation[]): void {
+  const root = narrativeVaultPath(workspaceRoot)
+  mkdirSync(root, { recursive: true })
+  writeFileSync(join(root, "relations.md"), serializeRelationRegistry(relations), "utf-8")
+}
+
+function serializeRelationRegistry(relations: VaultRelation[]): string {
+  const lines = ["edges:"]
+  for (const relation of relations) {
+    lines.push(`  - id: ${quoteRelationScalar(relation.id ?? "")}`)
+    lines.push(`    from: ${quoteRelationScalar(relation.fromId)}`)
+    lines.push(`    to: ${quoteRelationScalar(relation.toId)}`)
+    lines.push(`    type: ${quoteRelationScalar(relation.relation)}`)
+    if (relation.rationale?.trim()) lines.push(`    rationale: ${quoteRelationScalar(relation.rationale)}`)
+  }
+  return `${lines.join("\n")}\n`
+}
+
+function quoteRelationScalar(value: string): string {
+  return /^[a-zA-Z0-9:_./-]+$/.test(value) ? value : JSON.stringify(value)
+}
+
+function isRelationType(value: string): value is NarrativeClaimRelationType {
+  return (NARRATIVE_VAULT_RELATION_TYPES as readonly string[]).includes(value)
+}
+
 function missingNewResearchGapFields(input: UpdateVaultResearchGapInput): string[] {
   const missing: string[] = []
   for (const key of ["id", "targetType", "targetId", "question"] as const) {
@@ -281,13 +371,6 @@ function buildNodeBody(main: string, existingSections: Record<string, string> = 
 
 function formatList(items: string[]): string {
   return items.map((item) => `- ${item}`).join("\n")
-}
-
-function formatRelations(relations: Array<Pick<NarrativeClaimRelation, "relation" | "toClaimId" | "rationale">>): string {
-  return relations
-    .filter((relation) => relation.relation && relation.toClaimId)
-    .map((relation) => `- ${relation.relation}: [[${relation.toClaimId}]]${relation.rationale ? ` - ${relation.rationale}` : ""}`)
-    .join("\n")
 }
 
 function sectionTitle(name: string): string {

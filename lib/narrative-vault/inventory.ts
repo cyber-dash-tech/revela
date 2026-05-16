@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "fs"
 import { join } from "path"
 import { narrativeVaultPath } from "./paths"
 import { parseRelationRegistry } from "./relations"
+import type { NarrativeClaimRelationType } from "../narrative-state/types"
 import type { VaultDiagnostic, VaultDocument, VaultNodeType, VaultRelation } from "./types"
 
 export interface NarrativeVaultInventoryNode {
@@ -53,6 +54,15 @@ export interface NarrativeVaultInventoryRelation extends VaultRelation {
   unresolved: boolean
 }
 
+export interface NarrativeVaultRelationCandidate {
+  id: string
+  fromId: string
+  toId: string
+  relation: NarrativeClaimRelationType
+  rationale: string
+  source: "frontmatter" | "legacy_inline"
+}
+
 export interface NarrativeVaultRelationCoverage {
   danglingEdges: NarrativeVaultInventoryRelation[]
   unboundEvidence: string[]
@@ -91,6 +101,12 @@ export interface NarrativeVaultInventory {
   risks: NarrativeVaultInventoryRisk[]
   relations: NarrativeVaultInventoryRelation[]
   relationCoverage: NarrativeVaultRelationCoverage
+  relationSummary: {
+    registryEdges: number
+    legacyInlineEdges: number
+    advisoryCandidates: number
+  }
+  relationCandidates: NarrativeVaultRelationCandidate[]
   unresolvedRefs: NarrativeVaultInventoryUnresolvedRef[]
   idHints: {
     nextClaimIdExamples: string[]
@@ -197,6 +213,7 @@ export function buildNarrativeVaultInventory(workspaceRoot: string): NarrativeVa
 
   const ok = diagnostics.every((diagnostic) => diagnostic.severity !== "error") && unresolvedRefs.length === 0
   const relationCoverage = buildRelationCoverage(documents, claims, evidence, objections, risks, researchGaps, relations, ids)
+  const relationCandidates = buildRelationCandidates(documents, relations, ids)
   return {
     ok,
     path: "revela-narrative",
@@ -216,10 +233,76 @@ export function buildNarrativeVaultInventory(workspaceRoot: string): NarrativeVa
     risks,
     relations,
     relationCoverage,
+    relationSummary: {
+      registryEdges: relations.filter((relation) => relation.source === "registry").length,
+      legacyInlineEdges: relations.filter((relation) => relation.source === "inline").length,
+      advisoryCandidates: relationCandidates.length,
+    },
+    relationCandidates,
     unresolvedRefs,
     idHints: buildIdHints(ids),
     diagnostics,
   }
+}
+
+function buildRelationCandidates(documents: VaultDocument[], relations: NarrativeVaultInventoryRelation[], ids: Set<string>): NarrativeVaultRelationCandidate[] {
+  const candidates: NarrativeVaultRelationCandidate[] = []
+  const registryEdges = relations.filter((relation) => relation.source === "registry")
+  const addCandidate = (candidate: NarrativeVaultRelationCandidate) => {
+    if (!ids.has(candidate.fromId) || !ids.has(candidate.toId)) return
+    if (registryEdges.some((edge) => edge.fromId === candidate.fromId && edge.toId === candidate.toId && edge.relation === candidate.relation)) return
+    if (candidates.some((edge) => edge.fromId === candidate.fromId && edge.toId === candidate.toId && edge.relation === candidate.relation)) return
+    candidates.push(candidate)
+  }
+
+  for (const doc of documents) {
+    const id = nodeId(doc)
+    const type = nodeType(doc)
+    if (!id || !type) continue
+    if (type === "evidence") {
+      addFrontmatterCandidate(doc, id, "claimId", "supports", "Evidence frontmatter points at this claim.", addCandidate)
+    } else if (type === "objection") {
+      addFrontmatterCandidate(doc, id, "claimId", "answers", "Objection frontmatter points at this claim.", addCandidate)
+    } else if (type === "risk") {
+      addFrontmatterCandidate(doc, id, "claimId", "constrains", "Risk frontmatter points at this claim.", addCandidate)
+    } else if (type === "research-gap") {
+      addFrontmatterCandidate(doc, id, "targetId", "depends_on", "Research gap frontmatter points at this target.", addCandidate)
+    }
+
+    for (const relation of doc.relations) {
+      addCandidate({
+        id: relation.id || candidateRelationId(relation.fromId, relation.relation, relation.toId),
+        fromId: relation.fromId,
+        toId: relation.toId,
+        relation: relation.relation,
+        rationale: relation.rationale || "Move legacy inline relation into relations.md.",
+        source: "legacy_inline",
+      })
+    }
+  }
+
+  return candidates.sort((a, b) => a.id.localeCompare(b.id))
+}
+
+function addFrontmatterCandidate(
+  doc: VaultDocument,
+  fromId: string,
+  targetField: string,
+  relation: NarrativeClaimRelationType,
+  rationale: string,
+  addCandidate: (candidate: NarrativeVaultRelationCandidate) => void,
+): void {
+  const toId = stringField(doc, targetField)
+  if (!toId) return
+  addCandidate({ id: candidateRelationId(fromId, relation, toId), fromId, toId, relation, rationale, source: "frontmatter" })
+}
+
+function candidateRelationId(fromId: string, relation: NarrativeClaimRelationType, toId: string): string {
+  return `rel-${slugId(fromId)}-${relation}-${slugId(toId)}`
+}
+
+function slugId(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "node"
 }
 
 function readRegistryRelations(workspaceRoot: string): { relations: VaultRelation[]; diagnostics: VaultDiagnostic[] } {

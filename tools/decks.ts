@@ -35,7 +35,7 @@ import { closeResearchGapInState, deriveResearchGapsFromReadiness, deriveResearc
 import { evaluateResearchFindingsBinding } from "../lib/narrative-state/research-binding-eval"
 import { stableEvidenceId } from "../lib/narrative-state/hash"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
-import { buildNarrativeVaultInventory, compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, hasNarrativeVault, initNarrativeVault, narrativeVaultAuthoringContract, narrativeVaultTimestampMs, runNarrativeMarkdownQa, VAULT_MIGRATION_PRESERVED_IN_DECKS_JSON, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
+import { buildNarrativeVaultInventory, compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, hasNarrativeVault, initNarrativeVault, narrativeVaultAuthoringContract, narrativeVaultTimestampMs, removeVaultRelation, runNarrativeMarkdownQa, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRelation, upsertVaultRiskNode, VAULT_MIGRATION_PRESERVED_IN_DECKS_JSON } from "../lib/narrative-vault"
 import { compileCacheMirrorNarrativeVault } from "../lib/narrative-vault/compile-mirror"
 
 function missingBindableEvidenceFields(input: Record<string, unknown>): string[] {
@@ -79,6 +79,22 @@ function researchGapHelperRecovery(action: "updateVaultResearchGap" | "upsertVau
   }
 }
 
+function relationHelperRecovery(action: "upsertVaultRelation" | "removeVaultRelation", missingFields?: string[]) {
+  const missing = missingFields?.length ? ` Missing fields: ${missingFields.join(", ")}.` : ""
+  return {
+    message: `Relation helper could not complete.${missing}`,
+    nextActions: [
+      "Run narrativeInventory before adding or removing relation edges; reuse existing node ids exactly.",
+      "Use upsertVaultRelation/removeVaultRelation only for explicit mechanical registry edits; do not invent semantic edges.",
+      "Alternatively, patch revela-narrative/relations.md directly with id, from, to, type, and optional rationale, then rerun markdownQa.",
+    ],
+    examples: {
+      tool: { action, relation: { id: "rel-pilot-supports-execution", from: "claim:pilot", to: "claim:execution", type: "supports", rationale: "Pilot recommendation is supported by execution framing." } },
+      markdown: "edges:\n  - id: rel-pilot-supports-execution\n    from: claim:pilot\n    to: claim:execution\n    type: supports\n    rationale: Pilot recommendation is supported by execution framing.\n",
+    },
+  }
+}
+
 function strictVaultMarkdownQaGate(workspaceRoot: string, strictness: "readiness" | "render", action: string) {
   if (!hasNarrativeVault(workspaceRoot)) return undefined
   const markdownQa = runNarrativeMarkdownQa(workspaceRoot, { scope: "full", strictness })
@@ -101,7 +117,7 @@ export default tool({
     "It stores workspace narrative state, active deck specs, per-slide content/layout/components, and computes narrative or deck readiness.",
   args: {
     action: tool.schema
-      .enum(["read", "init", "initNarrativeVault", "narrativeInventory", "vaultInventory", "markdownQa", "upsertDeck", "upsertSlides", "upsertNarrative", "compileNarrativeVault", "exportNarrativeVault", "upsertVaultEvidence", "bindResearchFindings", "updateVaultResearchGap", "upsertVaultResearchGap", "upsertVaultClaim", "upsertVaultObjection", "upsertVaultRisk", "updateVaultCoreNarrative", "compileDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "deriveResearchTargets", "evaluateResearchFindings", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
+      .enum(["read", "init", "initNarrativeVault", "narrativeInventory", "vaultInventory", "markdownQa", "upsertDeck", "upsertSlides", "upsertNarrative", "compileNarrativeVault", "exportNarrativeVault", "upsertVaultEvidence", "bindResearchFindings", "updateVaultResearchGap", "upsertVaultResearchGap", "upsertVaultClaim", "upsertVaultObjection", "upsertVaultRisk", "upsertVaultRelation", "removeVaultRelation", "updateVaultCoreNarrative", "compileDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "deriveResearchTargets", "evaluateResearchFindings", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
       .describe("Action to perform on DECKS.json."),
     summary: tool.schema.boolean().optional().describe("For read: return a compact summary instead of full state."),
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
@@ -296,6 +312,14 @@ export default tool({
       unsupportedScope: tool.schema.string().describe("For upsertVaultEvidence: scope not supported by the evidence."),
       strength: tool.schema.enum(["strong", "partial", "weak"]).describe("For upsertVaultEvidence: support strength."),
     }).optional().describe("For upsertVaultEvidence: canonical evidence node to write under revela-narrative/evidence/*.md. For bindResearchFindings, only id is used as an optional override."),
+    relation: tool.schema.object({
+      id: tool.schema.string().describe("For upsertVaultRelation/removeVaultRelation: stable relation edge id."),
+      from: tool.schema.string().optional().describe("For upsertVaultRelation: source node id, e.g. claim:pilot or evidence:pilot."),
+      to: tool.schema.string().optional().describe("For upsertVaultRelation: target node id, e.g. claim:execution."),
+      type: tool.schema.enum(["leads_to", "supports", "depends_on", "contrasts_with", "constrains", "answers"]).optional().describe("For upsertVaultRelation: canonical relation type."),
+      rationale: tool.schema.string().optional().describe("Optional relation rationale. Do not invent; only preserve explicit semantic rationale."),
+    }).optional().describe("For upsertVaultRelation/removeVaultRelation: mechanical relation registry edit. Does not create nodes or infer semantic edges."),
+    relationId: tool.schema.string().optional().describe("For removeVaultRelation: stable relation edge id when relation.id is not provided."),
     findingsFile: tool.schema.string().optional().describe("For attachResearchFindings, evaluateResearchFindings, or bindResearchFindings: workspace-relative researches/{topic}/{axis}.md findings file."),
     researchAxis: tool.schema.string().optional().describe("For attachResearchFindings: researchPlan axis to attach the findings file to. Required when filename matching would be ambiguous."),
     researchStatus: tool.schema.enum(["done", "read"]).optional().describe("For attachResearchFindings: optional explicit status to set on the matched research axis."),
@@ -524,15 +548,43 @@ export default tool({
         return JSON.stringify({ ok: compiled.result.ok, path: mutations[0]?.file, mutation: mutations[0], mutations, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, authoringContract: narrativeVaultAuthoringContract(), narrative: compiled.result.narrative }, null, 2)
       }
 
+      if (args.action === "upsertVaultRelation") {
+        if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "upsertVaultRelation requires revela-narrative/ to exist. Use initNarrativeVault first." })
+        const relation = args.relation as any
+        if (!relation?.id) return JSON.stringify({ ok: false, error: "relation.id is required for upsertVaultRelation", recovery: relationHelperRecovery("upsertVaultRelation"), narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract() }, null, 2)
+        const mutation = upsertVaultRelation(workspaceRoot, {
+          id: relation.id,
+          fromId: relation.from,
+          toId: relation.to,
+          relation: relation.type,
+          rationale: relation.rationale,
+        })
+        if (!mutation.ok) return JSON.stringify({ ok: false, mutation, recovery: relationHelperRecovery("upsertVaultRelation", mutation.missingFields), narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract() }, null, 2)
+        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
+        return JSON.stringify({ ok: compiled.result.ok, path: mutation.file, mutation, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract(), narrative: compiled.result.narrative }, null, 2)
+      }
+
+      if (args.action === "removeVaultRelation") {
+        if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "removeVaultRelation requires revela-narrative/ to exist. Use initNarrativeVault first." })
+        const relationId = args.relationId?.trim() || (args.relation as any)?.id?.trim()
+        if (!relationId) return JSON.stringify({ ok: false, error: "relationId or relation.id is required for removeVaultRelation", recovery: relationHelperRecovery("removeVaultRelation"), narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract() }, null, 2)
+        const mutation = removeVaultRelation(workspaceRoot, relationId)
+        if (!mutation.ok) return JSON.stringify({ ok: false, mutation, recovery: relationHelperRecovery("removeVaultRelation", mutation.missingFields), narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract() }, null, 2)
+        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
+        return JSON.stringify({ ok: compiled.result.ok, path: mutation.file, mutation, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract(), narrative: compiled.result.narrative }, null, 2)
+      }
+
       if (args.action === "upsertVaultClaim") {
         if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "upsertVaultClaim requires revela-narrative/ to exist. Use initNarrativeVault first." })
         const claim = (args.narrative?.claims?.[0] as any) ?? undefined
         if (!claim?.id) return JSON.stringify({ ok: false, error: "narrative.claims[0].id is required for upsertVaultClaim" })
-        const relations = (args.narrative?.claimRelations as any[] | undefined)?.filter((relation) => relation.fromClaimId === claim.id)
-        const mutation = upsertVaultClaimNode(workspaceRoot, { ...claim, relations })
+        const relationHint = args.narrative?.claimRelations?.length
+          ? "upsertVaultClaim no longer writes inline ## Relations. Add explicit graph edges with upsertVaultRelation or patch revela-narrative/relations.md after checking narrativeInventory."
+          : undefined
+        const mutation = upsertVaultClaimNode(workspaceRoot, claim)
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
         const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
-        return JSON.stringify({ ok: compiled.result.ok, path: mutation.file, mutation, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrative: compiled.result.narrative }, null, 2)
+        return JSON.stringify({ ok: compiled.result.ok, path: mutation.file, mutation, relationHint, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrative: compiled.result.narrative }, null, 2)
       }
 
       if (args.action === "upsertVaultObjection") {

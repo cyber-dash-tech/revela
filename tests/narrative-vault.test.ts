@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 import { readDecksState, writeDecksState } from "../lib/decks-state"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
-import { buildNarrativeVaultInventory, compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticMarkdown, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, initNarrativeVault, parseRelationRegistry, parseRelations, runNarrativeMarkdownQa, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
+import { buildNarrativeVaultInventory, compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticMarkdown, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, initNarrativeVault, parseRelationRegistry, parseRelations, removeVaultRelation, runNarrativeMarkdownQa, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRelation, upsertVaultRiskNode } from "../lib/narrative-vault"
 import { narrativeMapState } from "./helpers/narrative-fixtures"
 import { executeDecksTool, tempWorkspace } from "./helpers/tool-helpers"
 
@@ -35,6 +35,50 @@ describe("narrative vault", () => {
     expect(result.graph.relations).toContainEqual(expect.objectContaining({ id: "rel-evidence-pilot-supports-claim", source: "registry" }))
     expect(inventory.relationCoverage.danglingEdges).toEqual([])
     expect(inventory.evidence).toContainEqual(expect.objectContaining({ id: "evidence:pilot", claimId: "claim:pilot" }))
+  })
+
+  it("upserts and removes relation registry edges mechanically", () => {
+    const root = tempWorkspace("revela-vault-relation-mutate-")
+    writeRegistryVault(root)
+
+    const updated = upsertVaultRelation(root, {
+      id: "rel-pilot-supports-execution",
+      fromId: "claim:execution",
+      toId: "claim:pilot",
+      relation: "supports",
+      rationale: "Execution framing supports the pilot recommendation.",
+    })
+    const added = upsertVaultRelation(root, {
+      id: "rel-pilot-leads-to-execution",
+      fromId: "claim:pilot",
+      toId: "claim:execution",
+      relation: "leads_to",
+    })
+    const compiledAfterUpsert = compileNarrativeVault(root)
+    const registryAfterUpsert = readFileSync(join(root, "revela-narrative", "relations.md"), "utf-8")
+    const removed = removeVaultRelation(root, "rel-pilot-leads-to-execution")
+    const missing = removeVaultRelation(root, "rel:missing")
+    const compiledAfterRemove = compileNarrativeVault(root)
+
+    expect(updated).toMatchObject({ ok: true, file: "relations.md", nodeId: "rel-pilot-supports-execution" })
+    expect(added).toMatchObject({ ok: true, file: "relations.md", nodeId: "rel-pilot-leads-to-execution" })
+    expect(registryAfterUpsert.match(/rel-pilot-supports-execution/g)?.length).toBe(1)
+    expect(compiledAfterUpsert.narrative?.claimRelations).toContainEqual(expect.objectContaining({ fromClaimId: "claim:execution", toClaimId: "claim:pilot", relation: "supports" }))
+    expect(compiledAfterUpsert.narrative?.claimRelations).toContainEqual(expect.objectContaining({ fromClaimId: "claim:pilot", toClaimId: "claim:execution", relation: "leads_to" }))
+    expect(removed).toMatchObject({ ok: true, nodeId: "rel-pilot-leads-to-execution" })
+    expect(missing).toMatchObject({ ok: false, skipped: true, nodeId: "rel:missing" })
+    expect(compiledAfterRemove.narrative?.claimRelations).not.toContainEqual(expect.objectContaining({ fromClaimId: "claim:pilot", toClaimId: "claim:execution", relation: "leads_to" }))
+  })
+
+  it("rejects incomplete relation helper inputs", () => {
+    const root = tempWorkspace("revela-vault-relation-mutate-invalid-")
+    writeRegistryVault(root)
+
+    const missing = upsertVaultRelation(root, { id: "rel-missing", fromId: "claim:pilot", toId: "", relation: "supports" })
+    const invalid = upsertVaultRelation(root, { id: "rel-invalid", fromId: "claim:pilot", toId: "claim:execution", relation: "invalid" as any })
+
+    expect(missing).toMatchObject({ ok: false, file: "relations.md", missingFields: ["toId"] })
+    expect(invalid).toMatchObject({ ok: false, file: "relations.md", error: "Invalid relation type: invalid." })
   })
 
   it("compiles Markdown nodes into NarrativeStateV1 and diagnostics", () => {
@@ -371,6 +415,34 @@ describe("narrative vault", () => {
     expect(qa.repairCards).toContainEqual(expect.objectContaining({ issueCode: "unbound_evidence", nodeId: "evidence:unbound", severity: "error" }))
   })
 
+  it("inventory exposes advisory relation candidates without mutating registry state", async () => {
+    const root = tempWorkspace("revela-vault-relation-candidates-")
+    writeDecksState(root, narrativeMapState())
+    writeMutableVault(root)
+    writeFileSync(join(root, "revela-narrative", "evidence", "pilot.md"), "---\ntype: evidence\nid: evidence:pilot\nclaimId: claim:pilot\nsource: Proposal\nsourcePath: proposal.md\nquote: Pilot approval is requested.\nsupportScope: Supports the internal pilot request.\nunsupportedScope: Does not prove external market demand.\ncaveat: Intent evidence only.\nstrength: partial\n---\n", "utf-8")
+
+    const direct = buildNarrativeVaultInventory(root)
+    const tool = await executeDecksTool({ action: "narrativeInventory" }, root)
+
+    expect(direct.counts.relations).toBe(1)
+    expect(direct.relationSummary).toMatchObject({ registryEdges: 0, legacyInlineEdges: 1, advisoryCandidates: 5 })
+    expect(direct.relationCandidates).toContainEqual(expect.objectContaining({ id: "rel-evidence-pilot-supports-claim-pilot", fromId: "evidence:pilot", toId: "claim:pilot", relation: "supports", source: "frontmatter" }))
+    expect(direct.relationCandidates).toContainEqual(expect.objectContaining({ id: "rel-claim-pilot-supports-claim-execution", fromId: "claim:pilot", toId: "claim:execution", relation: "supports", source: "legacy_inline" }))
+    expect(tool.narrativeInventory.relationCandidates).toContainEqual(expect.objectContaining({ fromId: "risk:execution", toId: "claim:pilot", relation: "constrains" }))
+    expect(readFileSync(join(root, "revela-narrative", "claims", "pilot.md"), "utf-8")).toContain("## Relations")
+  })
+
+  it("inventory suppresses advisory candidates that already exist in the registry", () => {
+    const root = tempWorkspace("revela-vault-relation-candidates-dedupe-")
+    writeRegistryVault(root)
+    writeFileSync(join(root, "revela-narrative", "evidence", "pilot.md"), "---\ntype: evidence\nid: evidence:pilot\nclaimId: claim:pilot\nsource: Proposal\nsourcePath: proposal.md\nquote: Pilot approval is requested.\nsupportScope: Supports the internal pilot request.\nunsupportedScope: Does not prove external market demand.\ncaveat: Intent evidence only.\nstrength: partial\n---\n", "utf-8")
+
+    const inventory = buildNarrativeVaultInventory(root)
+
+    expect(inventory.relationSummary).toMatchObject({ registryEdges: 2, legacyInlineEdges: 0, advisoryCandidates: 0 })
+    expect(inventory.relationCandidates).not.toContainEqual(expect.objectContaining({ fromId: "evidence:pilot", toId: "claim:pilot", relation: "supports" }))
+  })
+
   it("blocks readiness and render actions when strict relation sync has blockers", async () => {
     const root = tempWorkspace("revela-vault-registry-strict-gate-")
     writeDecksState(root, narrativeMapState())
@@ -571,7 +643,7 @@ describe("narrative vault", () => {
     expect(incomplete.narrativeInventory.counts.researchGaps).toBeGreaterThanOrEqual(3)
   })
 
-  it("writes claim relations through structured vault actions using plain wikilinks", async () => {
+  it("writes claim relations through the relation registry helper", async () => {
     const root = tempWorkspace("revela-vault-tool-claim-relations-")
     writeDecksState(root, narrativeMapState())
     writeMutableVault(root)
@@ -580,18 +652,28 @@ describe("narrative vault", () => {
       action: "upsertVaultClaim",
       narrative: { claims: [{ id: "claim-recommendation", kind: "recommendation", text: "Approve the focused recommendation.", importance: "central", evidenceRequired: true }] },
     }, root)
-    const result = await executeDecksTool({
+    const claimResult = await executeDecksTool({
       action: "upsertVaultClaim",
       narrative: {
         claims: [{ id: "claim-belief-change-purpose", kind: "context", text: "The artifact must change audience belief before asking for approval.", importance: "supporting", evidenceRequired: false }],
         claimRelations: [{ fromClaimId: "claim-belief-change-purpose", toClaimId: "claim-recommendation", relation: "supports", rationale: "Belief change frames the recommendation." }],
       },
     }, root)
+    const result = await executeDecksTool({
+      action: "upsertVaultRelation",
+      relation: { id: "rel-belief-change-supports-recommendation", from: "claim-belief-change-purpose", to: "claim-recommendation", type: "supports", rationale: "Belief change frames the recommendation." },
+    }, root)
     const file = readFileSync(join(root, "revela-narrative", "claims", "claim-belief-change-purpose.md"), "utf-8")
+    const registry = readFileSync(join(root, "revela-narrative", "relations.md"), "utf-8")
     const hydrated = readDecksState(root)
 
+    expect(claimResult.ok).toBe(true)
+    expect(claimResult.relationHint).toContain("upsertVaultClaim no longer writes inline")
     expect(result.ok).toBe(true)
-    expect(file).toContain("- supports: [[claim-recommendation]] - Belief change frames the recommendation.")
+    expect(file).not.toContain("## Relations")
+    expect(registry).toContain("id: rel-belief-change-supports-recommendation")
+    expect(registry).toContain("from: claim-belief-change-purpose")
+    expect(registry).toContain("to: claim-recommendation")
     expect(file).not.toContain("[[claim:claim-recommendation]]")
     expect(hydrated.narrative?.claimRelations).toContainEqual(expect.objectContaining({ fromClaimId: "claim-belief-change-purpose", toClaimId: "claim-recommendation", relation: "supports" }))
   })
@@ -696,6 +778,25 @@ describe("narrative vault", () => {
     expect(mutation.missingFields).toContain("evidenceRequired")
   })
 
+  it("does not create inline relations for new claim mutations", () => {
+    const root = tempWorkspace("revela-vault-mutate-claim-no-inline-legacy-")
+    writeMutableVault(root)
+
+    const mutation = upsertVaultClaimNode(root, {
+      id: "claim:new",
+      kind: "context",
+      text: "New context claim.",
+      importance: "supporting",
+      evidenceRequired: false,
+      relations: [{ relation: "supports", toClaimId: "claim:pilot", rationale: "Explicit relation should move to registry." }],
+    })
+    const claimFile = readFileSync(join(root, "revela-narrative", "claims", "claim-new.md"), "utf-8")
+
+    expect(mutation).toMatchObject({ ok: true, file: "claims/claim-new.md" })
+    expect(claimFile).not.toContain("## Relations")
+    expect(claimFile).not.toContain("supports: [[claim:pilot]]")
+  })
+
   it("updates objection and risk nodes while preserving existing fields", () => {
     const root = tempWorkspace("revela-vault-mutate-objection-risk-")
     writeMutableVault(root)
@@ -741,6 +842,8 @@ describe("narrative vault", () => {
     const objection = await executeDecksTool({ action: "upsertVaultObjection", narrative: { objections: [{ id: "objection:budget", response: "Budget is capped." }] } }, root)
     const risk = await executeDecksTool({ action: "upsertVaultRisk", narrative: { risks: [{ id: "risk:execution", mitigation: "Use a readiness checkpoint." }] } }, root)
     const core = await executeDecksTool({ action: "updateVaultCoreNarrative", narrative: { audience: { primary: "Executive committee" } } }, root)
+    const relation = await executeDecksTool({ action: "upsertVaultRelation", relation: { id: "rel-execution-supports-pilot", from: "claim:execution", to: "claim:pilot", type: "supports", rationale: "Execution guardrails support the pilot ask." } }, root)
+    const removedRelation = await executeDecksTool({ action: "removeVaultRelation", relationId: "rel-execution-supports-pilot" }, root)
     const written = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
     const hydrated = readDecksState(root)
 
@@ -748,6 +851,8 @@ describe("narrative vault", () => {
     expect(objection.ok).toBe(true)
     expect(risk.ok).toBe(true)
     expect(core.ok).toBe(true)
+    expect(relation).toMatchObject({ ok: true, mutation: { ok: true, file: "relations.md", nodeId: "rel-execution-supports-pilot" } })
+    expect(removedRelation).toMatchObject({ ok: true, mutation: { ok: true, file: "relations.md", nodeId: "rel-execution-supports-pilot" } })
     expect(written.narrative).toBeUndefined()
     expect(hydrated.narrative?.claims).toContainEqual(expect.objectContaining({ id: "claim:pilot", text: "Approve a tightly bounded pilot." }))
     expect(hydrated.narrative?.objections).toContainEqual(expect.objectContaining({ id: "objection:budget", response: "Budget is capped." }))

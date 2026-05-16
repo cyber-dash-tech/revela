@@ -83,7 +83,7 @@ describe("revela research command prompt", () => {
     expect(prompt).toContain("Safe claim narrowing")
     expect(prompt).toContain("edit `revela-narrative/claims/*.md` only when it preserves strategic meaning")
     expect(prompt).toContain("Targeted vault actions are fallback helpers")
-    expect(prompt).toContain("Relation rewrites and strategic claim changes must be reported in `Narrative changes`")
+    expect(prompt).toContain("Relation rewrites must use `relations.md`/relation helpers and be reported in `Narrative changes`")
     expect(prompt).toContain("Broader narrative rewrites must be reported for Story/user confirmation")
     expect(prompt).not.toContain("through `upsertNarrative` only when")
     expect(prompt).not.toContain("or `upsertNarrative` to preserve canonical evidence bindings")
