@@ -196,28 +196,28 @@ Do not move on to 0.17.1 until Phases 1-4 are closed. Phase 5 can be included in
 - ~~QA output should identify file, node/field/heading, reason, and next smallest repair action. Example: `evidence-x.md` has `claimId: claim-market`, but no claim with that id exists.~~
 - ~~Tests should prove duplicate `## Caveats`, typed wikilinks, and unresolved evidence `claimId` are reported by Markdown QA/hook feedback even when no manual compile is run.~~
 
-### Phase 3: Compile / Read Integration
+### ~~Phase 3: Compile / Read Integration~~
 
-- Keep `compileNarrativeVault` focused on compiling Markdown into canonical graph/state.
-- Compile/read paths may surface `markdownQa` and inventory summaries, but repair guidance belongs to Markdown QA and node discovery belongs to inventory, not hidden semantic compiler behavior.
-- Preserve existing semantic diagnostics while making authoring QA visible in `compileNarrativeVault`, `read(summary:true)`, init/research/make/review reports, and manual recovery flows.
-- QA blockers should not cause the LLM to invent missing claims, evidence, source paths, URLs, quotes, or caveats.
-- Tests should prove `compileNarrativeVault` and `read(summary:true)` expose Markdown QA results alongside compiler diagnostics without reintroducing persisted `DECKS.json.narrative`, and that inventory remains read-only.
+- ~~Keep `compileNarrativeVault` focused on compiling Markdown into canonical graph/state.~~
+- ~~Compile/read paths may surface `markdownQa` and inventory summaries, but repair guidance belongs to Markdown QA and node discovery belongs to inventory, not hidden semantic compiler behavior.~~
+- ~~Preserve existing semantic diagnostics while making authoring QA visible in `compileNarrativeVault`, `read(summary:true)`, init/research/make/review reports, and manual recovery flows.~~
+- ~~QA blockers should not cause the LLM to invent missing claims, evidence, source paths, URLs, quotes, or caveats.~~
+- ~~Tests should prove `compileNarrativeVault` and `read(summary:true)` expose Markdown QA results alongside compiler diagnostics without reintroducing persisted `DECKS.json.narrative`, and that inventory remains read-only.~~
 
-### Phase 4: Evidence / Binding Boundary Alignment
+### ~~Phase 4: Evidence / Binding Boundary Alignment~~
 
-- Keep Markdown structural QA separate from trust/evidence QA.
-- `markdownQa` checks files, frontmatter, node types, ids, links, headings, relation targets, `claimId` presence/resolution, and required trace fields.
-- `evaluateResearchFindings`, binding diagnostics, and `bindResearchFindings` remain responsible for evidence strength, source clarity, quote/snippet adequacy, support scope, unsupported scope, caveat, and whether binding would expand a claim.
-- Prompts and reports should label these two layers separately so LLMs do not treat structurally valid Markdown as evidence-ready support.
-- Tests should prove a structurally valid but weakly supported evidence node remains visible as weak/partial/missing support instead of being upgraded by Markdown QA.
+- ~~Keep Markdown structural QA separate from trust/evidence QA.~~
+- ~~`markdownQa` checks files, frontmatter, node types, ids, links, headings, relation targets, `claimId` presence/resolution, and required trace fields.~~
+- ~~`evaluateResearchFindings`, binding diagnostics, and `bindResearchFindings` remain responsible for evidence strength, source clarity, quote/snippet adequacy, support scope, unsupported scope, caveat, and whether binding would expand a claim.~~
+- ~~Prompts and reports should label these two layers separately so LLMs do not treat structurally valid Markdown as evidence-ready support.~~
+- ~~Tests should prove a structurally valid but weakly supported evidence node remains visible as weak/partial/missing support instead of being upgraded by Markdown QA.~~
 
-### Phase 5: Helper Ergonomics For Smoke Stability
+### ~~Phase 5: Helper Ergonomics For Smoke Stability~~
 
-- Improve `upsertVaultResearchGap` ergonomics only where it helps: batch `researchGaps[]` may be supported, and lifecycle-only updates should explain when the node does not exist.
-- Return compact examples from failed helper calls so the LLM can recover by either repairing Markdown directly or using the optional helper correctly.
-- Consider relation-specific helper ergonomics only if smoke tests continue to produce malformed `## Relations`; do not remove Markdown relation authoring.
-- Keep JSON-era mutation actions blocked in vault workspaces, but errors should point to both Markdown repair and optional helper alternatives.
+- ~~Improve `upsertVaultResearchGap` ergonomics only where it helps: batch `researchGaps[]` may be supported, and lifecycle-only updates should explain when the node does not exist.~~
+- ~~Return compact examples from failed helper calls so the LLM can recover by either repairing Markdown directly or using the optional helper correctly.~~
+- ~~Consider relation-specific helper ergonomics only if smoke tests continue to produce malformed `## Relations`; do not remove Markdown relation authoring.~~
+- ~~Keep JSON-era mutation actions blocked in vault workspaces, but errors should point to both Markdown repair and optional helper alternatives.~~
 
 ### Phase 6: 0.17 Release Verification
 
@@ -225,7 +225,7 @@ Do not move on to 0.17.1 until Phases 1-4 are closed. Phase 5 can be included in
 - Confirm prompt-side constraints reduce malformed Markdown and hook/tool QA gives actionable repair feedback when mistakes remain.
 - Confirm inventory-before-authoring prevents duplicate ids and unresolved relation/claim targets in normal init/research flows.
 - Confirm direct Markdown-created claims/gaps/evidence compile into graph, missing evidence remains visible, and no `DECKS.json.narrative` is persisted.
-- Run `bun test`, `bun run typecheck`, and `npm pack --dry-run` before release.
+- ~~Run `bun test`, `bun run typecheck`, and `npm pack --dry-run` before release.~~
 
 ## Post-0.17 Candidates
 

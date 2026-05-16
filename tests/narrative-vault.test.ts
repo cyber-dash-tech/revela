@@ -270,6 +270,42 @@ describe("narrative vault", () => {
     expect(compile.ok).toBe(false)
     expect(compile.diagnosticReport).toMatchObject({ ok: false, errorCount: 1 })
     expect(compile.markdownQa.repairCards).toContainEqual(expect.objectContaining({ issueCode: "broken_relation_target" }))
+    expect(compile.narrativeInventory).toMatchObject({ counts: expect.objectContaining({ unresolvedRefs: 1 }) })
+  })
+
+  it("keeps compile status separate from Markdown QA status", async () => {
+    const root = tempWorkspace("revela-vault-compile-qa-separate-")
+    writeDecksState(root, narrativeMapState())
+    writeQaOnlyIssueVault(root)
+
+    const compile = await executeDecksTool({ action: "compileNarrativeVault" }, root)
+    const summary = await executeDecksTool({ action: "read", summary: true }, root)
+    const written = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
+
+    expect(compile.ok).toBe(true)
+    expect(compile.diagnosticReport).toMatchObject({ ok: true, errorCount: 0 })
+    expect(compile.markdownQa).toMatchObject({ ok: false })
+    expect(compile.markdownQa.repairCards).toContainEqual(expect.objectContaining({ issueCode: "duplicate_stable_heading", file: "claims/pilot.md" }))
+    expect(compile.narrativeInventory).toMatchObject({ counts: expect.objectContaining({ claims: 1, unresolvedRefs: 0 }) })
+    expect(summary.markdownQa).toMatchObject({ ok: false })
+    expect(summary.narrativeInventory).toMatchObject({ counts: expect.objectContaining({ claims: 1 }) })
+    expect(written.narrative).toBeUndefined()
+  })
+
+  it("keeps structural Markdown QA separate from evidence strength", async () => {
+    const root = tempWorkspace("revela-vault-qa-evidence-strength-")
+    writeDecksState(root, narrativeMapState())
+    writeWeakEvidenceVault(root)
+
+    const compile = await executeDecksTool({ action: "compileNarrativeVault" }, root)
+    const summary = await executeDecksTool({ action: "read", summary: true }, root)
+
+    expect(compile.ok).toBe(true)
+    expect(compile.markdownQa).toMatchObject({ ok: true, repairCards: [] })
+    expect(compile.result.narrative.claims).toContainEqual(expect.objectContaining({ id: "claim:pilot", evidenceStatus: "weak" }))
+    expect(compile.result.narrative.evidenceBindings).toContainEqual(expect.objectContaining({ id: "evidence:pilot", strength: "weak", unsupportedScope: "Does not prove rollout readiness." }))
+    expect(summary.markdownQa).toMatchObject({ ok: true, repairCards: [] })
+    expect(summary.narrativeInventory.evidence).toContainEqual(expect.objectContaining({ id: "evidence:pilot", strength: "weak" }))
   })
 
   it("tool markdownQa returns repair cards without mutating state", async () => {
@@ -442,6 +478,32 @@ describe("narrative vault", () => {
     expect(file).toContain("type: \"research-gap\"")
     expect(file).toContain("What source supports the market-size claim?")
     expect(hydrated.narrative?.researchGaps).toContainEqual(expect.objectContaining({ id: "gap-market-size", status: "open", priority: "high" }))
+  })
+
+  it("upserts research gaps in batches and returns recovery examples for incomplete creates", async () => {
+    const root = tempWorkspace("revela-vault-tool-gap-batch-")
+    writeDecksState(root, narrativeMapState())
+    writeMutableVault(root)
+
+    const batch = await executeDecksTool({
+      action: "upsertVaultResearchGap",
+      researchGaps: [
+        { id: "gap-market-size", targetType: "claim", targetId: "claim:pilot", question: "What source supports market size?", status: "open", priority: "high" },
+        { id: "gap-competitor-proof", targetType: "claim", targetId: "claim:execution", question: "What source supports competitor proof?", status: "open", priority: "medium" },
+      ],
+    }, root)
+    const incomplete = await executeDecksTool({ action: "upsertVaultResearchGap", gapId: "gap-new-lifecycle-only", gapStatus: "open" }, root)
+
+    expect(batch.ok).toBe(true)
+    expect(batch.mutations).toHaveLength(2)
+    expect(readFileSync(join(root, "revela-narrative", "research-gaps", "gap-market-size.md"), "utf-8")).toContain("What source supports market size?")
+    expect(readFileSync(join(root, "revela-narrative", "research-gaps", "gap-competitor-proof.md"), "utf-8")).toContain("What source supports competitor proof?")
+    expect(incomplete.ok).toBe(false)
+    expect(incomplete.recovery.message).toContain("Research gap helper could not complete")
+    expect(incomplete.recovery.message).toContain("targetType")
+    expect(incomplete.recovery.examples.tool.researchGaps[0]).toMatchObject({ id: "gap-market-size", targetType: "claim" })
+    expect(incomplete.recovery.examples.markdown).toContain("type: research-gap")
+    expect(incomplete.narrativeInventory.counts.researchGaps).toBeGreaterThanOrEqual(3)
   })
 
   it("writes claim relations through structured vault actions using plain wikilinks", async () => {
@@ -658,4 +720,28 @@ function writeMutableVault(root: string): void {
   writeFileSync(join(vault, "objections", "budget.md"), "---\ntype: objection\nid: objection:budget\nclaimId: claim:pilot\npriority: high\n---\nBudget could exceed pilot guardrails.\n", "utf-8")
   writeFileSync(join(vault, "risks", "execution.md"), "---\ntype: risk\nid: risk:execution\nclaimId: claim:pilot\nseverity: high\n---\nPilot execution may slip.\n", "utf-8")
   writeFileSync(join(vault, "research-gaps", "pilot.md"), "---\ntype: research-gap\nid: gap:pilot-evidence\ntargetType: claim\ntargetId: claim:pilot\nquestion: What evidence supports the pilot decision?\nstatus: open\npriority: high\ncreatedFromIssueType: claim_missing_evidence\n---\nWhat evidence supports the pilot decision?\n", "utf-8")
+}
+
+function writeQaOnlyIssueVault(root: string): void {
+  const vault = join(root, "revela-narrative")
+  mkdirSync(join(vault, "claims"), { recursive: true })
+  mkdirSync(join(vault, "evidence"), { recursive: true })
+  writeFileSync(join(vault, "index.md"), "---\ntype: index\nid: narrative:qa-demo\nstatus: needs_research\n---\n", "utf-8")
+  writeFileSync(join(vault, "audience.md"), "---\ntype: audience\nprimary: Board\n---\n", "utf-8")
+  writeFileSync(join(vault, "decision.md"), "---\ntype: decision\naction: Approve pilot.\ndecisionType: approve\n---\n", "utf-8")
+  writeFileSync(join(vault, "thesis.md"), "---\ntype: thesis\nid: thesis:qa-demo\nconfidence: medium\n---\nA bounded pilot is ready for more evidence.\n", "utf-8")
+  writeFileSync(join(vault, "claims", "pilot.md"), "---\ntype: claim\nid: claim:pilot\nkind: recommendation\nimportance: central\nevidenceRequired: true\n---\nApprove a bounded pilot.\n\n## Caveats\n\n- Covers only pilot scope.\n\n## Caveats\n\n- Full rollout remains unsupported.\n", "utf-8")
+  writeFileSync(join(vault, "evidence", "pilot.md"), "---\ntype: evidence\nid: evidence:pilot\nclaimId: claim:pilot\nsource: Proposal\nsourcePath: proposal.md\nquote: Pilot approval is requested.\nsupportScope: Supports the internal pilot request.\nunsupportedScope: Does not prove external market demand.\ncaveat: Intent evidence only.\nstrength: partial\n---\n", "utf-8")
+}
+
+function writeWeakEvidenceVault(root: string): void {
+  const vault = join(root, "revela-narrative")
+  mkdirSync(join(vault, "claims"), { recursive: true })
+  mkdirSync(join(vault, "evidence"), { recursive: true })
+  writeFileSync(join(vault, "index.md"), "---\ntype: index\nid: narrative:weak-demo\nstatus: needs_research\n---\n", "utf-8")
+  writeFileSync(join(vault, "audience.md"), "---\ntype: audience\nprimary: Board\n---\n", "utf-8")
+  writeFileSync(join(vault, "decision.md"), "---\ntype: decision\naction: Approve pilot.\ndecisionType: approve\n---\n", "utf-8")
+  writeFileSync(join(vault, "thesis.md"), "---\ntype: thesis\nid: thesis:weak-demo\nconfidence: medium\n---\nA pilot needs stronger evidence before rollout.\n", "utf-8")
+  writeFileSync(join(vault, "claims", "pilot.md"), "---\ntype: claim\nid: claim:pilot\nkind: recommendation\nimportance: central\nevidenceRequired: true\nsupportedScope: Supports only a cautious pilot discussion.\nunsupportedScope: Rollout readiness remains unsupported.\n---\nConsider a bounded pilot.\n\n## Caveats\n\n- Evidence is weak and internal only.\n", "utf-8")
+  writeFileSync(join(vault, "evidence", "pilot.md"), "---\ntype: evidence\nid: evidence:pilot\nclaimId: claim:pilot\nsource: Internal note\nsourcePath: notes/pilot.md\nquote: The team believes a pilot may be feasible.\nsupportScope: Supports only internal interest in a pilot.\nunsupportedScope: Does not prove rollout readiness.\ncaveat: Internal note, not external validation.\nstrength: weak\n---\n", "utf-8")
 }

@@ -60,6 +60,25 @@ function forbiddenVaultCompatibilityAction(action: string, replacement: string):
   return `${action} is a JSON-era compatibility action and is blocked in vault workspaces. Use ${replacement}, or patch the existing Markdown node only for a small read-before-edit repair.`
 }
 
+function researchGapHelperRecovery(action: "updateVaultResearchGap" | "upsertVaultResearchGap", missingFields?: string[]) {
+  const missing = missingFields?.length ? ` Missing fields: ${missingFields.join(", ")}.` : ""
+  return {
+    nextActions: [
+      "If the research gap already exists, read the matching revela-narrative/research-gaps/*.md file and patch only the lifecycle fields.",
+      "If this is a new research gap, provide id, targetType, targetId, question, status, and priority, or create the Markdown node directly after checking narrativeInventory.",
+      "Rerun revela-decks markdownQa and compileNarrativeVault after the repair.",
+    ],
+    examples: {
+      tool: {
+        action,
+        researchGaps: [{ id: "gap-market-size", targetType: "claim", targetId: "claim-market-context", question: "What source supports the market-size claim?", status: "open", priority: "high" }],
+      },
+      markdown: "---\ntype: research-gap\nid: gap-market-size\ntargetType: claim\ntargetId: claim-market-context\nquestion: What source supports the market-size claim?\nstatus: open\npriority: high\n---\nWhat source supports the market-size claim?\n",
+    },
+    message: `Research gap helper could not complete.${missing}`,
+  }
+}
+
 export default tool({
   description:
     `Read and update ${DECKS_STATE_FILE}, Revela's workspace deck state file. ` +
@@ -347,7 +366,8 @@ export default tool({
         const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
         const { result, diagnosticReport } = compiled
         const markdownQa = hasNarrativeVault(workspaceRoot) ? runNarrativeMarkdownQa(workspaceRoot) : undefined
-        return JSON.stringify({ ok: result.ok && (markdownQa?.ok ?? true), path: DECKS_STATE_FILE, result, diagnosticReport, markdownQa }, null, 2)
+        const narrativeInventory = hasNarrativeVault(workspaceRoot) ? buildNarrativeVaultInventory(workspaceRoot) : undefined
+        return JSON.stringify({ ok: result.ok, path: DECKS_STATE_FILE, result, diagnosticReport, markdownQa, narrativeInventory }, null, 2)
       }
 
       if (args.action === "exportNarrativeVault") {
@@ -459,27 +479,32 @@ export default tool({
           evidenceBindingIds: args.evidenceBindingIds,
           notes: args.gapNotes,
         })
-        if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
+        if (!mutation.ok) return JSON.stringify({ ok: false, mutation, recovery: researchGapHelperRecovery("updateVaultResearchGap", mutation.missingFields), narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract() }, null, 2)
         const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
         return JSON.stringify({ ok: compiled.result.ok, path: mutation.file, mutation, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrative: compiled.result.narrative }, null, 2)
       }
 
       if (args.action === "upsertVaultResearchGap") {
         if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "upsertVaultResearchGap requires revela-narrative/ to exist. Use initNarrativeVault first." })
-        const gap = (args.researchGaps?.[0] as any) ?? undefined
-        const id = args.gapId?.trim() || gap?.id
-        if (!id) return JSON.stringify({ ok: false, error: "gapId or researchGaps[0].id is required for upsertVaultResearchGap" })
-        const mutation = updateVaultResearchGapNode(workspaceRoot, {
-          ...gap,
-          id,
-          status: args.gapStatus as any ?? gap?.status,
-          findingsFile: args.findingsFile ?? gap?.findingsFile,
-          evidenceBindingIds: args.evidenceBindingIds ?? gap?.evidenceBindingIds,
-          notes: args.gapNotes ?? gap?.notes,
-        })
-        if (!mutation.ok) return JSON.stringify({ ok: false, mutation, authoringContract: narrativeVaultAuthoringContract() }, null, 2)
+        const gaps = args.researchGaps?.length ? (args.researchGaps as any[]) : [undefined]
+        const mutations = []
+        for (const gap of gaps) {
+          const rawId = gap?.id ?? (gaps.length === 1 ? args.gapId : undefined)
+          const id = typeof rawId === "string" ? rawId.trim() : ""
+          if (!id) return JSON.stringify({ ok: false, error: "gapId or every researchGaps[].id is required for upsertVaultResearchGap", recovery: researchGapHelperRecovery("upsertVaultResearchGap"), narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract() }, null, 2)
+          const mutation = updateVaultResearchGapNode(workspaceRoot, {
+            ...gap,
+            id,
+            status: args.gapStatus as any ?? gap?.status,
+            findingsFile: args.findingsFile ?? gap?.findingsFile,
+            evidenceBindingIds: args.evidenceBindingIds ?? gap?.evidenceBindingIds,
+            notes: args.gapNotes ?? gap?.notes,
+          })
+          if (!mutation.ok) return JSON.stringify({ ok: false, mutation, recovery: researchGapHelperRecovery("upsertVaultResearchGap", mutation.missingFields), narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract() }, null, 2)
+          mutations.push(mutation)
+        }
         const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
-        return JSON.stringify({ ok: compiled.result.ok, path: mutation.file, mutation, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, authoringContract: narrativeVaultAuthoringContract(), narrative: compiled.result.narrative }, null, 2)
+        return JSON.stringify({ ok: compiled.result.ok, path: mutations[0]?.file, mutation: mutations[0], mutations, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, authoringContract: narrativeVaultAuthoringContract(), narrative: compiled.result.narrative }, null, 2)
       }
 
       if (args.action === "upsertVaultClaim") {
