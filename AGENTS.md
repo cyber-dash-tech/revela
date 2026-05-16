@@ -178,7 +178,7 @@ Known 0.15 limits:
 - `revela-narrative/` compiles deterministically into existing `NarrativeStateV1`; Story, Research, Make, Review, readiness, hashing, and approval checks continue to use that stable internal interface.
 - When a vault exists, `readDecksState` and `readOrCreateDecksState` prefer the vault and hydrate a runtime narrative projection. `writeDecksState` strips persisted `DECKS.json.narrative` in vault workspaces and preserves approvals outside narrative.
 - Vault cache artifacts are written under `.opencode/revela/narrative-cache/`: `compiled-narrative.json`, `graph.json`, and `diagnostics.json`.
-- `revela-decks` supports `initNarrativeVault`, `exportNarrativeVault`, `compileNarrativeVault`, `updateVaultCoreNarrative`, `upsertVaultClaim`, `upsertVaultEvidence`, `bindResearchFindings`, `upsertVaultObjection`, `upsertVaultRisk`, and `updateVaultResearchGap`.
+- `revela-decks` supports `initNarrativeVault`, `exportNarrativeVault`, `compileNarrativeVault`, `updateVaultCoreNarrative`, `upsertVaultClaim`, `upsertVaultEvidence`, `bindResearchFindings`, `upsertVaultObjection`, `upsertVaultRisk`, `upsertVaultResearchGap`, and `updateVaultResearchGap`.
 - Vault diagnostic reports summarize compiler errors/warnings with file/node context, suggested fixes, and next actions for tools and command prompts.
 - JSON narrative workspaces without `revela-narrative/` now receive a summary-read migration hint pointing to `exportNarrativeVault`; export responses list files written plus fields that remain in `DECKS.json`.
 - `compileDeckPlanFromNarrative` now returns deterministic chapter metadata, maps TOC headings to slide ranges, carries claim/evidence/caveat boundaries into planned slides, and records chapter data on render targets.
@@ -190,6 +190,7 @@ Known 0.15 limits:
 - `lib/narrative-vault/compile-mirror.ts` centralizes compile/cache/hydrate behavior for plugin auto-compile and `revela-decks` vault actions while `writeDecksState` prevents persisted narrative mirrors in vault workspaces.
 - Research findings binding eval is implemented in `lib/narrative-state/research-binding-eval.ts`; `revela-research-save` returns a read-only binding eval after saving, `revela-decks evaluateResearchFindings` evaluates saved findings without mutating canonical evidence, and `revela-decks bindResearchFindings` writes bindable findings into canonical vault evidence through a safe boundary.
 - `/revela research` and `/revela init` prompts are thinned around deterministic tool contracts: research starts from `deriveResearchTargets`/`evaluateResearchFindings`/`bindResearchFindings`, and init follows `ingest.suggestedTasks` returned from `revela-decks init`.
+- Vault Authoring Boundary v1 routes normal canonical writes through structured vault actions and `authoringContract` instead of raw Markdown guessing. Summary/init tool results expose allowed actions, forbidden compatibility actions, valid node types, plain-id conventions, relation syntax, and claim/evidence/research-gap templates; JSON-era mutations are blocked in vault workspaces with explicit replacements.
 - The MVP does not move render targets, artifact coverage, review snapshots, or deck specs into Markdown. Approvals are preserved outside persisted narrative mirrors and injected into runtime narrative projections.
 
 ## 0.17 Narrative Vault Baseline
@@ -241,7 +242,7 @@ Implemented behavior:
 - Successful vault compiles update runtime hydration and write last-good cache artifacts under `.opencode/revela/narrative-cache/` without persisting `DECKS.json.narrative` in vault workspaces.
 - Direct Markdown writes to `revela-narrative/**/*.md` trigger plugin-side auto-compile through `lib/narrative-vault/auto-compile.ts` and `lib/narrative-vault/hook-targets.ts`; failed compiles preserve the last-good compiled cache and write diagnostics without reintroducing `DECKS.json.narrative`.
 - Plugin auto-compile and `revela-decks` vault actions share `lib/narrative-vault/compile-mirror.ts` for cache writes and runtime hydration.
-- `revela-decks` supports `initNarrativeVault`, `exportNarrativeVault`, `compileNarrativeVault`, `updateVaultCoreNarrative`, `upsertVaultClaim`, `upsertVaultEvidence`, `bindResearchFindings`, `upsertVaultObjection`, `upsertVaultRisk`, and `updateVaultResearchGap`.
+- `revela-decks` supports `initNarrativeVault`, `exportNarrativeVault`, `compileNarrativeVault`, `updateVaultCoreNarrative`, `upsertVaultClaim`, `upsertVaultEvidence`, `bindResearchFindings`, `upsertVaultObjection`, `upsertVaultRisk`, `upsertVaultResearchGap`, and `updateVaultResearchGap`.
 - `revela-decks` read/compile/vault mutation paths expose `vaultDiagnostics` or `diagnosticReport` so Story, Research, Make, and Review can report blockers before rendering or evidence binding.
 - `revela-decks read(summary: true)` exposes `migration` guidance when a JSON narrative can be exported to `revela-narrative/`, and `exportNarrativeVault` reports files written, diagnostics, cache/mirror result, and provenance fields preserved in `DECKS.json`.
 - Direct JSON narrative mutation through `upsertNarrative` is deprecated and should not rewrite canonical meaning. Use `initNarrativeVault` for new workspaces, vault mutation actions for meaning updates, or edit Markdown nodes and compile instead.
@@ -256,9 +257,9 @@ Validation requirements:
 
 ## Near-Term Product Priorities
 
-Remaining 0.17.0 theme: make Markdown Narrative Vault the durable narrative source while reducing prompt orchestration through narrow tool/state/hook boundaries. Do not add eval for its own sake.
+Remaining 0.17.0 theme: make Markdown Narrative Vault the durable narrative source while reducing prompt orchestration through narrow tool/state/hook boundaries. Do not add eval for its own sake. The remaining refactor is Vault Authoring Boundary v1: stop asking the LLM to guess raw Markdown schema during init/research and route canonical narrative writes through vault-native structured actions.
 
-Do not move on to 0.17.1 until vault diagnostic surfacing is closed. Markdown vault authoring now compiles automatically after vault Markdown writes, vault workspaces no longer persist `DECKS.json.narrative`, saved research findings can be evaluated and safely bound into canonical vault evidence, init/research prompts now rely on concrete tool contracts, and Story/Research/Make/Review must surface vault diagnostics before trust/rendering decisions. Do not replace these narrow boundaries with a generic workflow-eval framework unless repeated structure proves it necessary.
+Do not move on to 0.17.1 until vault authoring boundary work is closed. Markdown vault authoring now compiles automatically after vault Markdown writes, vault workspaces no longer persist `DECKS.json.narrative`, saved research findings can be evaluated and safely bound into canonical vault evidence, init/research prompts now rely on concrete tool contracts, and Story/Research/Make/Review surface vault diagnostics before trust/rendering decisions. The remaining design gap is that init/research can still make the LLM guess node types, id conventions, relation syntax, and legacy-vs-vault mutation actions. Do not replace these narrow boundaries with a generic workflow-eval framework unless repeated structure proves it necessary.
 
 0.17.0 includes both vault canonicalization and prompt lean-down work:
 
@@ -267,6 +268,7 @@ Do not move on to 0.17.1 until vault diagnostic surfacing is closed. Markdown va
 - ~~Thin `/revela research` around deterministic `deriveResearchTargets`, `evaluateResearchFindings`, vault diagnostics, and the safe binding boundary.~~
 - ~~Add init ingest task hints so `/revela init` relies on concrete scan/init outputs instead of prompt memory.~~
 - ~~Surface vault diagnostics clearly in Story, Research, Make, and Review reports when they affect trust, binding, or rendering.~~
+- ~~Add Vault Authoring Boundary v1 so init/research write canonical narrative through vault-native structured tools and use direct Markdown patching only for small, read-before-edit repairs.~~
 
 Post-0.17 / 0.18 work should include coverage-driven make/review/remake decisions, `/revela make --deck --desc "..."` decisioning, product positioning/docs cleanup, Review Prep/Rehearsal, Audience Lens, Meeting Prep Pack, and larger Review interaction expansion. Do not pull those into the remaining 0.17.0 scope.
 
@@ -283,6 +285,7 @@ Roadmap principle:
 - Do not use long prompts as the workflow engine.
 - Do not add eval because a roadmap item says "eval"; add deterministic boundaries only when they remove concrete prompt memory or unsafe LLM judgement.
 - Prefer tool return contracts, state helpers, and narrow hooks over generic workflow frameworks.
+- Treat hooks as safety nets, not the primary authoring workflow. If a hook repeatedly catches the same LLM-authored schema mistakes, move the write path into a structured tool boundary.
 - Add shared workflow/eval types only after at least two concrete boundaries need the same structure.
 - Prompt lean-down should follow working tool boundaries, not precede them with abstract orchestration.
 
@@ -409,7 +412,21 @@ Priority 12: ~~Story UI as focused claim-flow reading.~~
 - ~~Localized display models may translate selected-claim reading cards only; they must preserve claim IDs, source facts, quotes, findings paths, URLs, numbers, and canonical evidence boundaries.~~
 - ~~Readiness, artifact coverage, and command handoff diagnostics should remain deterministic services for Make, Review, Research, and textual diagnostics, not clutter the Story reading UI.~~
 
-Priority 13: Review Prep Mode.
+Priority 13: ~~Vault Authoring Boundary v1.~~
+
+Current 0.17.0 closeout scope. This is a workflow-design fix, not another prompt patch: Markdown is the durable source, but init/research should not require the LLM to hand-author or guess raw vault schema for normal canonical writes.
+
+- ~~Add or strengthen vault-native structured actions so canonical narrative writes can be made from typed payloads rather than raw Markdown guesses. Minimum covered nodes: core audience/decision/thesis, claims, evidence, objections, risks, and research gaps.~~
+- ~~Add `upsertVaultResearchGap` or equivalent creation/update support for `revela-narrative/research-gaps/*.md`; `updateVaultResearchGap` may remain lifecycle-focused but must not force delete/recreate workflows for new gaps.~~
+- ~~In vault workspaces, reject JSON-era mutation actions such as `upsertResearchGaps`, `applyEvidenceCandidates`, and `upsertNarrative` with explicit migration errors that point to vault-native actions or Markdown repair paths.~~
+- ~~Make `initNarrativeVault` and relevant summary reads return an `authoringContract`: allowed vault actions, forbidden compatibility actions, valid node types, id convention, relation syntax, and minimal claim/evidence/research-gap templates.~~
+- ~~Standardize new vault ids as plain stable ids such as `claim-belief-change-purpose`, `evidence-proposal-intent`, `gap-market-size`, and `risk-overclaiming`. Keep compiler compatibility for legacy colon ids when needed, but new helpers and prompts must not generate `claim:...` or typed wikilink targets.~~
+- ~~Standardize relation writing so helpers generate relation lines like `- supports: [[claim-id]]`; wikilinks target frontmatter node ids directly, not file basenames and not `[[claim:...]]` typed targets.~~
+- ~~Refactor `/revela init` so batch creation of claims/evidence/gaps/risks/objections flows through vault-native helpers or one structured initialization action. Direct Markdown patching is reserved for small repairs after reading the node.~~
+- ~~Keep the authoring guard hook as a safety net for manual Markdown edits and tool regressions. It should diagnose duplicate frontmatter, duplicate stable headings, invalid node types, typed wikilinks, and evidence missing `claimId`, but normal workflows should not depend on the hook to correct expected authoring.~~
+- ~~Tests should cover blocked compatibility mutations in vault workspaces, research-gap creation through vault-native actions, authoringContract returned from init/read paths, plain-id relation generation, no typed wikilinks in helper output, and init prompt guidance that points to structured actions instead of batch raw Markdown authoring.~~
+
+Priority 14: Review Prep Mode.
 
 Post-0.17.0 scope; do not start until Markdown Vault canonicalization, research binding execution, init ingest hints, and coverage-driven make/review prompt thinning are complete.
 
@@ -424,7 +441,7 @@ Post-0.17.0 scope; do not start until Markdown Vault canonicalization, research 
 - For high-confidence selection matches, show deterministic inspection/prep context first and label generated expansion as exploratory. For no-match selections, return `no_match` or limited rehearsal instead of stretching weak evidence into a claim match.
 - Add focused tests for rehearsal prompt/result structure, audience lens fallback and prompt injection, `Turn into Comment` UI plumbing, no-match rehearsal behavior, provenance boundaries, and Meeting Prep Pack preservation of caveats/unsupported scope/objections.
 
-Priority 14: semi-deterministic research loop.
+Priority 15: semi-deterministic research loop.
 
 - Treat this as the completed 0.16.2 product slice pending release verification.
 - `/revela research` now uses deterministic target selection before external research through `deriveResearchTargets`.
@@ -435,18 +452,18 @@ Priority 14: semi-deterministic research loop.
 - Do not expose `revela-decks` to the `revela-research` subagent; it may save findings, while the primary workflow performs safe state attachment/binding.
 - Do not use `upsertNarrative` during research for partial claim, relation, or evidence array updates; report narrative rewrites for Story/user confirmation instead.
 
-Priority 15: coverage-driven make/review/remake decisions. Post-0.17 / 0.18.
+Priority 16: coverage-driven make/review/remake decisions. Post-0.17 / 0.18.
 
 - Use artifact coverage to explain whether the current deck is current, stale, partial, or missing before remaking or exporting.
 - When narrative hash changes, report affected claims/slides and recommend focused remake/review steps.
 - Support a dry-run or preview-style deck plan recompile before writing HTML if it helps users trust the handoff.
 
-Priority 16: decide on `/revela make --deck --desc "..."`. Post-0.17 / 0.18.
+Priority 17: decide on `/revela make --deck --desc "..."`. Post-0.17 / 0.18.
 
 - Either keep it explicitly unsupported, or implement it as intent seeding for init/story state.
 - If implemented, `--desc` must not bypass source grounding, canonical narrative, evidence requirements, approval, or render gates.
 
-Priority 17: product positioning cleanup. Post-0.17 / 0.18.
+Priority 18: product positioning cleanup. Post-0.17 / 0.18.
 
 - README media-asset stage wording should stay aligned with the three-stage model: remote candidate -> workspace asset -> deck usage.
 - User-facing docs should consistently say decks are render targets from trusted narrative state, not the product's durable source of truth.

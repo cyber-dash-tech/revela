@@ -33,15 +33,18 @@ Workspace boundary rules:
 
 Expected tool use during init:
 - \`revela-decks init\` and \`revela-decks initNarrativeVault\` are expected controlled workspace-state/vault boundaries. Empty-looking optional fields in tool UI are a schema display artifact, not user-provided evidence.
-- Use targeted vault helpers such as \`updateVaultCoreNarrative\`, \`upsertVaultClaim\`, \`upsertVaultEvidence\`, \`upsertVaultObjection\`, \`upsertVaultRisk\`, and \`updateVaultResearchGap\` only when you have a complete payload for that node/action.
-- Do not use JSON-era compatibility actions such as \`upsertResearchGaps\` in vault workspaces. Write research gaps to \`revela-narrative/research-gaps/*.md\` or use \`updateVaultResearchGap\` for existing gap lifecycle updates.
-- When modifying an existing vault node or making multiple related meaning edits, read the current Markdown node first and patch \`revela-narrative/**/*.md\` directly if that is clearer than multiple helper calls.
+- Treat \`authoringContract\` returned by \`read(summary: true)\` or \`initNarrativeVault\` as the canonical write contract. Use its \`allowedActions\`, \`forbiddenCompatibilityActions\`, id convention, relation syntax, and structured templates instead of guessing raw Markdown schema.
+- For normal canonical writes, use structured vault actions: \`updateVaultCoreNarrative\`, \`upsertVaultClaim\`, \`upsertVaultEvidence\`, \`upsertVaultObjection\`, \`upsertVaultRisk\`, \`upsertVaultResearchGap\`, \`updateVaultResearchGap\`, or \`bindResearchFindings\`.
+- Use targeted vault helpers only when you have a complete payload for that node/action. If a helper returns missing fields, report the gap instead of inventing fields.
+- Do not use JSON-era compatibility actions such as \`upsertResearchGaps\`, \`deriveResearchGaps\`, \`updateResearchGap\`, \`closeResearchGap\`, \`applyEvidenceCandidates\`, or \`upsertNarrative\` in vault workspaces. Follow the tool error and \`authoringContract\` replacement action.
+- Direct Markdown patches are reserved for small repairs after reading the existing node, such as fixing one malformed heading, frontmatter line, or relation line. Do not batch-create canonical meaning through raw Markdown when a structured vault action exists.
 - Direct Markdown patches must update existing sections in place. Do not duplicate stable headings such as \`## Evidence\`, \`## Caveats\`, \`## Relations\`, \`## Response\`, or \`## Mitigation\`.
 - Do not append a second frontmatter block. A vault Markdown file must have one leading \`---\` frontmatter block only.
 
 Minimum vault authoring contract:
 - Supported \`type\` values are \`index\`, \`audience\`, \`decision\`, \`thesis\`, \`claim\`, \`evidence\`, \`objection\`, \`risk\`, and \`research-gap\`. Use \`research-gap\`, not \`researchGap\` or \`research_gap\`.
 - Relation lines use the relation type before the wikilink and the plain node id inside the wikilink, for example \`- supports: [[claim-belief-change-purpose]]\`. Do not write typed targets such as \`[[claim:claim-belief-change-purpose]]\`.
+- To create or replace claim relations, pass \`narrative.claimRelations\` with \`upsertVaultClaim\`; do not hand-author \`## Relations\` unless repairing one existing line after reading the node.
 - Evidence nodes require \`claimId\`, \`source\`, \`sourcePath\` or \`url\` when known, \`location\` when known, \`supportScope\`, \`unsupportedScope\`, \`caveat\`, \`strength\`, and a quoted/snippet body.
 - When fixing a new node created earlier in the same turn, patch the broken line or section. Do not delete and recreate existing nodes just to fix \`type\`, frontmatter, or relation syntax.
 
@@ -51,7 +54,7 @@ Required workflow:
 3. Search workspace-local generated artifact history only when useful: \`decks/**/*.html\`, \`slides/**/*.html\`, \`presentations/**/*.html\`, \`decks/**/*.pdf\`, and \`slides/**/*.pdf\`.
 4. Register scan results with \`revela-decks init\`. Treat returned \`ingest.suggestedTasks\` as the authoritative init task list. Each task includes \`path\`, \`reason\`, \`materialType\`, \`needsExtraction\`, and \`suggestedAction\`.
 5. For selected relevant tasks, read directly when \`suggestedAction: "read_directly"\`; call \`revela-extract-document-materials\` first when \`suggestedAction: "extract_then_read"\`. Do not extract every document by default.
-6. Distill stable findings into \`revela-narrative/**/*.md\`. Completeness is not a gate: write partial claims, caveats, unsupported scope, and research gaps rather than waiting for a complete story. Preserve frontmatter ids and existing section headings when updating nodes.
+6. Distill stable findings through structured vault actions from \`authoringContract\`. Completeness is not a gate: write partial claims, caveats, unsupported scope, and research gaps rather than waiting for a complete story. Use \`upsertVaultResearchGap\` for new gaps and \`updateVaultResearchGap\` for lifecycle updates. Preserve frontmatter ids and existing section headings when doing small Markdown repairs.
 7. After Markdown changes, rely on the vault write hook or call \`revela-decks compileNarrativeVault\`; fix blocker diagnostics. Do not use \`upsertNarrative\`.
 8. If explicit deck/artifact information exists, record conservative deck specs only from visible information. Do not infer hidden evidence from generated artifacts.
 9. Report initialized/updated/migrated state plus counts and paths for added, changed, newer-than-vault, unchanged, \`ingest.ingestCandidates\`, and \`ingest.suggestedTasks\`.

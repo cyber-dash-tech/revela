@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "fs"
 import { dirname, join } from "path"
-import type { AudienceIntent, DecisionIntent, NarrativeClaim, NarrativeEvidenceBinding, NarrativeObjection, NarrativeResearchGap, NarrativeRisk, NarrativeStateV1, NarrativeThesis } from "../narrative-state/types"
+import type { AudienceIntent, DecisionIntent, NarrativeClaim, NarrativeClaimRelation, NarrativeEvidenceBinding, NarrativeObjection, NarrativeResearchGap, NarrativeRisk, NarrativeStateV1, NarrativeThesis } from "../narrative-state/types"
 import { narrativeVaultPath } from "./paths"
 import { readNarrativeVaultDocuments } from "./read"
 
@@ -15,6 +15,7 @@ export type UpdateVaultResearchGapInput = Partial<NarrativeResearchGap> & {
 
 export type UpsertVaultClaimInput = Partial<NarrativeClaim> & {
   id: string
+  relations?: Array<Pick<NarrativeClaimRelation, "relation" | "toClaimId" | "rationale">>
 }
 
 export type UpsertVaultObjectionInput = Partial<NarrativeObjection> & {
@@ -61,7 +62,10 @@ export function upsertVaultClaimNode(workspaceRoot: string, input: UpsertVaultCl
     text: input.text ?? existing?.frontmatter.text,
     caveats: input.caveats ? undefined : existing?.frontmatter.caveats,
   }
-  const body = buildNodeBody(input.text ?? (stringValue(existing?.frontmatter.text) || existing?.body.trim() || ""), existing?.sections, input.caveats ? { caveats: formatList(input.caveats) } : {})
+  const overrides: Record<string, string> = {}
+  if (input.caveats) overrides.caveats = formatList(input.caveats)
+  if (input.relations) overrides.relations = formatRelations(input.relations)
+  const body = buildNodeBody(input.text ?? (stringValue(existing?.frontmatter.text) || existing?.body.trim() || ""), existing?.sections, overrides)
   writeVaultNode(root, relativePath, frontmatter, body)
   return { ok: true, file: relativePath, nodeId: input.id }
 }
@@ -277,6 +281,13 @@ function buildNodeBody(main: string, existingSections: Record<string, string> = 
 
 function formatList(items: string[]): string {
   return items.map((item) => `- ${item}`).join("\n")
+}
+
+function formatRelations(relations: Array<Pick<NarrativeClaimRelation, "relation" | "toClaimId" | "rationale">>): string {
+  return relations
+    .filter((relation) => relation.relation && relation.toClaimId)
+    .map((relation) => `- ${relation.relation}: [[${relation.toClaimId}]]${relation.rationale ? ` - ${relation.rationale}` : ""}`)
+    .join("\n")
 }
 
 function sectionTitle(name: string): string {

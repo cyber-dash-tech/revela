@@ -139,6 +139,7 @@ describe("narrative vault", () => {
     expect(blocked.ok).toBe(false)
     expect(blocked.deprecated).toBe(true)
     expect(blocked.error).toContain("initNarrativeVault")
+    expect(blocked.authoringContract.allowedActions).toContain("upsertVaultResearchGap")
 
     const approved = readDecksState(root).narrative!.approvals[0]
     expect(approved.narrativeHash).toBe(computeNarrativeHash(state.narrative!))
@@ -187,6 +188,9 @@ describe("narrative vault", () => {
     expect(result.ok).toBe(true)
     expect(result.created).toBe(true)
     expect(result.files).toContain("index.md")
+    expect(result.authoringContract.allowedActions).toContain("upsertVaultResearchGap")
+    expect(result.authoringContract.forbiddenCompatibilityActions).toContain("upsertResearchGaps")
+    expect(result.authoringContract.idConvention.avoid).toContain("claim:belief-change-purpose")
     expect(result.nextActions).toContain("Treat workspace source material records as candidates until explicit evidence trace is written.")
     expect(written.narrative).toBeUndefined()
     expect(hydrated.narrative?.audience.primary).toBe("Product leadership")
@@ -218,6 +222,7 @@ describe("narrative vault", () => {
     expect(result.ok).toBe(true)
     expect(result.created).toBe(false)
     expect(result.files).toEqual([])
+    expect(result.authoringContract.allowedActions).toContain("upsertVaultClaim")
     expect(readFileSync(join(root, "revela-narrative", "audience.md"), "utf-8")).toContain("primary: Board")
   })
 
@@ -246,6 +251,7 @@ describe("narrative vault", () => {
     expect(summary.migration).toMatchObject({ available: false })
     expect(summary.migration.reason).toContain("already exists")
     expect(summary.vaultDiagnostics).toBeDefined()
+    expect(summary.authoringContract.allowedActions).toContain("upsertVaultResearchGap")
   })
 
   it("tool read summary and compile expose vault diagnostic reports", async () => {
@@ -367,6 +373,80 @@ describe("narrative vault", () => {
     expect(hydrated.narrative?.evidenceBindings).toContainEqual(expect.objectContaining({ id: "evidence:pilot:ops" }))
     expect(hydrated.narrative?.researchGaps).toContainEqual(expect.objectContaining({ id: "gap:pilot-evidence", status: "evidence_bound" }))
     expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("evidence:pilot:ops")
+  })
+
+  it("upserts research gaps through a vault-native structured action", async () => {
+    const root = tempWorkspace("revela-vault-tool-gap-upsert-")
+    writeDecksState(root, narrativeMapState())
+    writeMutableVault(root)
+
+    const result = await executeDecksTool({
+      action: "upsertVaultResearchGap",
+      researchGaps: [{
+        id: "gap-market-size",
+        targetType: "claim",
+        targetId: "claim:pilot",
+        question: "What source supports the market-size claim?",
+        status: "open",
+        priority: "high",
+        createdFromIssueType: "missing_evidence",
+        notes: "Needed before treating market size as supported.",
+      }],
+    }, root)
+    const file = readFileSync(join(root, "revela-narrative", "research-gaps", "gap-market-size.md"), "utf-8")
+    const hydrated = readDecksState(root)
+
+    expect(result.ok).toBe(true)
+    expect(result.mutation).toMatchObject({ ok: true, nodeId: "gap-market-size", file: "research-gaps/gap-market-size.md" })
+    expect(result.authoringContract.allowedActions).toContain("upsertVaultResearchGap")
+    expect(file).toContain("type: \"research-gap\"")
+    expect(file).toContain("What source supports the market-size claim?")
+    expect(hydrated.narrative?.researchGaps).toContainEqual(expect.objectContaining({ id: "gap-market-size", status: "open", priority: "high" }))
+  })
+
+  it("writes claim relations through structured vault actions using plain wikilinks", async () => {
+    const root = tempWorkspace("revela-vault-tool-claim-relations-")
+    writeDecksState(root, narrativeMapState())
+    writeMutableVault(root)
+
+    await executeDecksTool({
+      action: "upsertVaultClaim",
+      narrative: { claims: [{ id: "claim-recommendation", kind: "recommendation", text: "Approve the focused recommendation.", importance: "central", evidenceRequired: true }] },
+    }, root)
+    const result = await executeDecksTool({
+      action: "upsertVaultClaim",
+      narrative: {
+        claims: [{ id: "claim-belief-change-purpose", kind: "context", text: "The artifact must change audience belief before asking for approval.", importance: "supporting", evidenceRequired: false }],
+        claimRelations: [{ fromClaimId: "claim-belief-change-purpose", toClaimId: "claim-recommendation", relation: "supports", rationale: "Belief change frames the recommendation." }],
+      },
+    }, root)
+    const file = readFileSync(join(root, "revela-narrative", "claims", "claim-belief-change-purpose.md"), "utf-8")
+    const hydrated = readDecksState(root)
+
+    expect(result.ok).toBe(true)
+    expect(file).toContain("- supports: [[claim-recommendation]] - Belief change frames the recommendation.")
+    expect(file).not.toContain("[[claim:claim-recommendation]]")
+    expect(hydrated.narrative?.claimRelations).toContainEqual(expect.objectContaining({ fromClaimId: "claim-belief-change-purpose", toClaimId: "claim-recommendation", relation: "supports" }))
+  })
+
+  it("blocks JSON-era research and evidence mutations in vault workspaces with replacements", async () => {
+    const root = tempWorkspace("revela-vault-block-json-era-")
+    writeDecksState(root, narrativeMapState())
+    writeMutableVault(root)
+
+    const gaps = await executeDecksTool({ action: "upsertResearchGaps", researchGaps: [{ id: "gap:legacy", question: "Legacy gap" }] }, root)
+    const update = await executeDecksTool({ action: "updateResearchGap", gapId: "gap:pilot-evidence", gapStatus: "closed" }, root)
+    const close = await executeDecksTool({ action: "closeResearchGap", gapId: "gap:pilot-evidence" }, root)
+    const derive = await executeDecksTool({ action: "deriveResearchGaps" }, root)
+    const evidence = await executeDecksTool({ action: "applyEvidenceCandidates", candidateIds: ["candidate"] }, root)
+
+    for (const result of [gaps, update, close, derive, evidence]) {
+      expect(result.ok).toBe(false)
+      expect(result.error).toContain("JSON-era compatibility action")
+      expect(result.authoringContract.forbiddenCompatibilityActions).toContain("upsertResearchGaps")
+    }
+    expect(gaps.error).toContain("upsertVaultResearchGap")
+    expect(evidence.error).toContain("bindResearchFindings")
   })
 
   it("binds research findings into vault evidence only when binding eval is safe", async () => {
