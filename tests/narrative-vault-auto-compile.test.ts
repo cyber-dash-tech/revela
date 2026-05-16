@@ -139,7 +139,7 @@ Approve a bounded pilot.
 ## Caveats
 - Two.
 ## Relations
-- supports: [[claim:another]]
+- supports: [[claim:claim-another]]
 `, "utf-8")
 
     const result = autoCompileNarrativeVault(root, ["revela-narrative/claims/pilot.md"])

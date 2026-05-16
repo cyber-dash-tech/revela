@@ -241,6 +241,79 @@ describe("narrative vault", () => {
     expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("Product leadership")
   })
 
+  it("smoke tests fresh init with proposal intent, inventory-first authoring, QA repair, and graph compile", async () => {
+    const root = tempWorkspace("revela-vault-phase7-init-smoke-")
+    const proposalPath = join(root, "proposal.md")
+    writeFileSync(proposalPath, [
+      "# Pilot Proposal",
+      "",
+      "Audience: Product leadership.",
+      "Decision: Approve a bounded AI operations pilot.",
+      "Thesis: Start with a narrow pilot while external market demand remains unproven.",
+      "Evidence: The proposal requests pilot approval and caps scope to the operations workflow.",
+      "Gap: External market demand has not been validated in the proposal.",
+      "",
+    ].join("\n"), "utf-8")
+
+    const init = await executeDecksTool({
+      action: "init",
+      sourceMaterials: [{
+        path: "proposal.md",
+        type: "md",
+        size: readFileSync(proposalPath, "utf-8").length,
+        fingerprint: "phase7-proposal-v1",
+        status: "discovered",
+        summary: "Intent brief for a bounded AI operations pilot.",
+        bestUsedFor: "Audience, decision, thesis, internal intent evidence, and missing external validation gap.",
+        firstSeen: "2026-05-16T00:00:00.000Z",
+        lastChecked: "2026-05-16T00:00:00.000Z",
+      }],
+    }, root)
+    const bootstrapped = await executeDecksTool({
+      action: "initNarrativeVault",
+      narrative: {
+        audience: { primary: "Product leadership", beliefBefore: "AI operations pilots feel speculative.", beliefAfter: "A narrow pilot feels bounded but external demand remains unproven." },
+        decision: { action: "Approve a bounded AI operations pilot.", decisionType: "approve" },
+        thesis: { statement: "Start with a narrow pilot while external market demand remains unproven.", confidence: "medium" },
+      },
+    }, root)
+    const beforeAuthoring = await executeDecksTool({ action: "narrativeInventory" }, root)
+
+    expect(init.ingest.ingestCandidates).toContainEqual(expect.objectContaining({ path: "proposal.md" }))
+    expect(init.ingest.suggestedTasks).toContainEqual(expect.objectContaining({ path: "proposal.md", suggestedAction: "read_directly" }))
+    expect(bootstrapped.ok).toBe(true)
+    expect(beforeAuthoring.narrativeInventory.counts.claims).toBe(0)
+    expect(beforeAuthoring.authoringContract.relationSyntax.avoid).toContain("[[claim:claim-belief-change-purpose]]")
+
+    const claimsDir = join(root, "revela-narrative", "claims")
+    const evidenceDir = join(root, "revela-narrative", "evidence")
+    const gapsDir = join(root, "revela-narrative", "research-gaps")
+    writeFileSync(join(claimsDir, "pilot.md"), "---\ntype: claim\nid: claim-pilot\nkind: recommendation\nimportance: central\nevidenceRequired: true\nsupportedScope: Internal pilot approval request only.\nunsupportedScope: Does not prove external market demand.\n---\nApprove a bounded AI operations pilot.\n\n## Relations\n\n- supports: [[claim:claim-market-demand]]\n", "utf-8")
+
+    const typoQa = await executeDecksTool({ action: "markdownQa", markdownQaScope: "touched", markdownQaStrictness: "authoring" }, root)
+    expect(typoQa.markdownQa.blockers).toContainEqual(expect.objectContaining({ issueCode: "typed_wikilink_target", file: "claims/pilot.md" }))
+
+    writeFileSync(join(claimsDir, "pilot.md"), "---\ntype: claim\nid: claim-pilot\nkind: recommendation\nimportance: central\nevidenceRequired: true\nsupportedScope: Internal pilot approval request only.\nunsupportedScope: Does not prove external market demand.\n---\nApprove a bounded AI operations pilot.\n\n## Relations\n\n- supports: [[claim-market-demand]] - Pilot approval depends on acknowledging the unsupported market-demand boundary.\n", "utf-8")
+    writeFileSync(join(claimsDir, "market-demand.md"), "---\ntype: claim\nid: claim-market-demand\nkind: assumption\nimportance: central\nevidenceRequired: true\nsupportedScope: No direct proposal support.\nunsupportedScope: External demand validation is missing.\n---\nExternal market demand still needs validation before scaling beyond the pilot.\n", "utf-8")
+    writeFileSync(join(evidenceDir, "pilot-request.md"), "---\ntype: evidence\nid: evidence-pilot-request\nsource: proposal.md\nsourcePath: proposal.md\nquote: The proposal requests pilot approval and caps scope to the operations workflow.\nsupportScope: Supports the internal pilot request and bounded scope.\nunsupportedScope: Does not prove external market demand or commercial viability.\ncaveat: Intent brief evidence only.\nstrength: partial\n---\nThe local proposal explicitly requests pilot approval with a bounded scope.\n\n## Relations\n\n- supports: [[claim-pilot]] - The proposal states the internal pilot request.\n", "utf-8")
+    writeFileSync(join(gapsDir, "market-demand.md"), "---\ntype: research-gap\nid: gap-market-demand\nquestion: What public evidence validates external market demand for this AI operations pilot?\nstatus: open\npriority: high\n---\nThe proposal does not validate external demand.\n\n## Relations\n\n- depends_on: [[claim-market-demand]] - The gap tracks missing support for the market-demand assumption.\n", "utf-8")
+
+    const qa = await executeDecksTool({ action: "markdownQa", markdownQaScope: "full", markdownQaStrictness: "readiness" }, root)
+    const compiled = await executeDecksTool({ action: "compileNarrativeVault" }, root)
+    const inventory = await executeDecksTool({ action: "narrativeInventory" }, root)
+    const persisted = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
+
+    expect(qa.markdownQa.blockers).toEqual([])
+    expect(inventory.narrativeInventory.relationCoverage.danglingEdges).toEqual([])
+    expect(inventory.narrativeInventory.relationCoverage.unboundEvidence).toEqual([])
+    expect(compiled.result.graph.relations).toContainEqual(expect.objectContaining({ id: "rel-evidence-pilot-request-supports-claim-pilot", source: "inline" }))
+    expect(compiled.result.narrative.evidenceBindings).toContainEqual(expect.objectContaining({ id: "evidence-pilot-request", claimId: "claim-pilot", strength: "partial" }))
+    expect(compiled.result.narrative.claims).toContainEqual(expect.objectContaining({ id: "claim-market-demand", evidenceStatus: "missing", unsupportedScope: "External demand validation is missing." }))
+    expect(compiled.result.narrative.researchGaps).toContainEqual(expect.objectContaining({ id: "gap-market-demand", targetId: "claim-market-demand", status: "open" }))
+    expect(compiled.diagnosticReport.warnings).toContainEqual(expect.objectContaining({ code: "claim_missing_evidence", nodeId: "claim-market-demand" }))
+    expect(persisted.narrative).toBeUndefined()
+  })
+
   it("persists approvals outside the DECKS narrative mirror in vault workspaces", async () => {
     const root = tempWorkspace("revela-vault-approval-provenance-")
     writeDecksState(root, narrativeMapState())

@@ -181,12 +181,13 @@ Structured helper role:
 - ~~Deterministic deck plan compiler v2 and focused read-only Story UI.~~
 - ~~Initial vault helpers and JSON-era mutation blocking in vault workspaces.~~
 - ~~Inline node `## Relations` as the canonical graph source, with deterministic compiler-generated relation ids and layered relation QA.~~
+- ~~0.17 release verification: fresh init smoke, Markdown QA repair feedback, inventory-first authoring, vault compile persistence, full tests, typecheck, and package dry-run.~~
 
-## 0.17 Active Development Plan
+## 0.17 Development Plan
 
 0.17 closeout goal: establish a reliable Markdown authoring control loop. Prompts constrain how the LLM writes Markdown before authoring; inventory tools show existing nodes before edits; hooks/tools run Markdown QA after authoring and return repair task cards; inline relation QA keeps graph edges aligned with nodes while preserving Markdown wikilink navigation; `compileNarrativeVault` remains the deterministic graph compiler.
 
-Phases 1-6 are closed. Phase 7 is the active 0.17 release verification gate; do not move on to 0.17.1 until Phase 7 is closed.
+Phases 1-7 are closed. 0.17 is release-verified; do not move on to 0.17.1 work without preserving the 0.17 release gate results.
 
 ### ~~Phase 1: Prompt-Side Markdown Authoring Contract + Inventory~~
 
@@ -277,12 +278,12 @@ Tests:
 - ~~Full/readiness QA detects unbound evidence/objections/risks/gaps, isolated central claims, and orphan nodes from inline graph coverage.~~
 - ~~Strict readiness/render paths block `reviewNarrative`, `approveNarrative`, `compileDeckPlan`, and deck `review` when inline relation QA has blockers.~~
 
-### Phase 7: 0.17 Release Verification
+### ~~Phase 7: 0.17 Release Verification~~
 
-- Smoke test `/revela init` in a fresh workspace with one proposal/intent brief.
-- Confirm prompt-side constraints reduce malformed Markdown and hook/tool QA gives actionable repair feedback when mistakes remain.
-- Confirm inventory-before-authoring prevents duplicate ids and unresolved relation/claim targets in normal init/research flows.
-- Confirm direct Markdown-created claims/gaps/evidence compile into graph, missing evidence remains visible, and no `DECKS.json.narrative` is persisted.
+- ~~Smoke test `/revela init` in a fresh workspace with one proposal/intent brief.~~
+- ~~Confirm prompt-side constraints reduce malformed Markdown and hook/tool QA gives actionable repair feedback when mistakes remain.~~
+- ~~Confirm inventory-before-authoring prevents duplicate ids and unresolved relation/claim targets in normal init/research flows.~~
+- ~~Confirm direct Markdown-created claims/gaps/evidence compile into graph, missing evidence remains visible, and no `DECKS.json.narrative` is persisted.~~
 - ~~Run `bun test`, `bun run typecheck`, and `npm pack --dry-run` before release.~~
 
 ## Post-0.17 Candidates
