@@ -11,12 +11,12 @@ export function buildResearchPrompt({
     ? `${DECKS_STATE_FILE} exists. Read it through the revela-decks tool before researching.`
     : `${DECKS_STATE_FILE} does not exist yet. Do not start broad internet research; initialize the workspace first with /revela init unless the user supplied a specific research question in chat.`
 
-  return `Run Revela closed-loop research.
+  return `Run Revela research from deterministic state.
 
 Goal:
 - Reduce open gaps, unsupported scope, weak evidence, unattached findings, and overextended relation rationale for the current story.
 - Drive research from canonical narrative gaps: unsupported central claims, objections, risks, decision questions, explicit researchGaps, and claim_chain_gap warnings.
-- Treat /revela research as authorization to bind clearly supported findings into canonical evidence without asking for item-by-item user confirmation.
+- Treat /revela research as authorization to bind clearly supported findings through the safe \`bindResearchFindings\` boundary without asking for item-by-item user confirmation.
 - Preserve evidence boundaries: eliminate caveats only when evidence or narrower wording actually resolves them; otherwise keep precise caveats visible.
 - Do not write decks, briefs, or design artifacts during research.
 
@@ -24,20 +24,28 @@ Current state:
 - ${state}
 ${workspaceRoot ? `- Current workspace root: \`${workspaceRoot}\`` : ""}
 
-Closed-loop workflow:
-1. Call \`revela-decks\` action \`read\` with \`summary: true\`, then \`reviewNarrative\`, then \`deriveResearchTargets\`. Treat the returned \`selected\` target as the deterministic first target unless it is clearly blocked by user-only information. If the read result includes \`vaultDiagnostics\`, inspect its \`blockers\`, \`warnings\`, and \`nextActions\` before researching. Treat blocking vault diagnostics as the first fix unless the selected research target directly resolves them.
-2. If current research gaps are missing or stale, create or update \`revela-narrative/research-gaps/*.md\` directly when the gap is explicit; otherwise call \`deriveResearchGaps\` when useful. Then call \`deriveResearchTargets\` again. Do not invent gaps that are not tied to a claim, objection, risk, decision, or narrative issue.
-3. Run up to 3 research loops unless the stop conditions below are met earlier.
-4. At the start of each loop, use \`deriveResearchTargets\` as the target order. Work the \`selected\` target first, then the next 1-2 highest-priority targets only when they are related. Do not repeat searches for claims already strongly supported.
-5. If a target has \`findingsFile\` or \`kind: "unattached_findings"\`, inspect \`bindingDiagnostic\` and call \`revela-decks evaluateResearchFindings\` before doing external search. Prefer existing findings before external research.
-6. When \`bindingEval.status\` is not \`bindable\` or \`bindingDiagnostic.bindable\` is false, do not bind or package the findings as strong evidence. Report the exact \`missingFields\` and \`failureReasons\` such as \`missing_quote\`, \`unclear_source\`, \`unsupported_scope\`, \`caveat_conflict\`, \`weak_source\`, \`source_mismatch\`, or \`context_only_finding\`, then either narrow the claim safely or run targeted research for the missing fields.
-7. For targets needing external evidence, mark matching gaps \`in_progress\` by editing \`revela-narrative/research-gaps/*.md\` when a Markdown vault exists; otherwise initialize the vault first if canonical gap state is needed. Then delegate search to the \`revela-research\` subagent. Ask it for source URLs, quotes/snippets, dates or locations when available, caveats, remaining gaps, and a \`## Recommended evidence bindings\` section with claimId, quote, source, supportScope, unsupportedScope, caveat, and strength. Save findings with \`revela-research-save\` under \`researches/{topic}/{axis}.md\` using \`## Data\`, \`## Cases\`, \`## Images\`, and \`## Gaps\` sections as applicable.
-8. After findings are saved or existing findings are selected, use the returned \`bindingEval\` from \`revela-research-save\` or call \`revela-decks evaluateResearchFindings\`. Attach it with \`revela-decks attachResearchFindings\` when it maps to an existing research axis. Re-run \`deriveResearchTargets\` so the next loop sees updated \`bindingDiagnostic\` and target order.
-9. Automatically bind evidence only when all binding criteria are met and \`bindingEval.status\` is \`bindable\` with an explicit \`claimId\` and \`recommendedEvidenceDraft\`, or the same fields are explicit in the findings. If no Markdown vault exists, call \`revela-decks initNarrativeVault\` first. Then call \`revela-decks bindResearchFindings\` with the \`findingsFile\`; this safe boundary writes \`revela-narrative/evidence/*.md\`, compiles the vault, and updates an exact matching research gap when possible. Use manual Markdown edits or \`upsertVaultEvidence\` only when \`bindResearchFindings\` returns incomplete/unsafe diagnostics that you can fix explicitly without guessing.
-10. Binding criteria: claimId exists; quote/snippet is traceable to the source and is not invented; source URL or workspace source path is present; supportScope and unsupportedScope are explicit; strength is strong or useful partial; caveat is preserved; binding does not expand the claim beyond the evidence.
-11. If a claim is broader than the evidence but can be safely narrowed without changing strategic meaning, update \`revela-narrative/claims/*.md\` directly while preserving id, relations, caveats, supported scope, and unsupported scope. Relation rewrites and strategic claim changes must be reported in \`Narrative changes\`, keep unsupported scope visible, and make \`/revela story\` or explicit user confirmation the next action.
-12. Update matching gap Markdown after binding: use \`evidence_bound\` when canonical evidence was added, \`closed\` when the gap is resolved or non-researchable, \`findings_saved\` only when findings exist but binding criteria are not met, and \`open\` with notes when more external research is still warranted.
-13. After Markdown edits, call \`revela-decks compileNarrativeVault\`, inspect \`diagnosticReport\`, fix blockers, then re-run \`reviewNarrative\` and \`deriveResearchTargets\`. Compare against the previous loop: fewer open gaps, fewer unattached findings, stronger evidence, narrower unsupported scope, or clearer internal-data caveats should count as progress.
+Required first calls:
+1. Call \`revela-decks read\` with \`summary: true\`.
+2. Call \`revela-decks reviewNarrative\`.
+3. Call \`revela-decks deriveResearchTargets\` and treat \`selected\`, \`bindingDiagnostic\`, and target order as deterministic inputs, not LLM judgement.
+
+Tool-driven research contract:
+- If \`selected\` or any high-priority target references a \`findingsFile\`, call \`revela-decks evaluateResearchFindings\` before external search.
+- If \`bindingEval.status === "bindable"\`, call \`revela-decks bindResearchFindings\` with that \`findingsFile\`. Do not hand-author evidence Markdown for bindable findings.
+- If findings are not bindable, report \`missingFields\` and \`failureReasons\`; then run only targeted research for those missing fields.
+- For external research, use the \`revela-research\` subagent and save findings with \`revela-research-save\`. Ask for source URLs/paths, quotes/snippets, supportScope, unsupportedScope, caveat, strength, and claimId when available.
+- Re-run \`deriveResearchTargets\` after attachment, binding, or explicit vault edits. Stop after at most 3 rounds.
+
+Allowed mutations:
+- Canonical evidence: use \`bindResearchFindings\` for bindable saved findings; the safe boundary writes \`revela-narrative/evidence/*.md\` and compiles the vault.
+- Research gap lifecycle: edit \`revela-narrative/research-gaps/*.md\` or use \`updateVaultResearchGap\` when the update is explicit.
+- Safe claim narrowing: edit \`revela-narrative/claims/*.md\` only when it preserves strategic meaning and evidence boundaries.
+- Relation rewrites and strategic claim changes must be reported in \`Narrative changes\`; broader narrative rewrites require Story/user confirmation.
+- Initialize the vault with \`initNarrativeVault\` if a canonical vault is needed and missing.
+- Never call \`upsertNarrative\` during research.
+
+Binding criteria:
+- claimId exists; quote/snippet is traceable and not invented; source URL/path/findingsFile is present; supportScope and unsupportedScope are explicit; caveat is preserved; strength is strong or useful partial; binding does not expand the claim.
 
 Stop conditions:
 - No open externally researchable gaps remain.

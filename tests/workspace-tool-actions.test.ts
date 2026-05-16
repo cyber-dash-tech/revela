@@ -142,6 +142,22 @@ describe("workspace tool action provenance", () => {
     expect(result.ingest.addedSourceMaterials.map((item: { path: string }) => item.path)).toEqual(["sources/a.pdf", "notes/b.md"])
     expect(result.ingest.newerThanVaultSourceMaterials.map((item: { path: string }) => item.path)).toEqual(["sources/a.pdf", "notes/b.md"])
     expect(result.ingest.ingestCandidates.map((item: { path: string }) => item.path)).toEqual(["notes/b.md", "sources/a.pdf"])
+    expect(result.ingest.suggestedTasks).toEqual([
+      expect.objectContaining({
+        path: "notes/b.md",
+        reason: ["added", "newer_than_vault"],
+        materialType: "md",
+        needsExtraction: false,
+        suggestedAction: "read_directly",
+      }),
+      expect.objectContaining({
+        path: "sources/a.pdf",
+        reason: ["added", "newer_than_vault"],
+        materialType: "pdf",
+        needsExtraction: true,
+        suggestedAction: "extract_then_read",
+      }),
+    ])
     expect(result.ingest.unchangedSourceMaterials).toEqual([])
   })
 
@@ -174,6 +190,11 @@ describe("workspace tool action provenance", () => {
     expect(result.ingest.newerThanVaultSourceMaterials.map((item: { path: string }) => item.path)).toEqual(["newer.pdf"])
     expect(result.ingest.unchangedSourceMaterials.map((item: { path: string }) => item.path)).toEqual(["same.pdf"])
     expect(result.ingest.ingestCandidates.map((item: { path: string }) => item.path)).toEqual(["added.pdf", "changed.pdf", "newer.pdf"])
+    expect(result.ingest.suggestedTasks).toEqual([
+      expect.objectContaining({ path: "added.pdf", reason: ["added"], needsExtraction: true, suggestedAction: "extract_then_read" }),
+      expect.objectContaining({ path: "changed.pdf", reason: ["changed"], needsExtraction: true, suggestedAction: "extract_then_read" }),
+      expect.objectContaining({ path: "newer.pdf", reason: ["newer_than_vault"], needsExtraction: true, suggestedAction: "extract_then_read" }),
+    ])
     expect(next.workspace.sourceMaterials.find((item) => item.path === "changed.pdf")?.extraction).toBeUndefined()
   })
 

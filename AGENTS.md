@@ -181,6 +181,7 @@ Known 0.15 limits:
 - Vault compiler diagnostics now catch evidence nodes with missing or unknown `claimId` before normalization can drop invalid bindings, so auto-compile treats them as hard blockers and preserves the previous mirror.
 - `lib/narrative-vault/compile-mirror.ts` centralizes compile/cache/hydrate behavior for plugin auto-compile and `revela-decks` vault actions while `writeDecksState` prevents persisted narrative mirrors in vault workspaces.
 - Research findings binding eval is implemented in `lib/narrative-state/research-binding-eval.ts`; `revela-research-save` returns a read-only binding eval after saving, `revela-decks evaluateResearchFindings` evaluates saved findings without mutating canonical evidence, and `revela-decks bindResearchFindings` writes bindable findings into canonical vault evidence through a safe boundary.
+- `/revela research` and `/revela init` prompts are thinned around deterministic tool contracts: research starts from `deriveResearchTargets`/`evaluateResearchFindings`/`bindResearchFindings`, and init follows `ingest.suggestedTasks` returned from `revela-decks init`.
 - The MVP does not move render targets, artifact coverage, review snapshots, or deck specs into Markdown. Approvals are preserved outside persisted narrative mirrors and injected into runtime narrative projections.
 
 ## 0.17 Narrative Vault Baseline
@@ -249,14 +250,14 @@ Validation requirements:
 
 Remaining 0.17.0 theme: make Markdown Narrative Vault the durable narrative source while reducing prompt orchestration through narrow tool/state/hook boundaries. Do not add eval for its own sake.
 
-Do not move on to 0.17.1 yet. Markdown vault authoring now compiles automatically after vault Markdown writes, vault workspaces no longer persist `DECKS.json.narrative`, and saved research findings can be evaluated and safely bound into canonical vault evidence. Continue by thinning prompts and strengthening concrete tool contracts; do not replace these narrow boundaries with a generic workflow-eval framework unless repeated structure proves it necessary.
+Do not move on to 0.17.1 yet. Markdown vault authoring now compiles automatically after vault Markdown writes, vault workspaces no longer persist `DECKS.json.narrative`, saved research findings can be evaluated and safely bound into canonical vault evidence, and init/research prompts now rely on concrete tool contracts. Continue by making make/review decisions more coverage-driven; do not replace these narrow boundaries with a generic workflow-eval framework unless repeated structure proves it necessary.
 
 0.17.0 includes both vault canonicalization and prompt lean-down work:
 
 - ~~Eliminate persisted `DECKS.json.narrative` dependency in vault workspaces while keeping a runtime hydrated `state.narrative` projection as a compatibility interface for existing consumers.~~
 - ~~Add a safe binding execution boundary from bindable saved findings to canonical `revela-narrative/evidence/*.md`.~~
-- Thin `/revela research` around deterministic `deriveResearchTargets`, `evaluateResearchFindings`, vault diagnostics, and the safe binding boundary.
-- Add init ingest task hints so `/revela init` relies on concrete scan/init outputs instead of prompt memory.
+- ~~Thin `/revela research` around deterministic `deriveResearchTargets`, `evaluateResearchFindings`, vault diagnostics, and the safe binding boundary.~~
+- ~~Add init ingest task hints so `/revela init` relies on concrete scan/init outputs instead of prompt memory.~~
 - Make make/review decisions more coverage-driven so artifact coverage and narrative hashes drive stale/current/remake/export guidance.
 
 Post-0.17 work should include Review Prep/Rehearsal, Audience Lens, Meeting Prep Pack, and larger Review interaction expansion. Do not pull those into the remaining 0.17.0 scope.
@@ -264,7 +265,7 @@ Post-0.17 work should include Review Prep/Rehearsal, Audience Lens, Meeting Prep
 Grounded current-state notes:
 
 - Story UI, research gaps, artifact coverage/staleness, Review Insight, Review asset search, and executive brief generation already exist. Treat them as foundations to harden rather than blank-slate future features.
-- `/revela research` still relies too heavily on prompt-orchestrated closed-loop instructions. Findings/binding readiness now exists as a deterministic tool boundary; the next gaps are safe binding execution and prompt lean-down, not a broad eval layer.
+- `/revela research` has been thinned around deterministic target/evidence-binding tool contracts. Keep future research changes focused on missing tool/state boundaries, not a broad eval layer.
 - Review Insight already has deterministic inspection context/result builders plus LLM inspector prompts. The gap is clearer deterministic-first UX and provenance labeling, not generic chat.
 - Artifact coverage already tracks current/stale/partial/missing claim coverage. The 0.17.0 gap is making coverage drive make/review/remake decisions more explicitly.
 - `lib/commands/*` and `skill/NARRATIVE_SKILL.md` remain too procedural. Shrink them by moving repeatable memory into narrow tools/hooks and by making tool results explicit enough that prompts can become thin contracts.
@@ -326,22 +327,22 @@ Priority 3: ~~research binding execution boundary.~~
 - ~~After writing evidence Markdown, compile the vault and surface diagnostics. Failed compiles must keep missing support visible and preserve source trace.~~
 - ~~If the binding eval is not bindable, the tool/prompt should report missing fields or source mismatch instead of asking the LLM to infer support.~~
 
-Priority 4: `/revela research` prompt lean-down.
+Priority 4: ~~/revela research prompt lean-down.~~
 
-- Start by thinning `/revela research` now that `deriveResearchTargets` and `evaluateResearchFindings` expose concrete state. The prompt should say which tools to call and preserve hard safety rules, not encode a long closed-loop state machine.
-- Keep `deriveResearchTargets`, `bindingEval`, vault diagnostics, readiness review, deck plan checks, artifact coverage, and QA as deterministic tool/state outputs. Do not wrap them in a generic workflow framework unless multiple phases need the same contract.
+- ~~Start by thinning `/revela research` now that `deriveResearchTargets` and `evaluateResearchFindings` expose concrete state. The prompt should say which tools to call and preserve hard safety rules, not encode a long closed-loop state machine.~~
+- ~~Keep `deriveResearchTargets`, `bindingEval`, vault diagnostics, readiness review, deck plan checks, artifact coverage, and QA as deterministic tool/state outputs. Do not wrap them in a generic workflow framework unless multiple phases need the same contract.~~
 - ~~Once the safe binding boundary exists, the research prompt should call it for bindable findings instead of asking the LLM to manually author evidence Markdown from memory.~~ Implemented through `/revela research` prompt guidance for `bindResearchFindings`.
-- Research reports should stay fixed and compact: selected target, inspected findings, binding eval, evidence written, unbound findings, gap updates, remaining caveats, and next smallest action.
-- Prompt tests should increasingly check thin contracts and durable safety boundaries, not long procedural substrings.
-- Shared workflow/eval types are a fallback after repetition appears across at least two concrete boundaries, not the next default step.
+- ~~Research reports should stay fixed and compact: selected target, inspected findings, binding eval, evidence written, unbound findings, gap updates, remaining caveats, and next smallest action.~~
+- ~~Prompt tests should increasingly check thin contracts and durable safety boundaries, not long procedural substrings.~~
+- ~~Shared workflow/eval types are a fallback after repetition appears across at least two concrete boundaries, not the next default step.~~
 
-Priority 5: init prompt lean-down and ingest task hints.
+Priority 5: ~~init prompt lean-down and ingest task hints.~~
 
-- `/revela init` should rely on concrete scan/init tool output rather than prompt prose to decide whether vault bootstrap, workspace scan, source-material registration, extraction reuse, or user clarification is needed.
-- After `revela-workspace-scan` and `revela-decks init`, tool output should return concrete ingest candidates and suggested read/extract tasks. The LLM should read and synthesize those files, not infer ingest scope from prompt prose.
-- Keep the current ingest buckets: added, changed, newer-than-vault, unchanged, and ingest candidates.
-- Stable findings from ingested files should be written into `revela-narrative/**/*.md`; source-material records alone remain candidate context, not evidence.
-- Once vault Markdown is written, the vault write eval hook should compile and return diagnostics/next tasks.
+- ~~`/revela init` should rely on concrete scan/init tool output rather than prompt prose to decide whether vault bootstrap, workspace scan, source-material registration, extraction reuse, or user clarification is needed.~~
+- ~~After `revela-workspace-scan` and `revela-decks init`, tool output should return concrete ingest candidates and suggested read/extract tasks. The LLM should read and synthesize those files, not infer ingest scope from prompt prose.~~
+- ~~Keep the current ingest buckets: added, changed, newer-than-vault, unchanged, and ingest candidates.~~
+- ~~Stable findings from ingested files should be written into `revela-narrative/**/*.md`; source-material records alone remain candidate context, not evidence.~~
+- ~~Once vault Markdown is written, the vault write eval hook should compile and return diagnostics/next tasks.~~
 
 Priority 6: research target and findings/binding hooks.
 

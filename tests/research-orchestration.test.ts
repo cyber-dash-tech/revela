@@ -38,10 +38,11 @@ describe("revela research command prompt", () => {
   it("uses deterministic research targets before external search", () => {
     const prompt = buildResearchPrompt({ exists: true, workspaceRoot: "/tmp/revela-demo" })
 
-    expect(prompt).toContain("then `reviewNarrative`, then `deriveResearchTargets`")
-    expect(prompt).toContain("Treat the returned `selected` target as the deterministic first target")
-    expect(prompt).toContain("use `deriveResearchTargets` as the target order")
-    expect(prompt).toContain("Work the `selected` target first")
+    expect(prompt).toContain("Required first calls")
+    expect(prompt).toContain("Call `revela-decks read` with `summary: true`")
+    expect(prompt).toContain("Call `revela-decks reviewNarrative`")
+    expect(prompt).toContain("Call `revela-decks deriveResearchTargets`")
+    expect(prompt).toContain("treat `selected`, `bindingDiagnostic`, and target order as deterministic inputs")
     expect(prompt).toContain("Do not bypass `deriveResearchTargets`")
     expect(prompt).toContain("target selection, `selected`, `bindingDiagnostic`, and `bindingEval` are deterministic inputs")
   })
@@ -49,10 +50,9 @@ describe("revela research command prompt", () => {
   it("prioritizes existing findings and reports binding diagnostics", () => {
     const prompt = buildResearchPrompt({ exists: true })
 
-    expect(prompt).toContain("inspect `bindingDiagnostic` and call `revela-decks evaluateResearchFindings` before doing external search")
-    expect(prompt).toContain("Prefer existing findings before external research")
-    expect(prompt).toContain("When `bindingEval.status` is not `bindable` or `bindingDiagnostic.bindable` is false")
-    expect(prompt).toContain("do not bind or package the findings as strong evidence")
+    expect(prompt).toContain("call `revela-decks evaluateResearchFindings` before external search")
+    expect(prompt).toContain("If findings are not bindable, report `missingFields` and `failureReasons`")
+    expect(prompt).toContain("then run only targeted research for those missing fields")
     expect(prompt).toContain("`missing_quote`")
     expect(prompt).toContain("`unclear_source`")
     expect(prompt).toContain("`unsupported_scope`")
@@ -64,25 +64,24 @@ describe("revela research command prompt", () => {
   it("requires bindable diagnostics or equivalent explicit fields before automatic binding", () => {
     const prompt = buildResearchPrompt({ exists: true })
 
-    expect(prompt).toContain("Automatically bind evidence only when all binding criteria are met")
-    expect(prompt).toContain("`bindingEval.status` is `bindable` with an explicit `claimId` and `recommendedEvidenceDraft`")
-    expect(prompt).toContain("Do not call `upsertNarrative` during research")
+    expect(prompt).toContain("If `bindingEval.status === \"bindable\"`, call `revela-decks bindResearchFindings`")
+    expect(prompt).toContain("Do not hand-author evidence Markdown for bindable findings")
+    expect(prompt).toContain("Never call `upsertNarrative` during research")
     expect(prompt).toContain("revela-narrative/evidence/*.md")
-    expect(prompt).toContain("call `revela-decks initNarrativeVault` first")
-    expect(prompt).toContain("call `revela-decks bindResearchFindings` with the `findingsFile`")
-    expect(prompt).toContain("safe boundary writes `revela-narrative/evidence/*.md`")
+    expect(prompt).toContain("Initialize the vault with `initNarrativeVault`")
+    expect(prompt).toContain("Canonical evidence: use `bindResearchFindings`")
     expect(prompt).toContain("`findingsFile`")
     expect(prompt).toContain("claimId exists")
     expect(prompt).toContain("supportScope and unsupportedScope are explicit")
-    expect(prompt).toContain("binding does not expand the claim beyond the evidence")
+    expect(prompt).toContain("binding does not expand the claim")
     expect(prompt).toContain("report `findingsFile`, `bindingEval.status` when available, `bindingDiagnostic.bindable`, `missingFields`, `failureReasons`")
   })
 
   it("limits claim narrowing to safe vault actions during research", () => {
     const prompt = buildResearchPrompt({ exists: true })
 
-    expect(prompt).toContain("can be safely narrowed without changing strategic meaning")
-    expect(prompt).toContain("update `revela-narrative/claims/*.md` directly")
+    expect(prompt).toContain("Safe claim narrowing")
+    expect(prompt).toContain("edit `revela-narrative/claims/*.md` only when it preserves strategic meaning")
     expect(prompt).toContain("Targeted vault actions are fallback helpers")
     expect(prompt).toContain("Relation rewrites and strategic claim changes must be reported in `Narrative changes`")
     expect(prompt).toContain("Broader narrative rewrites must be reported for Story/user confirmation")

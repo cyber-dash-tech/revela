@@ -14,13 +14,10 @@ export function buildInitPrompt({
   return `Initialize Revela narrative workspace state.
 
 Goal:
-- Build or update ${DECKS_STATE_FILE}, the workspace-level machine-readable state file for Revela narrative and artifact work.
-- Treat init as repeatable ingest: initial workspace discovery and later ingestion of user-added or user-modified files.
-- Use the \`revela-decks\` tool for state updates. Do not write or patch ${DECKS_STATE_FILE} directly.
-- Capture stable narrative context first: primary audience, belief before, belief after, decision/action, thesis, central claims, evidence availability, objections, risks, available source materials, existing artifact history, and open questions.
-- Do not treat initialization as permission to write a deck. Narrative readiness is reviewed later by \`/revela story\`; deck/artifact readiness is handled by \`/revela make --deck\` after story approval and deck-plan confirmation.
-- Do not require slide count, visual style, design selection, output path, layout choices, or component choices during narrative initialization unless the user explicitly asks to render a deck now.
-- ${DECKS_STATE_FILE} is the compatibility workspace-state file. Deck specs are render-target projections, not the center of initialization.
+- Build or refresh ${DECKS_STATE_FILE} and the Markdown narrative vault from local workspace evidence.
+- Treat init as repeatable ingest: discover files, register source materials, follow returned ingest task hints, and distill stable narrative meaning.
+- Capture primary audience, belief before/after, decision/action, thesis, central claims, evidence availability, objections, risks, source materials, artifact history, and open questions.
+- Do not treat initialization as permission to write a deck. Do not require slide count, visual style, design selection, output path, layout choices, or component choices unless the user explicitly asks to render.
 
 Current state:
 - ${mode}
@@ -34,30 +31,21 @@ Workspace boundary rules:
 - Do not use \`~\`, \`..\`, or parent-directory traversal to discover files.
 - If the current workspace appears too broad, stop and ask the user which workspace subdirectory to initialize instead of scanning outside or deeply across everything.
 
-Workflow:
-1. Use \`revela-decks\` action \`read\` with \`summary: true\` when ${DECKS_STATE_FILE} exists. If \`revela-narrative/\` does not exist, call \`revela-decks\` action \`initNarrativeVault\` before recording narrative meaning. If the result includes \`migration.available: true\`, prefer \`exportNarrativeVault\` for developer workspaces with existing JSON narrative, then continue by editing Markdown vault files.
-2. Use the \`revela-workspace-scan\` tool to inspect document and data files in the workspace. Start with no \`path\` and \`max_depth: 2\`; if the user says they added files in a deeper folder or the scan misses expected files, scan that workspace-relative path with a larger depth.
-3. Separately search for existing artifact history, especially:
-   - \`decks/**/*.html\`
-   - \`slides/**/*.html\`
-   - \`presentations/**/*.html\`
-   - \`decks/**/*.pdf\`
-   - \`slides/**/*.pdf\`
-   Run these searches only inside the current workspace root. These are generated/output artifacts, not necessarily source materials. If \`decks/\` contains exactly one HTML file, record it as existing artifact history and possible current deck artifact. If \`decks/\` contains multiple HTML files, do not guess which one is canonical; ask the user which artifact belongs to this workspace or whether extra decks should move to separate workspaces.
-4. Register or refresh source material records by passing the scan result's \`sourceMaterial\` objects to \`revela-decks\` action \`init\`. Preserve unchanged existing records; the tool will upsert by path and fingerprint and return \`ingest.addedSourceMaterials\`, \`ingest.changedSourceMaterials\`, \`ingest.newerThanVaultSourceMaterials\`, \`ingest.unchangedSourceMaterials\`, and \`ingest.ingestCandidates\`.
-5. Treat every \`ingest.ingestCandidates\` item as requiring this init pass to consider ingestion. This includes all supported source files when no vault exists, every file newer than the vault timestamp, and any same-path file whose fingerprint changed. Do not skip an ingest candidate merely because the narrative is incomplete.
-6. Select the ingest candidates and other clearly relevant files needed for understanding the narrative problem. Prioritize source decks, PDFs, Word docs, spreadsheets, CSVs, Markdown, text notes, and relevant existing generated artifacts.
-7. Do not automatically extract every PDF/PPTX/DOCX/XLSX during init. Call \`revela-extract-document-materials\` only for selected ingest candidates/files that are clearly needed to form conservative narrative memory, or when the user explicitly asked to analyze the material now.
-8. Before extracting or deeply reading a selected document, check \`DECKS.json.workspace.sourceMaterials\`. If the same path has the same fingerprint and valid extraction paths, reuse those paths instead of repeating extraction.
-9. Read only the materials needed to form conservative narrative memory. Do not exhaustively read every file if the workspace is large.
-10. Distill ingested files into the Markdown vault when they contain stable narrative meaning. Use \`initNarrativeVault\` first when needed, then write or edit Markdown nodes directly under \`revela-narrative/\`: \`audience.md\`, \`decision.md\`, \`thesis.md\`, \`claims/*.md\`, \`evidence/*.md\`, \`objections/*.md\`, \`risks/*.md\`, and \`research-gaps/*.md\`. Completeness is not a gate: write partial nodes, caveats, unsupported scope, and research gaps rather than waiting for a complete story.
-11. Preserve graph meaning in Markdown. Claim files should include \`## Relations\` with typed wikilinks such as \`- supports: [[claim:...]]\`, \`- depends_on: [[evidence:...]]\`, \`- answers: [[objection:...]]\`, and \`- constrains: [[risk:...]]\` when the relationship is explicit. Preserve existing ids, relations, source trace, quotes/snippets, caveats, supported scope, and unsupported scope. If direct Markdown editing is unavailable or unsafe, use targeted vault actions as deterministic helpers; they are not the primary authoring path.
-12. After writing Markdown, call \`revela-decks\` action \`compileNarrativeVault\`, inspect \`diagnosticReport\`, and fix broken links, missing required fields, illegal relation targets, or incomplete evidence trace. Do not use \`upsertNarrative\`; it is deprecated.
-13. If the workspace has explicit slide/deck information, existing HTML, or a user-requested deck task, you may also call \`upsertDeck\` and \`upsertSlides\` for explicit deck information. The tool projects canonical narrative state back to compatibility \`narrativeBrief\` when a deck record exists. Do not pass or ask for a deck key; the tool uses the workspace folder name internally. Do not mark deck readiness ready during init.
-14. When adopting an existing HTML deck, analyze the artifact and create one conservative \`SlideSpec\` per identifiable slide/page only if the artifact is clearly the current workspace artifact. Record only visible source notes or explicit source information as evidence; do not infer original evidence that is not present in the artifact.
-15. When a read or extracted source material clearly supports a specific narrative or slide claim, preserve compact evidence trace such as \`sourcePath\`, \`location\`, \`extractedTextPath\`, or \`extractedManifestPath\`. Attach extraction cache paths only when they support that specific claim, not to every claim or slide by default.
-16. Treat \`workspace.sourceMaterials\` as a reusable candidate index, not proof by itself. A source material record alone is not narrative evidence or slide evidence; it becomes canonical only after a vault node records the claim, evidence trace, caveat, or gap.
-17. Report what was initialized, updated, migrated, and ingested. Include counts or paths for added, changed, newer-than-vault, unchanged, and ingested candidate files. If \`exportNarrativeVault\` is recommended or executed, explicitly state that approvals, render targets, reviews, artifact coverage, actions, deck specs, and source material records stay in ${DECKS_STATE_FILE}.
+Required workflow:
+1. If ${DECKS_STATE_FILE} exists, call \`revela-decks read\` with \`summary: true\`. If \`migration.available: true\`, prefer \`exportNarrativeVault\`; if no vault exists, call \`initNarrativeVault\` before recording narrative meaning.
+2. Call \`revela-workspace-scan\` with no \`path\` and \`max_depth: 2\`. Scan deeper only when the user points to a workspace-relative folder or expected files are missing.
+3. Search workspace-local generated artifact history only when useful: \`decks/**/*.html\`, \`slides/**/*.html\`, \`presentations/**/*.html\`, \`decks/**/*.pdf\`, and \`slides/**/*.pdf\`.
+4. Register scan results with \`revela-decks init\`. Treat returned \`ingest.suggestedTasks\` as the authoritative init task list. Each task includes \`path\`, \`reason\`, \`materialType\`, \`needsExtraction\`, and \`suggestedAction\`.
+5. For selected relevant tasks, read directly when \`suggestedAction: "read_directly"\`; call \`revela-extract-document-materials\` first when \`suggestedAction: "extract_then_read"\`. Do not extract every document by default.
+6. Distill stable findings into \`revela-narrative/**/*.md\`. Completeness is not a gate: write partial claims, caveats, unsupported scope, and research gaps rather than waiting for a complete story.
+7. After Markdown changes, rely on the vault write hook or call \`revela-decks compileNarrativeVault\`; fix blocker diagnostics. Do not use \`upsertNarrative\`.
+8. If explicit deck/artifact information exists, record conservative deck specs only from visible information. Do not infer hidden evidence from generated artifacts.
+9. Report initialized/updated/migrated state plus counts and paths for added, changed, newer-than-vault, unchanged, \`ingest.ingestCandidates\`, and \`ingest.suggestedTasks\`.
+
+Evidence boundary:
+- \`workspace.sourceMaterials\` and ingest task hints are candidate context, not proof.
+- A finding becomes canonical only when a vault node preserves source trace, quote/snippet, support scope, unsupported scope, caveat, and strength.
+- Preserve graph meaning with \`## Relations\` typed wikilinks only when the relation is explicit.
 
 Narrative questions to ask only when missing:
 - Who is the primary audience?

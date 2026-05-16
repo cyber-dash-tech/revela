@@ -71,6 +71,16 @@ export interface SourceMaterialIngestPlan {
   newerThanVaultSourceMaterials: SourceMaterial[]
   unchangedSourceMaterials: SourceMaterial[]
   ingestCandidates: SourceMaterial[]
+  suggestedTasks: SourceMaterialIngestTask[]
+}
+
+export interface SourceMaterialIngestTask {
+  path: string
+  reason: Array<"added" | "changed" | "newer_than_vault">
+  materialType: string
+  needsExtraction: boolean
+  suggestedAction: "read_directly" | "extract_then_read"
+  note: string
 }
 
 export function classifySourceMaterialIngest(
@@ -85,6 +95,7 @@ export function classifySourceMaterialIngest(
   const newerThanVaultSourceMaterials: SourceMaterial[] = []
   const unchangedSourceMaterials: SourceMaterial[] = []
   const ingestByPath = new Map<string, SourceMaterial>()
+  const reasonsByPath = new Map<string, SourceMaterialIngestTask["reason"]>()
 
   for (const material of materials) {
     const path = material.path.replace(/\\/g, "/")
@@ -92,13 +103,21 @@ export function classifySourceMaterialIngest(
     const added = !existing
     const changed = Boolean(existing?.fingerprint && material.fingerprint && existing.fingerprint !== material.fingerprint)
     const newerThanVault = sourceMaterialModifiedMs(material, workspaceRoot) > vaultTimestampMs
+    const reasons: SourceMaterialIngestTask["reason"] = []
 
     if (added) addedSourceMaterials.push(material)
     if (changed) changedSourceMaterials.push(material)
     if (newerThanVault) newerThanVaultSourceMaterials.push(material)
-    if (added || changed || newerThanVault) ingestByPath.set(path, material)
+    if (added) reasons.push("added")
+    if (changed) reasons.push("changed")
+    if (newerThanVault) reasons.push("newer_than_vault")
+    if (added || changed || newerThanVault) {
+      ingestByPath.set(path, material)
+      reasonsByPath.set(path, reasons)
+    }
     else unchangedSourceMaterials.push(material)
   }
+  const ingestCandidates = [...ingestByPath.values()].sort((a, b) => a.path.localeCompare(b.path))
 
   return {
     vaultTimestamp: vaultTimestampMs > 0 ? new Date(vaultTimestampMs).toISOString() : null,
@@ -107,7 +126,23 @@ export function classifySourceMaterialIngest(
     changedSourceMaterials,
     newerThanVaultSourceMaterials,
     unchangedSourceMaterials,
-    ingestCandidates: [...ingestByPath.values()].sort((a, b) => a.path.localeCompare(b.path)),
+    ingestCandidates,
+    suggestedTasks: ingestCandidates.map((material) => sourceMaterialIngestTask(material, reasonsByPath.get(material.path.replace(/\\/g, "/")) ?? [])),
+  }
+}
+
+function sourceMaterialIngestTask(material: SourceMaterial, reason: SourceMaterialIngestTask["reason"]): SourceMaterialIngestTask {
+  const materialType = (material.type || sourceMaterialType(material.path)).toLowerCase()
+  const needsExtraction = ["pdf", "ppt", "pptx", "doc", "docx", "xls", "xlsx"].includes(materialType)
+  return {
+    path: material.path,
+    reason,
+    materialType,
+    needsExtraction,
+    suggestedAction: needsExtraction ? "extract_then_read" : "read_directly",
+    note: needsExtraction
+      ? "Use revela-extract-document-materials before synthesizing stable narrative findings when this file is relevant."
+      : "Read directly when relevant and distill stable narrative findings into the Markdown vault.",
   }
 }
 
