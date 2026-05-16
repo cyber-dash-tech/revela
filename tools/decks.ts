@@ -82,15 +82,15 @@ function researchGapHelperRecovery(action: "updateVaultResearchGap" | "upsertVau
 function relationHelperRecovery(action: "upsertVaultRelation" | "removeVaultRelation", missingFields?: string[]) {
   const missing = missingFields?.length ? ` Missing fields: ${missingFields.join(", ")}.` : ""
   return {
-    message: `Relation helper could not complete.${missing}`,
+    message: `Relation registry helper is disabled in Markdown vault workspaces.${missing}`,
     nextActions: [
       "Run narrativeInventory before adding or removing relation edges; reuse existing node ids exactly.",
-      "Use upsertVaultRelation/removeVaultRelation only for explicit mechanical registry edits; do not invent semantic edges.",
-      "Alternatively, patch revela-narrative/relations.md directly with id, from, to, type, and optional rationale, then rerun markdownQa.",
+      "Patch the source node's ## Relations section with a plain wikilink relation line; do not hand-write relation ids.",
+      "Rerun markdownQa and compileNarrativeVault so compiler-generated relation ids and diagnostics refresh.",
     ],
     examples: {
-      tool: { action, relation: { id: "rel-pilot-supports-execution", from: "claim:pilot", to: "claim:execution", type: "supports", rationale: "Pilot recommendation is supported by execution framing." } },
-      markdown: "edges:\n  - id: rel-pilot-supports-execution\n    from: claim:pilot\n    to: claim:execution\n    type: supports\n    rationale: Pilot recommendation is supported by execution framing.\n",
+      tool: { action, note: "Deprecated compatibility action; edit Markdown instead." },
+      markdown: "## Relations\n\n- supports: [[claim-execution-readiness]] - Pilot recommendation is supported by execution framing.\n",
     },
   }
 }
@@ -318,8 +318,8 @@ export default tool({
       to: tool.schema.string().optional().describe("For upsertVaultRelation: target node id, e.g. claim:execution."),
       type: tool.schema.enum(["leads_to", "supports", "depends_on", "contrasts_with", "constrains", "answers"]).optional().describe("For upsertVaultRelation: canonical relation type."),
       rationale: tool.schema.string().optional().describe("Optional relation rationale. Do not invent; only preserve explicit semantic rationale."),
-    }).optional().describe("For upsertVaultRelation/removeVaultRelation: mechanical relation registry edit. Does not create nodes or infer semantic edges."),
-    relationId: tool.schema.string().optional().describe("For removeVaultRelation: stable relation edge id when relation.id is not provided."),
+    }).optional().describe("For deprecated upsertVaultRelation/removeVaultRelation compatibility actions. Inline ## Relations in node Markdown are canonical."),
+    relationId: tool.schema.string().optional().describe("For deprecated removeVaultRelation compatibility action."),
     findingsFile: tool.schema.string().optional().describe("For attachResearchFindings, evaluateResearchFindings, or bindResearchFindings: workspace-relative researches/{topic}/{axis}.md findings file."),
     researchAxis: tool.schema.string().optional().describe("For attachResearchFindings: researchPlan axis to attach the findings file to. Required when filename matching would be ambiguous."),
     researchStatus: tool.schema.enum(["done", "read"]).optional().describe("For attachResearchFindings: optional explicit status to set on the matched research axis."),
@@ -579,7 +579,7 @@ export default tool({
         const claim = (args.narrative?.claims?.[0] as any) ?? undefined
         if (!claim?.id) return JSON.stringify({ ok: false, error: "narrative.claims[0].id is required for upsertVaultClaim" })
         const relationHint = args.narrative?.claimRelations?.length
-          ? "upsertVaultClaim no longer writes inline ## Relations. Add explicit graph edges with upsertVaultRelation or patch revela-narrative/relations.md after checking narrativeInventory."
+          ? "upsertVaultClaim does not write graph edges. Add explicit ## Relations lines in the source node after checking narrativeInventory; compileNarrativeVault will generate relation ids."
           : undefined
         const mutation = upsertVaultClaimNode(workspaceRoot, claim)
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)

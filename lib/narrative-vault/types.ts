@@ -19,7 +19,7 @@ export interface VaultRelation {
   toId: string
   rationale?: string
   file: string
-  source?: "inline" | "registry"
+  source?: "inline"
 }
 
 export interface VaultDocument {

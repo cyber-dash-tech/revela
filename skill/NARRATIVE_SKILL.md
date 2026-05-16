@@ -72,7 +72,7 @@ During init:
 - reuse `workspace.sourceMaterials` and extraction cache when fingerprints match
 - extract or read only relevant local materials; do not exhaustively process large workspaces
 - derive claims, evidence bindings, caveats, unsupported scope, source paths, quotes/snippets, pages, sheets, or slide references only when explicit support exists; distill ingested files by writing Markdown nodes under `revela-narrative/` even when the narrative is incomplete, and represent missing information as research gaps or caveats
-- write `## Relations` sections with typed wikilinks such as `- supports: [[claim:...]]`, `- depends_on: [[evidence:...]]`, `- answers: [[objection:...]]`, or `- constrains: [[risk:...]]` when the relation is explicit; compile and fix diagnostics after editing Markdown
+- write `## Relations` sections with plain node-id wikilinks such as `- supports: [[claim-example]]`, `- depends_on: [[evidence-example]]`, `- answers: [[claim-example]]`, or `- constrains: [[claim-example]]` when the relation is explicit; do not use typed wikilinks or hand-written relation ids; compile and fix diagnostics after editing Markdown
 - ask the smallest missing intent questions after local evidence has been considered
 - do not require slide count, design choice, layout choice, output path, or visual style unless the user explicitly asks to make an artifact immediately
 - when exporting a vault, say that approvals, render targets, reviews, artifact coverage, actions, deck specs, and source material records remain in `DECKS.json`

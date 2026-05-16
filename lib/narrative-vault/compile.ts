@@ -1,7 +1,5 @@
 import { normalizeCanonicalNarrativeState } from "../narrative-state/normalize"
-import { computeNarrativeHash, stableClaimRelationId } from "../narrative-state/hash"
-import { existsSync, readFileSync } from "fs"
-import { join } from "path"
+import { computeNarrativeHash } from "../narrative-state/hash"
 import type {
   AudienceIntent,
   DecisionIntent,
@@ -18,8 +16,6 @@ import type {
   NarrativeThesis,
 } from "../narrative-state/types"
 import { firstParagraphOrBody, parseMarkdownList } from "./markdown"
-import { parseRelationRegistry } from "./relations"
-import { narrativeVaultPath } from "./paths"
 import { readNarrativeVaultDocuments } from "./read"
 import type { NarrativeVaultCompileResult, NarrativeVaultGraph, VaultDiagnostic, VaultDocument, VaultNodeType, VaultRelation } from "./types"
 
@@ -53,10 +49,8 @@ export function compileNarrativeVault(workspaceRoot: string, options: CompileNar
     if (requiresId(doc) && !stringField(doc, "id")) diagnostics.push({ severity: "error", code: "missing_id", message: "Missing required frontmatter field: id", file: doc.relativePath })
   }
 
-  const registry = readRegistryRelations(workspaceRoot)
-  diagnostics.push(...registry.diagnostics)
-  const relations = [...docs.flatMap((doc) => doc.relations), ...registry.relations]
-  const relationClaimTargets = claimTargetsFromRelations(relations, byId)
+  const relations = docs.flatMap((doc) => doc.relations)
+  const relationTargets = targetsFromRelations(relations, byId)
   for (const relation of relations) {
     const from = byId.get(relation.fromId)
     const to = byId.get(relation.toId)
@@ -68,13 +62,13 @@ export function compileNarrativeVault(workspaceRoot: string, options: CompileNar
       diagnostics.push({ severity: "error", code: "broken_link", message: `Relation points to unknown node: ${relation.toId}`, file: relation.file, nodeId: relation.fromId })
       continue
     }
-    const illegalReason = illegalRelationReason(typeField(from), typeField(to), relation.relation, relation.source)
+    const illegalReason = illegalRelationReason(typeField(from), typeField(to), relation.relation)
     if (illegalReason) diagnostics.push({ severity: "error", code: "illegal_relation_target", message: illegalReason, file: relation.file, nodeId: relation.fromId })
   }
 
   for (const doc of docs.filter((item) => typeField(item) === "evidence")) {
     const evidenceId = stringField(doc, "id")
-    const claimId = stringField(doc, "claimId") || relationClaimTargets.get(evidenceId) || ""
+    const claimId = stringField(doc, "claimId") || relationTargets.get(evidenceId)?.targetId || ""
     if (!claimId) {
       diagnostics.push({ severity: "error", code: "evidence_claim_missing", message: `Evidence ${evidenceId || doc.relativePath} is missing required claimId.`, file: doc.relativePath, nodeId: evidenceId })
     } else if (!claimIds.has(claimId)) {
@@ -90,13 +84,13 @@ export function compileNarrativeVault(workspaceRoot: string, options: CompileNar
     decision: compileDecision(findType(docs, "decision")),
     thesis: compileThesis(findType(docs, "thesis")),
     claims: docs.filter((doc) => typeField(doc) === "claim").map(compileClaim),
-    evidenceBindings: docs.filter((doc) => typeField(doc) === "evidence").map((doc) => compileEvidence(doc, relationClaimTargets)),
-    objections: docs.filter((doc) => typeField(doc) === "objection").map((doc) => compileObjection(doc, relationClaimTargets)),
-    risks: docs.filter((doc) => typeField(doc) === "risk").map((doc) => compileRisk(doc, relationClaimTargets)),
-    researchGaps: docs.filter((doc) => typeField(doc) === "research-gap").map((doc) => compileResearchGap(doc, options.now, relationClaimTargets)),
+    evidenceBindings: docs.filter((doc) => typeField(doc) === "evidence").map((doc) => compileEvidence(doc, relationTargets)),
+    objections: docs.filter((doc) => typeField(doc) === "objection").map((doc) => compileObjection(doc, relationTargets)),
+    risks: docs.filter((doc) => typeField(doc) === "risk").map((doc) => compileRisk(doc, relationTargets)),
+    researchGaps: docs.filter((doc) => typeField(doc) === "research-gap").map((doc) => compileResearchGap(doc, options.now, relationTargets)),
     claimRelations: relations
       .filter((relation) => byId.get(relation.fromId) && typeField(byId.get(relation.fromId)) === "claim" && byId.get(relation.toId) && typeField(byId.get(relation.toId)) === "claim")
-      .map((relation) => ({ id: stableClaimRelationId(relation.fromId, relation.toId, relation.relation), fromClaimId: relation.fromId, toClaimId: relation.toId, relation: relation.relation, rationale: relation.rationale })),
+      .map((relation) => ({ id: relation.id ?? `${relation.fromId}:${relation.relation}:${relation.toId}`, fromClaimId: relation.fromId, toClaimId: relation.toId, relation: relation.relation, rationale: relation.rationale })),
     approvals: options.fallbackApprovals ?? [],
     updatedAt: options.now ?? new Date().toISOString(),
   }
@@ -157,10 +151,12 @@ function compileClaim(doc: VaultDocument): NarrativeClaim {
   }
 }
 
-function compileEvidence(doc: VaultDocument, relationClaimTargets = new Map<string, string>()): NarrativeEvidenceBinding {
+type RelationTarget = { targetId: string; targetType?: NarrativeResearchGapTargetType }
+
+function compileEvidence(doc: VaultDocument, relationTargets = new Map<string, RelationTarget>()): NarrativeEvidenceBinding {
   return {
     id: stringField(doc, "id"),
-    claimId: stringField(doc, "claimId") || relationClaimTargets.get(stringField(doc, "id")) || "",
+    claimId: stringField(doc, "claimId") || relationTargets.get(stringField(doc, "id"))?.targetId || "",
     source: stringField(doc, "source") || stringField(doc, "sourcePath") || stringField(doc, "findingsFile") || stringField(doc, "url"),
     sourcePath: stringField(doc, "sourcePath"),
     findingsFile: stringField(doc, "findingsFile"),
@@ -174,20 +170,20 @@ function compileEvidence(doc: VaultDocument, relationClaimTargets = new Map<stri
   }
 }
 
-function compileObjection(doc: VaultDocument, relationClaimTargets = new Map<string, string>()): NarrativeObjection {
-  return { id: stringField(doc, "id"), text: stringField(doc, "text") || firstParagraphOrBody(doc.body), claimId: stringField(doc, "claimId") || relationClaimTargets.get(stringField(doc, "id")) || "", priority: enumField(doc, "priority", ["high", "medium", "low"]) ?? "medium", response: stringField(doc, "response") || firstParagraphOrBody(doc.sections.response ?? "") }
+function compileObjection(doc: VaultDocument, relationTargets = new Map<string, RelationTarget>()): NarrativeObjection {
+  return { id: stringField(doc, "id"), text: stringField(doc, "text") || firstParagraphOrBody(doc.body), claimId: stringField(doc, "claimId") || relationTargets.get(stringField(doc, "id"))?.targetId || "", priority: enumField(doc, "priority", ["high", "medium", "low"]) ?? "medium", response: stringField(doc, "response") || firstParagraphOrBody(doc.sections.response ?? "") }
 }
 
-function compileRisk(doc: VaultDocument, relationClaimTargets = new Map<string, string>()): NarrativeRisk {
-  return { id: stringField(doc, "id"), text: stringField(doc, "text") || firstParagraphOrBody(doc.body), claimId: stringField(doc, "claimId") || relationClaimTargets.get(stringField(doc, "id")) || "", severity: enumField(doc, "severity", ["high", "medium", "low"]) ?? "medium", mitigation: stringField(doc, "mitigation") || firstParagraphOrBody(doc.sections.mitigation ?? "") }
+function compileRisk(doc: VaultDocument, relationTargets = new Map<string, RelationTarget>()): NarrativeRisk {
+  return { id: stringField(doc, "id"), text: stringField(doc, "text") || firstParagraphOrBody(doc.body), claimId: stringField(doc, "claimId") || relationTargets.get(stringField(doc, "id"))?.targetId || "", severity: enumField(doc, "severity", ["high", "medium", "low"]) ?? "medium", mitigation: stringField(doc, "mitigation") || firstParagraphOrBody(doc.sections.mitigation ?? "") }
 }
 
-function compileResearchGap(doc: VaultDocument, now = new Date().toISOString(), relationClaimTargets = new Map<string, string>()): NarrativeResearchGap {
-  const relationTarget = relationClaimTargets.get(stringField(doc, "id"))
+function compileResearchGap(doc: VaultDocument, now = new Date().toISOString(), relationTargets = new Map<string, RelationTarget>()): NarrativeResearchGap {
+  const relationTarget = relationTargets.get(stringField(doc, "id"))
   return {
     id: stringField(doc, "id"),
-    targetType: enumField(doc, "targetType", ["claim", "objection", "risk", "decision", "narrative"]) ?? "narrative",
-    targetId: stringField(doc, "targetId") || relationTarget || "",
+    targetType: enumField(doc, "targetType", ["claim", "objection", "risk", "decision", "narrative"]) ?? relationTarget?.targetType ?? "narrative",
+    targetId: stringField(doc, "targetId") || relationTarget?.targetId || "",
     question: stringField(doc, "question") || firstParagraphOrBody(doc.body),
     status: enumField(doc, "status", ["open", "in_progress", "findings_saved", "attached", "evidence_bound", "closed"]) ?? "open",
     priority: enumField(doc, "priority", ["high", "medium", "low"]) ?? "medium",
@@ -231,9 +227,8 @@ function isVaultNodeType(value: string): value is VaultNodeType {
   return value === "research-gap" || ["index", "audience", "decision", "thesis", "claim", "evidence", "objection", "risk"].includes(value)
 }
 
-function illegalRelationReason(fromType: VaultNodeType, toType: VaultNodeType, relation: string, source: VaultRelation["source"]): string | undefined {
+function illegalRelationReason(fromType: VaultNodeType, toType: VaultNodeType, relation: string): string | undefined {
   if (fromType !== "claim") {
-    if (source !== "registry") return `Relation ${relation} must start from a claim node, not ${fromType}.`
     const allowedNonClaim: Record<string, VaultNodeType[]> = {
       evidence: relation === "supports" ? ["claim"] : [],
       objection: relation === "answers" || relation === "contrasts_with" ? ["claim"] : [],
@@ -260,35 +255,25 @@ function illegalRelationReason(fromType: VaultNodeType, toType: VaultNodeType, r
   return undefined
 }
 
-function readRegistryRelations(workspaceRoot: string): { relations: VaultRelation[]; diagnostics: VaultDiagnostic[] } {
-  const file = join(narrativeVaultPath(workspaceRoot), "relations.md")
-  if (!existsSync(file)) return { relations: [], diagnostics: [] }
-  const parsed = parseRelationRegistry(readFileSync(file, "utf-8"), "relations.md")
-  return {
-    relations: parsed.relations,
-    diagnostics: parsed.diagnostics.map((diagnostic) => ({
-      severity: "error",
-      code: diagnostic.code,
-      message: diagnostic.message,
-      file: "relations.md",
-      nodeId: diagnostic.edgeId,
-    })),
-  }
-}
-
-function claimTargetsFromRelations(relations: VaultRelation[], byId: Map<string, VaultDocument>): Map<string, string> {
-  const targets = new Map<string, string>()
+function targetsFromRelations(relations: VaultRelation[], byId: Map<string, VaultDocument>): Map<string, RelationTarget> {
+  const targets = new Map<string, RelationTarget>()
   for (const relation of relations) {
     const from = byId.get(relation.fromId)
     const to = byId.get(relation.toId)
-    if (!from || !to || typeField(to) !== "claim") continue
+    if (!from || !to) continue
     const fromType = typeField(from)
-    if (fromType === "evidence" && relation.relation === "supports") targets.set(relation.fromId, relation.toId)
-    if (fromType === "objection" && (relation.relation === "answers" || relation.relation === "contrasts_with")) targets.set(relation.fromId, relation.toId)
-    if (fromType === "risk" && relation.relation === "constrains") targets.set(relation.fromId, relation.toId)
-    if (fromType === "research-gap" && relation.relation === "depends_on") targets.set(relation.fromId, relation.toId)
+    const targetType = researchGapTargetType(typeField(to))
+    if (fromType === "evidence" && relation.relation === "supports" && targetType === "claim") targets.set(relation.fromId, { targetId: relation.toId, targetType })
+    if (fromType === "objection" && (relation.relation === "answers" || relation.relation === "contrasts_with") && targetType === "claim") targets.set(relation.fromId, { targetId: relation.toId, targetType })
+    if (fromType === "risk" && relation.relation === "constrains" && targetType === "claim") targets.set(relation.fromId, { targetId: relation.toId, targetType })
+    if (fromType === "research-gap" && relation.relation === "depends_on") targets.set(relation.fromId, { targetId: relation.toId, targetType })
   }
   return targets
+}
+
+function researchGapTargetType(type: VaultNodeType): NarrativeResearchGapTargetType | undefined {
+  if (type === "claim" || type === "objection" || type === "risk") return type
+  return undefined
 }
 
 function requiresId(doc: VaultDocument): boolean {

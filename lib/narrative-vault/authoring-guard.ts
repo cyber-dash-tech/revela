@@ -84,6 +84,7 @@ export function inspectVaultMarkdown(file: string, text: string): VaultDiagnosti
   }
 
   for (const match of text.matchAll(/\[\[([A-Za-z][\w-]*):([^\]]+)\]\]/g)) {
+    if (!match[2].startsWith(`${match[1]}-`) && !match[2].startsWith(`${match[1]}:`)) continue
     diagnostics.push(display({
       severity: "error",
       code: "typed_wikilink_target",
