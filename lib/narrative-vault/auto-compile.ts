@@ -58,7 +58,7 @@ export function formatAutoCompileReport(input: {
 }): string {
   const lines = ["**[revela narrative vault]** Auto-compile completed.", ""]
   lines.push(`Status: ${input.ok ? "ok" : "blocked"}`)
-  lines.push(`Mirror: ${mirrorLabel(input.mirrored)}`)
+  lines.push(`State: ${mirrorLabel(input.mirrored)}`)
   lines.push(`Cache: \`${input.cachePath}\``)
   lines.push(`Touched Markdown: ${formatTouched(input.touched)}`)
 
@@ -90,11 +90,11 @@ function formatTouched(touched: string[]): string {
 function mirrorLabel(mirrored: AutoCompileNarrativeVaultResult["mirrored"]): string {
   switch (mirrored) {
     case "updated":
-      return `${DECKS_STATE_FILE} narrative mirror updated`
+      return `${DECKS_STATE_FILE} render state saved; runtime narrative hydrated from vault`
     case "skipped_no_decks":
       return `${DECKS_STATE_FILE} not found; no state created`
     case "preserved_failed_compile":
-      return `${DECKS_STATE_FILE} narrative mirror preserved because compile is blocked`
+      return `${DECKS_STATE_FILE} render state preserved; last-good narrative cache kept because compile is blocked`
     case "failed":
       return "not updated because auto-compile failed"
   }

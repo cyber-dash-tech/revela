@@ -10,10 +10,10 @@ export interface PreferredNarrativeLoadResult {
   compileResult?: NarrativeVaultCompileResult
 }
 
-export function loadNarrativeFromPreferredSource(workspaceRoot: string, stateNarrative: NarrativeStateV1 | undefined): PreferredNarrativeLoadResult {
+export function loadNarrativeFromPreferredSource(workspaceRoot: string, stateNarrative: NarrativeStateV1 | undefined, fallbackApprovals?: NarrativeApproval[]): PreferredNarrativeLoadResult {
   if (!hasNarrativeVault(workspaceRoot)) return { source: "state", narrative: stateNarrative }
-  const fallbackApprovals: NarrativeApproval[] = stateNarrative?.approvals ?? []
-  const compileResult = compileNarrativeVault(workspaceRoot, { fallbackApprovals })
+  const approvals: NarrativeApproval[] = fallbackApprovals ?? stateNarrative?.approvals ?? []
+  const compileResult = compileNarrativeVault(workspaceRoot, { fallbackApprovals: approvals })
   writeNarrativeVaultCache(workspaceRoot, compileResult)
   return { source: "vault", narrative: compileResult.narrative, compileResult }
 }

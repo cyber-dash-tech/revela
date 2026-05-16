@@ -49,39 +49,42 @@ describe("narrative vault auto-compile hook", () => {
     ])
   })
 
-  it("compiles cache and mirrors DECKS narrative on successful compile", () => {
+  it("compiles cache and keeps DECKS narrative out of disk state on successful compile", () => {
     const root = tempWorkspace("revela-vault-auto-success-")
     writeDecksState(root, narrativeMapState())
     writeValidVault(root, "Board")
 
     const result = autoCompileNarrativeVault(root, ["revela-narrative/audience.md"])
-    const mirrored = readJsonFile<any>(join(root, DECKS_STATE_FILE))
+    const written = readJsonFile<any>(join(root, DECKS_STATE_FILE))
 
     expect(result.ok).toBe(true)
     expect(result.mirrored).toBe("updated")
     expect(result.markdown).toContain("Status: ok")
-    expect(result.markdown).toContain(`${DECKS_STATE_FILE} narrative mirror updated`)
-    expect(mirrored.narrative.id).toBe("narrative:auto-demo")
-    expect(mirrored.narrative.audience.primary).toBe("Board")
+    expect(result.markdown).toContain(`${DECKS_STATE_FILE} render state saved; runtime narrative hydrated from vault`)
+    expect(written.narrative).toBeUndefined()
     expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("narrative:auto-demo")
     expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "diagnostics.json"), "utf-8")).not.toContain('"severity": "error"')
   })
 
-  it("writes failed compile diagnostics while preserving the previous DECKS mirror", () => {
+  it("writes failed compile diagnostics while preserving last-good cache and disk state", () => {
     const root = tempWorkspace("revela-vault-auto-fail-")
     const previous = narrativeMapState()
     writeDecksState(root, previous)
     writeValidVault(root, "Board")
+    autoCompileNarrativeVault(root, ["revela-narrative/index.md"])
     writeFileSync(join(root, "revela-narrative", "evidence", "pilot.md"), "---\ntype: evidence\nid: evidence:pilot\nclaimId: claim:missing\nsource: Ops note\nquote: Pilot constraints are explicit.\nsupportScope: Pilot only.\nunsupportedScope: Full rollout.\ncaveat: One source.\nstrength: strong\n---\n", "utf-8")
 
     const result = autoCompileNarrativeVault(root, ["revela-narrative/evidence/pilot.md"])
-    const mirrored = readJsonFile<any>(join(root, DECKS_STATE_FILE))
+    const written = readJsonFile<any>(join(root, DECKS_STATE_FILE))
+    const cached = readFileSync(join(root, ".opencode", "revela", "narrative-cache", "compiled-narrative.json"), "utf-8")
 
     expect(result.ok).toBe(false)
     expect(result.mirrored).toBe("preserved_failed_compile")
     expect(result.markdown).toContain("Status: blocked")
     expect(result.markdown).toContain("evidence_claim_missing")
-    expect(mirrored.narrative.id).toBe(previous.narrative?.id)
+    expect(written.narrative).toBeUndefined()
+    expect(written.narrativeApprovals).toEqual(previous.narrative?.approvals)
+    expect(cached).toContain("narrative:auto-demo")
     expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "diagnostics.json"), "utf-8")).toContain("evidence_claim_missing")
   })
 

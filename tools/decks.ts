@@ -11,6 +11,7 @@ import {
   writeDecksState,
   workspaceDeckSlug,
   type DeckSpec,
+  type DecksState,
   type NarrativeBrief,
   type RequiredInputs,
   type ResearchAxis,
@@ -32,9 +33,28 @@ import { compileDeckPlanFromNarrative } from "../lib/narrative-state/render-plan
 import { backfillSlideClaimRefsFromCoverage } from "../lib/narrative-state/coverage"
 import { closeResearchGapInState, deriveResearchGapsFromReadiness, deriveResearchTargets, updateResearchGapInState, upsertResearchGapsInState } from "../lib/narrative-state/research-gaps"
 import { evaluateResearchFindingsBinding } from "../lib/narrative-state/research-binding-eval"
+import { stableEvidenceId } from "../lib/narrative-state/hash"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, hasNarrativeVault, initNarrativeVault, narrativeVaultTimestampMs, VAULT_MIGRATION_PRESERVED_IN_DECKS_JSON, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
 import { compileCacheMirrorNarrativeVault } from "../lib/narrative-vault/compile-mirror"
+
+function missingBindableEvidenceFields(input: Record<string, unknown>): string[] {
+  const missing: string[] = []
+  for (const key of ["id", "claimId", "source", "quote", "supportScope", "unsupportedScope", "caveat", "strength"] as const) {
+    if (!String(input[key] ?? "").trim()) missing.push(key)
+  }
+  if (!String(input.sourcePath ?? "").trim() && !String(input.url ?? "").trim() && !String(input.findingsFile ?? "").trim()) missing.push("sourcePath|url|findingsFile")
+  return missing
+}
+
+function exactResearchGapForBinding(state: DecksState, findingsFile: string, claimId: string) {
+  const gaps = state.narrative?.researchGaps ?? []
+  const exact = gaps.filter((gap) => gap.targetType === "claim" && gap.targetId === claimId && gap.findingsFile === findingsFile)
+  if (exact.length === 1) return exact[0]
+  if (exact.length > 1) return undefined
+  const byClaim = gaps.filter((gap) => gap.targetType === "claim" && gap.targetId === claimId && !gap.findingsFile)
+  return byClaim.length === 1 ? byClaim[0] : undefined
+}
 
 export default tool({
   description:
@@ -43,7 +63,7 @@ export default tool({
     "It stores workspace narrative state, active deck specs, per-slide content/layout/components, and computes narrative or deck readiness.",
   args: {
     action: tool.schema
-      .enum(["read", "init", "initNarrativeVault", "upsertDeck", "upsertSlides", "upsertNarrative", "compileNarrativeVault", "exportNarrativeVault", "upsertVaultEvidence", "updateVaultResearchGap", "upsertVaultClaim", "upsertVaultObjection", "upsertVaultRisk", "updateVaultCoreNarrative", "compileDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "deriveResearchTargets", "evaluateResearchFindings", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
+      .enum(["read", "init", "initNarrativeVault", "upsertDeck", "upsertSlides", "upsertNarrative", "compileNarrativeVault", "exportNarrativeVault", "upsertVaultEvidence", "bindResearchFindings", "updateVaultResearchGap", "upsertVaultClaim", "upsertVaultObjection", "upsertVaultRisk", "updateVaultCoreNarrative", "compileDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "deriveResearchTargets", "evaluateResearchFindings", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
       .describe("Action to perform on DECKS.json."),
     summary: tool.schema.boolean().optional().describe("For read: return a compact summary instead of full state."),
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
@@ -225,7 +245,7 @@ export default tool({
     })).optional().describe("For upsertSlides: complete or partial slide specs."),
     candidateIds: tool.schema.array(tool.schema.string()).optional().describe("For applyEvidenceCandidates: candidate IDs returned by revela-decks review to explicitly bind proposed evidenceDraft records into slide evidence."),
     evidence: tool.schema.object({
-      id: tool.schema.string().describe("For upsertVaultEvidence: canonical evidence binding id."),
+      id: tool.schema.string().describe("For upsertVaultEvidence or bindResearchFindings: canonical evidence binding id."),
       claimId: tool.schema.string().describe("For upsertVaultEvidence: canonical claim id this evidence supports."),
       source: tool.schema.string().describe("For upsertVaultEvidence: source name, file, URL, or research finding label."),
       sourcePath: tool.schema.string().optional(),
@@ -237,8 +257,8 @@ export default tool({
       supportScope: tool.schema.string().describe("For upsertVaultEvidence: scope explicitly supported by the evidence."),
       unsupportedScope: tool.schema.string().describe("For upsertVaultEvidence: scope not supported by the evidence."),
       strength: tool.schema.enum(["strong", "partial", "weak"]).describe("For upsertVaultEvidence: support strength."),
-    }).optional().describe("For upsertVaultEvidence: canonical evidence node to write under revela-narrative/evidence/*.md."),
-    findingsFile: tool.schema.string().optional().describe("For attachResearchFindings: workspace-relative researches/{topic}/{axis}.md file to attach to researchPlan."),
+    }).optional().describe("For upsertVaultEvidence: canonical evidence node to write under revela-narrative/evidence/*.md. For bindResearchFindings, only id is used as an optional override."),
+    findingsFile: tool.schema.string().optional().describe("For attachResearchFindings, evaluateResearchFindings, or bindResearchFindings: workspace-relative researches/{topic}/{axis}.md findings file."),
     researchAxis: tool.schema.string().optional().describe("For attachResearchFindings: researchPlan axis to attach the findings file to. Required when filename matching would be ambiguous."),
     researchStatus: tool.schema.enum(["done", "read"]).optional().describe("For attachResearchFindings: optional explicit status to set on the matched research axis."),
     approvalNote: tool.schema.string().optional().describe("For approveNarrative or confirmDeckPlan: optional note explaining the approval, override, or deck plan confirmation."),
@@ -352,6 +372,57 @@ export default tool({
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
         const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
         return JSON.stringify({ ok: compiled.result.ok, path: mutation.file, mutation, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrative: compiled.result.narrative }, null, 2)
+      }
+
+      if (args.action === "bindResearchFindings") {
+        if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "bindResearchFindings requires revela-narrative/ to exist. Use initNarrativeVault first, then evaluateResearchFindings." })
+        if (!args.findingsFile?.trim()) return JSON.stringify({ ok: false, error: "findingsFile is required for bindResearchFindings" })
+        const bindingEval = evaluateResearchFindingsBinding(state, workspaceRoot, args.findingsFile)
+        if (bindingEval.status !== "bindable" || !bindingEval.claimId || !bindingEval.recommendedEvidenceDraft) {
+          return JSON.stringify({ ok: false, skipped: true, reason: "findings are not safely bindable", bindingEval }, null, 2)
+        }
+        const draft = bindingEval.recommendedEvidenceDraft
+        const evidence = {
+          id: args.evidence?.id?.trim() || stableEvidenceId(bindingEval.claimId, `${bindingEval.findingsFile}:${draft.quote ?? ""}`),
+          claimId: bindingEval.claimId,
+          source: draft.source,
+          sourcePath: draft.sourcePath,
+          findingsFile: draft.findingsFile ?? bindingEval.findingsFile,
+          quote: draft.quote,
+          location: draft.location,
+          url: draft.url,
+          caveat: draft.caveat,
+          supportScope: draft.supportScope,
+          unsupportedScope: draft.unsupportedScope,
+          strength: draft.strength,
+        }
+        const missing = missingBindableEvidenceFields(evidence)
+        if (missing.length > 0) return JSON.stringify({ ok: false, skipped: true, reason: "recommended evidence draft is incomplete", missingFields: missing, bindingEval }, null, 2)
+
+        const mutation = upsertVaultEvidenceNode(workspaceRoot, evidence as any)
+        if (!mutation.ok) return JSON.stringify({ ok: false, mutation, bindingEval }, null, 2)
+        const gap = exactResearchGapForBinding(state, bindingEval.findingsFile, bindingEval.claimId)
+        const gapMutation = gap
+          ? updateVaultResearchGapNode(workspaceRoot, {
+            id: gap.id,
+            status: "evidence_bound",
+            findingsFile: bindingEval.findingsFile,
+            evidenceBindingIds: [...new Set([...(gap.evidenceBindingIds ?? []), evidence.id])],
+            notes: gap.notes,
+          })
+          : undefined
+        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
+        return JSON.stringify({
+          ok: compiled.result.ok,
+          path: mutation.file,
+          bindingEval,
+          mutation,
+          gapMutation: gapMutation ?? { ok: true, skipped: true, reason: "no exact single research gap matched this findings file and claim" },
+          evidence,
+          diagnostics: compiled.result.diagnostics,
+          diagnosticReport: compiled.diagnosticReport,
+          narrative: compiled.result.narrative,
+        }, null, 2)
       }
 
       if (args.action === "updateVaultResearchGap") {

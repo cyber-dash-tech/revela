@@ -28,7 +28,7 @@ export function compileCacheMirrorNarrativeVault(
   const decksPath = join(workspaceRoot, DECKS_STATE_FILE)
   const hasDecks = Boolean(options.state) || existsSync(decksPath)
   const state = options.state ?? (hasDecks ? readDecksState(workspaceRoot) : undefined)
-  const fallbackApprovals = options.fallbackApprovals ?? state?.narrative?.approvals ?? []
+  const fallbackApprovals = options.fallbackApprovals ?? state?.narrativeApprovals ?? state?.narrative?.approvals ?? []
   const result = compileNarrativeVault(workspaceRoot, { fallbackApprovals })
   const diagnosticReport = formatVaultDiagnosticReport(result.diagnostics)
 

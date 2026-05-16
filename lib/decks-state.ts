@@ -20,7 +20,7 @@ import { WORKSPACE_STATE_FILE, type RenderTarget, type ReviewSnapshot, type Work
 import { normalizeCanonicalNarrativeState, normalizeNarrativeState } from "./narrative-state/normalize"
 import { computeNarrativeHash } from "./narrative-state/hash"
 import { getArtifactClaimRefs } from "./narrative-state/queries"
-import type { NarrativeStateV1 } from "./narrative-state/types"
+import type { NarrativeApproval, NarrativeStateV1 } from "./narrative-state/types"
 import { hasNarrativeVault, loadNarrativeFromPreferredSource } from "./narrative-vault"
 
 export const DECKS_STATE_FILE = WORKSPACE_STATE_FILE
@@ -35,6 +35,7 @@ export interface DecksState {
   version: 1
   activeDeck?: string
   narrative?: NarrativeStateV1
+  narrativeApprovals?: NarrativeApproval[]
   workspace: {
     brief?: string
     sourceMaterials: SourceMaterial[]
@@ -489,7 +490,8 @@ export function readDecksState(workspaceRoot: string): DecksState {
 }
 
 export function writeDecksState(workspaceRoot: string, state: DecksState): void {
-  writeWorkspaceState(workspaceRoot, prepareStateForWrite(workspaceRoot, state), { fileName: DECKS_STATE_FILE, normalize: normalizeDecksStateWithNarrative })
+  const vault = hasNarrativeVault(workspaceRoot)
+  writeWorkspaceState(workspaceRoot, prepareStateForWrite(workspaceRoot, state), { fileName: DECKS_STATE_FILE, normalize: vault ? normalizeDecksState : normalizeDecksStateWithNarrative })
 }
 
 export function readOrCreateDecksState(workspaceRoot: string): DecksState {
@@ -498,17 +500,23 @@ export function readOrCreateDecksState(workspaceRoot: string): DecksState {
 
 function applyPreferredNarrativeSource(workspaceRoot: string, state: DecksState): DecksState {
   const normalized = normalizeDecksStateWithNarrative(state)
-  const loaded = loadNarrativeFromPreferredSource(workspaceRoot, normalized.narrative)
+  const loaded = loadNarrativeFromPreferredSource(workspaceRoot, normalized.narrative, narrativeApprovalsForHydration(normalized))
   if (loaded.source !== "vault" || !loaded.narrative) return normalized
-  return normalizeDecksStateWithNarrative({ ...normalized, narrative: loaded.narrative })
+  return normalizeDecksStateWithNarrative({ ...normalized, narrative: loaded.narrative, narrativeApprovals: loaded.narrative.approvals })
 }
 
 function prepareStateForWrite(workspaceRoot: string, state: DecksState): DecksState {
   const normalized = normalizeDecksStateWithNarrative(state)
   if (!hasNarrativeVault(workspaceRoot)) return normalized
-  const loaded = loadNarrativeFromPreferredSource(workspaceRoot, normalized.narrative)
-  if (!loaded.narrative) return normalized
-  return normalizeDecksStateWithNarrative({ ...normalized, narrative: loaded.narrative })
+  const loaded = loadNarrativeFromPreferredSource(workspaceRoot, normalized.narrative, narrativeApprovalsForHydration(normalized))
+  const narrativeApprovals = loaded.narrative?.approvals ?? narrativeApprovalsForHydration(normalized)
+  const prepared = normalizeDecksStateWithNarrative({ ...normalized, narrative: loaded.narrative ?? normalized.narrative, narrativeApprovals })
+  const { narrative: _narrative, ...withoutNarrative } = prepared
+  return withoutNarrative as DecksState
+}
+
+function narrativeApprovalsForHydration(state: DecksState): NarrativeApproval[] {
+  return state.narrativeApprovals ?? state.narrative?.approvals ?? []
 }
 
 export function upsertDeck(state: DecksState, input: Partial<DeckSpec> & { slug: string }): DecksState {
@@ -876,6 +884,7 @@ function normalizeDecksState(input: DecksState): DecksState {
     version: 1,
     activeDeck: input.activeDeck ? normalizeSlug(input.activeDeck) : undefined,
     narrative: normalizeCanonicalNarrativeState(input.narrative, input.activeDeck || "workspace"),
+    narrativeApprovals: normalizeNarrativeApprovals([...(input.narrativeApprovals ?? []), ...(input.narrative?.approvals ?? [])]),
     workspace: {
       brief: input.workspace?.brief,
       sourceMaterials: input.workspace?.sourceMaterials ?? [],
@@ -907,7 +916,15 @@ function normalizeDecksState(input: DecksState): DecksState {
 function normalizeDecksStateWithNarrative(input: DecksState): DecksState {
   const state = normalizeDecksState(input)
   if (!state.narrative && currentDeckKey(state)) state.narrative = normalizeNarrativeState(state)
+  if (state.narrative && state.narrativeApprovals && state.narrativeApprovals.length > 0) {
+    state.narrative = { ...state.narrative, approvals: normalizeNarrativeApprovals([...state.narrative.approvals, ...state.narrativeApprovals]) ?? [] }
+  }
   return state
+}
+
+function normalizeNarrativeApprovals(approvals: NarrativeApproval[]): NarrativeApproval[] | undefined {
+  const normalized = [...new Map(approvals.filter((approval) => approval?.id).map((approval) => [approval.id, approval])).values()]
+  return normalized.length > 0 ? normalized : undefined
 }
 
 function normalizeDeckPlanReview(input: DeckPlanReview | undefined): DeckPlanReview | undefined {

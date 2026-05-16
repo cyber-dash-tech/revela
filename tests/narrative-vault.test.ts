@@ -86,7 +86,7 @@ describe("narrative vault", () => {
     }))
   })
 
-  it("prefers vault over DECKS narrative and mirrors compiled narrative on write", () => {
+  it("prefers vault over DECKS narrative and strips persisted narrative on write", () => {
     const root = tempWorkspace("revela-vault-source-")
     const state = narrativeMapState()
     writeDecksState(root, state)
@@ -98,10 +98,12 @@ describe("narrative vault", () => {
 
     read.workspace.openQuestions.push("Keep render state intact.")
     writeDecksState(root, read)
-    const mirrored = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
-    expect(mirrored.narrative.id).toBe("narrative:vault-demo")
-    expect(mirrored.workspace.openQuestions).toEqual(["Keep render state intact."])
-    expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("narrative:vault-demo")
+    const written = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
+    const hydrated = readDecksState(root)
+    expect(written.narrative).toBeUndefined()
+    expect(written.workspace.openQuestions).toEqual(["Keep render state intact."])
+    expect(hydrated.narrative?.id).toBe("narrative:vault-demo")
+    expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "diagnostics.json"), "utf-8")).toContain("broken_link")
   })
 
   it("does not replace existing DECKS narrative when the vault is empty", () => {
@@ -168,7 +170,7 @@ describe("narrative vault", () => {
     })
   })
 
-  it("tool action initializes a vault, cache, and DECKS mirror for new workspaces", async () => {
+  it("tool action initializes a vault, cache, and hydrated DECKS runtime state for new workspaces", async () => {
     const root = tempWorkspace("revela-vault-tool-bootstrap-")
 
     const result = await executeDecksTool({
@@ -179,14 +181,32 @@ describe("narrative vault", () => {
         thesis: { statement: "Record findings early and leave gaps visible.", confidence: "medium" },
       },
     }, root)
-    const mirrored = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
+    const written = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
+    const hydrated = readDecksState(root)
 
     expect(result.ok).toBe(true)
     expect(result.created).toBe(true)
     expect(result.files).toContain("index.md")
     expect(result.nextActions).toContain("Treat workspace source material records as candidates until explicit evidence trace is written.")
-    expect(mirrored.narrative.audience.primary).toBe("Product leadership")
+    expect(written.narrative).toBeUndefined()
+    expect(hydrated.narrative?.audience.primary).toBe("Product leadership")
     expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("Product leadership")
+  })
+
+  it("persists approvals outside the DECKS narrative mirror in vault workspaces", async () => {
+    const root = tempWorkspace("revela-vault-approval-provenance-")
+    writeDecksState(root, narrativeMapState())
+    writeMutableVault(root)
+
+    const approval = await executeDecksTool({ action: "approveNarrative", approvalBy: "override", approvalScope: "render_override", approvalNote: "Override for cache migration test." }, root)
+    const written = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
+    const hydrated = readDecksState(root)
+
+    expect(approval.ok).toBe(true)
+    expect(approval.result.approved).toBe(true)
+    expect(written.narrative).toBeUndefined()
+    expect(written.narrativeApprovals).toContainEqual(expect.objectContaining({ id: approval.result.approval.id, scope: "render_override" }))
+    expect(hydrated.narrative?.approvals).toContainEqual(expect.objectContaining({ id: approval.result.approval.id, scope: "render_override" }))
   })
 
   it("tool initNarrativeVault is a no-op when the vault already exists", async () => {
@@ -308,7 +328,7 @@ describe("narrative vault", () => {
     }))
   })
 
-  it("tool actions mutate vault Markdown, compile cache, and mirror DECKS narrative", async () => {
+  it("tool actions mutate vault Markdown, compile cache, and hydrate runtime narrative", async () => {
     const root = tempWorkspace("revela-vault-tool-mutate-")
     writeDecksState(root, narrativeMapState())
     writeMutableVault(root)
@@ -337,14 +357,62 @@ describe("narrative vault", () => {
       evidenceBindingIds: ["evidence:pilot:ops"],
       gapNotes: "Resolved by operations study evidence.",
     }, root)
-    const mirrored = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
+    const written = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
+    const hydrated = readDecksState(root)
 
     expect(evidence.ok).toBe(true)
     expect(evidence.diagnosticReport.warningCount).toBeGreaterThan(0)
     expect(gap.ok).toBe(true)
-    expect(mirrored.narrative.evidenceBindings).toContainEqual(expect.objectContaining({ id: "evidence:pilot:ops" }))
-    expect(mirrored.narrative.researchGaps).toContainEqual(expect.objectContaining({ id: "gap:pilot-evidence", status: "evidence_bound" }))
+    expect(written.narrative).toBeUndefined()
+    expect(hydrated.narrative?.evidenceBindings).toContainEqual(expect.objectContaining({ id: "evidence:pilot:ops" }))
+    expect(hydrated.narrative?.researchGaps).toContainEqual(expect.objectContaining({ id: "gap:pilot-evidence", status: "evidence_bound" }))
     expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("evidence:pilot:ops")
+  })
+
+  it("binds research findings into vault evidence only when binding eval is safe", async () => {
+    const root = tempWorkspace("revela-vault-bind-findings-")
+    writeDecksState(root, narrativeMapState())
+    writeMutableVault(root)
+    mkdirSync(join(root, "researches", "pilot"), { recursive: true })
+    writeFileSync(join(root, "researches", "pilot", "ops.md"), `## Recommended evidence bindings
+- claimId: claim:pilot
+- Source: https://example.com/ops-study
+- Quote: "Pilot scope fits current operating constraints and can be delivered without expanding rollout commitments."
+- Support scope: Supports pilot approval scope.
+- Unsupported scope: Does not prove full rollout.
+- Caveat: Pilot-only evidence from the operations study.
+- Strength: strong
+`, "utf-8")
+
+    const bound = await executeDecksTool({ action: "bindResearchFindings", findingsFile: "researches/pilot/ops.md" }, root)
+    const written = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
+    const hydrated = readDecksState(root)
+
+    expect(bound.ok).toBe(true)
+    expect(bound.bindingEval).toMatchObject({ status: "bindable", claimId: "claim:pilot" })
+    expect(bound.mutation).toMatchObject({ ok: true, file: expect.stringContaining("evidence") })
+    expect(bound.gapMutation).toMatchObject({ ok: true, nodeId: "gap:pilot-evidence" })
+    expect(written.narrative).toBeUndefined()
+    expect(hydrated.narrative?.evidenceBindings).toContainEqual(expect.objectContaining({ claimId: "claim:pilot", findingsFile: "researches/pilot/ops.md", strength: "strong" }))
+    expect(hydrated.narrative?.researchGaps).toContainEqual(expect.objectContaining({ id: "gap:pilot-evidence", status: "evidence_bound" }))
+  })
+
+  it("does not bind research findings when binding eval is incomplete", async () => {
+    const root = tempWorkspace("revela-vault-bind-findings-incomplete-")
+    writeDecksState(root, narrativeMapState())
+    writeMutableVault(root)
+    mkdirSync(join(root, "researches", "pilot"), { recursive: true })
+    writeFileSync(join(root, "researches", "pilot", "ops.md"), `## Data
+- claimId: claim:pilot
+- Source: https://example.com/ops-study
+`, "utf-8")
+
+    const bound = await executeDecksTool({ action: "bindResearchFindings", findingsFile: "researches/pilot/ops.md" }, root)
+    const hydrated = readDecksState(root)
+
+    expect(bound).toMatchObject({ ok: false, skipped: true, reason: "findings are not safely bindable" })
+    expect(bound.bindingEval).toMatchObject({ status: "needs_fields", missingFields: expect.arrayContaining(["quoteOrSnippet", "supportScope", "unsupportedScope", "caveat", "strength"]) })
+    expect(hydrated.narrative?.evidenceBindings.some((binding) => binding.findingsFile === "researches/pilot/ops.md")).toBe(false)
   })
 
   it("upserts claim nodes while preserving existing relations", () => {
@@ -417,7 +485,7 @@ describe("narrative vault", () => {
     })
   })
 
-  it("tool actions mutate targeted vault nodes and mirror DECKS narrative", async () => {
+  it("tool actions mutate targeted vault nodes and keep DECKS narrative out of disk state", async () => {
     const root = tempWorkspace("revela-vault-tool-targeted-")
     writeDecksState(root, narrativeMapState())
     writeMutableVault(root)
@@ -426,16 +494,18 @@ describe("narrative vault", () => {
     const objection = await executeDecksTool({ action: "upsertVaultObjection", narrative: { objections: [{ id: "objection:budget", response: "Budget is capped." }] } }, root)
     const risk = await executeDecksTool({ action: "upsertVaultRisk", narrative: { risks: [{ id: "risk:execution", mitigation: "Use a readiness checkpoint." }] } }, root)
     const core = await executeDecksTool({ action: "updateVaultCoreNarrative", narrative: { audience: { primary: "Executive committee" } } }, root)
-    const mirrored = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
+    const written = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
+    const hydrated = readDecksState(root)
 
     expect(claim.ok).toBe(true)
     expect(objection.ok).toBe(true)
     expect(risk.ok).toBe(true)
     expect(core.ok).toBe(true)
-    expect(mirrored.narrative.claims).toContainEqual(expect.objectContaining({ id: "claim:pilot", text: "Approve a tightly bounded pilot." }))
-    expect(mirrored.narrative.objections).toContainEqual(expect.objectContaining({ id: "objection:budget", response: "Budget is capped." }))
-    expect(mirrored.narrative.risks).toContainEqual(expect.objectContaining({ id: "risk:execution", mitigation: "Use a readiness checkpoint." }))
-    expect(mirrored.narrative.audience.primary).toBe("Executive committee")
+    expect(written.narrative).toBeUndefined()
+    expect(hydrated.narrative?.claims).toContainEqual(expect.objectContaining({ id: "claim:pilot", text: "Approve a tightly bounded pilot." }))
+    expect(hydrated.narrative?.objections).toContainEqual(expect.objectContaining({ id: "objection:budget", response: "Budget is capped." }))
+    expect(hydrated.narrative?.risks).toContainEqual(expect.objectContaining({ id: "risk:execution", mitigation: "Use a readiness checkpoint." }))
+    expect(hydrated.narrative?.audience.primary).toBe("Executive committee")
   })
 })
 
