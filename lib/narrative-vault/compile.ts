@@ -41,6 +41,7 @@ export function compileNarrativeVault(workspaceRoot: string, options: CompileNar
 
   const byId = new Map<string, VaultDocument>()
   for (const doc of nodeDocs) if (!byId.has(stringField(doc, "id"))) byId.set(stringField(doc, "id"), doc)
+  const claimIds = new Set(docs.filter((doc) => typeField(doc) === "claim").map((doc) => stringField(doc, "id")).filter(Boolean))
 
   for (const doc of docs) {
     if (!stringField(doc, "type")) diagnostics.push({ severity: "error", code: "missing_type", message: "Missing required frontmatter field: type", file: doc.relativePath })
@@ -58,6 +59,16 @@ export function compileNarrativeVault(workspaceRoot: string, options: CompileNar
     }
     const illegalReason = illegalRelationReason(typeField(from), typeField(to), relation.relation)
     if (illegalReason) diagnostics.push({ severity: "error", code: "illegal_relation_target", message: illegalReason, file: relation.file, nodeId: relation.fromId })
+  }
+
+  for (const doc of docs.filter((item) => typeField(item) === "evidence")) {
+    const evidenceId = stringField(doc, "id")
+    const claimId = stringField(doc, "claimId")
+    if (!claimId) {
+      diagnostics.push({ severity: "error", code: "evidence_claim_missing", message: `Evidence ${evidenceId || doc.relativePath} is missing required claimId.`, file: doc.relativePath, nodeId: evidenceId })
+    } else if (!claimIds.has(claimId)) {
+      diagnostics.push({ severity: "error", code: "evidence_claim_missing", message: `Evidence ${evidenceId || doc.relativePath} references unknown claim ${claimId}.`, file: doc.relativePath, nodeId: evidenceId })
+    }
   }
 
   const narrative: Partial<NarrativeStateV1> = {

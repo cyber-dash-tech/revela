@@ -178,6 +178,7 @@ Known 0.15 limits:
 - Direct JSON narrative mutation through `upsertNarrative` is deprecated. New workspaces bootstrap `revela-narrative/` first, then use vault mutation actions or edit Markdown nodes and compile.
 - `/revela init` now supports repeatable ingest: source materials are classified as added, changed, newer-than-vault, unchanged, and ingest candidates; stable findings should be distilled into Markdown vault nodes.
 - Plugin-side narrative vault auto-compile is implemented: after `write`, `edit`, or `apply_patch` touches workspace-contained `revela-narrative/**/*.md`, the hook compiles, writes cache diagnostics, mirrors `DECKS.json.narrative` only on successful compiles, and appends a compact report to the tool result.
+- Vault compiler diagnostics now catch evidence nodes with missing or unknown `claimId` before normalization can drop invalid bindings, so auto-compile treats them as hard blockers and preserves the previous mirror.
 - The MVP does not move approvals, render targets, artifact coverage, review snapshots, or deck specs into Markdown.
 
 ## 0.17 Narrative Vault Baseline
@@ -224,6 +225,7 @@ Implemented behavior:
 
 - `lib/narrative-vault/*` parses frontmatter, Markdown sections, typed wikilink relations, graph projection, diagnostics, export, cache, and source loading.
 - `compileNarrativeVault` compiles `revela-narrative/` deterministically into existing `NarrativeStateV1`; Story, Research, Make, Review, readiness, hashing, and approval checks continue to use that stable interface.
+- Evidence nodes with missing or unknown `claimId` are diagnosed from raw vault documents before normalization, preventing invalid bindings from being silently dropped.
 - State reads and writes prefer the vault when present and fall back to `DECKS.json.narrative` for old workspaces.
 - Successful vault compiles mirror into `DECKS.json.narrative` and write cache artifacts under `.opencode/revela/narrative-cache/`.
 - Direct Markdown writes to `revela-narrative/**/*.md` trigger plugin-side auto-compile through `lib/narrative-vault/auto-compile.ts` and `lib/narrative-vault/hook-targets.ts`; failed compiles preserve the previous `DECKS.json.narrative` mirror while still writing diagnostics cache.
@@ -272,7 +274,7 @@ Priority 0: narrative vault auto-compile hook.
 - On failed compile, it still writes cache diagnostics, but preserves the previous `DECKS.json.narrative` mirror.
 - If `DECKS.json` does not exist, it compiles and writes cache/report only; it does not create workspace state from the hook.
 - Keep `compileNarrativeVault` as the manual diagnostic/recovery tool.
-- Tests cover path detection, patch target parsing, successful mirror, failed-compile mirror preservation, cache diagnostics, and compact report formatting in `tests/narrative-vault-auto-compile.test.ts`.
+- Tests cover path detection, patch target parsing, successful mirror, failed-compile mirror preservation, bad evidence `claimId` blockers, plugin hook ordering around state gates/deck QA, cache diagnostics, and compact report formatting in `tests/narrative-vault-auto-compile.test.ts`.
 
 Priority 1: vault Markdown write/patch hook details.
 

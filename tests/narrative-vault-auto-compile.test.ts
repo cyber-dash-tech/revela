@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join, resolve } from "path"
 import { DECKS_STATE_FILE, writeDecksState } from "../lib/decks-state"
 import { autoCompileNarrativeVault, formatAutoCompileReport } from "../lib/narrative-vault/auto-compile"
+import { compileNarrativeVault } from "../lib/narrative-vault/compile"
 import {
   extractNarrativeVaultMarkdownTargetsFromPatch,
   isNarrativeVaultMarkdownPath,
@@ -71,17 +72,33 @@ describe("narrative vault auto-compile hook", () => {
     const previous = narrativeMapState()
     writeDecksState(root, previous)
     writeValidVault(root, "Board")
-    writeFileSync(join(root, "revela-narrative", "claims", "pilot.md"), "---\ntype: claim\nid: claim:pilot\nkind: recommendation\nimportance: central\nevidenceRequired: true\nsupportedScope: Pilot decision.\nunsupportedScope: Full rollout.\n---\nApprove a bounded pilot.\n\n## Relations\n\n- supports: [[claim:missing]]\n", "utf-8")
+    writeFileSync(join(root, "revela-narrative", "evidence", "pilot.md"), "---\ntype: evidence\nid: evidence:pilot\nclaimId: claim:missing\nsource: Ops note\nquote: Pilot constraints are explicit.\nsupportScope: Pilot only.\nunsupportedScope: Full rollout.\ncaveat: One source.\nstrength: strong\n---\n", "utf-8")
 
-    const result = autoCompileNarrativeVault(root, ["revela-narrative/claims/pilot.md"])
+    const result = autoCompileNarrativeVault(root, ["revela-narrative/evidence/pilot.md"])
     const mirrored = readJsonFile<any>(join(root, DECKS_STATE_FILE))
 
     expect(result.ok).toBe(false)
     expect(result.mirrored).toBe("preserved_failed_compile")
     expect(result.markdown).toContain("Status: blocked")
-    expect(result.markdown).toContain("broken_link")
+    expect(result.markdown).toContain("evidence_claim_missing")
     expect(mirrored.narrative.id).toBe(previous.narrative?.id)
-    expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "diagnostics.json"), "utf-8")).toContain("broken_link")
+    expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "diagnostics.json"), "utf-8")).toContain("evidence_claim_missing")
+  })
+
+  it("reports invalid evidence claimId before normalization can drop the binding", () => {
+    const root = tempWorkspace("revela-vault-auto-evidence-diagnostic-")
+    writeValidVault(root, "Board")
+    writeFileSync(join(root, "revela-narrative", "evidence", "pilot.md"), "---\ntype: evidence\nid: evidence:pilot\nclaimId: claim:missing\nsource: Ops note\nquote: Pilot constraints are explicit.\nsupportScope: Pilot only.\nunsupportedScope: Full rollout.\ncaveat: One source.\nstrength: strong\n---\n", "utf-8")
+
+    const result = compileNarrativeVault(root)
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      code: "evidence_claim_missing",
+      file: "evidence/pilot.md",
+      nodeId: "evidence:pilot",
+      severity: "error",
+    }))
   })
 
   it("compiles and writes cache without creating DECKS.json when state is absent", () => {
@@ -123,6 +140,19 @@ describe("narrative vault auto-compile hook", () => {
     expect(markdown).toContain("`warning_7`")
     expect(markdown).not.toContain("`warning_8`")
     expect(markdown).toContain("... 1 more")
+  })
+
+  it("keeps plugin hook ordering around state gates and deck QA", () => {
+    const plugin = readFileSync(join(import.meta.dir, "..", "plugin.ts"), "utf-8")
+    const blockedPatchIndex = plugin.indexOf('if (input.tool === "apply_patch" && blockedPatches.size > 0)')
+    const vaultCompileIndex = plugin.indexOf("runPostWriteNarrativeVaultCompile(vaultTargets, output)")
+    const deckQaIndex = plugin.indexOf("extractDeckHtmlTargetsFromPatch(patchText)")
+
+    expect(plugin).toContain("normalizeNarrativeVaultMarkdownPath(filePath, workspaceRoot)")
+    expect(plugin).toContain("extractNarrativeVaultMarkdownTargetsFromPatch(patchText, workspaceRoot)")
+    expect(blockedPatchIndex).toBeGreaterThan(-1)
+    expect(vaultCompileIndex).toBeGreaterThan(blockedPatchIndex)
+    expect(deckQaIndex).toBeGreaterThan(vaultCompileIndex)
   })
 })
 
