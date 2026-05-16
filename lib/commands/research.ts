@@ -58,7 +58,7 @@ Report format:
 - Start with \`Research loop completed after <n> round(s).\`
 - Then use these exact sections in order:
   - \`Selected target\`: report \`kind\`, \`priority\`, \`reason\`, \`question\`, \`targetId\`, \`claimId\`, and any \`findingsFile\`.
-  - \`Vault diagnostics\`: if \`vaultDiagnostics\` or a mutation \`diagnosticReport\` was returned, list blockers first with file/node/code and the suggested next action; otherwise write \`clean\` or \`not a vault workspace\`.
+  - \`Vault diagnostics\`: if \`vaultDiagnostics\` or a mutation \`diagnosticReport\` was returned, list blockers first with file/node/code/message and the suggested next action; otherwise write \`clean\` or \`not a vault workspace\`. If blockers exist, pause binding and research mutations unless the selected target is the exact diagnostic fix.
   - \`Existing findings inspected\`: for each file, report \`findingsFile\`, \`bindingEval.status\` when available, \`bindingDiagnostic.bindable\`, \`missingFields\`, \`failureReasons\`, and which explicit fields were present: \`source\`, \`quoteOrSnippet\`, \`supportScope\`, \`unsupportedScope\`, \`caveat\`, \`strength\`. If none were inspected, write \`none\`.
   - \`Attachments\`: list findings attached with axis/status, or \`none\`.
   - \`Evidence bound\`: list evidence bindings by claim id, source, quote/snippet, supportScope, unsupportedScope, caveat, and strength, or \`none\`.

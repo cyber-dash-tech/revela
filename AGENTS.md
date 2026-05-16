@@ -250,7 +250,7 @@ Validation requirements:
 
 Remaining 0.17.0 theme: make Markdown Narrative Vault the durable narrative source while reducing prompt orchestration through narrow tool/state/hook boundaries. Do not add eval for its own sake.
 
-Do not move on to 0.17.1 yet. Markdown vault authoring now compiles automatically after vault Markdown writes, vault workspaces no longer persist `DECKS.json.narrative`, saved research findings can be evaluated and safely bound into canonical vault evidence, and init/research prompts now rely on concrete tool contracts. Continue by making make/review decisions more coverage-driven; do not replace these narrow boundaries with a generic workflow-eval framework unless repeated structure proves it necessary.
+Do not move on to 0.17.1 until vault diagnostic surfacing is closed. Markdown vault authoring now compiles automatically after vault Markdown writes, vault workspaces no longer persist `DECKS.json.narrative`, saved research findings can be evaluated and safely bound into canonical vault evidence, init/research prompts now rely on concrete tool contracts, and Story/Research/Make/Review must surface vault diagnostics before trust/rendering decisions. Do not replace these narrow boundaries with a generic workflow-eval framework unless repeated structure proves it necessary.
 
 0.17.0 includes both vault canonicalization and prompt lean-down work:
 
@@ -258,16 +258,16 @@ Do not move on to 0.17.1 yet. Markdown vault authoring now compiles automaticall
 - ~~Add a safe binding execution boundary from bindable saved findings to canonical `revela-narrative/evidence/*.md`.~~
 - ~~Thin `/revela research` around deterministic `deriveResearchTargets`, `evaluateResearchFindings`, vault diagnostics, and the safe binding boundary.~~
 - ~~Add init ingest task hints so `/revela init` relies on concrete scan/init outputs instead of prompt memory.~~
-- Make make/review decisions more coverage-driven so artifact coverage and narrative hashes drive stale/current/remake/export guidance.
+- ~~Surface vault diagnostics clearly in Story, Research, Make, and Review reports when they affect trust, binding, or rendering.~~
 
-Post-0.17 work should include Review Prep/Rehearsal, Audience Lens, Meeting Prep Pack, and larger Review interaction expansion. Do not pull those into the remaining 0.17.0 scope.
+Post-0.17 / 0.18 work should include coverage-driven make/review/remake decisions, `/revela make --deck --desc "..."` decisioning, product positioning/docs cleanup, Review Prep/Rehearsal, Audience Lens, Meeting Prep Pack, and larger Review interaction expansion. Do not pull those into the remaining 0.17.0 scope.
 
 Grounded current-state notes:
 
 - Story UI, research gaps, artifact coverage/staleness, Review Insight, Review asset search, and executive brief generation already exist. Treat them as foundations to harden rather than blank-slate future features.
 - `/revela research` has been thinned around deterministic target/evidence-binding tool contracts. Keep future research changes focused on missing tool/state boundaries, not a broad eval layer.
 - Review Insight already has deterministic inspection context/result builders plus LLM inspector prompts. The gap is clearer deterministic-first UX and provenance labeling, not generic chat.
-- Artifact coverage already tracks current/stale/partial/missing claim coverage. The 0.17.0 gap is making coverage drive make/review/remake decisions more explicitly.
+- Artifact coverage already tracks current/stale/partial/missing claim coverage. The post-0.17 gap is making coverage drive make/review/remake decisions more explicitly.
 - `lib/commands/*` and `skill/NARRATIVE_SKILL.md` remain too procedural. Shrink them by moving repeatable memory into narrow tools/hooks and by making tool results explicit enough that prompts can become thin contracts.
 
 Roadmap principle:
@@ -344,62 +344,62 @@ Priority 5: ~~init prompt lean-down and ingest task hints.~~
 - ~~Stable findings from ingested files should be written into `revela-narrative/**/*.md`; source-material records alone remain candidate context, not evidence.~~
 - ~~Once vault Markdown is written, the vault write eval hook should compile and return diagnostics/next tasks.~~
 
-Priority 6: research target and findings/binding hooks.
+Priority 6: ~~research target and findings/binding hooks.~~
 
-- `/revela research` should start from existing deterministic tool outputs: summary read, vault diagnostics, story readiness, research targets, unattached findings, weak evidence, unsupported scope, objections, risks, claim-chain gaps, and binding eval when findings exist.
-- ~~Saved findings should trigger binding eval: whether an evidence node can be written, what fields are missing, whether claim narrowing is safe, or whether external research/user input is still needed.~~ Implemented as read-only `bindingEval` from `revela-research-save` and `revela-decks evaluateResearchFindings`; it does not auto-write canonical evidence.
-- Research agents remain write-limited to `researches/**/*.md`; primary workflow writes canonical Markdown nodes after eval says the binding is explicit enough.
-- Safe claim narrowing may edit `claims/*.md` only when it preserves strategic meaning and evidence boundaries. Broader rewrites require Story/user confirmation.
+- ~~/revela research should start from existing deterministic tool outputs: summary read, vault diagnostics, story readiness, research targets, unattached findings, weak evidence, unsupported scope, objections, risks, claim-chain gaps, and binding eval when findings exist.~~
+- ~~Saved findings should trigger binding eval: whether an evidence node can be written, what fields are missing, whether claim narrowing is safe, or whether external research/user input is still needed.~~ Implemented as read-only `bindingEval` from `revela-research-save` and `revela-decks evaluateResearchFindings`; canonical evidence writes happen only through the separate safe `bindResearchFindings` boundary.
+- ~~Research agents remain write-limited to `researches/**/*.md`; primary workflow writes canonical Markdown nodes after eval says the binding is explicit enough.~~
+- ~~Safe claim narrowing may edit `claims/*.md` only when it preserves strategic meaning and evidence boundaries. Broader rewrites require Story/user confirmation.~~
 
-Priority 7: Vault Markdown mutation helpers.
+Priority 7: ~~Vault Markdown mutation helpers.~~
 
-- Implemented executable helpers cover `evidence/*.md`, `research-gaps/*.md`, `claims/*.md`, `objections/*.md`, `risks/*.md`, plus core audience/decision/thesis/status fields through targeted `revela-decks` actions.
-- Preserve stable frontmatter ids, relation sections, source trace, quote/snippet, support scope, unsupported scope, caveats, and strength.
-- Keep the implementation simple: current frontmatter and section parser are sufficient; do not add a Markdown AST dependency unless there is a concrete need.
-- After Markdown mutations, compile the vault and update cache/runtime hydration; do not depend on persisted `DECKS.json.narrative` in vault workspaces.
-- Tests should cover id preservation, targeted node edits, compile/cache updates, and diagnostics on malformed edits.
+- ~~Implemented executable helpers cover `evidence/*.md`, `research-gaps/*.md`, `claims/*.md`, `objections/*.md`, `risks/*.md`, plus core audience/decision/thesis/status fields through targeted `revela-decks` actions.~~
+- ~~Preserve stable frontmatter ids, relation sections, source trace, quote/snippet, support scope, unsupported scope, caveats, and strength.~~
+- ~~Keep the implementation simple: current frontmatter and section parser are sufficient; do not add a Markdown AST dependency unless there is a concrete need.~~
+- ~~After Markdown mutations, compile the vault and update cache/runtime hydration; do not depend on persisted `DECKS.json.narrative` in vault workspaces.~~
+- ~~Tests should cover id preservation, targeted node edits, compile/cache updates, and diagnostics on malformed edits.~~
 
-Priority 8: research binding in vault workspaces.
+Priority 8: ~~research binding in vault workspaces.~~
 
 - ~~/revela research should write bindable findings into canonical `evidence/*.md` directly, reference the claim id, preserve explicit source trace, and compile.~~ Implemented through `revela-decks bindResearchFindings`.
-- Safe claim narrowing in vault workspaces may edit `claims/*.md` directly only when it preserves strategic meaning and evidence boundaries; broader claim/relation rewrites require Story/user confirmation.
-- Research gap status updates in vault workspaces should use `updateVaultResearchGap` instead of blocked JSON mutation actions.
-- Do not treat raw `researches/**/*.md` findings as support until an evidence node preserves explicit source, quote/snippet, supported scope, unsupported scope, caveat, and strength.
-- Keep broader claim/relation rewrites out of automatic research unless the change is a safe narrowing that preserves strategic meaning; otherwise report for Story/user confirmation.
+- ~~Safe claim narrowing in vault workspaces may edit `claims/*.md` directly only when it preserves strategic meaning and evidence boundaries; broader claim/relation rewrites require Story/user confirmation.~~
+- ~~Research gap status updates in vault workspaces should use `updateVaultResearchGap` instead of blocked JSON mutation actions.~~
+- ~~Do not treat raw `researches/**/*.md` findings as support until an evidence node preserves explicit source, quote/snippet, supported scope, unsupported scope, caveat, and strength.~~
+- ~~Keep broader claim/relation rewrites out of automatic research unless the change is a safe narrowing that preserves strategic meaning; otherwise report for Story/user confirmation.~~
 
-Priority 9: vault diagnostics UX.
+Priority 9: ~~vault diagnostics UX.~~
 
-- Implemented diagnostic report formatting in `lib/narrative-vault/diagnostic-report.ts` for raw compiler diagnostics, including severity, file/node, suggested fix, and next action.
-- `revela-decks` should return `vaultDiagnostics`/`diagnosticReport` from summary reads, vault compile/export, and vault mutation actions.
-- Surface compile diagnostics clearly in Story, Research, Make, and Review reports when they affect trust or rendering.
-- Diagnostics should identify the Markdown file/node when possible and state the next smallest fix.
-- Keep missing evidence visible as gaps. Do not let compiler or prompt logic fill missing quotes, source paths, URLs, locations, or caveats.
+- ~~Implemented diagnostic report formatting in `lib/narrative-vault/diagnostic-report.ts` for raw compiler diagnostics, including severity, file/node, suggested fix, and next action.~~
+- ~~`revela-decks` should return `vaultDiagnostics`/`diagnosticReport` from summary reads, vault compile/export, and vault mutation actions.~~
+- ~~Surface compile diagnostics clearly in Story, Research, Make, and Review reports when they affect trust or rendering.~~
+- ~~Diagnostics should identify the Markdown file/node when possible and state the next smallest fix.~~
+- ~~Keep missing evidence visible as gaps. Do not let compiler or prompt logic fill missing quotes, source paths, URLs, locations, or caveats.~~
 
-Priority 10: init/export migration polish.
+Priority 10: ~~init/export migration polish.~~
 
-- Implemented migration hinting in summary reads through `lib/narrative-vault/migration.ts`.
-- `exportNarrativeVault` should report files written, diagnostics, next actions, and the fields that remain in `DECKS.json`.
-- `/revela init` should bootstrap `revela-narrative/` with `initNarrativeVault` when no vault exists, then record stable findings by editing Markdown nodes directly even when the narrative is incomplete.
-- `/revela init` should also work as refresh ingest: `revela-decks init` returns added, changed, newer-than-vault, unchanged, and ingest-candidate source material buckets so user-added files are processed into vault nodes instead of only registered.
-- When a workspace has `DECKS.json.narrative` but no vault, guide users toward `exportNarrativeVault` without implying approvals/render targets moved to Markdown.
-- Export must preserve ids, evidence binding ids, relation endpoints, source paths, findings files, URLs, locations, quotes/snippets, support scope, unsupported scope, and caveats.
-- Do not invent evidence nodes from source-material records or generated deck text.
+- ~~Implemented migration hinting in summary reads through `lib/narrative-vault/migration.ts`.~~
+- ~~`exportNarrativeVault` should report files written, diagnostics, next actions, and the fields that remain in `DECKS.json`.~~
+- ~~/revela init should bootstrap `revela-narrative/` with `initNarrativeVault` when no vault exists, then record stable findings by editing Markdown nodes directly even when the narrative is incomplete.~~
+- ~~/revela init should also work as refresh ingest: `revela-decks init` returns added, changed, newer-than-vault, unchanged, and ingest-candidate source material buckets so user-added files are processed into vault nodes instead of only registered.~~
+- ~~When a workspace has `DECKS.json.narrative` but no vault, guide users toward `exportNarrativeVault` without implying approvals/render targets moved to Markdown.~~
+- ~~Export must preserve ids, evidence binding ids, relation endpoints, source paths, findings files, URLs, locations, quotes/snippets, support scope, unsupported scope, and caveats.~~
+- ~~Do not invent evidence nodes from source-material records or generated deck text.~~
 
-Priority 11: deterministic deck plan compiler v2.
+Priority 11: ~~deterministic deck plan compiler v2.~~
 
-- Implemented deterministic Cover, TOC, content chapters, risks/objections where relevant, and Closing/Decision Ask in `compileDeckPlanFromNarrative`.
-- Implemented 3-5 chapter headings with slide-index mappings and render-target `planChapters` metadata.
-- Use the simplified built-in design grammar in slide specs: `box`, `text-panel`, `media`, `echart-panel`, `data-table`, `steps`, `roadmap-horizontal`, `roadmap-vertical`, `hero`, `stat-card`, `quote`, `toc`.
-- Avoid old primary component names such as `card` in new slide specs unless needed as compatibility internals.
-- Carry claim refs, evidence binding ids, supported/unsupported scope, caveats, visible evidence gaps, and narrative role into planned slides so artifact coverage remains reliable.
-- Deterministic plan quality checks now catch missing chapters/TOC/closing, uncovered central claims, evidence-required claims without bindings or visible gaps, risk/objection visibility, and incompatible component names before writing HTML.
+- ~~Implemented deterministic Cover, TOC, content chapters, risks/objections where relevant, and Closing/Decision Ask in `compileDeckPlanFromNarrative`.~~
+- ~~Implemented 3-5 chapter headings with slide-index mappings and render-target `planChapters` metadata.~~
+- ~~Use the simplified built-in design grammar in slide specs: `box`, `text-panel`, `media`, `echart-panel`, `data-table`, `steps`, `roadmap-horizontal`, `roadmap-vertical`, `hero`, `stat-card`, `quote`, `toc`.~~
+- ~~Avoid old primary component names such as `card` in new slide specs unless needed as compatibility internals.~~
+- ~~Carry claim refs, evidence binding ids, supported/unsupported scope, caveats, visible evidence gaps, and narrative role into planned slides so artifact coverage remains reliable.~~
+- ~~Deterministic plan quality checks now catch missing chapters/TOC/closing, uncovered central claims, evidence-required claims without bindings or visible gaps, risk/objection visibility, and incompatible component names before writing HTML.~~
 
-Priority 12: Story UI as focused claim-flow reading.
+Priority 12: ~~Story UI as focused claim-flow reading.~~
 
-- Keep `/revela story` read-only and focused on understanding the narrative chain: claim, evidence, why the evidence supports or does not fully support the claim, and immediate relation context.
-- Do not reintroduce Story workbench filters, per-claim command suggestions, next-action cards, or artifact dashboard UI unless there is a clear product decision to make Story a workflow surface again.
-- Localized display models may translate selected-claim reading cards only; they must preserve claim IDs, source facts, quotes, findings paths, URLs, numbers, and canonical evidence boundaries.
-- Readiness, artifact coverage, and command handoff diagnostics should remain deterministic services for Make, Review, Research, and textual diagnostics, not clutter the Story reading UI.
+- ~~Keep `/revela story` read-only and focused on understanding the narrative chain: claim, evidence, why the evidence supports or does not fully support the claim, and immediate relation context.~~
+- ~~Do not reintroduce Story workbench filters, per-claim command suggestions, next-action cards, or artifact dashboard UI unless there is a clear product decision to make Story a workflow surface again.~~
+- ~~Localized display models may translate selected-claim reading cards only; they must preserve claim IDs, source facts, quotes, findings paths, URLs, numbers, and canonical evidence boundaries.~~
+- ~~Readiness, artifact coverage, and command handoff diagnostics should remain deterministic services for Make, Review, Research, and textual diagnostics, not clutter the Story reading UI.~~
 
 Priority 13: Review Prep Mode.
 
@@ -427,18 +427,18 @@ Priority 14: semi-deterministic research loop.
 - Do not expose `revela-decks` to the `revela-research` subagent; it may save findings, while the primary workflow performs safe state attachment/binding.
 - Do not use `upsertNarrative` during research for partial claim, relation, or evidence array updates; report narrative rewrites for Story/user confirmation instead.
 
-Priority 15: coverage-driven make/review/remake decisions.
+Priority 15: coverage-driven make/review/remake decisions. Post-0.17 / 0.18.
 
 - Use artifact coverage to explain whether the current deck is current, stale, partial, or missing before remaking or exporting.
 - When narrative hash changes, report affected claims/slides and recommend focused remake/review steps.
 - Support a dry-run or preview-style deck plan recompile before writing HTML if it helps users trust the handoff.
 
-Priority 16: decide on `/revela make --deck --desc "..."`.
+Priority 16: decide on `/revela make --deck --desc "..."`. Post-0.17 / 0.18.
 
 - Either keep it explicitly unsupported, or implement it as intent seeding for init/story state.
 - If implemented, `--desc` must not bypass source grounding, canonical narrative, evidence requirements, approval, or render gates.
 
-Priority 17: product positioning cleanup.
+Priority 17: product positioning cleanup. Post-0.17 / 0.18.
 
 - README media-asset stage wording should stay aligned with the three-stage model: remote candidate -> workspace asset -> deck usage.
 - User-facing docs should consistently say decks are render targets from trusted narrative state, not the product's durable source of truth.

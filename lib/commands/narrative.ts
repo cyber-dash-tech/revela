@@ -116,11 +116,24 @@ export function buildNarrativeViewPrompt(options: { workspaceRoot: string; langu
     return "No `DECKS.json` found. Tell the user to run `/revela init` before opening the narrative view. Do not call any tool."
   }
 
-  const map = buildNarrativeMap(readDecksState(options.workspaceRoot))
+  const state = readDecksState(options.workspaceRoot)
+  const map = buildNarrativeMap(state)
+  const vaultDiagnostics = hasNarrativeVault(options.workspaceRoot)
+    ? formatVaultDiagnosticReport(compileNarrativeVault(options.workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] }).diagnostics)
+    : undefined
   const projection = {
     narrativeHash: map.snapshot.narrativeHash,
     language: options.language,
     snapshot: map.snapshot,
+    vaultDiagnostics: vaultDiagnostics
+      ? {
+        ok: vaultDiagnostics.ok,
+        errorCount: vaultDiagnostics.errorCount,
+        warningCount: vaultDiagnostics.warningCount,
+        blockers: vaultDiagnostics.blockers.map((diagnostic) => ({ file: diagnostic.file, nodeId: diagnostic.nodeId, code: diagnostic.code, message: diagnostic.message, suggestedAction: diagnostic.suggestedAction })),
+        warnings: vaultDiagnostics.warnings.map((diagnostic) => ({ file: diagnostic.file, nodeId: diagnostic.nodeId, code: diagnostic.code, message: diagnostic.message, suggestedAction: diagnostic.suggestedAction })),
+      }
+      : undefined,
     claims: map.claimFlow.map((claim) => ({
       id: claim.id,
       kind: claim.kind,
@@ -162,6 +175,8 @@ Hard rules:
 - Do not translate claim IDs, relation endpoints, narrative hash, source paths, findings files, URLs, numbers, or quoted/source facts.
 - Use natural business and manufacturing terminology in the target language, not word-by-word machine translation.
 - If a fact is missing, describe it as missing instead of filling it in.
+- If vaultDiagnostics.blockers is present in the compact map, keep Story read-only but surface the blocker state in summaryLine and the relevant claim card riskOrGapSummary when applicable. Include diagnostic file/nodeId/code/message/suggestedAction in display copy; do not invent missing evidence, source trace, quotes, or caveats to hide the blocker.
+- Do not turn Story into a workflow dashboard: diagnostic copy is for reading context only, not command suggestions or mutation planning.
 
 Chinese localization rules when the target language request is Chinese, zh, zh-CN, --cn, 中文, or Simplified Chinese:
 - Use natural business/manufacturing Chinese, not word-by-word machine translation.
