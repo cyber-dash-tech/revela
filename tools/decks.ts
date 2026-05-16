@@ -65,7 +65,7 @@ function researchGapHelperRecovery(action: "updateVaultResearchGap" | "upsertVau
   return {
     nextActions: [
       "If the research gap already exists, read the matching revela-narrative/research-gaps/*.md file and patch only the lifecycle fields.",
-      "If this is a new research gap, provide id, targetType, targetId, question, status, and priority, or create the Markdown node directly after checking narrativeInventory.",
+      "If this is a new research gap, provide id, targetType, targetId, question, status, and priority, or create the Markdown node directly after checking narrativeInventory with a ## Relations depends_on wikilink.",
       "Rerun revela-decks markdownQa and compileNarrativeVault after the repair.",
     ],
     examples: {
@@ -73,7 +73,7 @@ function researchGapHelperRecovery(action: "updateVaultResearchGap" | "upsertVau
         action,
         researchGaps: [{ id: "gap-market-size", targetType: "claim", targetId: "claim-market-context", question: "What source supports the market-size claim?", status: "open", priority: "high" }],
       },
-      markdown: "---\ntype: research-gap\nid: gap-market-size\ntargetType: claim\ntargetId: claim-market-context\nquestion: What source supports the market-size claim?\nstatus: open\npriority: high\n---\nWhat source supports the market-size claim?\n",
+      markdown: "---\ntype: research-gap\nid: gap-market-size\ntargetType: claim\ntargetId: claim-market-context\nquestion: What source supports the market-size claim?\nstatus: open\npriority: high\n---\nWhat source supports the market-size claim?\n\n## Relations\n\n- depends_on: [[claim-market-context]]\n",
     },
     message: `Research gap helper could not complete.${missing}`,
   }
@@ -176,7 +176,7 @@ export default tool({
       })).optional().describe("Canonical claim-to-claim narrative progression relationships. These affect narrative approval hash."),
       evidenceBindings: tool.schema.array(tool.schema.object({
         id: tool.schema.string().optional(),
-        claimId: tool.schema.string().describe("Canonical claim id this evidence supports."),
+        claimId: tool.schema.string().describe("Compatibility fallback claim id this evidence supports; helpers also write a ## Relations supports wikilink."),
         source: tool.schema.string().describe("Source file, URL, research finding, or material name."),
         sourcePath: tool.schema.string().optional(),
         findingsFile: tool.schema.string().optional(),

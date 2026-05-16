@@ -30,6 +30,36 @@ describe("narrative vault", () => {
     expect(inventory.evidence).toContainEqual(expect.objectContaining({ id: "evidence:pilot", claimId: "claim:pilot" }))
   })
 
+  it("prefers wikilink relations over frontmatter bindings and derives gap context through evidence", () => {
+    const root = tempWorkspace("revela-vault-wikilink-first-")
+    writeRegistryVault(root)
+    const vault = join(root, "revela-narrative")
+    writeFileSync(join(vault, "claims", "legacy.md"), "---\ntype: claim\nid: claim:legacy\nkind: evidence\nimportance: supporting\nevidenceRequired: false\n---\nLegacy fallback claim.\n", "utf-8")
+    writeFileSync(join(vault, "evidence", "pilot.md"), "---\ntype: evidence\nid: evidence:pilot\nclaimId: claim:legacy\nsource: Proposal\nsourcePath: proposal.md\nquote: Pilot approval is requested.\nsupportScope: Supports the internal pilot request.\nunsupportedScope: Does not prove external market demand.\ncaveat: Intent evidence only.\nstrength: partial\n---\n\n## Relations\n\n- supports: [[claim:pilot]] - Proposal states the pilot request.\n", "utf-8")
+    mkdirSync(join(vault, "research-gaps"), { recursive: true })
+    writeFileSync(join(vault, "research-gaps", "pilot.md"), "---\ntype: research-gap\nid: gap:pilot\nquestion: What stronger evidence supports pilot approval?\nstatus: open\npriority: high\n---\nFind stronger evidence.\n\n## Relations\n\n- depends_on: [[evidence:pilot]]\n", "utf-8")
+
+    const compiled = compileNarrativeVault(root)
+    const inventory = buildNarrativeVaultInventory(root)
+
+    expect(compiled.ok).toBe(true)
+    expect(compiled.narrative?.evidenceBindings).toContainEqual(expect.objectContaining({ id: "evidence:pilot", claimId: "claim:pilot" }))
+    expect(compiled.narrative?.researchGaps).toContainEqual(expect.objectContaining({ id: "gap:pilot", targetType: "claim", targetId: "claim:pilot", evidenceBindingIds: ["evidence:pilot"] }))
+    expect(compiled.graph.relations).toContainEqual(expect.objectContaining({ fromId: "gap:pilot", toId: "evidence:pilot", relation: "depends_on" }))
+    expect(inventory.relationCoverage.fallbackOnlyBindings).toContainEqual(expect.objectContaining({ nodeId: "evidence:pilot", targetId: "claim:legacy" }))
+  })
+
+  it("warns when valid frontmatter bindings have no wikilink relation", () => {
+    const root = tempWorkspace("revela-vault-frontmatter-fallback-qa-")
+    writeSampleVault(root)
+
+    const inventory = buildNarrativeVaultInventory(root)
+    const qa = runNarrativeMarkdownQa(root, { scope: "full", strictness: "authoring" })
+
+    expect(inventory.relationCoverage.fallbackOnlyBindings).toContainEqual(expect.objectContaining({ nodeId: "evidence:supported:ops", field: "claimId", relation: "supports", targetId: "claim:supported" }))
+    expect(qa.warnings).toContainEqual(expect.objectContaining({ issueCode: "frontmatter_binding_without_relation", nodeId: "evidence:supported:ops" }))
+  })
+
   it("rejects deprecated relation registry helpers", () => {
     const root = tempWorkspace("revela-vault-relation-mutate-")
     writeRegistryVault(root)
@@ -968,7 +998,7 @@ function writeWeakEvidenceVault(root: string): void {
   writeFileSync(join(vault, "decision.md"), "---\ntype: decision\naction: Approve pilot.\ndecisionType: approve\n---\n", "utf-8")
   writeFileSync(join(vault, "thesis.md"), "---\ntype: thesis\nid: thesis:weak-demo\nconfidence: medium\n---\nA pilot needs stronger evidence before rollout.\n", "utf-8")
   writeFileSync(join(vault, "claims", "pilot.md"), "---\ntype: claim\nid: claim:pilot\nkind: recommendation\nimportance: central\nevidenceRequired: true\nsupportedScope: Supports only a cautious pilot discussion.\nunsupportedScope: Rollout readiness remains unsupported.\n---\nConsider a bounded pilot.\n\n## Caveats\n\n- Evidence is weak and internal only.\n", "utf-8")
-  writeFileSync(join(vault, "evidence", "pilot.md"), "---\ntype: evidence\nid: evidence:pilot\nclaimId: claim:pilot\nsource: Internal note\nsourcePath: notes/pilot.md\nquote: The team believes a pilot may be feasible.\nsupportScope: Supports only internal interest in a pilot.\nunsupportedScope: Does not prove rollout readiness.\ncaveat: Internal note, not external validation.\nstrength: weak\n---\n", "utf-8")
+  writeFileSync(join(vault, "evidence", "pilot.md"), "---\ntype: evidence\nid: evidence:pilot\nclaimId: claim:pilot\nsource: Internal note\nsourcePath: notes/pilot.md\nquote: The team believes a pilot may be feasible.\nsupportScope: Supports only internal interest in a pilot.\nunsupportedScope: Does not prove rollout readiness.\ncaveat: Internal note, not external validation.\nstrength: weak\n---\n\n## Relations\n\n- supports: [[claim:pilot]]\n", "utf-8")
 }
 
 function writeRegistryVault(root: string): void {

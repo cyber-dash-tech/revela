@@ -134,7 +134,8 @@ describe("buildInitPrompt", () => {
     expect(prompt).toContain("Supported `type` values")
     expect(prompt).toContain("`research-gap`, not `researchGap` or `research_gap`")
     expect(prompt).toContain("Do not write typed targets such as `[[claim:claim-belief-change-purpose]]`")
-    expect(prompt).toContain("Evidence nodes require `claimId`")
+    expect(prompt).toContain("Evidence nodes require source trace")
+    expect(prompt).toContain("Keep `claimId` only as compatibility fallback")
     expect(prompt).toContain("Do not use `upsertNarrative`")
     expect(prompt).toContain("structurally valid")
     expect(prompt).toContain("not evidence readiness")
@@ -314,7 +315,7 @@ describe("research command", () => {
     expect(prompt).toContain("Unbound findings")
     expect(prompt).toContain("internal_data_needed")
     expect(prompt).toContain("Current workspace root: `/workspace/project`")
-    expect(prompt).toContain("Do not invent `claimId`, evidence ids, research-gap ids, or relation targets before checking `narrativeInventory`")
+    expect(prompt).toContain("Do not invent claim ids, evidence ids, research-gap ids, or relation targets before checking `narrativeInventory`")
   })
 })
 

@@ -2,7 +2,7 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-05-16 for 0.17.0 Markdown Narrative Vault closeout.
+> Last updated: 2026-05-16 for 0.17.1 Wikilink-First Vault Graph implementation.
 
 ## Product Baseline
 
@@ -108,14 +108,16 @@ Markdown authoring rules:
 - Do not duplicate stable headings such as `## Evidence`, `## Caveats`, `## Relations`, `## Response`, or `## Mitigation`.
 - Relation lines use valid relation labels plus plain node-id wikilinks, for example `- supports: [[claim-recommendation]]`.
 - Do not use typed wikilink targets such as `[[claim:claim-recommendation]]`.
-- Evidence nodes must preserve `claimId`, source trace, quote/snippet, support scope, unsupported scope, caveat, and strength.
+- Evidence nodes must preserve source trace, quote/snippet, support scope, unsupported scope, caveat, and strength.
+- Wikilink relations are the preferred graph source. Frontmatter bindings such as `claimId`, `targetId`, and `evidenceBindingIds` remain compatibility fallbacks for existing vaults and helper inputs.
 
-Planned 0.17 inline relation direction:
+Current inline relation behavior:
 
 - Keep graph edges in node Markdown as lightweight `## Relations` wikilinks so the vault remains readable and navigable.
 - `compileNarrativeVault` generates deterministic canonical relation ids; the LLM never hand-writes relation ids.
 - Relation rationale may be written inline after the target, for example `- supports: [[claim-recommendation]] - Rationale text.`
-- Use relation sync QA to report dangling edges, unbound evidence/objections/risks/gaps, isolated central claims, invalid relation types, and typed wikilinks at the right workflow checkpoints.
+- Use relation sync QA to report dangling edges, unbound evidence/objections/risks/gaps, isolated central claims, invalid relation types, typed wikilinks, and frontmatter-only compatibility bindings at the right workflow checkpoints.
+- `compileNarrativeVault` derives evidence, objection, risk, and research-gap bindings from wikilink relations first. Frontmatter bindings compile only as fallback compatibility and should receive migration guidance instead of being treated as ideal authoring.
 
 Structured helper role:
 
@@ -142,7 +144,7 @@ Structured helper role:
 - Start from deterministic tool outputs: summary read, vault diagnostics, story readiness, `deriveResearchTargets`, and `evaluateResearchFindings` when findings exist.
 - Prefer binding or narrowing from existing saved findings before external research.
 - Save external research to `researches/**/*.md`; research subagents must not call `revela-decks`.
-- Bind evidence only when source, quote/snippet, support scope, unsupported scope, strength, caveat, and claim id are explicit and the binding does not expand the claim.
+- Bind evidence only when source, quote/snippet, support scope, unsupported scope, strength, caveat, and supported claim context are explicit and the binding does not expand the claim. New evidence should express the graph with `## Relations` such as `- supports: [[claim-id]]`; `claimId` is fallback compatibility.
 - Use `bindResearchFindings` for bindable findings; otherwise report missing fields or source mismatch.
 - Safe claim narrowing may edit `claims/*.md` only when it preserves strategic meaning and evidence boundaries. Broader rewrites require Story/user confirmation.
 - Never use `upsertNarrative` during research.
@@ -170,121 +172,68 @@ Structured helper role:
 
 ## Current 0.17 Completed Baseline
 
-- ~~Markdown Narrative Vault compiler/parser/cache/source loading.~~
-- ~~Plugin-side vault auto-compile after `write`, `edit`, or `apply_patch` touches `revela-narrative/**/*.md`.~~
-- ~~No persisted `DECKS.json.narrative` in vault workspaces; runtime hydration remains for compatibility.~~
-- ~~Top-level `narrativeApprovals` preserves approvals outside the persisted narrative mirror.~~
-- ~~Research target derivation, findings binding eval, and safe `bindResearchFindings` evidence writes.~~
-- ~~Init ingest buckets and `ingest.suggestedTasks`.~~
-- ~~Story/Research/Make/Review prompt contracts surface vault diagnostics before trust/rendering decisions.~~
-- ~~JSON narrative migration/export to Markdown vault.~~
-- ~~Deterministic deck plan compiler v2 and focused read-only Story UI.~~
-- ~~Initial vault helpers and JSON-era mutation blocking in vault workspaces.~~
-- ~~Inline node `## Relations` as the canonical graph source, with deterministic compiler-generated relation ids and layered relation QA.~~
-- ~~0.17 release verification: fresh init smoke, Markdown QA repair feedback, inventory-first authoring, vault compile persistence, full tests, typecheck, and package dry-run.~~
+0.17 is release-verified. Keep this section concise; detailed release archaeology belongs in `docs/AGENTS.archive.md`.
 
-## 0.17 Development Plan
+- Markdown Narrative Vault compiler/parser/cache/source loading.
+- Plugin-side vault auto-compile and Markdown QA after vault Markdown writes.
+- No persisted top-level `DECKS.json.narrative` in vault workspaces; runtime hydration remains for compatibility.
+- Top-level `narrativeApprovals` preserves approval provenance outside the persisted narrative mirror.
+- Init ingest buckets with `ingest.suggestedTasks` and workspace source-material registration.
+- JSON narrative migration/export to Markdown vault.
+- Story/Research/Make/Review prompt contracts surface vault diagnostics before trust/rendering decisions.
+- Research target derivation, findings binding eval, and safe evidence binding helpers.
+- Deterministic deck plan compiler v2 and focused read-only Story UI.
+- Initial vault helpers plus JSON-era mutation blocking in vault workspaces.
+- Inline node `## Relations` replaced `relations.md`; compiler-generated deterministic relation ids and layered relation QA are in place.
+- Release gate passed: fresh init smoke, Markdown QA repair feedback, inventory-first authoring, vault compile persistence, `bun test`, `bun run typecheck`, and `npm pack --dry-run`.
+- 0.17.1 wikilink-first graph implementation is complete in local development: relation-derived canonical bindings now take precedence over frontmatter fallback, research gaps can depend on evidence nodes and derive claim context through evidence, helpers write `## Relations`, inventory/Markdown QA warn on frontmatter-only bindings, and focused/full tests pass.
 
-0.17 closeout goal: establish a reliable Markdown authoring control loop. Prompts constrain how the LLM writes Markdown before authoring; inventory tools show existing nodes before edits; hooks/tools run Markdown QA after authoring and return repair task cards; inline relation QA keeps graph edges aligned with nodes while preserving Markdown wikilink navigation; `compileNarrativeVault` remains the deterministic graph compiler.
+## Current Development Checkpoint: 0.17.1 Wikilink-First Vault Graph
 
-Phases 1-7 are closed. 0.17 is release-verified; do not move on to 0.17.1 work without preserving the 0.17 release gate results.
+Goal: keep the Markdown vault graph authoring model Obsidian-style and wikilink-first.
 
-### ~~Phase 1: Prompt-Side Markdown Authoring Contract + Inventory~~
+Human authors and LLMs should express graph meaning primarily through node-local `## Relations` sections with plain `[[node-id]]` wikilinks. `compileNarrativeVault` derives canonical `NarrativeStateV1` fields from those links before falling back to frontmatter bindings such as `claimId`, `targetId`, and `evidenceBindingIds`.
 
-- ~~Reframe `authoringContract` as a Markdown authoring guide, not a mandatory structured-action API.~~
-- ~~Update `/revela init` and `/revela research` prompts to say the LLM may directly maintain `revela-narrative/**/*.md` knowledge nodes.~~
-- ~~Add a read-only narrative inventory tool, such as `revela-decks narrativeInventory` or `revela-decks vaultInventory`, so the LLM can inspect existing claims, evidence, research gaps, objections, risks, relations, unresolved references, and id hints before writing Markdown.~~
-- ~~Standard authoring session pattern should be: `read(summary:true)` -> narrative inventory -> author Markdown -> Markdown QA -> compile -> report.~~
-- ~~Define the Markdown grammar before writing: one frontmatter block, valid `type`, plain stable ids, relation lines such as `- supports: [[claim-id]]`, no typed wikilinks, no duplicate stable headings, and evidence nodes with explicit `claimId` plus source trace.~~
-- ~~Prompt guidance should forbid inventing `claimId`, evidence ids, or relation targets before checking inventory unless the LLM is intentionally creating the missing node in Markdown.~~
-- ~~Preserve evidence/source-trace boundaries: findings/source materials are not proof until evidence nodes or bindings preserve quote/snippet, support scope, unsupported scope, caveat, strength, and source.~~
-- ~~Keep structured helpers such as `bindResearchFindings`, `upsertVaultEvidence`, and `upsertVaultResearchGap` as optional safety helpers.~~
-- ~~Tests should assert prompt/contract wording requires inventory-before-authoring, allows Markdown node authoring, and forbids schema drift plus JSON-era mutation actions.~~
+Target mental model:
 
-### ~~Phase 2: Markdown QA Hook / Tool Feedback~~
+```text
+claim-a.md
+  <- supports <- evidence-a.md  (`- supports: [[claim-a]]`)
+  <- derived through evidence <- gap-a.md (`- depends_on: [[evidence-a]]`)
+```
 
-- ~~Upgrade the current authoring guard into explicit Markdown QA feedback used by hooks and tools.~~
-- ~~Hook-triggered QA should run after `write`, `edit`, or `apply_patch` touches `revela-narrative/**/*.md` and return compact repair task cards.~~
-- ~~Add or formalize a manual QA entry point, such as `revela-decks markdownQa`, or return a separate `markdownQa` section from existing vault actions.~~
-- ~~QA should report duplicate frontmatter, duplicate stable headings, invalid node types, typed wikilinks, missing or unresolved `claimId`, broken relation targets, and evidence missing required trace fields.~~
-- ~~QA output should use a stable repair-card shape: severity, file, node id when known, issue code, message, smallest repair, and optional examples.~~
-- ~~QA output should identify file, node/field/heading, reason, and next smallest repair action. Example: `evidence-x.md` has `claimId: claim-market`, but no claim with that id exists.~~
-- ~~Tests should prove duplicate `## Caveats`, typed wikilinks, and unresolved evidence `claimId` are reported by Markdown QA/hook feedback even when no manual compile is run.~~
+Canonical relation syntax:
 
-### ~~Phase 3: Compile / Read Integration~~
+```md
+## Relations
 
-- ~~Keep `compileNarrativeVault` focused on compiling Markdown into canonical graph/state.~~
-- ~~Compile/read paths may surface `markdownQa` and inventory summaries, but repair guidance belongs to Markdown QA and node discovery belongs to inventory, not hidden semantic compiler behavior.~~
-- ~~Preserve existing semantic diagnostics while making authoring QA visible in `compileNarrativeVault`, `read(summary:true)`, init/research/make/review reports, and manual recovery flows.~~
-- ~~QA blockers should not cause the LLM to invent missing claims, evidence, source paths, URLs, quotes, or caveats.~~
-- ~~Tests should prove `compileNarrativeVault` and `read(summary:true)` expose Markdown QA results alongside compiler diagnostics without reintroducing persisted `DECKS.json.narrative`, and that inventory remains read-only.~~
+- supports: [[claim-a]] - Optional rationale.
+- depends_on: [[evidence-a]]
+- constrains: [[claim-b]]
+- answers: [[objection-a]]
+```
 
-### ~~Phase 4: Evidence / Binding Boundary Alignment~~
+Do not use `[[supports:claim-a]]`; Obsidian treats that as a page id instead of a typed edge to `claim-a`.
 
-- ~~Keep Markdown structural QA separate from trust/evidence QA.~~
-- ~~`markdownQa` checks files, frontmatter, node types, ids, links, headings, relation targets, `claimId` presence/resolution, and required trace fields.~~
-- ~~`evaluateResearchFindings`, binding diagnostics, and `bindResearchFindings` remain responsible for evidence strength, source clarity, quote/snippet adequacy, support scope, unsupported scope, caveat, and whether binding would expand a claim.~~
-- ~~Prompts and reports should label these two layers separately so LLMs do not treat structurally valid Markdown as evidence-ready support.~~
-- ~~Tests should prove a structurally valid but weakly supported evidence node remains visible as weak/partial/missing support instead of being upgraded by Markdown QA.~~
+### 0.17.1 Implemented
 
-### ~~Phase 5: Helper Ergonomics For Smoke Stability~~
+- Compiler: wikilink relations are the first source for evidence, objection, risk, and research-gap bindings; frontmatter fields are fallback only.
+- Evidence: `evidence -> supports -> claim` derives `NarrativeEvidenceBinding.claimId`.
+- Objection: `objection -> answers/contrasts_with -> claim` derives `claimId`.
+- Risk: `risk -> constrains -> claim` derives `claimId`.
+- Research gaps: `gap -> depends_on -> claim/evidence/objection/risk`; gap-to-evidence links preserve the evidence id and derive claim context through the evidence support relation when available.
+- `NarrativeResearchGapTargetType` was not extended to `evidence`; canonical gaps keep schema compatibility by storing evidence dependencies in `evidenceBindingIds` and deriving `targetType: "claim"` when evidence supports a claim.
+- Inventory: relation coverage explains official wikilink relations and compatibility-only frontmatter bindings, with migration hints for fallback-only nodes.
+- Markdown QA: warns when nodes rely only on frontmatter bindings; still blocks dangling wikilinks, invalid relation labels, typed wikilinks, and unbound nodes at readiness/render strictness.
+- Prompts and `authoringContract`: require new evidence/gaps/risks/objections to write `## Relations`; source trace fields remain separate from graph links.
+- Helpers: `upsertVaultEvidence`, `bindResearchFindings`, `upsertVaultObjection`, `upsertVaultRisk`, and research-gap helpers write appropriate `## Relations` while preserving compatibility frontmatter where needed.
 
-- ~~Improve `upsertVaultResearchGap` ergonomics only where it helps: batch `researchGaps[]` may be supported, and lifecycle-only updates should explain when the node does not exist.~~
-- ~~Return compact examples from failed helper calls so the LLM can recover by either repairing Markdown directly or using the optional helper correctly.~~
-- ~~Consider relation-specific helper ergonomics only if smoke tests continue to produce malformed `## Relations`; do not remove Markdown relation authoring.~~
-- ~~Keep JSON-era mutation actions blocked in vault workspaces, but errors should point to both Markdown repair and optional helper alternatives.~~
+### 0.17.1 Verification Status
 
-### ~~Phase 6: Inline Node Relations + Layered Relation QA~~
-
-~~Goal: keep the Markdown vault readable and navigable as a knowledge workspace. Relation edges belong in the node files as lightweight `## Relations` wikilinks; `compileNarrativeVault` generates deterministic canonical relation ids and graph state from those inline edges. Do not use `relations.md` as a 0.17 canonical registry.~~
-
-Design decisions:
-
-- ~~Node `## Relations` sections are the canonical graph edge source.~~
-- ~~Relation lines use valid relation types plus plain node-id wikilinks, for example `- supports: [[claim-market-dynamism]]`.~~
-- ~~Typed wikilinks remain invalid: do not write `[[claim:claim-market-dynamism]]`.~~
-- ~~Relation rationale may be written inline after the target, for example `- supports: [[claim-market-dynamism]] - Demand volatility supports the market dynamism claim.`~~
-- ~~The LLM never writes relation ids. Compiler-generated ids use a deterministic shape such as `rel-{safe-from-id}-{relation}-{safe-to-id}`.~~
-- ~~Evidence, objection, risk, and research-gap nodes may bind to claims through inline relations when frontmatter target fields are absent, but source trace and evidence boundaries still live in the node content.~~
-- ~~Do not introduce `relations.md` in 0.17. If relation-level rationale later needs richer lifecycle, design it after the Markdown-first vault is stable.~~
-- ~~Use inventory, Markdown QA, and readiness gates to report mechanical graph drift without interrupting every small edit.~~
-
-Layered QA strategy:
-
-- ~~Write hook scope: run touched-file structural QA only. Check relation syntax, invalid relation types, typed wikilinks, touched relation targets, touched node id/type validity, and duplicate headings/frontmatter. Do not run full orphan/isolated graph checks on every edit.~~
-- ~~Authoring checkpoint scope: `/revela init` final report, `/revela research` after a binding/narrowing batch, manual `revela-decks markdownQa`, and explicit story/readiness checks should run affected-subgraph or full relation QA. Report repair cards for dangling edges, unbound evidence, unbound objections, unbound risks, unbound research gaps, isolated central claims, and orphan nodes.~~
-- ~~Readiness/render scope: `/revela story`, `/revela make --deck`, `/revela make --brief`, `approveNarrative`, and review/inspection flows should run full strict relation QA. Broken inline edges, unbound evidence support, and unreadable claim-flow should block rendering or approval instead of being hidden by prompts.~~
-- ~~`narrativeInventory` should expose relation coverage from inline relations: dangling edges, unbound evidence/objections/risks/gaps, isolated claims, orphan nodes, and advisory relation candidates when safely derivable. Candidates are advisory and never official graph state until written into node `## Relations`.~~
-
-Implementation tasks:
-
-- ~~Remove the 0.17 `relations.md` registry direction from prompts, QA, inventory, and compiler behavior.~~
-- ~~Keep `parseRelations(...)` for inline `## Relations`; remove or stop using `parseRelationRegistry(...)`.~~
-- ~~Update `compileNarrativeVault` so inline node relations are the only canonical relation source and every compiled relation gets a deterministic compiler-generated id.~~
-- ~~Preserve inline relation rationale in canonical relation output when present.~~
-- ~~Let evidence/objection/risk/research-gap nodes derive claim/target binding from inline relations when frontmatter target fields are absent.~~
-- ~~Update `narrativeInventory` relation coverage to use inline relations and compiler-generated relation ids.~~
-- ~~Update Markdown QA scoped relation checks so inline `## Relations` are expected, not legacy warnings.~~
-- ~~Keep strict readiness/render gates for `reviewNarrative`, `approveNarrative`, `compileDeckPlan`, and deck `review`, but make blockers come from inline relation QA.~~
-- ~~Update `/revela init` and `/revela research` prompts: node files should maintain lightweight `## Relations`; do not hand-write relation ids; do not use typed wikilinks; relation rationale may be inline text.~~
-
-Tests:
-
-- ~~Inline relations compile to deterministic relation ids.~~
-- ~~Inline relation rationale compiles into canonical relation rationale.~~
-- ~~Evidence without `claimId` can bind through `## Relations` such as `- supports: [[claim-pilot]]`.~~
-- ~~Missing inline relation target is a Markdown QA blocker.~~
-- ~~Typed wikilink target is a Markdown QA blocker.~~
-- ~~Full/readiness QA detects unbound evidence/objections/risks/gaps, isolated central claims, and orphan nodes from inline graph coverage.~~
-- ~~Strict readiness/render paths block `reviewNarrative`, `approveNarrative`, `compileDeckPlan`, and deck `review` when inline relation QA has blockers.~~
-
-### ~~Phase 7: 0.17 Release Verification~~
-
-- ~~Smoke test `/revela init` in a fresh workspace with one proposal/intent brief.~~
-- ~~Confirm prompt-side constraints reduce malformed Markdown and hook/tool QA gives actionable repair feedback when mistakes remain.~~
-- ~~Confirm inventory-before-authoring prevents duplicate ids and unresolved relation/claim targets in normal init/research flows.~~
-- ~~Confirm direct Markdown-created claims/gaps/evidence compile into graph, missing evidence remains visible, and no `DECKS.json.narrative` is persisted.~~
-- ~~Run `bun test`, `bun run typecheck`, and `npm pack --dry-run` before release.~~
+- Focused tests cover relation-derived evidence binding, gap-to-evidence binding, fallback compatibility warnings, prompt requirements, helper relation writing, and QA blockers for broken links.
+- `bun run typecheck` passes.
+- Full `bun test` passes: 522 tests, 0 failures.
+- `npm pack --dry-run` has not been rerun after 0.17.1 implementation; run the full release gate before release or version tagging.
 
 ## Post-0.17 Candidates
 

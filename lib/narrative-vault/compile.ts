@@ -68,9 +68,9 @@ export function compileNarrativeVault(workspaceRoot: string, options: CompileNar
 
   for (const doc of docs.filter((item) => typeField(item) === "evidence")) {
     const evidenceId = stringField(doc, "id")
-    const claimId = stringField(doc, "claimId") || relationTargets.get(evidenceId)?.targetId || ""
+    const claimId = relationTargets.get(evidenceId)?.targetId || stringField(doc, "claimId") || ""
     if (!claimId) {
-      diagnostics.push({ severity: "error", code: "evidence_claim_missing", message: `Evidence ${evidenceId || doc.relativePath} is missing required claimId.`, file: doc.relativePath, nodeId: evidenceId })
+      diagnostics.push({ severity: "error", code: "evidence_claim_missing", message: `Evidence ${evidenceId || doc.relativePath} is missing a claim-support relation or compatibility claimId.`, file: doc.relativePath, nodeId: evidenceId })
     } else if (!claimIds.has(claimId)) {
       diagnostics.push({ severity: "error", code: "evidence_claim_missing", message: `Evidence ${evidenceId || doc.relativePath} references unknown claim ${claimId}.`, file: doc.relativePath, nodeId: evidenceId })
     }
@@ -151,12 +151,12 @@ function compileClaim(doc: VaultDocument): NarrativeClaim {
   }
 }
 
-type RelationTarget = { targetId: string; targetType?: NarrativeResearchGapTargetType }
+type RelationTarget = { targetId: string; targetType?: NarrativeResearchGapTargetType; evidenceBindingIds?: string[] }
 
 function compileEvidence(doc: VaultDocument, relationTargets = new Map<string, RelationTarget>()): NarrativeEvidenceBinding {
   return {
     id: stringField(doc, "id"),
-    claimId: stringField(doc, "claimId") || relationTargets.get(stringField(doc, "id"))?.targetId || "",
+    claimId: relationTargets.get(stringField(doc, "id"))?.targetId || stringField(doc, "claimId") || "",
     source: stringField(doc, "source") || stringField(doc, "sourcePath") || stringField(doc, "findingsFile") || stringField(doc, "url"),
     sourcePath: stringField(doc, "sourcePath"),
     findingsFile: stringField(doc, "findingsFile"),
@@ -171,24 +171,24 @@ function compileEvidence(doc: VaultDocument, relationTargets = new Map<string, R
 }
 
 function compileObjection(doc: VaultDocument, relationTargets = new Map<string, RelationTarget>()): NarrativeObjection {
-  return { id: stringField(doc, "id"), text: stringField(doc, "text") || firstParagraphOrBody(doc.body), claimId: stringField(doc, "claimId") || relationTargets.get(stringField(doc, "id"))?.targetId || "", priority: enumField(doc, "priority", ["high", "medium", "low"]) ?? "medium", response: stringField(doc, "response") || firstParagraphOrBody(doc.sections.response ?? "") }
+  return { id: stringField(doc, "id"), text: stringField(doc, "text") || firstParagraphOrBody(doc.body), claimId: relationTargets.get(stringField(doc, "id"))?.targetId || stringField(doc, "claimId") || "", priority: enumField(doc, "priority", ["high", "medium", "low"]) ?? "medium", response: stringField(doc, "response") || firstParagraphOrBody(doc.sections.response ?? "") }
 }
 
 function compileRisk(doc: VaultDocument, relationTargets = new Map<string, RelationTarget>()): NarrativeRisk {
-  return { id: stringField(doc, "id"), text: stringField(doc, "text") || firstParagraphOrBody(doc.body), claimId: stringField(doc, "claimId") || relationTargets.get(stringField(doc, "id"))?.targetId || "", severity: enumField(doc, "severity", ["high", "medium", "low"]) ?? "medium", mitigation: stringField(doc, "mitigation") || firstParagraphOrBody(doc.sections.mitigation ?? "") }
+  return { id: stringField(doc, "id"), text: stringField(doc, "text") || firstParagraphOrBody(doc.body), claimId: relationTargets.get(stringField(doc, "id"))?.targetId || stringField(doc, "claimId") || "", severity: enumField(doc, "severity", ["high", "medium", "low"]) ?? "medium", mitigation: stringField(doc, "mitigation") || firstParagraphOrBody(doc.sections.mitigation ?? "") }
 }
 
 function compileResearchGap(doc: VaultDocument, now = new Date().toISOString(), relationTargets = new Map<string, RelationTarget>()): NarrativeResearchGap {
   const relationTarget = relationTargets.get(stringField(doc, "id"))
   return {
     id: stringField(doc, "id"),
-    targetType: enumField(doc, "targetType", ["claim", "objection", "risk", "decision", "narrative"]) ?? relationTarget?.targetType ?? "narrative",
-    targetId: stringField(doc, "targetId") || relationTarget?.targetId || "",
+    targetType: relationTarget?.targetType ?? enumField(doc, "targetType", ["claim", "objection", "risk", "decision", "narrative"]) ?? "narrative",
+    targetId: relationTarget?.targetId || stringField(doc, "targetId") || "",
     question: stringField(doc, "question") || firstParagraphOrBody(doc.body),
     status: enumField(doc, "status", ["open", "in_progress", "findings_saved", "attached", "evidence_bound", "closed"]) ?? "open",
     priority: enumField(doc, "priority", ["high", "medium", "low"]) ?? "medium",
     findingsFile: stringField(doc, "findingsFile"),
-    evidenceBindingIds: arrayField(doc, "evidenceBindingIds"),
+    evidenceBindingIds: unique([...(relationTarget?.evidenceBindingIds ?? []), ...arrayField(doc, "evidenceBindingIds")]),
     notes: stringField(doc, "notes") || firstParagraphOrBody(doc.sections.notes ?? ""),
     createdAt: stringField(doc, "createdAt") || now,
     updatedAt: stringField(doc, "updatedAt") || now,
@@ -266,9 +266,38 @@ function targetsFromRelations(relations: VaultRelation[], byId: Map<string, Vaul
     if (fromType === "evidence" && relation.relation === "supports" && targetType === "claim") targets.set(relation.fromId, { targetId: relation.toId, targetType })
     if (fromType === "objection" && (relation.relation === "answers" || relation.relation === "contrasts_with") && targetType === "claim") targets.set(relation.fromId, { targetId: relation.toId, targetType })
     if (fromType === "risk" && relation.relation === "constrains" && targetType === "claim") targets.set(relation.fromId, { targetId: relation.toId, targetType })
-    if (fromType === "research-gap" && relation.relation === "depends_on") targets.set(relation.fromId, { targetId: relation.toId, targetType })
+  }
+  for (const relation of relations) {
+    const from = byId.get(relation.fromId)
+    const to = byId.get(relation.toId)
+    if (!from || !to || typeField(from) !== "research-gap" || relation.relation !== "depends_on") continue
+    const toType = typeField(to)
+    if (toType === "evidence") {
+      const evidenceTarget = targets.get(relation.toId)
+      mergeRelationTarget(targets, relation.fromId, {
+        targetId: evidenceTarget?.targetId || relation.toId,
+        targetType: evidenceTarget?.targetType ?? "narrative",
+        evidenceBindingIds: [relation.toId],
+      })
+      continue
+    }
+    const targetType = researchGapTargetType(toType)
+    if (targetType) mergeRelationTarget(targets, relation.fromId, { targetId: relation.toId, targetType })
   }
   return targets
+}
+
+function mergeRelationTarget(targets: Map<string, RelationTarget>, id: string, next: RelationTarget): void {
+  const existing = targets.get(id)
+  if (!existing) {
+    targets.set(id, next)
+    return
+  }
+  targets.set(id, {
+    targetId: existing.targetType === "claim" ? existing.targetId : next.targetId || existing.targetId,
+    targetType: existing.targetType === "claim" ? existing.targetType : next.targetType ?? existing.targetType,
+    evidenceBindingIds: unique([...(existing.evidenceBindingIds ?? []), ...(next.evidenceBindingIds ?? [])]),
+  })
 }
 
 function researchGapTargetType(type: VaultNodeType): NarrativeResearchGapTargetType | undefined {
@@ -314,4 +343,8 @@ function duplicateValues(values: string[]): string[] {
     seen.add(value)
   }
   return [...duplicates]
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))]
 }

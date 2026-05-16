@@ -59,7 +59,7 @@ export function narrativeVaultAuthoringContract(): NarrativeVaultAuthoringContra
       avoid: ["claim:belief-change-purpose", "evidence:proposal:intent", "researchGap-market-size"],
     },
     relationSyntax: {
-      rule: "Relation lines use a relation label and a plain node-id wikilink. Wikilinks target frontmatter node ids directly.",
+      rule: "Relation lines are the primary graph source. Use a relation label and a plain node-id wikilink; frontmatter claimId/targetId/evidenceBindingIds are compatibility fallback only.",
       examples: ["- supports: [[claim-belief-change-purpose]]", "- depends_on: [[evidence-proposal-intent]]"],
       avoid: ["[[claim:claim-belief-change-purpose]]", "[[evidence:evidence-proposal-intent]]"],
     },
@@ -99,6 +99,7 @@ export function narrativeVaultAuthoringContract(): NarrativeVaultAuthoringContra
           unsupportedScope: "Scope not supported by this evidence.",
           caveat: "Limitation that travels with this evidence.",
           strength: "partial",
+          relationMarkdown: "## Relations\n\n- supports: [[claim-belief-change-purpose]]",
         },
       },
       researchGap: {
@@ -112,6 +113,7 @@ export function narrativeVaultAuthoringContract(): NarrativeVaultAuthoringContra
           status: "open",
           priority: "high",
           createdFromIssueType: "missing_evidence",
+          relationMarkdown: "## Relations\n\n- depends_on: [[evidence-proposal-intent]]",
         }],
       },
     },

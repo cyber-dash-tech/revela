@@ -109,7 +109,10 @@ export function upsertVaultObjectionNode(workspaceRoot: string, input: UpsertVau
     priority: input.priority ?? existing?.frontmatter.priority,
     response: input.response ?? existing?.frontmatter.response,
   }
-  const body = buildNodeBody(input.text ?? (stringValue(existing?.frontmatter.text) || existing?.body.trim() || ""), existing?.sections, input.response ? { response: input.response } : {})
+  const overrides: Record<string, string> = input.response ? { response: input.response } : {}
+  const claimId = input.claimId ?? stringValue(existing?.frontmatter.claimId)
+  if (claimId) overrides.relations = relationLines([{ relation: "answers", targetId: claimId }])
+  const body = buildNodeBody(input.text ?? (stringValue(existing?.frontmatter.text) || existing?.body.trim() || ""), existing?.sections, overrides)
   writeVaultNode(root, relativePath, frontmatter, body)
   return { ok: true, file: relativePath, nodeId: input.id }
 }
@@ -131,7 +134,10 @@ export function upsertVaultRiskNode(workspaceRoot: string, input: UpsertVaultRis
     severity: input.severity ?? existing?.frontmatter.severity,
     mitigation: input.mitigation ?? existing?.frontmatter.mitigation,
   }
-  const body = buildNodeBody(input.text ?? (stringValue(existing?.frontmatter.text) || existing?.body.trim() || ""), existing?.sections, input.mitigation ? { mitigation: input.mitigation } : {})
+  const overrides: Record<string, string> = input.mitigation ? { mitigation: input.mitigation } : {}
+  const claimId = input.claimId ?? stringValue(existing?.frontmatter.claimId)
+  if (claimId) overrides.relations = relationLines([{ relation: "constrains", targetId: claimId }])
+  const body = buildNodeBody(input.text ?? (stringValue(existing?.frontmatter.text) || existing?.body.trim() || ""), existing?.sections, overrides)
   writeVaultNode(root, relativePath, frontmatter, body)
   return { ok: true, file: relativePath, nodeId: input.id }
 }
@@ -190,7 +196,8 @@ export function upsertVaultEvidenceNode(workspaceRoot: string, input: UpsertVaul
     unsupportedScope: input.unsupportedScope,
     strength: input.strength,
   }
-  writeVaultNode(root, relativePath, frontmatter, `${input.quote?.trim() ?? ""}\n`)
+  const body = buildNodeBody(input.quote?.trim() ?? existing?.body.trim() ?? "", existing?.sections, { relations: relationLines([{ relation: "supports", targetId: input.claimId }]) })
+  writeVaultNode(root, relativePath, frontmatter, body)
   return { ok: true, file: relativePath, nodeId: input.id }
 }
 
@@ -224,7 +231,14 @@ export function updateVaultResearchGapNode(workspaceRoot: string, input: UpdateV
   }
   const question = input.question ?? (stringValue(existing?.frontmatter.question) || existing?.body.trim() || "")
   const notes = input.notes ?? (stringValue(existing?.frontmatter.notes) || existing?.sections.notes?.trim() || "")
-  const body = `${question.trim()}${notes ? `\n\n## Notes\n\n${notes.trim()}\n` : "\n"}`
+  const relationTargets = [
+    ...(input.evidenceBindingIds ?? arrayValue(existing?.frontmatter.evidenceBindingIds)).map((targetId) => ({ relation: "depends_on" as const, targetId })),
+    ...((input.targetId ?? stringValue(existing?.frontmatter.targetId)) ? [{ relation: "depends_on" as const, targetId: input.targetId ?? stringValue(existing?.frontmatter.targetId) }] : []),
+  ]
+  const body = buildNodeBody(question, existing?.sections, {
+    ...(notes ? { notes } : {}),
+    ...(relationTargets.length > 0 ? { relations: relationLines(relationTargets) } : {}),
+  })
   writeVaultNode(root, relativePath, frontmatter, body)
   return { ok: true, file: relativePath, nodeId: input.id }
 }
@@ -311,6 +325,19 @@ function buildNodeBody(main: string, existingSections: Record<string, string> = 
     chunks.push(`## ${sectionTitle(name)}\n\n${trimmed}`)
   }
   return `${chunks.filter(Boolean).join("\n\n")}\n`
+}
+
+function relationLines(items: Array<{ relation: NarrativeClaimRelationType; targetId: string }>): string {
+  return items
+    .filter((item) => item.targetId.trim())
+    .map((item) => `- ${item.relation}: [[${item.targetId.trim()}]]`)
+    .join("\n")
+}
+
+function arrayValue(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean)
+  if (typeof value === "string" && value.trim()) return value.split(",").map((item) => item.trim()).filter(Boolean)
+  return []
 }
 
 function formatList(items: string[]): string {

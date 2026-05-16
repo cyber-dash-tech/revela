@@ -77,7 +77,7 @@ function isEvidenceClaimIdCoveredByInlineRelation(doc: VaultDocument, issueCode:
   if (issueCode !== "evidence_claim_id_missing_authoring") return false
   const id = stringField(doc, "id")
   if (!id) return false
-  return inventory.evidence.some((item) => item.id === id && Boolean(item.claimId))
+  return inventory.relations.some((relation) => relation.fromId === id && relation.relation === "supports" && !relation.unresolved)
 }
 
 function relationCoverageCards(inventory: ReturnType<typeof buildNarrativeVaultInventory>, strictness: NonNullable<MarkdownQaOptions["strictness"]>): MarkdownQaRepairCard[] {
@@ -87,6 +87,16 @@ function relationCoverageCards(inventory: ReturnType<typeof buildNarrativeVaultI
   for (const id of inventory.relationCoverage.unboundObjections) cards.push(relationCoverageCard(severity, id, "unbound_objection", "Objection node has no claim relation.", "Add `## Relations` with `- answers: [[claim-id]]` or `- contrasts_with: [[claim-id]]`, or set an explicit claim target if preserving existing shape."))
   for (const id of inventory.relationCoverage.unboundRisks) cards.push(relationCoverageCard(severity, id, "unbound_risk", "Risk node has no claim relation.", "Add `## Relations` with `- constrains: [[claim-id]]`, or set an explicit claim target if preserving existing shape."))
   for (const id of inventory.relationCoverage.unboundResearchGaps) cards.push(relationCoverageCard("warning", id, "unbound_research_gap", "Research gap has no target relation or target id.", "Add `## Relations` with `- depends_on: [[target-node-id]]` or a targetId after checking narrativeInventory."))
+  for (const item of inventory.relationCoverage.fallbackOnlyBindings) {
+    cards.push({
+      severity: "warning",
+      file: item.file,
+      nodeId: item.nodeId,
+      issueCode: "frontmatter_binding_without_relation",
+      message: `${item.field} is only expressed in frontmatter; wikilink-first vaults should express this graph edge in ## Relations.`,
+      smallestRepair: `Add \`## Relations\` with \`- ${item.relation}: [[${item.targetId}]]\`; keep frontmatter only as compatibility fallback if needed.`,
+    })
+  }
   for (const id of inventory.relationCoverage.isolatedClaims) cards.push(relationCoverageCard(strictness === "render" ? "error" : "warning", id, "isolated_central_claim", "Central claim is not connected to the claim-flow graph.", "Add a claim-flow edge in the source node `## Relations`, or downgrade importance if it is background context."))
   return cards
 }
@@ -126,9 +136,9 @@ function cardFromUnresolved(ref: NarrativeVaultInventoryUnresolvedRef): Markdown
       file: ref.file,
       nodeId: ref.fromId,
       issueCode: ref.targetId ? "unresolved_evidence_claim_id" : "missing_evidence_claim_id",
-      message: ref.targetId ? `Evidence references unknown claimId ${target}.` : "Evidence is missing claimId.",
-      smallestRepair: "Set claimId to an existing claim id from narrativeInventory, or create the missing claim node first.",
-      examples: ["claimId: claim-market-context"],
+      message: ref.targetId ? `Evidence references unknown claimId ${target}.` : "Evidence is missing a claim-support relation.",
+      smallestRepair: "Add `## Relations` with `- supports: [[claim-id]]` after checking narrativeInventory, or create the missing claim node first.",
+      examples: ["- supports: [[claim-market-context]]"],
     }
   }
   return {

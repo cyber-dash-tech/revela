@@ -66,6 +66,7 @@ export interface NarrativeVaultRelationCoverage {
   unboundObjections: string[]
   unboundRisks: string[]
   unboundResearchGaps: string[]
+  fallbackOnlyBindings: Array<{ nodeId: string; file: string; field: string; relation: NarrativeClaimRelationType; targetId: string }>
   isolatedClaims: string[]
   orphanNodes: string[]
   inlineRelations: Array<{ file: string; nodeId: string }>
@@ -156,7 +157,7 @@ export function buildNarrativeVaultInventory(workspaceRoot: string): NarrativeVa
       else if (claimId && !claimIds.has(claimId)) unresolvedRefs.push({ kind: "evidenceClaimId", fromId: id, targetId: claimId, file: doc.relativePath, field: "claimId" })
       evidence.push({
         ...base,
-        claimId: claimId || inlineClaimId,
+        claimId: inlineClaimId || claimId,
         source: stringField(doc, "source"),
         sourcePath: stringField(doc, "sourcePath"),
         url: stringField(doc, "url"),
@@ -174,7 +175,7 @@ export function buildNarrativeVaultInventory(workspaceRoot: string): NarrativeVa
       researchGaps.push({
         ...base,
         targetType,
-        targetId: targetId || inlineTargetId,
+        targetId: inlineTargetId || targetId,
         question: stringField(doc, "question") || firstText(doc.body),
         status: stringField(doc, "status"),
         priority: stringField(doc, "priority"),
@@ -187,7 +188,7 @@ export function buildNarrativeVaultInventory(workspaceRoot: string): NarrativeVa
       const inlineClaimId = relationTargetFor(relations, id, "answers", claimIds) || relationTargetFor(relations, id, "contrasts_with", claimIds)
       if (!claimId && !inlineClaimId) unresolvedRefs.push({ kind: "objectionClaimId", fromId: id, targetId: claimId, file: doc.relativePath, field: "claimId" })
       else if (claimId && !claimIds.has(claimId)) unresolvedRefs.push({ kind: "objectionClaimId", fromId: id, targetId: claimId, file: doc.relativePath, field: "claimId" })
-      objections.push({ ...base, claimId: claimId || inlineClaimId, priority: stringField(doc, "priority") })
+      objections.push({ ...base, claimId: inlineClaimId || claimId, priority: stringField(doc, "priority") })
       continue
     }
     if (type === "risk") {
@@ -195,7 +196,7 @@ export function buildNarrativeVaultInventory(workspaceRoot: string): NarrativeVa
       const inlineClaimId = relationTargetFor(relations, id, "constrains", claimIds)
       if (!claimId && !inlineClaimId) unresolvedRefs.push({ kind: "riskClaimId", fromId: id, targetId: claimId, file: doc.relativePath, field: "claimId" })
       else if (claimId && !claimIds.has(claimId)) unresolvedRefs.push({ kind: "riskClaimId", fromId: id, targetId: claimId, file: doc.relativePath, field: "claimId" })
-      risks.push({ ...base, claimId: claimId || inlineClaimId, severity: stringField(doc, "severity") })
+      risks.push({ ...base, claimId: inlineClaimId || claimId, severity: stringField(doc, "severity") })
     }
   }
 
@@ -293,16 +294,37 @@ function buildRelationCoverage(
   }
   const relationToClaim = (id: string, relation: string) => relations.some((edge) => edge.fromId === id && edge.relation === relation && claims.some((claim) => claim.id === edge.toId))
   const claimLinked = (id: string) => relations.some((edge) => (edge.fromId === id && claims.some((claim) => claim.id === edge.toId)) || (edge.toId === id && claims.some((claim) => claim.id === edge.fromId)))
+  const fallbackOnlyBindings = buildFallbackOnlyBindings(documents, relations, ids)
   return {
     danglingEdges: relations.filter((relation) => relation.unresolved),
     unboundEvidence: evidence.filter((item) => !item.claimId && !relationToClaim(item.id, "supports")).map((item) => item.id),
     unboundObjections: objections.filter((item) => !item.claimId && !relationToClaim(item.id, "answers") && !relationToClaim(item.id, "contrasts_with")).map((item) => item.id),
     unboundRisks: risks.filter((item) => !item.claimId && !relationToClaim(item.id, "constrains")).map((item) => item.id),
     unboundResearchGaps: researchGaps.filter((item) => !item.targetId && !relations.some((edge) => edge.fromId === item.id)).map((item) => item.id),
+    fallbackOnlyBindings,
     isolatedClaims: claims.filter((claim) => claim.importance === "central" && claims.length > 1 && !claimLinked(claim.id)).map((claim) => claim.id),
     orphanNodes: [...claims, ...evidence, ...objections, ...risks, ...researchGaps].filter((item) => !connected.has(item.id)).map((item) => item.id),
     inlineRelations: documents.filter((doc) => doc.relations.length > 0).map((doc) => ({ file: doc.relativePath, nodeId: nodeId(doc) })),
   }
+}
+
+function buildFallbackOnlyBindings(documents: VaultDocument[], relations: NarrativeVaultInventoryRelation[], ids: Set<string>): NarrativeVaultRelationCoverage["fallbackOnlyBindings"] {
+  const items: NarrativeVaultRelationCoverage["fallbackOnlyBindings"] = []
+  const add = (doc: VaultDocument, field: string, relation: NarrativeClaimRelationType) => {
+    const node = nodeId(doc)
+    const targetId = stringField(doc, field)
+    if (!node || !targetId || !ids.has(targetId)) return
+    if (relations.some((edge) => edge.fromId === node && edge.toId === targetId && edge.relation === relation)) return
+    items.push({ nodeId: node, file: doc.relativePath, field, relation, targetId })
+  }
+  for (const doc of documents) {
+    const type = nodeType(doc)
+    if (type === "evidence") add(doc, "claimId", "supports")
+    else if (type === "objection") add(doc, "claimId", "answers")
+    else if (type === "risk") add(doc, "claimId", "constrains")
+    else if (type === "research-gap") add(doc, "targetId", "depends_on")
+  }
+  return items
 }
 
 function relationTargetFor(relations: NarrativeVaultInventoryRelation[], fromId: string, relation: string, targetIds: Set<string>): string {

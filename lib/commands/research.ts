@@ -35,7 +35,7 @@ Tool-driven research contract:
 - If \`bindingEval.status === "bindable"\`, call \`revela-decks bindResearchFindings\` with that \`findingsFile\`. Do not hand-author evidence Markdown for bindable findings.
 - If findings are not bindable, report \`missingFields\` and \`failureReasons\`; then run only targeted research for those missing fields.
 - Treat \`markdownQa\` as structural authoring feedback only. It does not prove evidence strength; \`bindingEval\`, \`bindingDiagnostic\`, and compiled claim \`evidenceStatus\` remain the trust/evidence boundary.
-- For external research, use the \`revela-research\` subagent and save findings with \`revela-research-save\`. Ask for source URLs/paths, quotes/snippets, supportScope, unsupportedScope, caveat, strength, and claimId when available.
+- For external research, use the \`revela-research\` subagent and save findings with \`revela-research-save\`. Ask for source URLs/paths, quotes/snippets, supportScope, unsupportedScope, caveat, strength, and the supported claim id/relation target when available.
 - Re-run \`deriveResearchTargets\` after attachment, binding, or explicit vault edits. Stop after at most 3 rounds.
 - After explicit Markdown edits, rely on the write hook feedback or call \`revela-decks markdownQa\`, then \`compileNarrativeVault\`; keep Markdown QA repair cards separate from compiler diagnostics and repair both before treating the edit as usable research state.
 - For relation changes, update content nodes first, then add explicit edges in the source node's \`## Relations\` section using plain node-id wikilinks. Do not use \`relations.md\`, typed wikilinks, or hand-written relation ids.
@@ -49,7 +49,7 @@ Allowed mutations:
 - Never call \`upsertNarrative\` during research.
 
 Binding criteria:
-- claimId exists; quote/snippet is traceable and not invented; source URL/path/findingsFile is present; supportScope and unsupportedScope are explicit; caveat is preserved; strength is strong or useful partial; binding does not expand the claim.
+- supported claim id exists and is expressed as \`## Relations\` with \`- supports: [[claim-id]]\` for new evidence; quote/snippet is traceable and not invented; source URL/path/findingsFile is present; supportScope and unsupportedScope are explicit; caveat is preserved; strength is strong or useful partial; binding does not expand the claim. Frontmatter \`claimId\` is compatibility fallback, not the preferred graph source.
 
 Stop conditions:
 - No open externally researchable gaps remain.
@@ -78,7 +78,7 @@ Report format:
 Rules:
 - Do not use primary-agent broad websearch. Use the \`revela-research\` subagent for external search.
 - Do not invent quotes, source paths, URLs, page references, locations, or caveats.
-- Do not invent \`claimId\`, evidence ids, research-gap ids, or relation targets before checking \`narrativeInventory\` unless you are intentionally creating the missing node in Markdown.
+- Do not invent claim ids, evidence ids, research-gap ids, or relation targets before checking \`narrativeInventory\` unless you are intentionally creating the missing node in Markdown.
 - Do not treat \`researches/**/*.md\` as canonical evidence until attached or evidence-bound, but do not stop at findings_saved when binding criteria are met.
 - Do not bypass \`deriveResearchTargets\` or \`evaluateResearchFindings\`; target selection, \`selected\`, \`bindingDiagnostic\`, and \`bindingEval\` are deterministic inputs, not LLM judgement.
 - Do not mutate canonical claims merely to fit a source; narrow only to preserve evidence boundaries and avoid overstated claims.

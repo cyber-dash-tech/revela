@@ -87,7 +87,7 @@ During research:
 - delegate external web search to the `revela-research` subagent
 - save findings through `revela-research-save`
 - treat `/revela research` as permission to attach findings and bind clearly supported evidence without item-by-item user confirmation
-- create canonical evidence bindings only when claim id, quote/snippet, source, support scope, unsupported scope, caveat, and strength are explicit; write `revela-narrative/evidence/*.md` directly after `initNarrativeVault` when needed
+- create canonical evidence bindings only when the supported claim id, quote/snippet, source, support scope, unsupported scope, caveat, and strength are explicit; new evidence should express support with `## Relations` such as `- supports: [[claim-id]]`, while `claimId` remains compatibility fallback
 - compile after Markdown edits, inspect returned `diagnosticReport`, and report remaining blockers or warnings in the research summary
 - narrow overbroad claim scope by editing `revela-narrative/claims/*.md` only when the narrower wording preserves strategic meaning and better matches the evidence; report relation rewrites or strategic claim changes for Story/user confirmation
 - preserve source path, URL, location/page/sheet/slide, quote/snippet, support scope, unsupported scope, and caveat
