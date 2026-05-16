@@ -72,6 +72,11 @@ import {
   hasDecksState,
   isDecksStatePath,
 } from "./lib/decks-state"
+import { autoCompileNarrativeVault } from "./lib/narrative-vault/auto-compile"
+import {
+  extractNarrativeVaultMarkdownTargetsFromPatch,
+  normalizeNarrativeVaultMarkdownPath,
+} from "./lib/narrative-vault/hook-targets"
 import decksTool from "./tools/decks"
 import designsAuthorTool from "./tools/designs-author"
 import designsTool from "./tools/designs"
@@ -169,6 +174,20 @@ const server: Plugin = (async (pluginCtx) => {
       })
       appendToolResult(output, "---\n\n## Artifact QA: FAILED\n\nError running artifact QA: " + (e instanceof Error ? e.message : String(e)))
       return false
+    }
+  }
+
+  function runPostWriteNarrativeVaultCompile(touched: string[], output: any): void {
+    if (touched.length === 0) return
+
+    const result = autoCompileNarrativeVault(workspaceRoot, touched)
+    appendToolResult(output, "---\n\n" + result.markdown)
+    if (!result.ok) {
+      childLog("narrative-vault").warn("auto-compile reported blockers", {
+        touched,
+        mirror: result.mirrored,
+        error: result.error,
+      })
     }
   }
 
@@ -789,6 +808,8 @@ Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSl
           )
           return
         }
+        const vaultTarget = normalizeNarrativeVaultMarkdownPath(filePath, workspaceRoot)
+        if (vaultTarget) runPostWriteNarrativeVaultCompile([vaultTarget], output)
         const qaPassed = await runPostWriteArtifactQA(filePath, output)
         if (qaPassed) ensureRefineOpenAfterDeckChange(filePath, extractSessionID(input))
         return
@@ -808,6 +829,8 @@ Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSl
 
       if (input.tool === "apply_patch") {
         const patchText = extractPatchTextArg(input.args as Record<string, unknown>)
+        const vaultTargets = patchText ? extractNarrativeVaultMarkdownTargetsFromPatch(patchText, workspaceRoot) : []
+        runPostWriteNarrativeVaultCompile(vaultTargets, output)
         const targets = patchText ? extractDeckHtmlTargetsFromPatch(patchText) : []
         for (const target of targets) {
           const qaPassed = await runPostWriteArtifactQA(target, output)
@@ -818,6 +841,8 @@ Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSl
 
       if (input.tool === "edit") {
         const filePath = extractEditFilePath(input.args)
+        const vaultTarget = normalizeNarrativeVaultMarkdownPath(filePath, workspaceRoot)
+        if (vaultTarget) runPostWriteNarrativeVaultCompile([vaultTarget], output)
         const qaPassed = await runPostWriteArtifactQA(filePath, output)
         if (qaPassed) ensureRefineOpenAfterDeckChange(filePath, extractSessionID(input))
         return
