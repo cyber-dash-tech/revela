@@ -179,6 +179,7 @@ Known 0.15 limits:
 - `/revela init` now supports repeatable ingest: source materials are classified as added, changed, newer-than-vault, unchanged, and ingest candidates; stable findings should be distilled into Markdown vault nodes.
 - Plugin-side narrative vault auto-compile is implemented: after `write`, `edit`, or `apply_patch` touches workspace-contained `revela-narrative/**/*.md`, the hook compiles, writes cache diagnostics, mirrors `DECKS.json.narrative` only on successful compiles, and appends a compact report to the tool result.
 - Vault compiler diagnostics now catch evidence nodes with missing or unknown `claimId` before normalization can drop invalid bindings, so auto-compile treats them as hard blockers and preserves the previous mirror.
+- `lib/narrative-vault/compile-mirror.ts` centralizes compile/cache/mirror behavior for plugin auto-compile and `revela-decks` vault actions, keeping manual compile, export, init, and targeted mutation paths aligned.
 - The MVP does not move approvals, render targets, artifact coverage, review snapshots, or deck specs into Markdown.
 
 ## 0.17 Narrative Vault Baseline
@@ -229,6 +230,7 @@ Implemented behavior:
 - State reads and writes prefer the vault when present and fall back to `DECKS.json.narrative` for old workspaces.
 - Successful vault compiles mirror into `DECKS.json.narrative` and write cache artifacts under `.opencode/revela/narrative-cache/`.
 - Direct Markdown writes to `revela-narrative/**/*.md` trigger plugin-side auto-compile through `lib/narrative-vault/auto-compile.ts` and `lib/narrative-vault/hook-targets.ts`; failed compiles preserve the previous `DECKS.json.narrative` mirror while still writing diagnostics cache.
+- Plugin auto-compile and `revela-decks` vault actions share `lib/narrative-vault/compile-mirror.ts` for cache writes and safe mirror updates.
 - `revela-decks` supports `initNarrativeVault`, `exportNarrativeVault`, `compileNarrativeVault`, `updateVaultCoreNarrative`, `upsertVaultClaim`, `upsertVaultEvidence`, `upsertVaultObjection`, `upsertVaultRisk`, and `updateVaultResearchGap`.
 - `revela-decks` read/compile/vault mutation paths expose `vaultDiagnostics` or `diagnosticReport` so Story, Research, Make, and Review can report blockers before rendering or evidence binding.
 - `revela-decks read(summary: true)` exposes `migration` guidance when a JSON narrative can be exported to `revela-narrative/`, and `exportNarrativeVault` reports files written, diagnostics, cache/mirror result, and provenance fields preserved in `DECKS.json`.
@@ -274,12 +276,13 @@ Priority 0: narrative vault auto-compile hook.
 - On failed compile, it still writes cache diagnostics, but preserves the previous `DECKS.json.narrative` mirror.
 - If `DECKS.json` does not exist, it compiles and writes cache/report only; it does not create workspace state from the hook.
 - Keep `compileNarrativeVault` as the manual diagnostic/recovery tool.
-- Tests cover path detection, patch target parsing, successful mirror, failed-compile mirror preservation, bad evidence `claimId` blockers, plugin hook ordering around state gates/deck QA, cache diagnostics, and compact report formatting in `tests/narrative-vault-auto-compile.test.ts`.
+- Tests cover path detection, patch target parsing, successful mirror, failed-compile mirror preservation, bad evidence `claimId` blockers, plugin hook ordering around state gates/deck QA, write/edit compile-before-QA contracts, cache diagnostics, and compact report formatting in `tests/narrative-vault-auto-compile.test.ts`.
 
 Priority 1: vault Markdown write/patch hook details.
 
 - When `write`, `edit`, or `apply_patch` touches `revela-narrative/**/*.md`, plugin-side logic should run the narrative vault compiler or equivalent eval automatically.
 - The hook should write cache artifacts, mirror `DECKS.json.narrative` only on successful compile, and append a compact diagnostic/task-card summary to the tool result.
+- Compile/cache/mirror behavior is centralized in `lib/narrative-vault/compile-mirror.ts` and reused by plugin auto-compile plus `revela-decks` compile/export/init/targeted mutation actions.
 - Hard compile blockers should not mirror over the previous compiled narrative. Warnings may mirror while remaining visible.
 - This hook replaces prompt instructions that tell the LLM to remember calling `compileNarrativeVault` after every Markdown edit.
 - Keep `compileNarrativeVault` as a manual diagnostic/recovery tool, but normal init/research authoring should not depend on the LLM remembering to call it.

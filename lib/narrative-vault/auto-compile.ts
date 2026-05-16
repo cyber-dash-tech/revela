@@ -1,9 +1,5 @@
-import { existsSync } from "fs"
-import { join } from "path"
-import { DECKS_STATE_FILE, readDecksState, writeDecksState } from "../decks-state"
-import { formatVaultDiagnosticReport } from "./diagnostic-report"
-import { compileNarrativeVault } from "./compile"
-import { writeNarrativeVaultCache } from "./cache"
+import { DECKS_STATE_FILE } from "../decks-state"
+import { compileCacheMirrorNarrativeVault } from "./compile-mirror"
 import { narrativeVaultCachePath } from "./paths"
 import type { VaultDiagnosticDisplay } from "./diagnostic-report"
 
@@ -21,37 +17,21 @@ export function autoCompileNarrativeVault(workspaceRoot: string, touched: string
   const cachePath = relativeCachePath(workspaceRoot)
 
   try {
-    const decksPath = join(workspaceRoot, DECKS_STATE_FILE)
-    const hasDecks = existsSync(decksPath)
-    const state = hasDecks ? readDecksState(workspaceRoot) : undefined
-    const compiled = compileNarrativeVault(workspaceRoot, { fallbackApprovals: state?.narrative?.approvals ?? [] })
-    const report = formatVaultDiagnosticReport(compiled.diagnostics)
-
-    writeNarrativeVaultCache(workspaceRoot, compiled)
-
-    let mirrored: AutoCompileNarrativeVaultResult["mirrored"] = "skipped_no_decks"
-    if (hasDecks) {
-      if (compiled.ok && compiled.narrative && state) {
-        state.narrative = compiled.narrative
-        writeDecksState(workspaceRoot, state)
-        mirrored = "updated"
-      } else {
-        mirrored = "preserved_failed_compile"
-      }
-    }
+    const compiled = compileCacheMirrorNarrativeVault(workspaceRoot)
+    const mirrored = compiled.mirrorStatus
 
     return {
-      ok: compiled.ok,
+      ok: compiled.result.ok,
       mirrored,
       cachePath,
       touched: uniqueTouched,
       markdown: formatAutoCompileReport({
-        ok: compiled.ok,
+        ok: compiled.result.ok,
         mirrored,
         cachePath,
         touched: uniqueTouched,
-        blockers: report.blockers,
-        warnings: report.warnings,
+        blockers: compiled.diagnosticReport.blockers,
+        warnings: compiled.diagnosticReport.warnings,
       }),
     }
   } catch (e) {

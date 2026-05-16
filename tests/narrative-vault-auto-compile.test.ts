@@ -154,6 +154,27 @@ describe("narrative vault auto-compile hook", () => {
     expect(vaultCompileIndex).toBeGreaterThan(blockedPatchIndex)
     expect(deckQaIndex).toBeGreaterThan(vaultCompileIndex)
   })
+
+  it("runs write and edit vault compile checks before deck QA", () => {
+    const plugin = readFileSync(join(import.meta.dir, "..", "plugin.ts"), "utf-8")
+    const writeBranchIndex = plugin.indexOf('if (input.tool === "write")')
+    const writeVaultIndex = plugin.indexOf("const vaultTarget = normalizeNarrativeVaultMarkdownPath(filePath, workspaceRoot)", writeBranchIndex)
+    const writeCompileIndex = plugin.indexOf("runPostWriteNarrativeVaultCompile([vaultTarget], output)", writeVaultIndex)
+    const writeQaIndex = plugin.indexOf("runPostWriteArtifactQA(filePath, output)", writeCompileIndex)
+    const editBranchIndex = plugin.indexOf('if (input.tool === "edit")')
+    const editVaultIndex = plugin.indexOf("const vaultTarget = normalizeNarrativeVaultMarkdownPath(filePath, workspaceRoot)", editBranchIndex)
+    const editCompileIndex = plugin.indexOf("runPostWriteNarrativeVaultCompile([vaultTarget], output)", editVaultIndex)
+    const editQaIndex = plugin.indexOf("runPostWriteArtifactQA(filePath, output)", editCompileIndex)
+
+    expect(writeBranchIndex).toBeGreaterThan(-1)
+    expect(writeVaultIndex).toBeGreaterThan(writeBranchIndex)
+    expect(writeCompileIndex).toBeGreaterThan(writeVaultIndex)
+    expect(writeQaIndex).toBeGreaterThan(writeCompileIndex)
+    expect(editBranchIndex).toBeGreaterThan(-1)
+    expect(editVaultIndex).toBeGreaterThan(editBranchIndex)
+    expect(editCompileIndex).toBeGreaterThan(editVaultIndex)
+    expect(editQaIndex).toBeGreaterThan(editCompileIndex)
+  })
 })
 
 function writeValidVault(root: string, audience: string): void {
