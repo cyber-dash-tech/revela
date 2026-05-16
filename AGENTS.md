@@ -2,7 +2,7 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-05-16 for 0.17.1 Wikilink-First Vault Graph implementation.
+> Last updated: 2026-05-16 for 0.17.0 Wikilink-First Vault Graph baseline.
 
 ## Product Baseline
 
@@ -185,12 +185,12 @@ Structured helper role:
 - Deterministic deck plan compiler v2 and focused read-only Story UI.
 - Initial vault helpers plus JSON-era mutation blocking in vault workspaces.
 - Inline node `## Relations` replaced `relations.md`; compiler-generated deterministic relation ids and layered relation QA are in place.
-- Release gate passed: fresh init smoke, Markdown QA repair feedback, inventory-first authoring, vault compile persistence, `bun test`, `bun run typecheck`, and `npm pack --dry-run`.
-- 0.17.1 wikilink-first graph implementation is complete in local development: relation-derived canonical bindings now take precedence over frontmatter fallback, research gaps can depend on evidence nodes and derive claim context through evidence, helpers write `## Relations`, inventory/Markdown QA warn on frontmatter-only bindings, and focused/full tests pass.
+- Wikilink-first graph baseline: relation-derived canonical bindings take precedence over frontmatter fallback, research gaps can depend on evidence nodes and derive claim context through evidence, helpers write `## Relations`, and inventory/Markdown QA warn on frontmatter-only bindings.
+- Release gate passed after folding wikilink-first graph into the 0.17.0 baseline: fresh init smoke, Markdown QA repair feedback, inventory-first authoring, vault compile persistence, `bun test`, `bun run typecheck`, and `npm pack --dry-run`.
 
-## Current Development Checkpoint: 0.17.1 Wikilink-First Vault Graph
+## Wikilink-First Vault Graph
 
-Goal: keep the Markdown vault graph authoring model Obsidian-style and wikilink-first.
+Goal: keep the 0.17.0 Markdown vault graph authoring model Obsidian-style and wikilink-first.
 
 Human authors and LLMs should express graph meaning primarily through node-local `## Relations` sections with plain `[[node-id]]` wikilinks. `compileNarrativeVault` derives canonical `NarrativeStateV1` fields from those links before falling back to frontmatter bindings such as `claimId`, `targetId`, and `evidenceBindingIds`.
 
@@ -215,7 +215,7 @@ Canonical relation syntax:
 
 Do not use `[[supports:claim-a]]`; Obsidian treats that as a page id instead of a typed edge to `claim-a`.
 
-### 0.17.1 Implemented
+### Implemented
 
 - Compiler: wikilink relations are the first source for evidence, objection, risk, and research-gap bindings; frontmatter fields are fallback only.
 - Evidence: `evidence -> supports -> claim` derives `NarrativeEvidenceBinding.claimId`.
@@ -228,12 +228,12 @@ Do not use `[[supports:claim-a]]`; Obsidian treats that as a page id instead of 
 - Prompts and `authoringContract`: require new evidence/gaps/risks/objections to write `## Relations`; source trace fields remain separate from graph links.
 - Helpers: `upsertVaultEvidence`, `bindResearchFindings`, `upsertVaultObjection`, `upsertVaultRisk`, and research-gap helpers write appropriate `## Relations` while preserving compatibility frontmatter where needed.
 
-### 0.17.1 Verification Status
+### Verification Status
 
 - Focused tests cover relation-derived evidence binding, gap-to-evidence binding, fallback compatibility warnings, prompt requirements, helper relation writing, and QA blockers for broken links.
 - `bun run typecheck` passes.
 - Full `bun test` passes: 522 tests, 0 failures.
-- `npm pack --dry-run` has not been rerun after 0.17.1 implementation; run the full release gate before release or version tagging.
+- `npm pack --dry-run` passes for `@cyber-dash-tech/revela@0.17.0` with 157 package files.
 
 ## Post-0.17 Candidates
 
