@@ -14,7 +14,7 @@ export async function handleHelp(
 ): Promise<void> {
   const design = activeDesign()
   const domain = activeDomain()
-  const status = ctx.enabled ? "active - Revela prompt is loaded" : "idle - workflow commands auto-enable Revela"
+  const status = ctx.enabled ? "enabled - Revela prompt is loaded" : "disabled - run `/revela enable` or any workflow command"
   await send(
     `\`\`\`\n` +
     `             R E V E L A   H e l p   v${pkg.version}\n` +
@@ -24,7 +24,7 @@ export async function handleHelp(
     `Status: ${status}\n` +
     `Design: \`${design}\`\n` +
     `Domain: \`${domain}\`\n` +
-    `No separate enable command is needed. Run \`/revela init\`, \`/revela research\`, \`/revela story\`, or \`/revela make --deck\` to start the workflow.\n\n` +
+    `Run \`/revela enable\` to load Revela context without starting a workflow, or run \`/revela disable\` to pause it. Workflow commands still auto-enable Revela.\n\n` +
     `---\n\n` +
     `**Workflow**\n\n` +
     `1. \`init\` — discover workspace sources and capture intent\n` +
@@ -36,6 +36,8 @@ export async function handleHelp(
     `---\n\n` +
     `**Commands**\n\n` +
     `\`/revela\`                                      — show REVELA help\n` +
+    `\`/revela enable\`                               — enable Revela prompt/context without starting a workflow\n` +
+    `\`/revela disable\`                              — disable Revela prompt/context for this session\n` +
     `\`/revela init\`                                 — initialize or refresh workspace story state\n` +
     `\`/revela research\`                             — research, bind evidence, and reduce story gaps\n` +
     `\`/revela story [-l language]\`                   — open the read-only story workspace UI\n` +

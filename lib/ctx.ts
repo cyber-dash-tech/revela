@@ -22,6 +22,6 @@ export interface RevelaCtx {
 
 /** Global singleton. Import and use directly from any module. */
 export const ctx: RevelaCtx = {
-  enabled: false,
+  enabled: true,
   isResearchAgent: false,
 }

@@ -1,7 +1,9 @@
-import { readFileSync } from "fs"
+import { existsSync, readdirSync, readFileSync, statSync } from "fs"
+import { join } from "path"
 import { readNarrativeVaultDocuments } from "./read"
 import { inspectVaultMarkdown } from "./authoring-guard"
 import { buildNarrativeVaultInventory, type NarrativeVaultInventoryUnresolvedRef } from "./inventory"
+import { narrativeVaultPath } from "./paths"
 import type { VaultDiagnosticDisplay } from "./diagnostic-report"
 import type { VaultDocument } from "./types"
 
@@ -32,6 +34,8 @@ export function runNarrativeMarkdownQa(workspaceRoot: string, touched?: string[]
     repairCards.push(...inspectVaultMarkdown(doc.relativePath, readFileSync(doc.path, "utf-8")).map(cardFromDiagnostic))
     repairCards.push(...evidenceTraceCards(doc))
   }
+
+  repairCards.push(...unsupportedRootMarkdownCards(workspaceRoot, touchedSet))
 
   const inventory = buildNarrativeVaultInventory(workspaceRoot)
   for (const unresolved of inventory.unresolvedRefs) {
@@ -111,6 +115,31 @@ function evidenceTraceCards(doc: VaultDocument): MarkdownQaRepairCard[] {
       examples: ["sourcePath: proposal.md", "supportScope: Scope explicitly supported by the quote.", "unsupportedScope: What this evidence does not prove."],
     })
   }
+  return cards
+}
+
+function unsupportedRootMarkdownCards(workspaceRoot: string, touchedSet?: Set<string>): MarkdownQaRepairCard[] {
+  const root = narrativeVaultPath(workspaceRoot)
+  if (!existsSync(root) || !statSync(root).isDirectory()) return []
+  const supportedRootFiles = new Set(["index.md", "audience.md", "decision.md", "thesis.md"])
+  const cards: MarkdownQaRepairCard[] = []
+
+  for (const entry of readdirSync(root).sort()) {
+    if (!entry.endsWith(".md") || supportedRootFiles.has(entry)) continue
+    const filePath = join(root, entry)
+    if (!statSync(filePath).isFile()) continue
+    const relativePath = entry.replace(/\\/g, "/")
+    if (touchedSet && !touchedSet.has(relativePath) && !touchedSet.has(`revela-narrative/${relativePath}`)) continue
+    cards.push({
+      severity: "warning",
+      file: relativePath,
+      issueCode: "unsupported_vault_root_markdown",
+      message: "Markdown file is in the vault root but only index.md, audience.md, decision.md, and thesis.md are supported there.",
+      smallestRepair: "Move claim/evidence/objection/risk/research-gap nodes into their supported subdirectory, or remove this unsupported root file if it was temporary.",
+      examples: ["claims/claim-market-context.md", "evidence/evidence-proposal-intent.md", "research-gaps/gap-market-size.md"],
+    })
+  }
+
   return cards
 }
 

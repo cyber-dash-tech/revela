@@ -170,6 +170,19 @@ source: proposal.md
     expect(report.repairCards).toContainEqual(expect.objectContaining({ issueCode: "evidence_trace_fields_missing", severity: "warning", file: "evidence/bad.md" }))
   })
 
+  it("warns about unsupported root-level Markdown files", () => {
+    const root = tempWorkspace("revela-vault-markdown-qa-root-")
+    writeValidVault(root, "Board")
+    writeFileSync(join(root, "revela-narrative", "loose.md"), "---\ntype: claim\nid: claim-loose\n---\nLoose root node.\n", "utf-8")
+
+    const report = runNarrativeMarkdownQa(root)
+    const touchedReport = runNarrativeMarkdownQa(root, ["revela-narrative/loose.md"])
+
+    expect(report.ok).toBe(true)
+    expect(report.repairCards).toContainEqual(expect.objectContaining({ issueCode: "unsupported_vault_root_markdown", severity: "warning", file: "loose.md" }))
+    expect(touchedReport.repairCards).toContainEqual(expect.objectContaining({ issueCode: "unsupported_vault_root_markdown", file: "loose.md" }))
+  })
+
   it("reports invalid evidence claimId before normalization can drop the binding", () => {
     const root = tempWorkspace("revela-vault-auto-evidence-diagnostic-")
     writeValidVault(root, "Board")
@@ -237,27 +250,43 @@ source: proposal.md
 
   it("keeps plugin hook ordering around state gates and deck QA", () => {
     const plugin = readFileSync(join(import.meta.dir, "..", "plugin.ts"), "utf-8")
+    const beforeHookIndex = plugin.indexOf('"tool.execute.before": async (input, output) => {')
+    const beforeWriteIndex = plugin.indexOf('if (input.tool === "write")', beforeHookIndex)
+    const beforePatchIndex = plugin.indexOf('if (input.tool === "apply_patch")', beforeHookIndex)
+    const beforeEnabledGateIndex = plugin.indexOf("if (!ctx.enabled) return", beforePatchIndex)
+    const beforeReadIndex = plugin.indexOf('if (input.tool === "read")', beforeEnabledGateIndex)
     const blockedPatchIndex = plugin.indexOf('if (input.tool === "apply_patch" && blockedPatches.size > 0)')
-    const vaultCompileIndex = plugin.indexOf("runPostWriteNarrativeVaultCompile(vaultTargets, output)")
+    const vaultCompileIndex = plugin.indexOf("runPostWriteNarrativeVaultCompile(vaultTargets, output", blockedPatchIndex)
     const deckQaIndex = plugin.indexOf("extractDeckHtmlTargetsFromPatch(patchText)")
+    const afterHookIndex = plugin.indexOf('"tool.execute.after": async (input, output) => {')
+    const readBranchIndex = plugin.indexOf('if (input.tool === "read")', afterHookIndex)
+    const enabledGateIndex = plugin.indexOf("if (!ctx.enabled) return", readBranchIndex)
+    const applyPatchAfterIndex = plugin.indexOf('if (input.tool === "apply_patch")', afterHookIndex)
 
     expect(plugin).toContain("normalizeNarrativeVaultMarkdownPath(filePath, workspaceRoot)")
     expect(plugin).toContain("extractNarrativeVaultMarkdownTargetsFromPatch(patchText, workspaceRoot)")
+    expect(beforeWriteIndex).toBeGreaterThan(beforeHookIndex)
+    expect(beforePatchIndex).toBeGreaterThan(beforeWriteIndex)
+    expect(beforeEnabledGateIndex).toBeGreaterThan(beforePatchIndex)
+    expect(beforeReadIndex).toBeGreaterThan(beforeEnabledGateIndex)
     expect(blockedPatchIndex).toBeGreaterThan(-1)
     expect(vaultCompileIndex).toBeGreaterThan(blockedPatchIndex)
     expect(deckQaIndex).toBeGreaterThan(vaultCompileIndex)
+    expect(readBranchIndex).toBeGreaterThan(afterHookIndex)
+    expect(enabledGateIndex).toBeGreaterThan(readBranchIndex)
+    expect(applyPatchAfterIndex).toBeGreaterThan(enabledGateIndex)
   })
 
   it("runs write and edit vault compile checks before deck QA", () => {
     const plugin = readFileSync(join(import.meta.dir, "..", "plugin.ts"), "utf-8")
     const writeBranchIndex = plugin.indexOf('if (input.tool === "write")')
     const writeVaultIndex = plugin.indexOf("const vaultTarget = normalizeNarrativeVaultMarkdownPath(filePath, workspaceRoot)", writeBranchIndex)
-    const writeCompileIndex = plugin.indexOf("runPostWriteNarrativeVaultCompile([vaultTarget], output)", writeVaultIndex)
-    const writeQaIndex = plugin.indexOf("runPostWriteArtifactQA(filePath, output)", writeCompileIndex)
+    const writeCompileIndex = plugin.indexOf("runPostWriteNarrativeVaultCompile([vaultTarget], output", writeVaultIndex)
+    const writeQaIndex = plugin.indexOf("runPostWriteArtifactQA(filePath, output", writeCompileIndex)
     const editBranchIndex = plugin.indexOf('if (input.tool === "edit")')
     const editVaultIndex = plugin.indexOf("const vaultTarget = normalizeNarrativeVaultMarkdownPath(filePath, workspaceRoot)", editBranchIndex)
-    const editCompileIndex = plugin.indexOf("runPostWriteNarrativeVaultCompile([vaultTarget], output)", editVaultIndex)
-    const editQaIndex = plugin.indexOf("runPostWriteArtifactQA(filePath, output)", editCompileIndex)
+    const editCompileIndex = plugin.indexOf("runPostWriteNarrativeVaultCompile([vaultTarget], output", editVaultIndex)
+    const editQaIndex = plugin.indexOf("runPostWriteArtifactQA(filePath, output", editCompileIndex)
 
     expect(writeBranchIndex).toBeGreaterThan(-1)
     expect(writeVaultIndex).toBeGreaterThan(writeBranchIndex)
@@ -267,6 +296,19 @@ source: proposal.md
     expect(editVaultIndex).toBeGreaterThan(editBranchIndex)
     expect(editCompileIndex).toBeGreaterThan(editVaultIndex)
     expect(editQaIndex).toBeGreaterThan(editCompileIndex)
+  })
+
+  it("keeps enable and disable as public commands", () => {
+    const plugin = readFileSync(join(import.meta.dir, "..", "plugin.ts"), "utf-8")
+    const enableIndex = plugin.indexOf('if (sub === "enable")')
+    const disableIndex = plugin.indexOf('if (sub === "disable")')
+    const legacyIndex = plugin.indexOf("const legacyCommands = new Set")
+
+    expect(enableIndex).toBeGreaterThan(-1)
+    expect(disableIndex).toBeGreaterThan(enableIndex)
+    expect(legacyIndex).toBeGreaterThan(disableIndex)
+    expect(plugin.slice(legacyIndex, legacyIndex + 250)).not.toContain('"enable"')
+    expect(plugin.slice(legacyIndex, legacyIndex + 250)).not.toContain('"disable"')
   })
 })
 

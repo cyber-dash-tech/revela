@@ -49,6 +49,8 @@ Primary commands:
 - `/revela review --deck`
 - `/revela export --deck pdf`
 - `/revela export --deck pptx`
+- `/revela enable`
+- `/revela disable`
 - `/revela design`
 - `/revela domain`
 
@@ -56,7 +58,11 @@ Compatibility behavior:
 
 - `/revela refine --deck` aliases `/revela review --deck` during the naming migration.
 - `/revela edit` and `/revela inspect` should direct users to `/revela review --deck`.
-- Explicit workflow commands auto-enable Revela and choose the correct prompt mode; `/revela enable` is no longer needed or public.
+- `/revela enable` and `/revela disable` are public session controls for Revela prompt/context injection.
+- Revela starts enabled by default; `/revela disable` pauses prompt/context injection for the current session.
+- Explicit workflow commands auto-enable Revela and choose the correct prompt mode even when Revela is disabled.
+- State safety gates and write-after QA should remain active for controlled files/artifacts even when prompt injection is disabled.
+- Blocking write-after QA and state-gate failures should be surfaced both in tool output and as concise user-visible notices.
 - `/revela make --deck --desc "..."` is not implemented. Do not document it as supported until it exists.
 
 ## Workflow Principles

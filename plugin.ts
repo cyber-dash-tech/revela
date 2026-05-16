@@ -98,6 +98,8 @@ import { RESEARCH_PROMPT, RESEARCH_AGENT_SIGNATURE } from "./lib/agents/research
 import { NARRATIVE_REVIEWER_PROMPT, NARRATIVE_REVIEWER_SIGNATURE } from "./lib/agents/narrative-reviewer-prompt"
 import { extractDesignClasses } from "./lib/design/designs"
 import { log, childLog } from "./lib/log"
+import { appendToolResult } from "./lib/tool-result"
+import { formatArtifactQaUserNotice, formatMarkdownQaUserNotice, formatStateGateUserNotice } from "./lib/hook-notifications"
 
 // OpenCode internal agent signatures — used to skip system prompt injection
 // for built-in system agents (title, summary, compaction).
@@ -106,16 +108,6 @@ const INTERNAL_AGENT_SIGNATURES = [
   "You are a helpful AI assistant tasked with summarizing conversations",
   "Summarize what was done in this conversation",
 ]
-
-function appendToolResult(output: any, text: string): void {
-  if (typeof output.output === "string") {
-    output.output = (output.output ? output.output + "\n\n" : "") + text
-    return
-  }
-
-  const existing = output.result ?? ""
-  output.result = (existing ? existing + "\n\n" : "") + text
-}
 
 function extractEditFilePath(args: any): string {
   return args?.filePath ?? args?.file_path ?? args?.path ?? args?.file ?? ""
@@ -153,7 +145,7 @@ const server: Plugin = (async (pluginCtx) => {
   const blockedDeckWrites = new Map<string, string>()
   const blockedPatches = new Map<string, string>()
 
-  async function runPostWriteArtifactQA(filePath: string, output: any): Promise<boolean> {
+  async function runPostWriteArtifactQA(filePath: string, output: any, sessionID = ""): Promise<boolean> {
     if (!isDeckHtmlPath(filePath)) return true
 
     try {
@@ -166,6 +158,8 @@ const server: Plugin = (async (pluginCtx) => {
 
       const report = await runArtifactQA({ workspaceRoot, filePath, vocabulary })
       appendToolResult(output, "---\n\n" + formatArtifactQAReport(report))
+      const notice = formatArtifactQaUserNotice(report)
+      if (notice && sessionID) await sendIgnoredMessage(client, sessionID, notice)
       return report.passed
     } catch (e) {
       childLog("artifact-qa").warn("post-write artifact QA failed", {
@@ -173,15 +167,18 @@ const server: Plugin = (async (pluginCtx) => {
         error: e instanceof Error ? e.message : String(e),
       })
       appendToolResult(output, "---\n\n## Artifact QA: FAILED\n\nError running artifact QA: " + (e instanceof Error ? e.message : String(e)))
+      if (sessionID) await sendIgnoredMessage(client, sessionID, `**Artifact QA failed**\nFile: \`${filePath}\`\nError: ${e instanceof Error ? e.message : String(e)}`)
       return false
     }
   }
 
-  function runPostWriteNarrativeVaultCompile(touched: string[], output: any): void {
+  async function runPostWriteNarrativeVaultCompile(touched: string[], output: any, sessionID = ""): Promise<void> {
     if (touched.length === 0) return
 
     const result = autoCompileNarrativeVault(workspaceRoot, touched)
     appendToolResult(output, "---\n\n" + result.markdown)
+    const notice = formatMarkdownQaUserNotice(result)
+    if (notice && sessionID) await sendIgnoredMessage(client, sessionID, notice)
     if (!result.ok) {
       childLog("narrative-vault").warn("auto-compile reported blockers", {
         touched,
@@ -332,6 +329,17 @@ const server: Plugin = (async (pluginCtx) => {
       if (!sub) {
         await handleHelp(send)
         throw new Error("__REVELA_STATUS_HANDLED__")
+      }
+      if (sub === "enable") {
+        ctx.enabled = true
+        buildPrompt()
+        await send("Revela enabled. Workflow commands and Revela context are active.")
+        throw new Error("__REVELA_ENABLE_HANDLED__")
+      }
+      if (sub === "disable") {
+        ctx.enabled = false
+        await send("Revela disabled. Run `/revela enable` or any workflow command to reactivate.")
+        throw new Error("__REVELA_DISABLE_HANDLED__")
       }
       if (sub === "make") {
         const target = args[1]?.toLowerCase() ?? ""
@@ -519,7 +527,7 @@ const server: Plugin = (async (pluginCtx) => {
         throw new Error("__REVELA_DOMAIN_USAGE_HANDLED__")
       }
       const legacyCommands = new Set([
-        "enable", "disable", "review", "narrative", "deck", "brief", "edit", "inspect", "remember",
+        "review", "narrative", "deck", "brief", "edit", "inspect", "remember",
         "designs", "designs-new", "designs-edit", "designs-preview", "designs-add", "designs-rm",
         "domains", "domains-add", "domains-rm", "pdf", "pptx",
       ])
@@ -708,8 +716,6 @@ const server: Plugin = (async (pluginCtx) => {
     // - write/apply_patch: protect DECKS.json, but do not block deck HTML edits.
     "tool.execute.before": async (input, output) => {
       log.info("[hook] tool.execute.before fired", { tool: input.tool, enabled: ctx.enabled, isResearch: ctx.isResearchAgent })
-      if (!ctx.enabled) return
-
       if (input.tool === "write") {
         const filePath: string = (output.args as any)?.filePath ?? ""
         if (isDecksStatePath(filePath)) {
@@ -760,6 +766,8 @@ Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSl
         }
       }
 
+      if (!ctx.enabled) return
+
       if (input.tool === "read") {
         try {
           await preRead(output.args)
@@ -779,10 +787,9 @@ Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSl
     // Also reports writes/patches blocked by the DECKS.json prewrite gate and
     // runs artifact QA before opening Refine after successful deck changes.
     "tool.execute.after": async (input, output) => {
-      if (!ctx.enabled) return
-
       // ── Post-read processing ───────────────────────────────────────────
       if (input.tool === "read") {
+        if (!ctx.enabled) return
         try {
           await postRead(input.args, output)
         } catch (e) {
@@ -806,35 +813,40 @@ Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSl
             `${blockedReason}\n\n` +
             "Use the `revela-decks` tool or complete the DECKS.json review workflow instead."
           )
+          await sendIgnoredMessage(client, extractSessionID(input), formatStateGateUserNotice("write", blockedReason))
           return
         }
         const vaultTarget = normalizeNarrativeVaultMarkdownPath(filePath, workspaceRoot)
-        if (vaultTarget) runPostWriteNarrativeVaultCompile([vaultTarget], output)
-        const qaPassed = await runPostWriteArtifactQA(filePath, output)
+        const sessionID = extractSessionID(input)
+        if (vaultTarget) await runPostWriteNarrativeVaultCompile([vaultTarget], output, sessionID)
+        const qaPassed = await runPostWriteArtifactQA(filePath, output, sessionID)
         if (qaPassed) ensureRefineOpenAfterDeckChange(filePath, extractSessionID(input))
         return
       }
 
       if (input.tool === "apply_patch" && blockedPatches.size > 0) {
         const [blockedPath, blockedReason] = blockedPatches.entries().next().value ?? []
+        if (!blockedPath || !blockedReason) return
         if (blockedPath) blockedPatches.delete(blockedPath)
         appendToolResult(
           output,
           "---\n\n**[revela prewrite gate]** Patch was blocked.\n\n" +
           `${blockedReason}\n\n` +
-          "Use the `revela-decks` tool for controlled workspace state changes."
+            "Use the `revela-decks` tool for controlled workspace state changes."
         )
+        await sendIgnoredMessage(client, extractSessionID(input), formatStateGateUserNotice("patch", blockedReason))
         return
       }
 
       if (input.tool === "apply_patch") {
         const patchText = extractPatchTextArg(input.args as Record<string, unknown>)
         const vaultTargets = patchText ? extractNarrativeVaultMarkdownTargetsFromPatch(patchText, workspaceRoot) : []
-        runPostWriteNarrativeVaultCompile(vaultTargets, output)
+        const sessionID = extractSessionID(input)
+        await runPostWriteNarrativeVaultCompile(vaultTargets, output, sessionID)
         const targets = patchText ? extractDeckHtmlTargetsFromPatch(patchText) : []
         for (const target of targets) {
-          const qaPassed = await runPostWriteArtifactQA(target, output)
-          if (qaPassed) ensureRefineOpenAfterDeckChange(target, extractSessionID(input))
+          const qaPassed = await runPostWriteArtifactQA(target, output, sessionID)
+          if (qaPassed) ensureRefineOpenAfterDeckChange(target, sessionID)
         }
         return
       }
@@ -842,9 +854,10 @@ Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSl
       if (input.tool === "edit") {
         const filePath = extractEditFilePath(input.args)
         const vaultTarget = normalizeNarrativeVaultMarkdownPath(filePath, workspaceRoot)
-        if (vaultTarget) runPostWriteNarrativeVaultCompile([vaultTarget], output)
-        const qaPassed = await runPostWriteArtifactQA(filePath, output)
-        if (qaPassed) ensureRefineOpenAfterDeckChange(filePath, extractSessionID(input))
+        const sessionID = extractSessionID(input)
+        if (vaultTarget) await runPostWriteNarrativeVaultCompile([vaultTarget], output, sessionID)
+        const qaPassed = await runPostWriteArtifactQA(filePath, output, sessionID)
+        if (qaPassed) ensureRefineOpenAfterDeckChange(filePath, sessionID)
         return
       }
     },

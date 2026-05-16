@@ -17,22 +17,26 @@ async function renderHelp(enabled: boolean): Promise<string> {
 }
 
 describe("help command", () => {
-  it("explains idle auto-enable state without advertising an enable command", async () => {
+  it("starts with Revela enabled by default", () => {
+    expect(ctx.enabled).toBe(true)
+  })
+
+  it("explains disabled state and advertises enable/disable controls", async () => {
     const help = await renderHelp(false)
 
-    expect(help).toContain("Status: idle - workflow commands auto-enable Revela")
-    expect(help).toContain("No separate enable command is needed")
+    expect(help).toContain("Status: disabled - run `/revela enable` or any workflow command")
+    expect(help).toContain("Workflow commands still auto-enable Revela")
     expect(help).toContain("/revela init")
     expect(help).toContain("/revela research")
     expect(help).toContain("/revela story")
     expect(help).toContain("/revela make --deck")
-    expect(help).not.toContain("Status: disabled")
-    expect(help).not.toContain("/revela enable")
+    expect(help).toContain("/revela enable")
+    expect(help).toContain("/revela disable")
   })
 
-  it("shows active status after workflow commands enable Revela", async () => {
+  it("shows enabled status after workflow commands enable Revela", async () => {
     const help = await renderHelp(true)
 
-    expect(help).toContain("Status: active - Revela prompt is loaded")
+    expect(help).toContain("Status: enabled - Revela prompt is loaded")
   })
 })
