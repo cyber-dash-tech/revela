@@ -17,7 +17,7 @@ import {
   type SourceMaterial,
   type SlideSpec,
 } from "../lib/decks-state"
-import { upsertSourceMaterial } from "../lib/source-materials"
+import { classifySourceMaterialIngest, upsertSourceMaterial } from "../lib/source-materials"
 import { recordWorkspaceAction } from "../lib/workspace-state/actions"
 import { applyEvidenceBindings } from "../lib/workspace-state/evidence-status"
 import { attachResearchFindings } from "../lib/workspace-state/research-attachments"
@@ -32,7 +32,7 @@ import { compileDeckPlanFromNarrative } from "../lib/narrative-state/render-plan
 import { backfillSlideClaimRefsFromCoverage } from "../lib/narrative-state/coverage"
 import { closeResearchGapInState, deriveResearchGapsFromReadiness, deriveResearchTargets, updateResearchGapInState, upsertResearchGapsInState } from "../lib/narrative-state/research-gaps"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
-import { compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, hasNarrativeVault, initNarrativeVault, VAULT_MIGRATION_PRESERVED_IN_DECKS_JSON, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode, writeNarrativeVaultCache } from "../lib/narrative-vault"
+import { compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, hasNarrativeVault, initNarrativeVault, narrativeVaultTimestampMs, VAULT_MIGRATION_PRESERVED_IN_DECKS_JSON, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode, writeNarrativeVaultCache } from "../lib/narrative-vault"
 
 export default tool({
   description:
@@ -267,6 +267,7 @@ export default tool({
 
       if (args.action === "init") {
         const discovered: SourceMaterial[] = []
+        const ingest = classifySourceMaterialIngest(state, (args.sourceMaterials ?? []) as SourceMaterial[], workspaceRoot, narrativeVaultTimestampMs(workspaceRoot))
         for (const material of (args.sourceMaterials ?? []) as SourceMaterial[]) {
           upsertSourceMaterial(state, material, material.status ?? "discovered")
           discovered.push(material)
@@ -282,7 +283,7 @@ export default tool({
           })
         }
         writeDecksState(workspaceRoot, state)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, state }, null, 2)
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, ingest, state }, null, 2)
       }
 
       if (args.action === "read") {

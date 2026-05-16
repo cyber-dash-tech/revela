@@ -15,6 +15,7 @@ const DOC_EXTENSIONS = new Set([
 const EXCLUDE_DIRS = new Set([
   "node_modules", ".git", "dist", ".opencode",
   "researches",  // Exclude revela's own research output
+  "revela-narrative", // Exclude canonical narrative vault source files
   "designs", "domains",  // Exclude revela plugin assets
 ])
 

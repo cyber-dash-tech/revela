@@ -21,6 +21,7 @@ describe("workspace tool action provenance", () => {
     const state = readDecksState(root)
 
     expect(result.found).toBe(1)
+    expect(result.files[0].sourceMaterial.lastModified).toEqual(expect.any(String))
     expect(state.actions).toContainEqual(expect.objectContaining({
       type: "workspace.scanned",
       actor: "revela-workspace-scan",
@@ -36,6 +37,8 @@ describe("workspace tool action provenance", () => {
     writeFileSync(join(root, "README.md"), "readme", "utf-8")
     writeFileSync(join(root, "~$proposal.docx"), "lock", "utf-8")
     writeFileSync(join(root, "proposal.docx"), "proposal", "utf-8")
+    mkdirSync(join(root, "revela-narrative"), { recursive: true })
+    writeFileSync(join(root, "revela-narrative", "index.md"), "vault", "utf-8")
 
     const result = await executeTool(workspaceScanTool, { max_depth: 1 }, root)
     const state = readDecksState(root)
@@ -88,6 +91,56 @@ describe("workspace tool action provenance", () => {
       outputs: expect.objectContaining({ paths: ["sources/a.pdf"] }),
       nodeIds: ["source:sources/a.pdf"],
     }))
+  })
+
+  it("classifies all source files as ingest candidates before a vault exists", async () => {
+    const root = tempRoot()
+
+    const result = await executeDecksTool({
+      action: "init",
+      sourceMaterials: [
+        { path: "sources/a.pdf", type: "pdf", fingerprint: "a", lastModified: "2026-01-01T00:00:00.000Z", status: "discovered" },
+        { path: "notes/b.md", type: "md", fingerprint: "b", lastModified: "2026-01-02T00:00:00.000Z", status: "discovered" },
+      ],
+    }, root)
+
+    expect(result.ingest.vaultTimestamp).toBeNull()
+    expect(result.ingest.addedSourceMaterials.map((item: { path: string }) => item.path)).toEqual(["sources/a.pdf", "notes/b.md"])
+    expect(result.ingest.newerThanVaultSourceMaterials.map((item: { path: string }) => item.path)).toEqual(["sources/a.pdf", "notes/b.md"])
+    expect(result.ingest.ingestCandidates.map((item: { path: string }) => item.path)).toEqual(["notes/b.md", "sources/a.pdf"])
+    expect(result.ingest.unchangedSourceMaterials).toEqual([])
+  })
+
+  it("classifies added, changed, newer-than-vault, and unchanged sources during refresh", async () => {
+    const root = tempRoot()
+    await executeDecksTool({ action: "initNarrativeVault" }, root)
+    const state = readDecksState(root)
+    state.workspace.sourceMaterials = [
+      { path: "same.pdf", type: "pdf", fingerprint: "same", lastModified: "2000-01-01T00:00:00.000Z", status: "discovered" },
+      { path: "changed.pdf", type: "pdf", fingerprint: "old", lastModified: "2000-01-01T00:00:00.000Z", status: "extracted", extraction: { manifestPath: "old.json", textPath: "old.txt", cacheDir: "old" } },
+      { path: "newer.pdf", type: "pdf", fingerprint: "newer", lastModified: "2000-01-01T00:00:00.000Z", status: "discovered" },
+    ]
+    writeDecksState(root, state)
+
+    const future = new Date(Date.now() + 60_000).toISOString()
+    const result = await executeDecksTool({
+      action: "init",
+      sourceMaterials: [
+        { path: "same.pdf", type: "pdf", fingerprint: "same", lastModified: "2000-01-01T00:00:00.000Z", status: "discovered" },
+        { path: "changed.pdf", type: "pdf", fingerprint: "new", lastModified: "2000-01-01T00:00:00.000Z", status: "discovered" },
+        { path: "newer.pdf", type: "pdf", fingerprint: "newer", lastModified: future, status: "discovered" },
+        { path: "added.pdf", type: "pdf", fingerprint: "added", lastModified: "2000-01-01T00:00:00.000Z", status: "discovered" },
+      ],
+    }, root)
+    const next = readDecksState(root)
+
+    expect(result.ingest.vaultTimestamp).toEqual(expect.any(String))
+    expect(result.ingest.addedSourceMaterials.map((item: { path: string }) => item.path)).toEqual(["added.pdf"])
+    expect(result.ingest.changedSourceMaterials.map((item: { path: string }) => item.path)).toEqual(["changed.pdf"])
+    expect(result.ingest.newerThanVaultSourceMaterials.map((item: { path: string }) => item.path)).toEqual(["newer.pdf"])
+    expect(result.ingest.unchangedSourceMaterials.map((item: { path: string }) => item.path)).toEqual(["same.pdf"])
+    expect(result.ingest.ingestCandidates.map((item: { path: string }) => item.path)).toEqual(["added.pdf", "changed.pdf", "newer.pdf"])
+    expect(next.workspace.sourceMaterials.find((item) => item.path === "changed.pdf")?.extraction).toBeUndefined()
   })
 
   it("records review and explicit evidence apply actions through revela-decks", async () => {

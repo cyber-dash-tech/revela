@@ -56,6 +56,7 @@ export interface SourceMaterial {
   type?: string
   size?: number
   fingerprint?: string
+  lastModified?: string
   status?: "discovered" | "extracted" | "summarized" | "researched"
   extraction?: {
     manifestPath?: string

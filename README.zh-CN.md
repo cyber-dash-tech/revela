@@ -2,7 +2,7 @@
 
 [English](README.md) | **中文**
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-468%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-470%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="800" />
@@ -178,7 +178,7 @@ Active domain 只进入 narrative pipeline。它帮助 `init`、`research`、`st
 - active HTML deck 以及派生 PDF、PPTX 等 render targets
 - 带 input hash 的 review snapshots，使重要状态变化后旧的 readiness 自动变 stale
 
-新工作区会直接用 `initNarrativeVault` bootstrap `revela-narrative/`；LLM 扫描到稳定 finding 后，可以先写入 partial Markdown nodes，不需要等待完整故事成型。仍只有 JSON narrative、还没有 Markdown vault 的开发期工作区，会在 `revela-decks read` 加 `summary: true` 时收到 migration hint；`exportNarrativeVault` 可以把该 narrative 导出到 `revela-narrative/`，同时不会把 approvals、render targets、review snapshots、artifact coverage、actions、deck specs 或 source material records 搬进 Markdown。生成缓存位于 `.opencode/revela/narrative-cache/`，不应手工编辑。`writeReadiness.status: "ready"` 只代表 deck/artifact readiness，永远不等于 narrative approval。
+新工作区会直接用 `initNarrativeVault` bootstrap `revela-narrative/`；LLM 扫描到稳定 finding 后，可以先写入 partial Markdown nodes，不需要等待完整故事成型。`/revela init` 是可重复 ingest：首次运行会考虑所有支持的 source files，后续运行优先处理晚于最新 vault Markdown timestamp 的新增/修改文件，以及同一路径 fingerprint 变化的文件，并把稳定 finding 提炼进 vault nodes。仍只有 JSON narrative、还没有 Markdown vault 的开发期工作区，会在 `revela-decks read` 加 `summary: true` 时收到 migration hint；`exportNarrativeVault` 可以把该 narrative 导出到 `revela-narrative/`，同时不会把 approvals、render targets、review snapshots、artifact coverage、actions、deck specs 或 source material records 搬进 Markdown。生成缓存位于 `.opencode/revela/narrative-cache/`，不应手工编辑。`writeReadiness.status: "ready"` 只代表 deck/artifact readiness，永远不等于 narrative approval。
 
 Deck 仍然是主要 authored artifact，但现在它是从同一份 workspace state 渲染出来的目标之一。后续 briefs、appendix material、Evidence Inspector views、Q&A 和 interactive reading layers 都可以复用同一套来源/证据逻辑，而不是各自生成孤立内容。
 

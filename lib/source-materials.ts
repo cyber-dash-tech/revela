@@ -46,6 +46,68 @@ export function sourceMaterialMetadata(filePath: string, workspaceRoot: string):
     type: sourceMaterialType(resolvedFile),
     size: stat.size,
     fingerprint: computeSourceFingerprint(resolvedFile),
+    lastModified: new Date(stat.mtimeMs).toISOString(),
+  }
+}
+
+export function sourceMaterialModifiedMs(material: SourceMaterial, workspaceRoot: string): number {
+  if (material.lastModified) {
+    const parsed = Date.parse(material.lastModified)
+    if (Number.isFinite(parsed)) return parsed
+  }
+
+  try {
+    return statSync(ensureWorkspaceFile(material.path, workspaceRoot)).mtimeMs
+  } catch {
+    return 0
+  }
+}
+
+export interface SourceMaterialIngestPlan {
+  vaultTimestamp: string | null
+  vaultTimestampMs: number
+  addedSourceMaterials: SourceMaterial[]
+  changedSourceMaterials: SourceMaterial[]
+  newerThanVaultSourceMaterials: SourceMaterial[]
+  unchangedSourceMaterials: SourceMaterial[]
+  ingestCandidates: SourceMaterial[]
+}
+
+export function classifySourceMaterialIngest(
+  state: DecksState,
+  materials: SourceMaterial[],
+  workspaceRoot: string,
+  vaultTimestampMs: number,
+): SourceMaterialIngestPlan {
+  const existingByPath = new Map((state.workspace.sourceMaterials ?? []).map((item) => [item.path.replace(/\\/g, "/"), item]))
+  const addedSourceMaterials: SourceMaterial[] = []
+  const changedSourceMaterials: SourceMaterial[] = []
+  const newerThanVaultSourceMaterials: SourceMaterial[] = []
+  const unchangedSourceMaterials: SourceMaterial[] = []
+  const ingestByPath = new Map<string, SourceMaterial>()
+
+  for (const material of materials) {
+    const path = material.path.replace(/\\/g, "/")
+    const existing = existingByPath.get(path)
+    const added = !existing
+    const changed = Boolean(existing?.fingerprint && material.fingerprint && existing.fingerprint !== material.fingerprint)
+    const newerThanVault = sourceMaterialModifiedMs(material, workspaceRoot) > vaultTimestampMs
+
+    if (added) addedSourceMaterials.push(material)
+    if (changed) changedSourceMaterials.push(material)
+    if (newerThanVault) newerThanVaultSourceMaterials.push(material)
+    if (added || changed || newerThanVault) ingestByPath.set(path, material)
+    else unchangedSourceMaterials.push(material)
+  }
+
+  return {
+    vaultTimestamp: vaultTimestampMs > 0 ? new Date(vaultTimestampMs).toISOString() : null,
+    vaultTimestampMs,
+    addedSourceMaterials,
+    changedSourceMaterials,
+    newerThanVaultSourceMaterials,
+    unchangedSourceMaterials,
+    ingestCandidates: [...ingestByPath.values()].sort((a, b) => a.path.localeCompare(b.path)),
   }
 }
 
@@ -77,6 +139,7 @@ export function upsertSourceMaterial(
     path,
     type: material.type ?? existing?.type,
     status: nextStatus,
+    lastModified: material.lastModified ?? existing?.lastModified,
     firstSeen: existing?.firstSeen ?? material.firstSeen ?? now,
     lastChecked: now,
   }

@@ -60,11 +60,13 @@ Slash commands are explicit entry points, not the only workflow. Explicit workfl
 
 ## Phase Semantics
 
-`init` means workspace discovery, local grounding, and intent capture.
+`init` means repeatable workspace ingest, local grounding, and intent capture.
 
 - Scan the workspace and register source-material candidates.
+- On first init, treat all supported workspace files as ingest candidates; on later init runs, ingest files added or modified after the latest `revela-narrative/**/*.md` timestamp, plus files whose fingerprint changed.
 - Reuse `workspace.sourceMaterials` and existing extraction cache before re-reading local documents.
 - Extract or read selected relevant local materials when useful.
+- Distill stable findings from ingested files into `revela-narrative/**/*.md`; source-material records alone are candidate context, not evidence.
 - Derive initial claims, evidence bindings, caveats, unsupported scope, and source trace only when explicit support exists.
 - Ask the smallest missing intent questions after local evidence has been considered.
 - Do not require slide count, design choice, layout choice, output path, or visual style unless the user explicitly asks to make an artifact immediately.
@@ -78,7 +80,7 @@ Slash commands are explicit entry points, not the only workflow. Explicit workfl
 - Save findings through research tools, attach findings, and bind evidence automatically when binding criteria are met.
 - `/revela research` authorizes automatic binding only when source, quote/snippet, support scope, unsupported scope, strength, and caveat are explicit and the binding does not expand the claim.
 - Research subagents must not call `revela-decks`; the primary workflow owns canonical state reads/writes and supplies target context to research agents.
-- Do not use `upsertNarrative` during `/revela research`; the action is deprecated. Initialize `revela-narrative/` with `initNarrativeVault` when needed, then use `updateVaultResearchGap`, `upsertVaultEvidence`, and safe `upsertVaultClaim` narrowing for explicit Markdown mutations. Broader claim/relation rewrites must be reported for Story/user confirmation.
+- Do not use `upsertNarrative` during `/revela research`; the action is deprecated. Initialize `revela-narrative/` with `initNarrativeVault` when needed, then edit `evidence/*.md`, `research-gaps/*.md`, and safely narrow `claims/*.md` directly before compiling. Targeted vault actions are fallback helpers, not the primary LLM authoring path. Broader claim/relation rewrites must be reported for Story/user confirmation.
 - Ask for user confirmation only for strategic meaning changes, central claim deletion/rewrite, suspicious or weak sources, packaging partial evidence as strong, or approving the resulting narrative.
 - Preserve source path, URL, location/page/sheet/slide, quote/snippet, support scope, unsupported scope, and caveat.
 
@@ -255,8 +257,8 @@ Priority 0: Vault Markdown mutation helpers.
 
 Priority 1: research binding in vault workspaces.
 
-- `/revela research` should use the executable vault path for bindable findings: `upsertVaultEvidence` creates/updates canonical `evidence/*.md`, references the claim id, preserves explicit source trace, and compiles.
-- Safe claim narrowing in vault workspaces may use `upsertVaultClaim` only when it preserves strategic meaning and evidence boundaries; broader claim/relation rewrites require Story/user confirmation.
+- `/revela research` should write bindable findings into canonical `evidence/*.md` directly, reference the claim id, preserve explicit source trace, and compile.
+- Safe claim narrowing in vault workspaces may edit `claims/*.md` directly only when it preserves strategic meaning and evidence boundaries; broader claim/relation rewrites require Story/user confirmation.
 - Research gap status updates in vault workspaces should use `updateVaultResearchGap` instead of blocked JSON mutation actions.
 - Do not treat raw `researches/**/*.md` findings as support until an evidence node preserves explicit source, quote/snippet, supported scope, unsupported scope, caveat, and strength.
 - Keep broader claim/relation rewrites out of automatic research unless the change is a safe narrowing that preserves strategic meaning; otherwise report for Story/user confirmation.
@@ -273,7 +275,8 @@ Priority 3: init/export migration polish.
 
 - Implemented migration hinting in summary reads through `lib/narrative-vault/migration.ts`.
 - `exportNarrativeVault` should report files written, diagnostics, next actions, and the fields that remain in `DECKS.json`.
-- `/revela init` should bootstrap `revela-narrative/` with `initNarrativeVault` when no vault exists, then record stable findings through targeted vault actions even when the narrative is incomplete.
+- `/revela init` should bootstrap `revela-narrative/` with `initNarrativeVault` when no vault exists, then record stable findings by editing Markdown nodes directly even when the narrative is incomplete.
+- `/revela init` should also work as refresh ingest: `revela-decks init` returns added, changed, newer-than-vault, unchanged, and ingest-candidate source material buckets so user-added files are processed into vault nodes instead of only registered.
 - When a workspace has `DECKS.json.narrative` but no vault, guide users toward `exportNarrativeVault` without implying approvals/render targets moved to Markdown.
 - Export must preserve ids, evidence binding ids, relation endpoints, source paths, findings files, URLs, locations, quotes/snippets, support scope, unsupported scope, and caveats.
 - Do not invent evidence nodes from source-material records or generated deck text.
