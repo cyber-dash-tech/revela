@@ -4,6 +4,7 @@ todo.md
 AGENTS.md
 *.jsonc
 opencode.json
+.opencode/
 designs/*/preview.html
 !designs/starter/preview.html
 !designs/summit/preview.html

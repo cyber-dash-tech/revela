@@ -215,25 +215,25 @@ Canonical relation syntax:
 
 Do not use `[[supports:claim-a]]`; Obsidian treats that as a page id instead of a typed edge to `claim-a`.
 
-### Implemented
+### Completed Implementation
 
-- Compiler: wikilink relations are the first source for evidence, objection, risk, and research-gap bindings; frontmatter fields are fallback only.
-- Evidence: `evidence -> supports -> claim` derives `NarrativeEvidenceBinding.claimId`.
-- Objection: `objection -> answers/contrasts_with -> claim` derives `claimId`.
-- Risk: `risk -> constrains -> claim` derives `claimId`.
-- Research gaps: `gap -> depends_on -> claim/evidence/objection/risk`; gap-to-evidence links preserve the evidence id and derive claim context through the evidence support relation when available.
-- `NarrativeResearchGapTargetType` was not extended to `evidence`; canonical gaps keep schema compatibility by storing evidence dependencies in `evidenceBindingIds` and deriving `targetType: "claim"` when evidence supports a claim.
-- Inventory: relation coverage explains official wikilink relations and compatibility-only frontmatter bindings, with migration hints for fallback-only nodes.
-- Markdown QA: warns when nodes rely only on frontmatter bindings; still blocks dangling wikilinks, invalid relation labels, typed wikilinks, and unbound nodes at readiness/render strictness.
-- Prompts and `authoringContract`: require new evidence/gaps/risks/objections to write `## Relations`; source trace fields remain separate from graph links.
-- Helpers: `upsertVaultEvidence`, `bindResearchFindings`, `upsertVaultObjection`, `upsertVaultRisk`, and research-gap helpers write appropriate `## Relations` while preserving compatibility frontmatter where needed.
+- ~~Compiler: wikilink relations are the first source for evidence, objection, risk, and research-gap bindings; frontmatter fields are fallback only.~~
+- ~~Evidence: `evidence -> supports -> claim` derives `NarrativeEvidenceBinding.claimId`.~~
+- ~~Objection: `objection -> answers/contrasts_with -> claim` derives `claimId`.~~
+- ~~Risk: `risk -> constrains -> claim` derives `claimId`.~~
+- ~~Research gaps: `gap -> depends_on -> claim/evidence/objection/risk`; gap-to-evidence links preserve the evidence id and derive claim context through the evidence support relation when available.~~
+- ~~`NarrativeResearchGapTargetType` was not extended to `evidence`; canonical gaps keep schema compatibility by storing evidence dependencies in `evidenceBindingIds` and deriving `targetType: "claim"` when evidence supports a claim.~~
+- ~~Inventory: relation coverage explains official wikilink relations and compatibility-only frontmatter bindings, with migration hints for fallback-only nodes.~~
+- ~~Markdown QA: warns when nodes rely only on frontmatter bindings; still blocks dangling wikilinks, invalid relation labels, typed wikilinks, and unbound nodes at readiness/render strictness.~~
+- ~~Prompts and `authoringContract`: require new evidence/gaps/risks/objections to write `## Relations`; source trace fields remain separate from graph links.~~
+- ~~Helpers: `upsertVaultEvidence`, `bindResearchFindings`, `upsertVaultObjection`, `upsertVaultRisk`, and research-gap helpers write appropriate `## Relations` while preserving compatibility frontmatter where needed.~~
 
 ### Verification Status
 
-- Focused tests cover relation-derived evidence binding, gap-to-evidence binding, fallback compatibility warnings, prompt requirements, helper relation writing, and QA blockers for broken links.
-- `bun run typecheck` passes.
-- Full `bun test` passes: 522 tests, 0 failures.
-- `npm pack --dry-run` passes for `@cyber-dash-tech/revela@0.17.0` with 157 package files.
+- ~~Focused tests cover relation-derived evidence binding, gap-to-evidence binding, fallback compatibility warnings, prompt requirements, helper relation writing, and QA blockers for broken links.~~
+- ~~`bun run typecheck` passes.~~
+- ~~Full `bun test` passes: 522 tests, 0 failures.~~
+- ~~`npm pack --dry-run` passes for `@cyber-dash-tech/revela@0.17.0` with 157 package files.~~
 
 ## Post-0.17 Candidates
 
