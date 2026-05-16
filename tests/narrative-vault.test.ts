@@ -263,10 +263,28 @@ describe("narrative vault", () => {
     const compile = await executeDecksTool({ action: "compileNarrativeVault" }, root)
 
     expect(summary.vaultDiagnostics).toMatchObject({ ok: false, errorCount: 1 })
+    expect(summary.markdownQa).toMatchObject({ ok: false })
+    expect(summary.markdownQa.repairCards).toContainEqual(expect.objectContaining({ issueCode: "broken_relation_target", file: "claims/partial.md" }))
     expect(summary.narrativeInventory).toMatchObject({ counts: expect.objectContaining({ claims: 2, evidence: 1, unresolvedRefs: 1 }) })
     expect(summary.vaultDiagnostics.blockers).toContainEqual(expect.objectContaining({ code: "broken_link", suggestedAction: "Repair the wikilink and rerun compileNarrativeVault." }))
     expect(compile.ok).toBe(false)
     expect(compile.diagnosticReport).toMatchObject({ ok: false, errorCount: 1 })
+    expect(compile.markdownQa.repairCards).toContainEqual(expect.objectContaining({ issueCode: "broken_relation_target" }))
+  })
+
+  it("tool markdownQa returns repair cards without mutating state", async () => {
+    const root = tempWorkspace("revela-vault-tool-markdown-qa-")
+    writeDecksState(root, narrativeMapState())
+    writeSampleVault(root)
+    const before = readFileSync(join(root, "DECKS.json"), "utf-8")
+
+    const result = await executeDecksTool({ action: "markdownQa" }, root)
+    const after = readFileSync(join(root, "DECKS.json"), "utf-8")
+
+    expect(result.ok).toBe(false)
+    expect(result.markdownQa.repairCards).toContainEqual(expect.objectContaining({ issueCode: "broken_relation_target", file: "claims/partial.md", smallestRepair: expect.stringContaining("narrativeInventory") }))
+    expect(result.narrativeInventory.counts.unresolvedRefs).toBe(1)
+    expect(after).toBe(before)
   })
 
   it("builds a read-only narrative inventory for existing vault nodes", async () => {

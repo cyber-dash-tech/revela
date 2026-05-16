@@ -26,7 +26,7 @@ ${workspaceRoot ? `- Current workspace root: \`${workspaceRoot}\`` : ""}
 
 Required first calls:
 1. Call \`revela-decks read\` with \`summary: true\`.
-2. If the workspace has a Markdown narrative vault, inspect \`narrativeInventory\` from the read summary or call \`revela-decks narrativeInventory\` before editing claims, gaps, evidence, or relations.
+2. If the workspace has a Markdown narrative vault, inspect \`narrativeInventory\` from the read summary or call \`revela-decks narrativeInventory\` before editing claims, gaps, evidence, or relations. If \`markdownQa.repairCards\` are present, fix structural repair cards before binding or research mutations unless the selected target is the exact repair.
 3. Call \`revela-decks reviewNarrative\`.
 4. Call \`revela-decks deriveResearchTargets\` and treat \`selected\`, \`bindingDiagnostic\`, and target order as deterministic inputs, not LLM judgement.
 
@@ -36,6 +36,7 @@ Tool-driven research contract:
 - If findings are not bindable, report \`missingFields\` and \`failureReasons\`; then run only targeted research for those missing fields.
 - For external research, use the \`revela-research\` subagent and save findings with \`revela-research-save\`. Ask for source URLs/paths, quotes/snippets, supportScope, unsupportedScope, caveat, strength, and claimId when available.
 - Re-run \`deriveResearchTargets\` after attachment, binding, or explicit vault edits. Stop after at most 3 rounds.
+- After explicit Markdown edits, rely on the write hook feedback or call \`revela-decks markdownQa\`, then \`compileNarrativeVault\`; repair Markdown QA blockers before treating the edit as usable research state.
 
 Allowed mutations:
 - Canonical evidence: use \`bindResearchFindings\` for bindable saved findings; the safe boundary writes \`revela-narrative/evidence/*.md\` and compiles the vault.
@@ -60,6 +61,7 @@ Report format:
 - Then use these exact sections in order:
   - \`Selected target\`: report \`kind\`, \`priority\`, \`reason\`, \`question\`, \`targetId\`, \`claimId\`, and any \`findingsFile\`.
   - \`Vault diagnostics\`: if \`vaultDiagnostics\` or a mutation \`diagnosticReport\` was returned, list blockers first with file/node/code/message and the suggested next action; otherwise write \`clean\` or \`not a vault workspace\`. If blockers exist, pause binding and research mutations unless the selected target is the exact diagnostic fix.
+  - \`Markdown QA\`: if \`markdownQa.repairCards\` was returned, list repair cards by severity, file, nodeId, issueCode, message, and smallestRepair. If no cards were returned, write \`clean\` or \`not checked\`.
   - \`Existing findings inspected\`: for each file, report \`findingsFile\`, \`bindingEval.status\` when available, \`bindingDiagnostic.bindable\`, \`missingFields\`, \`failureReasons\`, and which explicit fields were present: \`source\`, \`quoteOrSnippet\`, \`supportScope\`, \`unsupportedScope\`, \`caveat\`, \`strength\`. If none were inspected, write \`none\`.
   - \`Attachments\`: list findings attached with axis/status, or \`none\`.
   - \`Evidence bound\`: list evidence bindings by claim id, source, quote/snippet, supportScope, unsupportedScope, caveat, and strength, or \`none\`.

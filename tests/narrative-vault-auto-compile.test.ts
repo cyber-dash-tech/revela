@@ -5,6 +5,7 @@ import { DECKS_STATE_FILE, writeDecksState } from "../lib/decks-state"
 import { autoCompileNarrativeVault, formatAutoCompileReport } from "../lib/narrative-vault/auto-compile"
 import { inspectVaultMarkdown } from "../lib/narrative-vault/authoring-guard"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
+import { runNarrativeMarkdownQa } from "../lib/narrative-vault/markdown-qa"
 import {
   extractNarrativeVaultMarkdownTargetsFromPatch,
   isNarrativeVaultMarkdownPath,
@@ -144,11 +145,29 @@ Approve a bounded pilot.
     const result = autoCompileNarrativeVault(root, ["revela-narrative/claims/pilot.md"])
 
     expect(result.ok).toBe(false)
-    expect(result.authoringGuard?.ok).toBe(false)
-    expect(result.markdown).toContain("Authoring guard: blocked")
-    expect(result.markdown).toContain("Authoring blockers")
+    expect(result.markdownQa?.ok).toBe(false)
+    expect(result.markdown).toContain("Markdown QA: blocked")
+    expect(result.markdown).toContain("Markdown QA blockers")
     expect(result.markdown).toContain("duplicate_stable_heading")
     expect(result.markdown).toContain("typed_wikilink_target")
+  })
+
+  it("returns markdown QA repair cards for unresolved ids and evidence trace fields", () => {
+    const root = tempWorkspace("revela-vault-markdown-qa-")
+    writeValidVault(root, "Board")
+    writeFileSync(join(root, "revela-narrative", "evidence", "bad.md"), `---
+type: evidence
+id: evidence-bad
+claimId: claim-missing
+source: proposal.md
+---
+`, "utf-8")
+
+    const report = runNarrativeMarkdownQa(root)
+
+    expect(report.ok).toBe(false)
+    expect(report.repairCards).toContainEqual(expect.objectContaining({ issueCode: "unresolved_evidence_claim_id", file: "evidence/bad.md", smallestRepair: expect.stringContaining("narrativeInventory") }))
+    expect(report.repairCards).toContainEqual(expect.objectContaining({ issueCode: "evidence_trace_fields_missing", severity: "warning", file: "evidence/bad.md" }))
   })
 
   it("reports invalid evidence claimId before normalization can drop the binding", () => {
@@ -198,14 +217,15 @@ Approve a bounded pilot.
         message: `Warning ${index}`,
         suggestedFix: "Check it.",
       })),
-      authoringGuard: {
+      markdownQa: {
         ok: false,
-        blockers: [{ code: "duplicate_frontmatter", severity: "error", message: "Duplicate", suggestedFix: "Fix" }],
+        repairCards: [{ issueCode: "duplicate_frontmatter", severity: "error", file: "claims/a.md", message: "Duplicate", smallestRepair: "Fix" }],
+        blockers: [{ issueCode: "duplicate_frontmatter", severity: "error", file: "claims/a.md", message: "Duplicate", smallestRepair: "Fix" }],
         warnings: [],
       },
     })
 
-    expect(markdown).toContain("Authoring guard: blocked")
+    expect(markdown).toContain("Markdown QA: blocked")
     expect(markdown).toContain("duplicate_frontmatter")
     expect(markdown).toContain("... 2 more")
     expect(markdown).toContain("`blocker_7`")

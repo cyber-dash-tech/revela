@@ -1,15 +1,15 @@
 import { DECKS_STATE_FILE } from "../decks-state"
-import { runVaultAuthoringGuard, type VaultAuthoringGuardReport } from "./authoring-guard"
 import { compileCacheMirrorNarrativeVault } from "./compile-mirror"
 import { narrativeVaultCachePath } from "./paths"
 import type { VaultDiagnosticDisplay } from "./diagnostic-report"
+import { runNarrativeMarkdownQa, type MarkdownQaReport } from "./markdown-qa"
 
 export interface AutoCompileNarrativeVaultResult {
   ok: boolean
   mirrored: "updated" | "skipped_no_decks" | "preserved_failed_compile" | "failed"
   cachePath: string
   touched: string[]
-  authoringGuard?: VaultAuthoringGuardReport
+  markdownQa?: MarkdownQaReport
   error?: string
   markdown: string
 }
@@ -19,23 +19,23 @@ export function autoCompileNarrativeVault(workspaceRoot: string, touched: string
   const cachePath = relativeCachePath(workspaceRoot)
 
   try {
-    const authoringGuard = runVaultAuthoringGuard(workspaceRoot, uniqueTouched)
+    const markdownQa = runNarrativeMarkdownQa(workspaceRoot, uniqueTouched)
     const compiled = compileCacheMirrorNarrativeVault(workspaceRoot)
     const mirrored = compiled.mirrorStatus
-    const ok = compiled.result.ok && authoringGuard.ok
+    const ok = compiled.result.ok && markdownQa.ok
 
     return {
       ok,
       mirrored,
       cachePath,
       touched: uniqueTouched,
-      authoringGuard,
+      markdownQa,
       markdown: formatAutoCompileReport({
         ok,
         mirrored,
         cachePath,
         touched: uniqueTouched,
-        authoringGuard,
+        markdownQa,
         blockers: compiled.diagnosticReport.blockers,
         warnings: compiled.diagnosticReport.warnings,
       }),
@@ -58,7 +58,7 @@ export function formatAutoCompileReport(input: {
   mirrored: AutoCompileNarrativeVaultResult["mirrored"]
   cachePath: string
   touched: string[]
-  authoringGuard?: VaultAuthoringGuardReport
+  markdownQa?: MarkdownQaReport
   blockers?: VaultDiagnosticDisplay[]
   warnings?: VaultDiagnosticDisplay[]
   error?: string
@@ -70,18 +70,29 @@ export function formatAutoCompileReport(input: {
   lines.push(`Touched Markdown: ${formatTouched(input.touched)}`)
 
   if (input.error) lines.push("", `Hook error: ${input.error}`)
-  appendAuthoringGuard(lines, input.authoringGuard)
+  appendMarkdownQa(lines, input.markdownQa)
   appendDiagnostics(lines, "Blockers", input.blockers ?? [])
   appendDiagnostics(lines, "Warnings", input.warnings ?? [])
   return lines.join("\n")
 }
 
-function appendAuthoringGuard(lines: string[], report?: VaultAuthoringGuardReport): void {
+function appendMarkdownQa(lines: string[], report?: MarkdownQaReport): void {
   if (!report) return
-  const total = report.blockers.length + report.warnings.length
-  lines.push(`Authoring guard: ${report.ok ? "clean" : "blocked"}${total > 0 ? ` (${report.blockers.length} blocker(s), ${report.warnings.length} warning(s))` : ""}`)
-  appendDiagnostics(lines, "Authoring blockers", report.blockers)
-  appendDiagnostics(lines, "Authoring warnings", report.warnings)
+  const total = report.repairCards.length
+  lines.push(`Markdown QA: ${report.ok ? "clean" : "blocked"}${total > 0 ? ` (${report.blockers.length} blocker(s), ${report.warnings.length} warning(s))` : ""}`)
+  appendRepairCards(lines, "Markdown QA blockers", report.blockers)
+  appendRepairCards(lines, "Markdown QA warnings", report.warnings)
+}
+
+function appendRepairCards(lines: string[], label: string, cards: MarkdownQaReport["repairCards"]): void {
+  const shown = cards.slice(0, 8)
+  if (shown.length === 0) return
+  lines.push("", `${label}:`)
+  for (const card of shown) {
+    const location = [card.file, card.nodeId].filter(Boolean).join(" / ")
+    lines.push(`- \`${card.issueCode}\`${location ? ` (${location})` : ""}: ${card.message} Smallest repair: ${card.smallestRepair}`)
+  }
+  if (cards.length > shown.length) lines.push(`- ... ${cards.length - shown.length} more`)
 }
 
 function appendDiagnostics(lines: string[], label: string, diagnostics: VaultDiagnosticDisplay[]): void {

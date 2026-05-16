@@ -186,15 +186,15 @@ Do not move on to 0.17.1 until Phases 1-4 are closed. Phase 5 can be included in
 - ~~Keep structured helpers such as `bindResearchFindings`, `upsertVaultEvidence`, and `upsertVaultResearchGap` as optional safety helpers.~~
 - ~~Tests should assert prompt/contract wording requires inventory-before-authoring, allows Markdown node authoring, and forbids schema drift plus JSON-era mutation actions.~~
 
-### Phase 2: Markdown QA Hook / Tool Feedback
+### ~~Phase 2: Markdown QA Hook / Tool Feedback~~
 
-- Upgrade the current authoring guard into explicit Markdown QA feedback used by hooks and tools.
-- Hook-triggered QA should run after `write`, `edit`, or `apply_patch` touches `revela-narrative/**/*.md` and return compact repair task cards.
-- Add or formalize a manual QA entry point, such as `revela-decks markdownQa`, or return a separate `markdownQa` section from existing vault actions.
-- QA should report duplicate frontmatter, duplicate stable headings, invalid node types, typed wikilinks, missing or unresolved `claimId`, broken relation targets, and evidence missing required trace fields.
-- QA output should use a stable repair-card shape: severity, file, node id when known, issue code, message, smallest repair, and optional examples.
-- QA output should identify file, node/field/heading, reason, and next smallest repair action. Example: `evidence-x.md` has `claimId: claim-market`, but no claim with that id exists.
-- Tests should prove duplicate `## Caveats`, typed wikilinks, and unresolved evidence `claimId` are reported by Markdown QA/hook feedback even when no manual compile is run.
+- ~~Upgrade the current authoring guard into explicit Markdown QA feedback used by hooks and tools.~~
+- ~~Hook-triggered QA should run after `write`, `edit`, or `apply_patch` touches `revela-narrative/**/*.md` and return compact repair task cards.~~
+- ~~Add or formalize a manual QA entry point, such as `revela-decks markdownQa`, or return a separate `markdownQa` section from existing vault actions.~~
+- ~~QA should report duplicate frontmatter, duplicate stable headings, invalid node types, typed wikilinks, missing or unresolved `claimId`, broken relation targets, and evidence missing required trace fields.~~
+- ~~QA output should use a stable repair-card shape: severity, file, node id when known, issue code, message, smallest repair, and optional examples.~~
+- ~~QA output should identify file, node/field/heading, reason, and next smallest repair action. Example: `evidence-x.md` has `claimId: claim-market`, but no claim with that id exists.~~
+- ~~Tests should prove duplicate `## Caveats`, typed wikilinks, and unresolved evidence `claimId` are reported by Markdown QA/hook feedback even when no manual compile is run.~~
 
 ### Phase 3: Compile / Read Integration
 
