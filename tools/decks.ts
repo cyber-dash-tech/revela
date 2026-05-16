@@ -31,36 +31,8 @@ import {
 import { compileDeckPlanFromNarrative } from "../lib/narrative-state/render-plan"
 import { backfillSlideClaimRefsFromCoverage } from "../lib/narrative-state/coverage"
 import { closeResearchGapInState, deriveResearchGapsFromReadiness, deriveResearchTargets, updateResearchGapInState, upsertResearchGapsInState } from "../lib/narrative-state/research-gaps"
-import { normalizeCanonicalNarrativeState, normalizeNarrativeState } from "../lib/narrative-state/normalize"
-import { narrativeToBrief } from "../lib/narrative-state/project-compat"
-import type { NarrativeStateV1 } from "../lib/narrative-state/types"
-import { compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, hasNarrativeVault, VAULT_MIGRATION_PRESERVED_IN_DECKS_JSON, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode, writeNarrativeVaultCache } from "../lib/narrative-vault"
-
-function mergeNarrativeInput(current: NarrativeStateV1, input: Partial<NarrativeStateV1>): Partial<NarrativeStateV1> {
-  return {
-    ...current,
-    ...input,
-    id: current.id,
-    version: 1,
-    audience: {
-      ...current.audience,
-      ...(input.audience ?? {}),
-    },
-    decision: {
-      ...current.decision,
-      ...(input.decision ?? {}),
-    },
-    thesis: input.thesis ? { ...current.thesis, ...input.thesis } as NarrativeStateV1["thesis"] : current.thesis,
-    claims: input.claims ?? current.claims,
-    claimRelations: input.claimRelations ?? current.claimRelations,
-    evidenceBindings: input.evidenceBindings ?? current.evidenceBindings,
-    objections: input.objections ?? current.objections,
-    risks: input.risks ?? current.risks,
-    researchGaps: input.researchGaps ?? current.researchGaps,
-    approvals: current.approvals,
-    updatedAt: new Date().toISOString(),
-  }
-}
+import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
+import { compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, hasNarrativeVault, initNarrativeVault, VAULT_MIGRATION_PRESERVED_IN_DECKS_JSON, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode, writeNarrativeVaultCache } from "../lib/narrative-vault"
 
 export default tool({
   description:
@@ -69,7 +41,7 @@ export default tool({
     "It stores workspace narrative state, active deck specs, per-slide content/layout/components, and computes narrative or deck readiness.",
   args: {
     action: tool.schema
-      .enum(["read", "init", "upsertDeck", "upsertSlides", "upsertNarrative", "compileNarrativeVault", "exportNarrativeVault", "upsertVaultEvidence", "updateVaultResearchGap", "upsertVaultClaim", "upsertVaultObjection", "upsertVaultRisk", "updateVaultCoreNarrative", "compileDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "deriveResearchTargets", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
+      .enum(["read", "init", "initNarrativeVault", "upsertDeck", "upsertSlides", "upsertNarrative", "compileNarrativeVault", "exportNarrativeVault", "upsertVaultEvidence", "updateVaultResearchGap", "upsertVaultClaim", "upsertVaultObjection", "upsertVaultRisk", "updateVaultCoreNarrative", "compileDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "deriveResearchTargets", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
       .describe("Action to perform on DECKS.json."),
     summary: tool.schema.boolean().optional().describe("For read: return a compact summary instead of full state."),
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
@@ -166,7 +138,7 @@ export default tool({
         createdFromIssueType: tool.schema.string().optional(),
         notes: tool.schema.string().optional(),
       })).optional(),
-    }).optional().describe("For upsertNarrative: canonical narrative state fields to merge into DECKS.json. Replaces provided arrays, preserves approvals."),
+    }).optional().describe("For initNarrativeVault and targeted vault actions: canonical narrative fields to write into Markdown nodes. upsertNarrative is deprecated."),
     design: tool.schema.string().optional().describe("For upsertDeck: active design name."),
     domain: tool.schema.string().optional().describe("For upsertDeck: active domain name."),
     memory: tool.schema.string().optional().describe("For remember: explicit user or workflow preference to store."),
@@ -365,8 +337,31 @@ export default tool({
         }, null, 2)
       }
 
+      if (args.action === "initNarrativeVault") {
+        if (hasNarrativeVault(workspaceRoot)) {
+          const compiled = compileNarrativeVault(workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] })
+          const diagnosticReport = formatVaultDiagnosticReport(compiled.diagnostics)
+          return JSON.stringify({ ok: true, path: "revela-narrative", created: false, files: [], diagnostics: compiled.diagnostics, diagnosticReport, nextActions: ["Use targeted vault actions to record stable findings, then inspect diagnosticReport."], narrative: compiled.narrative }, null, 2)
+        }
+        const result = initNarrativeVault(workspaceRoot, {
+          id: `narrative:${defaultSlug}`,
+          status: args.narrative?.status as any ?? "draft",
+          audience: args.narrative?.audience as any,
+          decision: args.narrative?.decision as any,
+          thesis: args.narrative?.thesis as any,
+        })
+        const compiled = compileNarrativeVault(workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] })
+        const diagnosticReport = formatVaultDiagnosticReport(compiled.diagnostics)
+        writeNarrativeVaultCache(workspaceRoot, compiled)
+        if (compiled.ok && compiled.narrative) {
+          state.narrative = compiled.narrative
+          writeDecksState(workspaceRoot, state)
+        }
+        return JSON.stringify({ ok: compiled.ok, path: result.path, created: result.created, files: result.files, diagnostics: compiled.diagnostics, diagnosticReport, nextActions: ["Record stable findings with updateVaultCoreNarrative, upsertVaultClaim, upsertVaultEvidence, upsertVaultObjection, upsertVaultRisk, or updateVaultResearchGap.", "Treat workspace source material records as candidates until explicit evidence trace is written."], narrative: compiled.narrative }, null, 2)
+      }
+
       if (args.action === "upsertVaultEvidence") {
-        if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "upsertVaultEvidence requires revela-narrative/ to exist. Use applyEvidenceCandidates or upsertNarrative only in compatibility JSON workspaces." })
+        if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "upsertVaultEvidence requires revela-narrative/ to exist. Use initNarrativeVault first, then write explicit evidence source trace." })
         if (!args.evidence) return JSON.stringify({ ok: false, error: "evidence is required for upsertVaultEvidence" })
         const mutation = upsertVaultEvidenceNode(workspaceRoot, args.evidence as any)
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
@@ -403,7 +398,7 @@ export default tool({
       }
 
       if (args.action === "upsertVaultClaim") {
-        if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "upsertVaultClaim requires revela-narrative/ to exist. Use upsertNarrative only in compatibility JSON workspaces." })
+        if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "upsertVaultClaim requires revela-narrative/ to exist. Use initNarrativeVault first." })
         const claim = (args.narrative?.claims?.[0] as any) ?? undefined
         if (!claim?.id) return JSON.stringify({ ok: false, error: "narrative.claims[0].id is required for upsertVaultClaim" })
         const mutation = upsertVaultClaimNode(workspaceRoot, claim)
@@ -419,7 +414,7 @@ export default tool({
       }
 
       if (args.action === "upsertVaultObjection") {
-        if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "upsertVaultObjection requires revela-narrative/ to exist. Use upsertNarrative only in compatibility JSON workspaces." })
+        if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "upsertVaultObjection requires revela-narrative/ to exist. Use initNarrativeVault first." })
         const objection = (args.narrative?.objections?.[0] as any) ?? undefined
         if (!objection?.id) return JSON.stringify({ ok: false, error: "narrative.objections[0].id is required for upsertVaultObjection" })
         const mutation = upsertVaultObjectionNode(workspaceRoot, objection)
@@ -435,7 +430,7 @@ export default tool({
       }
 
       if (args.action === "upsertVaultRisk") {
-        if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "upsertVaultRisk requires revela-narrative/ to exist. Use upsertNarrative only in compatibility JSON workspaces." })
+        if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "upsertVaultRisk requires revela-narrative/ to exist. Use initNarrativeVault first." })
         const risk = (args.narrative?.risks?.[0] as any) ?? undefined
         if (!risk?.id) return JSON.stringify({ ok: false, error: "narrative.risks[0].id is required for upsertVaultRisk" })
         const mutation = upsertVaultRiskNode(workspaceRoot, risk)
@@ -451,7 +446,7 @@ export default tool({
       }
 
       if (args.action === "updateVaultCoreNarrative") {
-        if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "updateVaultCoreNarrative requires revela-narrative/ to exist. Use upsertNarrative only in compatibility JSON workspaces." })
+        if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "updateVaultCoreNarrative requires revela-narrative/ to exist. Use initNarrativeVault first." })
         const mutation = updateVaultCoreNodes(workspaceRoot, args.narrative as any ?? {})
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
         const compiled = compileNarrativeVault(workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] })
@@ -499,43 +494,7 @@ export default tool({
       }
 
       if (args.action === "upsertNarrative") {
-        if (hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "revela-narrative/ is the canonical narrative source. Edit Markdown narrative nodes instead of using upsertNarrative." })
-        if (!args.narrative) return JSON.stringify({ ok: false, error: "narrative is required for upsertNarrative" })
-        const current = state.narrative ?? normalizeNarrativeState(state)
-        const merged = mergeNarrativeInput(current, args.narrative as Partial<NarrativeStateV1>)
-        const normalized = normalizeCanonicalNarrativeState(merged, state.activeDeck ?? defaultSlug)
-        if (!normalized) return JSON.stringify({ ok: false, error: "narrative could not be normalized" })
-        state.narrative = normalized
-
-        const deckKey = state.activeDeck
-        if (deckKey && state.decks[deckKey]) {
-          state = upsertDeck(state, {
-            ...state.decks[deckKey],
-            slug: deckKey,
-            audience: normalized.audience.primary || state.decks[deckKey].audience,
-            narrativeBrief: narrativeToBrief(normalized),
-          })
-        }
-
-        recordWorkspaceAction(state, {
-          type: "narrative.upserted",
-          actor: "revela-decks",
-          inputs: { hadExistingNarrative: Boolean(current), providedFields: Object.keys(args.narrative as object) },
-          outputs: {
-            narrativeId: normalized.id,
-            status: normalized.status,
-            claimCount: normalized.claims.length,
-            evidenceBindingCount: normalized.evidenceBindings.length,
-            objectionCount: normalized.objections.length,
-            riskCount: normalized.risks.length,
-          },
-          status: "success",
-          summary: `Updated canonical narrative state with ${normalized.claims.length} claim${normalized.claims.length === 1 ? "" : "s"}.`,
-          nodeIds: [normalized.id],
-        })
-
-        writeDecksState(workspaceRoot, state)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, narrative: state.narrative, deck: state.activeDeck ? state.decks[state.activeDeck] : undefined }, null, 2)
+        return JSON.stringify({ ok: false, deprecated: true, error: "upsertNarrative is deprecated. Use initNarrativeVault to create revela-narrative/, then update canonical narrative meaning through targeted vault actions such as updateVaultCoreNarrative, upsertVaultClaim, upsertVaultEvidence, upsertVaultObjection, upsertVaultRisk, and updateVaultResearchGap." })
       }
 
       if (args.action === "review") {

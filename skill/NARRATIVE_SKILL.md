@@ -46,6 +46,7 @@ Use `revela-decks` for state operations:
 - `read` to inspect current workspace state
 - `read` with `summary: true` to inspect compact deck state plus `vaultDiagnostics` when a Markdown vault exists and `migration` guidance when JSON narrative state can be exported to a vault
 - `init` to register discovered source material candidates during workspace initialization
+- `initNarrativeVault` to create `revela-narrative/` and draft core Markdown files before writing canonical narrative meaning in a new workspace
 - `exportNarrativeVault` to export existing `DECKS.json.narrative` into `revela-narrative/` when no vault exists; its result states which Markdown files were written and which provenance/render fields remain in `DECKS.json`
 - `compileNarrativeVault` to compile Markdown vault nodes, refresh cache, and mirror compiled narrative into `DECKS.json`
 - `updateVaultCoreNarrative` to update vault audience, decision, thesis, or status fields
@@ -53,11 +54,11 @@ Use `revela-decks` for state operations:
 - `upsertVaultEvidence` to create or update `revela-narrative/evidence/*.md` with explicit source trace in vault workspaces
 - `upsertVaultObjection` and `upsertVaultRisk` to create or update targeted objection/risk nodes in vault workspaces
 - `updateVaultResearchGap` to update `revela-narrative/research-gaps/*.md` lifecycle fields in vault workspaces
-- `upsertNarrative` to preserve canonical audience, decision, thesis, claims, evidence bindings, objections, risks, and research gaps only when no Markdown vault exists
+- `upsertNarrative` is deprecated and should not be used; create or update canonical narrative meaning through the Markdown vault actions above
 - `reviewNarrative` to run deterministic story readiness
-- `deriveResearchGaps`, `upsertResearchGaps`, `updateResearchGap`, and `closeResearchGap` to manage research gap lifecycle only when no Markdown vault exists; otherwise use `updateVaultResearchGap`
+- `deriveResearchGaps`, `upsertResearchGaps`, `updateResearchGap`, and `closeResearchGap` are compatibility helpers; prefer `updateVaultResearchGap` for canonical gap lifecycle updates
 - `attachResearchFindings` to attach saved findings to research state
-- `applyEvidenceCandidates` only when selected candidates should become canonical support and no Markdown vault exists; otherwise use `upsertVaultEvidence` with explicit source trace
+- `applyEvidenceCandidates` is compatibility-only; prefer `upsertVaultEvidence` with explicit source trace for canonical support
 - `approveNarrative` only when the user explicitly approves or requests an override
 - `compileDeckPlan`, `upsertDeck`, `upsertSlides`, and `review` only inside make-deck or artifact-readiness workflows
 
@@ -69,11 +70,11 @@ When a tool returns `vaultDiagnostics` or `diagnosticReport`, report blockers be
 
 During init:
 
-- if `read(summary: true)` returns `migration.available: true`, recommend `exportNarrativeVault` instead of recreating or overwriting the existing narrative; only update meaning when the user supplied new information
+- if no `revela-narrative/` exists, call `initNarrativeVault` before writing canonical narrative meaning; use `exportNarrativeVault` only for developer workspaces that already have a JSON narrative mirror and no vault
 - scan local workspace materials before asking broad questions
 - reuse `workspace.sourceMaterials` and extraction cache when fingerprints match
 - extract or read only relevant local materials; do not exhaustively process large workspaces
-- derive claims, evidence bindings, caveats, unsupported scope, source paths, quotes/snippets, pages, sheets, or slide references only when explicit support exists
+- derive claims, evidence bindings, caveats, unsupported scope, source paths, quotes/snippets, pages, sheets, or slide references only when explicit support exists; record stable findings into vault nodes even when the narrative is incomplete, and represent missing information as research gaps or caveats
 - ask the smallest missing intent questions after local evidence has been considered
 - do not require slide count, design choice, layout choice, output path, or visual style unless the user explicitly asks to make an artifact immediately
 - when exporting a vault, say that approvals, render targets, reviews, artifact coverage, actions, deck specs, and source material records remain in `DECKS.json`
@@ -88,7 +89,7 @@ During research:
 - delegate external web search to the `revela-research` subagent
 - save findings through `revela-research-save`
 - treat `/revela research` as permission to attach findings and bind clearly supported evidence without item-by-item user confirmation
-- create canonical evidence bindings only when claim id, quote/snippet, source, support scope, unsupported scope, caveat, and strength are explicit; in vault workspaces use `upsertVaultEvidence`, otherwise use `applyEvidenceCandidates` for candidates or `upsertNarrative` for compatibility-state updates
+- create canonical evidence bindings only when claim id, quote/snippet, source, support scope, unsupported scope, caveat, and strength are explicit; use `upsertVaultEvidence` after `initNarrativeVault` when needed
 - inspect returned `diagnosticReport` after vault mutation actions and report remaining blockers or warnings in the research summary
 - narrow overbroad claim scope with `upsertVaultClaim` in vault workspaces only when the narrower wording preserves strategic meaning and better matches the evidence; report relation rewrites or strategic claim changes for Story/user confirmation
 - preserve source path, URL, location/page/sheet/slide, quote/snippet, support scope, unsupported scope, and caveat

@@ -68,7 +68,8 @@ describe("revela research command prompt", () => {
     expect(prompt).toContain("diagnostic is `bindable: true` or the same fields are explicit")
     expect(prompt).toContain("Do not use `upsertNarrative` during research")
     expect(prompt).toContain("revela-narrative/evidence/*.md")
-    expect(prompt).toContain("use `revela-decks applyEvidenceCandidates`")
+    expect(prompt).toContain("call `revela-decks initNarrativeVault` first")
+    expect(prompt).toContain("call `revela-decks upsertVaultEvidence`")
     expect(prompt).toContain("claimId exists")
     expect(prompt).toContain("supportScope and unsupportedScope are explicit")
     expect(prompt).toContain("binding does not expand the claim beyond the evidence")
@@ -79,7 +80,7 @@ describe("revela research command prompt", () => {
     const prompt = buildResearchPrompt({ exists: true })
 
     expect(prompt).toContain("can be safely narrowed without changing strategic meaning")
-    expect(prompt).toContain("update the claim boundary with `upsertVaultClaim` in vault workspaces")
+    expect(prompt).toContain("update the claim boundary with `upsertVaultClaim`")
     expect(prompt).toContain("Relation rewrites and strategic claim changes must be reported in `Narrative changes`")
     expect(prompt).toContain("Broader narrative rewrites must be reported for Story/user confirmation")
     expect(prompt).not.toContain("through `upsertNarrative` only when")

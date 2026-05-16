@@ -106,7 +106,7 @@ describe("buildEditPrompt", () => {
     expect(prompt).toContain("upsertVaultClaim")
     expect(prompt).toContain("upsertVaultRisk")
     expect(prompt).toContain("compileNarrativeVault")
-    expect(prompt).toContain("compatibility JSON workspaces")
+    expect(prompt).toContain("initNarrativeVault")
     expect(prompt).toContain("do not let `writeReadiness`, `planReview`, or `slide_plan_unconfirmed` block the patch")
     expect(prompt).toContain("Do not patch or write `DECKS.json` directly")
     expect(prompt).not.toContain("If readiness remains blocked")

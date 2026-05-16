@@ -78,7 +78,7 @@ Slash commands are explicit entry points, not the only workflow. Explicit workfl
 - Save findings through research tools, attach findings, and bind evidence automatically when binding criteria are met.
 - `/revela research` authorizes automatic binding only when source, quote/snippet, support scope, unsupported scope, strength, and caveat are explicit and the binding does not expand the claim.
 - Research subagents must not call `revela-decks`; the primary workflow owns canonical state reads/writes and supplies target context to research agents.
-- Do not use `upsertNarrative` during `/revela research`. In vault workspaces, research may use `updateVaultResearchGap` and `upsertVaultEvidence` for explicit gap/evidence Markdown mutations; in compatibility JSON workspaces, research may update gaps, attach findings, and apply explicit evidence candidates. Broader claim/relation rewrites must be reported for Story/user confirmation.
+- Do not use `upsertNarrative` during `/revela research`; the action is deprecated. Initialize `revela-narrative/` with `initNarrativeVault` when needed, then use `updateVaultResearchGap`, `upsertVaultEvidence`, and safe `upsertVaultClaim` narrowing for explicit Markdown mutations. Broader claim/relation rewrites must be reported for Story/user confirmation.
 - Ask for user confirmation only for strategic meaning changes, central claim deletion/rewrite, suspicious or weak sources, packaging partial evidence as strong, or approving the resulting narrative.
 - Preserve source path, URL, location/page/sheet/slide, quote/snippet, support scope, unsupported scope, and caveat.
 
@@ -156,11 +156,11 @@ Known 0.15 limits:
 - `revela-narrative/` compiles deterministically into existing `NarrativeStateV1`; Story, Research, Make, Review, readiness, hashing, and approval checks continue to use that stable internal interface.
 - When a vault exists, `readDecksState`, `readOrCreateDecksState`, and `writeDecksState` prefer the vault and mirror compiled narrative into `DECKS.json.narrative`, preserving approvals from `DECKS.json`.
 - Vault cache artifacts are written under `.opencode/revela/narrative-cache/`: `compiled-narrative.json`, `graph.json`, and `diagnostics.json`.
-- `revela-decks` supports `exportNarrativeVault`, `compileNarrativeVault`, `updateVaultCoreNarrative`, `upsertVaultClaim`, `upsertVaultEvidence`, `upsertVaultObjection`, `upsertVaultRisk`, and `updateVaultResearchGap`.
+- `revela-decks` supports `initNarrativeVault`, `exportNarrativeVault`, `compileNarrativeVault`, `updateVaultCoreNarrative`, `upsertVaultClaim`, `upsertVaultEvidence`, `upsertVaultObjection`, `upsertVaultRisk`, and `updateVaultResearchGap`.
 - Vault diagnostic reports summarize compiler errors/warnings with file/node context, suggested fixes, and next actions for tools and command prompts.
 - JSON narrative workspaces without `revela-narrative/` now receive a summary-read migration hint pointing to `exportNarrativeVault`; export responses list files written plus fields that remain in `DECKS.json`.
 - `compileDeckPlanFromNarrative` now returns deterministic chapter metadata, maps TOC headings to slide ranges, carries claim/evidence/caveat boundaries into planned slides, and records chapter data on render targets.
-- When a vault exists, direct JSON narrative mutations such as `upsertNarrative`, compatibility research-gap mutation actions, and `applyEvidenceCandidates` are blocked; use vault mutation actions or edit Markdown nodes and compile instead.
+- Direct JSON narrative mutation through `upsertNarrative` is deprecated. New workspaces bootstrap `revela-narrative/` first, then use vault mutation actions or edit Markdown nodes and compile.
 - The MVP does not move approvals, render targets, artifact coverage, review snapshots, or deck specs into Markdown.
 
 ## 0.17 Narrative Vault Baseline
@@ -209,10 +209,10 @@ Implemented behavior:
 - `compileNarrativeVault` compiles `revela-narrative/` deterministically into existing `NarrativeStateV1`; Story, Research, Make, Review, readiness, hashing, and approval checks continue to use that stable interface.
 - State reads and writes prefer the vault when present and fall back to `DECKS.json.narrative` for old workspaces.
 - Successful vault compiles mirror into `DECKS.json.narrative` and write cache artifacts under `.opencode/revela/narrative-cache/`.
-- `revela-decks` supports `exportNarrativeVault`, `compileNarrativeVault`, `updateVaultCoreNarrative`, `upsertVaultClaim`, `upsertVaultEvidence`, `upsertVaultObjection`, `upsertVaultRisk`, and `updateVaultResearchGap`.
+- `revela-decks` supports `initNarrativeVault`, `exportNarrativeVault`, `compileNarrativeVault`, `updateVaultCoreNarrative`, `upsertVaultClaim`, `upsertVaultEvidence`, `upsertVaultObjection`, `upsertVaultRisk`, and `updateVaultResearchGap`.
 - `revela-decks` read/compile/vault mutation paths expose `vaultDiagnostics` or `diagnosticReport` so Story, Research, Make, and Review can report blockers before rendering or evidence binding.
 - `revela-decks read(summary: true)` exposes `migration` guidance when a JSON narrative can be exported to `revela-narrative/`, and `exportNarrativeVault` reports files written, diagnostics, cache/mirror result, and provenance fields preserved in `DECKS.json`.
-- Direct JSON narrative mutations are blocked when a vault exists: `upsertNarrative`, compatibility research-gap mutation actions, and `applyEvidenceCandidates` should not rewrite the mirror. Use vault mutation actions for evidence/gap updates, or edit Markdown nodes and compile instead.
+- Direct JSON narrative mutation through `upsertNarrative` is deprecated and should not rewrite canonical meaning. Use `initNarrativeVault` for new workspaces, vault mutation actions for meaning updates, or edit Markdown nodes and compile instead.
 - Empty vaults do not overwrite existing JSON narrative mirrors; compiler emits an `empty_vault` diagnostic.
 
 Validation requirements:
@@ -273,7 +273,7 @@ Priority 3: init/export migration polish.
 
 - Implemented migration hinting in summary reads through `lib/narrative-vault/migration.ts`.
 - `exportNarrativeVault` should report files written, diagnostics, next actions, and the fields that remain in `DECKS.json`.
-- `/revela init` should read summary state first and avoid reinitializing existing JSON narrative when migration is available.
+- `/revela init` should bootstrap `revela-narrative/` with `initNarrativeVault` when no vault exists, then record stable findings through targeted vault actions even when the narrative is incomplete.
 - When a workspace has `DECKS.json.narrative` but no vault, guide users toward `exportNarrativeVault` without implying approvals/render targets moved to Markdown.
 - Export must preserve ids, evidence binding ids, relation endpoints, source paths, findings files, URLs, locations, quotes/snippets, support scope, unsupported scope, and caveats.
 - Do not invent evidence nodes from source-material records or generated deck text.
@@ -415,7 +415,7 @@ remote candidate -> workspace asset -> deck usage
 - `revela-workspace-scan` discovers candidate documents and records provenance when possible; scan actions are not proof.
 - `revela-extract-document-materials` writes reusable extraction cache under `.opencode/revela/doc-materials/{fingerprint}/` and updates `workspace.sourceMaterials` when `DECKS.json` exists.
 - `revela-decks attachResearchFindings` attaches a workspace-relative `researches/**/*.md` file to a matching research axis. It does not mutate slide evidence or deck HTML.
-- `revela-decks applyEvidenceCandidates` and evidence-status services apply selected candidates explicitly only in compatibility JSON workspaces. They write only canonical evidence/compatibility slide evidence and never rewrite deck HTML or slide wording. In vault workspaces, create or update `revela-narrative/evidence/*.md` and compile instead.
+- `revela-decks applyEvidenceCandidates` and evidence-status services are compatibility-only. Canonical support should be created or updated through `revela-narrative/evidence/*.md` with explicit source trace, then compiled.
 - `revela-media-save` and `revela-media-batch-save` promote chosen local or remote image leads into workspace assets under `assets/<topic>/media/` and update the media manifest.
 - Review asset search results are remote candidates only until saved. Deck HTML should reference saved workspace asset paths, never remote candidate URLs or `/__revela_asset` preview/proxy URLs.
 - Inspection/result tools submit structured JSON for browser UI. Do not rely on assistant Markdown parsing for Review UI state.

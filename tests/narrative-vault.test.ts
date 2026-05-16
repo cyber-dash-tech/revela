@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 import { readDecksState, writeDecksState } from "../lib/decks-state"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
-import { compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticMarkdown, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, parseRelations, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
+import { compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticMarkdown, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, initNarrativeVault, parseRelations, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
 import { narrativeMapState } from "./helpers/narrative-fixtures"
 import { executeDecksTool, tempWorkspace } from "./helpers/tool-helpers"
 
@@ -135,10 +135,70 @@ describe("narrative vault", () => {
 
     const blocked = await executeDecksTool({ action: "upsertNarrative", narrative: { audience: { primary: "New audience" } } }, root)
     expect(blocked.ok).toBe(false)
-    expect(blocked.error).toContain("revela-narrative/")
+    expect(blocked.deprecated).toBe(true)
+    expect(blocked.error).toContain("initNarrativeVault")
 
     const approved = readDecksState(root).narrative!.approvals[0]
     expect(approved.narrativeHash).toBe(computeNarrativeHash(state.narrative!))
+  })
+
+  it("bootstraps a draft Markdown vault without requiring complete narrative information", () => {
+    const root = tempWorkspace("revela-vault-bootstrap-")
+
+    const result = initNarrativeVault(root, {
+      id: "narrative:bootstrap",
+      audience: { primary: "Executive team" },
+      decision: { action: "Decide whether to fund discovery." },
+      thesis: { statement: "Discovery should proceed only with explicit evidence gaps.", confidence: "low" },
+    })
+    const compiled = compileNarrativeVault(root)
+
+    expect(result).toMatchObject({ ok: true, created: true, path: "revela-narrative" })
+    expect(result.files).toEqual(["index.md", "audience.md", "decision.md", "thesis.md"])
+    for (const dir of ["claims", "evidence", "objections", "risks", "research-gaps"]) {
+      expect(readFileSync(join(root, "revela-narrative", "index.md"), "utf-8")).toContain("narrative:bootstrap")
+      expect(() => readFileSync(join(root, "revela-narrative", dir, "missing.md"), "utf-8")).toThrow()
+    }
+    expect(compiled.ok).toBe(true)
+    expect(compiled.narrative).toMatchObject({
+      id: "narrative:bootstrap",
+      audience: { primary: "Executive team" },
+      decision: { action: "Decide whether to fund discovery." },
+      thesis: { statement: "Discovery should proceed only with explicit evidence gaps." },
+    })
+  })
+
+  it("tool action initializes a vault, cache, and DECKS mirror for new workspaces", async () => {
+    const root = tempWorkspace("revela-vault-tool-bootstrap-")
+
+    const result = await executeDecksTool({
+      action: "initNarrativeVault",
+      narrative: {
+        audience: { primary: "Product leadership" },
+        decision: { action: "Choose whether to continue 0.17.0 scope." },
+        thesis: { statement: "Record findings early and leave gaps visible.", confidence: "medium" },
+      },
+    }, root)
+    const mirrored = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
+
+    expect(result.ok).toBe(true)
+    expect(result.created).toBe(true)
+    expect(result.files).toContain("index.md")
+    expect(result.nextActions).toContain("Treat workspace source material records as candidates until explicit evidence trace is written.")
+    expect(mirrored.narrative.audience.primary).toBe("Product leadership")
+    expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("Product leadership")
+  })
+
+  it("tool initNarrativeVault is a no-op when the vault already exists", async () => {
+    const root = tempWorkspace("revela-vault-tool-bootstrap-existing-")
+    writeMutableVault(root)
+
+    const result = await executeDecksTool({ action: "initNarrativeVault", narrative: { audience: { primary: "Should not overwrite" } } }, root)
+
+    expect(result.ok).toBe(true)
+    expect(result.created).toBe(false)
+    expect(result.files).toEqual([])
+    expect(readFileSync(join(root, "revela-narrative", "audience.md"), "utf-8")).toContain("primary: Board")
   })
 
   it("reports migration hints for JSON narrative workspaces without a vault", async () => {

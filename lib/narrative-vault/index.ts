@@ -1,4 +1,5 @@
 export * from "./cache"
+export * from "./bootstrap"
 export * from "./compile"
 export * from "./diagnostic-report"
 export * from "./export"

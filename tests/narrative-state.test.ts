@@ -274,7 +274,7 @@ describe("narrative state", () => {
     }))
   })
 
-  it("exposes upsertNarrative through revela-decks and projects compatibility brief", async () => {
+  it("blocks deprecated upsertNarrative through revela-decks", async () => {
     const workspaceRoot = tempWorkspace("revela-narrative-upsert-")
     writeDecksState(workspaceRoot, legacyDecisionDeck())
 
@@ -312,35 +312,11 @@ describe("narrative state", () => {
     }, workspaceRoot)
     const reloaded = readDecksState(workspaceRoot)
 
-    expect(result.ok).toBe(true)
-    expect(reloaded.narrative).toMatchObject({
-      audience: { primary: "Board" },
-      decision: { action: "Approve pilot expansion." },
-      thesis: { statement: "Pilot expansion preserves upside while bounding execution risk." },
-    })
-    expect(reloaded.narrative?.claims).toContainEqual(expect.objectContaining({
-      id: "claim:pilot-risk",
-      text: "Pilot expansion lowers execution risk.",
-      evidenceStatus: "missing",
-    }))
-    expect(reloaded.narrative?.claimRelations).toContainEqual(expect.objectContaining({
-      id: expect.stringMatching(/^claim-relation:/),
-      fromClaimId: "claim:capacity-proof",
-      toClaimId: "claim:pilot-risk",
-      relation: "supports",
-    }))
-    expect(reloaded.decks[reloaded.activeDeck!].narrativeBrief).toMatchObject({
-      audienceBeliefBefore: "The board is unsure a pilot is safer.",
-      audienceBeliefAfter: "The board sees pilot approval as the safer path.",
-      decisionOrAction: "Approve pilot expansion.",
-      keyClaims: ["Pilot expansion lowers execution risk."],
-      risks: ["Execution capacity remains constrained."],
-    })
-    expect(reloaded.actions).toContainEqual(expect.objectContaining({
-      type: "narrative.upserted",
-      actor: "revela-decks",
-      outputs: expect.objectContaining({ claimCount: 2, riskCount: 1 }),
-    }))
+    expect(result).toMatchObject({ ok: false, deprecated: true })
+    expect(result.error).toContain("initNarrativeVault")
+    expect(result.error).toContain("upsertVaultClaim")
+    expect(reloaded.narrative?.audience.primary).not.toBe("Board")
+    expect(reloaded.actions).not.toContainEqual(expect.objectContaining({ type: "narrative.upserted" }))
   })
 
   it("treats claim relations as narrative meaning in the approval hash", () => {

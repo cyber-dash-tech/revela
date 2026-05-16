@@ -9,7 +9,7 @@ export function buildInitPrompt({
 }): string {
   const mode = exists
     ? `A ${DECKS_STATE_FILE} file already exists. Read it first through the revela-decks tool and update it conservatively.`
-    : `No ${DECKS_STATE_FILE} file exists yet. Create it through the revela-decks tool only when there is enough stable workspace or narrative context.`
+    : `No ${DECKS_STATE_FILE} file exists yet. Initialize the Markdown narrative vault through the revela-decks tool before writing narrative meaning.`
 
   return `Initialize Revela narrative workspace state.
 
@@ -34,7 +34,7 @@ Workspace boundary rules:
 - If the current workspace appears too broad, stop and ask the user which workspace subdirectory to initialize instead of scanning outside or deeply across everything.
 
 Workflow:
-1. Use \`revela-decks\` action \`read\` with \`summary: true\` when ${DECKS_STATE_FILE} exists. If the result includes \`migration.available: true\`, do not reinitialize or overwrite the existing narrative; offer \`exportNarrativeVault\` as the next action unless the user supplied new meaning to update.
+1. Use \`revela-decks\` action \`read\` with \`summary: true\` when ${DECKS_STATE_FILE} exists. If \`revela-narrative/\` does not exist, call \`revela-decks\` action \`initNarrativeVault\` before recording narrative meaning. If the result includes \`migration.available: true\`, prefer \`exportNarrativeVault\` for developer workspaces with existing JSON narrative, then continue with vault actions.
 2. Use the \`revela-workspace-scan\` tool to inspect document and data files in the workspace. Start with no \`path\` and \`max_depth: 2\`.
 3. Separately search for existing artifact history, especially:
    - \`decks/**/*.html\`
@@ -48,7 +48,7 @@ Workflow:
 6. Do not automatically extract every PDF/PPTX/DOCX/XLSX during init. Call \`revela-extract-document-materials\` only for selected files that are clearly needed to form conservative narrative memory, or when the user explicitly asked to analyze the material now.
 7. Before extracting or deeply reading a selected document, check \`DECKS.json.workspace.sourceMaterials\`. If the same path has the same fingerprint and valid extraction paths, reuse those paths instead of repeating extraction.
 8. Read only the materials needed to form conservative narrative memory. Do not exhaustively read every file if the workspace is large.
-9. If enough information is available, preserve canonical narrative intent. When \`revela-narrative/\` exists, use targeted vault actions as applicable: \`updateVaultCoreNarrative\` for audience/decision/thesis/status, \`upsertVaultClaim\` for claims, \`upsertVaultEvidence\` for explicit evidence, \`upsertVaultObjection\` for objections, and \`upsertVaultRisk\` for risks. Use \`compileNarrativeVault\` after manual Markdown edits not covered by targeted actions. When no vault exists and no migration is available, use \`revela-decks\` action \`upsertNarrative\` for audience intent, decision intent, thesis, central claims, explicit evidence bindings where known, objections, and risks. This does not require deck rendering inputs.
+9. Preserve canonical narrative intent as soon as stable findings exist; completeness is not a gate. Use \`initNarrativeVault\` first when needed, then targeted vault actions as applicable: \`updateVaultCoreNarrative\` for audience/decision/thesis/status, \`upsertVaultClaim\` for claims, \`upsertVaultEvidence\` for explicit evidence, \`upsertVaultObjection\` for objections, \`upsertVaultRisk\` for risks, and \`updateVaultResearchGap\` for known gaps. Use \`compileNarrativeVault\` after manual Markdown edits not covered by targeted actions. Do not use \`upsertNarrative\`; it is deprecated.
 10. If the workspace has explicit slide/deck information, existing HTML, or a user-requested deck task, you may also call \`upsertDeck\` and \`upsertSlides\` for explicit deck information. The tool projects canonical narrative state back to compatibility \`narrativeBrief\` when a deck record exists. Do not pass or ask for a deck key; the tool uses the workspace folder name internally. Do not mark deck readiness ready during init.
 11. When adopting an existing HTML deck, analyze the artifact and create one conservative \`SlideSpec\` per identifiable slide/page only if the artifact is clearly the current workspace artifact. Record only visible source notes or explicit source information as evidence; do not infer original evidence that is not present in the artifact.
 12. When a read or extracted source material clearly supports a specific narrative or slide claim, preserve compact evidence trace such as \`sourcePath\`, \`location\`, \`extractedTextPath\`, or \`extractedManifestPath\`. Attach extraction cache paths only when they support that specific claim, not to every claim or slide by default.
