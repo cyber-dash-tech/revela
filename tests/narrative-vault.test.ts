@@ -222,7 +222,7 @@ describe("narrative vault", () => {
   it("persists approvals outside the DECKS narrative mirror in vault workspaces", async () => {
     const root = tempWorkspace("revela-vault-approval-provenance-")
     writeDecksState(root, narrativeMapState())
-    writeMutableVault(root)
+    writeRegistryVault(root)
 
     const approval = await executeDecksTool({ action: "approveNarrative", approvalBy: "override", approvalScope: "render_override", approvalNote: "Override for cache migration test." }, root)
     const written = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
@@ -369,6 +369,23 @@ describe("narrative vault", () => {
     expect(inventory.relationCoverage.unboundEvidence).toContain("evidence:unbound")
     expect(inventory.relationCoverage.orphanNodes).toContain("evidence:unbound")
     expect(qa.repairCards).toContainEqual(expect.objectContaining({ issueCode: "unbound_evidence", nodeId: "evidence:unbound", severity: "error" }))
+  })
+
+  it("blocks readiness and render actions when strict relation sync has blockers", async () => {
+    const root = tempWorkspace("revela-vault-registry-strict-gate-")
+    writeDecksState(root, narrativeMapState())
+    writeBrokenRegistryVault(root)
+
+    const review = await executeDecksTool({ action: "reviewNarrative" }, root)
+    const approval = await executeDecksTool({ action: "approveNarrative", approvalNote: "Approve narrative." }, root)
+    const plan = await executeDecksTool({ action: "compileDeckPlan" }, root)
+
+    expect(review).toMatchObject({ ok: false, skipped: true, action: "reviewNarrative" })
+    expect(review.reason).toContain("Markdown QA readiness blockers")
+    expect(review.markdownQa.blockers).toContainEqual(expect.objectContaining({ issueCode: "broken_relation_target", file: "relations.md" }))
+    expect(approval).toMatchObject({ ok: false, skipped: true, action: "approveNarrative" })
+    expect(plan).toMatchObject({ ok: false, skipped: true, action: "compileDeckPlan" })
+    expect(plan.reason).toContain("Markdown QA render blockers")
   })
 
   it("builds a read-only narrative inventory for existing vault nodes", async () => {
@@ -806,4 +823,9 @@ function writeRegistryVault(root: string): void {
   writeFileSync(join(vault, "claims", "execution.md"), "---\ntype: claim\nid: claim:execution\nkind: evidence\nimportance: supporting\nevidenceRequired: false\n---\nExecution risk is bounded by pilot scope.\n", "utf-8")
   writeFileSync(join(vault, "evidence", "pilot.md"), "---\ntype: evidence\nid: evidence:pilot\nsource: Proposal\nsourcePath: proposal.md\nquote: Pilot approval is requested.\nsupportScope: Supports the internal pilot request.\nunsupportedScope: Does not prove external market demand.\ncaveat: Intent evidence only.\nstrength: partial\n---\n", "utf-8")
   writeFileSync(join(vault, "relations.md"), "edges:\n  - id: rel-pilot-supports-execution\n    from: claim:pilot\n    to: claim:execution\n    type: supports\n    rationale: Pilot recommendation is supported by execution framing.\n  - id: rel-evidence-pilot-supports-claim\n    from: evidence:pilot\n    to: claim:pilot\n    type: supports\n    rationale: Proposal states the pilot request.\n", "utf-8")
+}
+
+function writeBrokenRegistryVault(root: string): void {
+  writeRegistryVault(root)
+  writeFileSync(join(root, "revela-narrative", "relations.md"), "edges:\n  - id: rel-pilot-supports-missing\n    from: claim:pilot\n    to: claim:missing\n    type: supports\n    rationale: Broken edge used to verify strict relation gates.\n", "utf-8")
 }

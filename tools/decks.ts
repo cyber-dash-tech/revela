@@ -79,6 +79,21 @@ function researchGapHelperRecovery(action: "updateVaultResearchGap" | "upsertVau
   }
 }
 
+function strictVaultMarkdownQaGate(workspaceRoot: string, strictness: "readiness" | "render", action: string) {
+  if (!hasNarrativeVault(workspaceRoot)) return undefined
+  const markdownQa = runNarrativeMarkdownQa(workspaceRoot, { scope: "full", strictness })
+  if (markdownQa.ok) return undefined
+  return {
+    ok: false,
+    skipped: true,
+    action,
+    reason: `Markdown QA ${strictness} blockers must be repaired before ${action}.`,
+    markdownQa,
+    narrativeInventory: buildNarrativeVaultInventory(workspaceRoot),
+    authoringContract: narrativeVaultAuthoringContract(),
+  }
+}
+
 export default tool({
   description:
     `Read and update ${DECKS_STATE_FILE}, Revela's workspace deck state file. ` +
@@ -587,6 +602,8 @@ export default tool({
       }
 
       if (args.action === "review") {
+        const qaGate = strictVaultMarkdownQaGate(workspaceRoot, "render", "review")
+        if (qaGate) return JSON.stringify(qaGate, null, 2)
         const reviewed = reviewDeckState(state, undefined, { workspaceRoot })
         const targetId = activeReviewTargetId(reviewed.state)
         const snapshot = latestReviewSnapshotForTarget(reviewed.state, targetId)
@@ -615,6 +632,8 @@ export default tool({
       }
 
       if (args.action === "compileDeckPlan") {
+        const qaGate = strictVaultMarkdownQaGate(workspaceRoot, "render", "compileDeckPlan")
+        if (qaGate) return JSON.stringify(qaGate, null, 2)
         const compiled = compileDeckPlanFromNarrative(state)
         if (compiled.result.compiled) {
           recordWorkspaceAction(compiled.state, {
@@ -667,6 +686,8 @@ export default tool({
       }
 
       if (args.action === "reviewNarrative") {
+        const qaGate = strictVaultMarkdownQaGate(workspaceRoot, "readiness", "reviewNarrative")
+        if (qaGate) return JSON.stringify(qaGate, null, 2)
         const reviewed = reviewNarrativeState(state)
         recordNarrativeReviewAction(reviewed.state, reviewed.result)
         writeDecksState(workspaceRoot, reviewed.state)
@@ -674,6 +695,8 @@ export default tool({
       }
 
       if (args.action === "approveNarrative") {
+        const qaGate = strictVaultMarkdownQaGate(workspaceRoot, "readiness", "approveNarrative")
+        if (qaGate) return JSON.stringify(qaGate, null, 2)
         const approved = approveNarrativeState(state, {
           approvedBy: args.approvalBy,
           scope: args.approvalScope,

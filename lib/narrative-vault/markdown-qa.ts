@@ -37,17 +37,19 @@ export function runNarrativeMarkdownQa(workspaceRoot: string, touchedOrOptions?:
   const strictness = options.strictness ?? "authoring"
   const touchedSet = options.touched ? new Set(options.touched.map(normalizeVaultFile).filter(Boolean)) : undefined
   const selected = touchedSet ? documents.filter((doc) => touchedSet.has(doc.relativePath)) : documents
+  const inventory = buildNarrativeVaultInventory(workspaceRoot)
   const repairCards: MarkdownQaRepairCard[] = []
 
   for (const doc of selected) {
-    repairCards.push(...inspectVaultMarkdown(doc.relativePath, readFileSync(doc.path, "utf-8")).map(cardFromDiagnostic))
+    repairCards.push(...inspectVaultMarkdown(doc.relativePath, readFileSync(doc.path, "utf-8"))
+      .filter((diagnostic) => !isEvidenceClaimIdCoveredByRegistry(doc, diagnostic.code, inventory))
+      .map(cardFromDiagnostic))
     repairCards.push(...evidenceTraceCards(doc))
     repairCards.push(...legacyInlineRelationCards(doc, scope))
   }
 
   repairCards.push(...unsupportedRootMarkdownCards(workspaceRoot, touchedSet))
 
-  const inventory = buildNarrativeVaultInventory(workspaceRoot)
   for (const unresolved of inventory.unresolvedRefs) {
     if (touchedSet && !touchedSet.has(unresolved.file)) continue
     repairCards.push(cardFromUnresolved(unresolved))
@@ -58,6 +60,13 @@ export function runNarrativeMarkdownQa(workspaceRoot: string, touchedOrOptions?:
   const blockers = deduped.filter((card) => card.severity === "error")
   const warnings = deduped.filter((card) => card.severity === "warning")
   return { ok: blockers.length === 0, repairCards: deduped, blockers, warnings }
+}
+
+function isEvidenceClaimIdCoveredByRegistry(doc: VaultDocument, issueCode: string, inventory: ReturnType<typeof buildNarrativeVaultInventory>): boolean {
+  if (issueCode !== "evidence_claim_id_missing_authoring") return false
+  const id = stringField(doc, "id")
+  if (!id) return false
+  return inventory.evidence.some((item) => item.id === id && Boolean(item.claimId))
 }
 
 function legacyInlineRelationCards(doc: VaultDocument, scope: MarkdownQaOptions["scope"]): MarkdownQaRepairCard[] {
@@ -160,7 +169,7 @@ function evidenceTraceCards(doc: VaultDocument): MarkdownQaRepairCard[] {
 function unsupportedRootMarkdownCards(workspaceRoot: string, touchedSet?: Set<string>): MarkdownQaRepairCard[] {
   const root = narrativeVaultPath(workspaceRoot)
   if (!existsSync(root) || !statSync(root).isDirectory()) return []
-  const supportedRootFiles = new Set(["index.md", "audience.md", "decision.md", "thesis.md"])
+  const supportedRootFiles = new Set(["index.md", "audience.md", "decision.md", "thesis.md", "relations.md"])
   const cards: MarkdownQaRepairCard[] = []
 
   for (const entry of readdirSync(root).sort()) {

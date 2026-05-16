@@ -264,7 +264,7 @@ Implementation tasks:
 - ~~Add parser/serializer support for `revela-narrative/relations.md` without removing legacy inline relation parsing.~~
 - ~~Update `compileNarrativeVault` to merge registry edges plus legacy inline edges into the canonical graph, with deterministic ids and diagnostics for conflicts or invalid references.~~
 - ~~Update Markdown QA to support scoped relation sync: `scope: "touched" | "affected" | "full"` and `strictness: "authoring" | "readiness" | "render"`.~~
-- Hook-triggered QA should use touched/authoring scope; manual `markdownQa` should default to affected/full authoring scope; story/make/approve/review gates should use full readiness/render scope.
+- ~~Hook-triggered QA should use touched/authoring scope; manual `markdownQa` should default to affected/full authoring scope; story/make/approve/review gates should use full readiness/render scope.~~
 - ~~Update `/revela init` and `/revela research` prompts: create/update nodes first, then relations through `relations.md` or a relation helper; do not add new `## Relations` sections to node files.~~
 - Add optional `upsertVaultRelation` / `removeVaultRelation` helpers only for mechanical registry edits; they must not invent semantic edges.
 - Update `narrativeInventory` to summarize registry edges, legacy inline edges, relation coverage, and advisory relation candidates. Relation coverage is implemented; advisory candidates remain optional follow-up.
@@ -277,7 +277,7 @@ Tests:
 - ~~Hook/touched QA does not spam full graph orphan/isolation checks after a single node edit.~~
 - ~~Manual/full Markdown QA reports dangling edges, duplicate edge ids, invalid relation types, unbound evidence, unbound objections/risks/gaps, isolated central claims, and orphan nodes.~~
 - Inventory exposes relation coverage and advisory candidates without mutating state. Relation coverage is tested; advisory candidates remain optional follow-up.
-- Story/make/approve readiness paths treat strict relation sync blockers as blockers.
+- ~~Story/make/approve readiness paths treat strict relation sync blockers as blockers.~~
 
 ### Phase 7: 0.17 Release Verification
 
