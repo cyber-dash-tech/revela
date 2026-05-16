@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 import { readDecksState, writeDecksState } from "../lib/decks-state"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
-import { compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticMarkdown, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, initNarrativeVault, parseRelations, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
+import { buildNarrativeVaultInventory, compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticMarkdown, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, initNarrativeVault, parseRelations, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
 import { narrativeMapState } from "./helpers/narrative-fixtures"
 import { executeDecksTool, tempWorkspace } from "./helpers/tool-helpers"
 
@@ -263,9 +263,31 @@ describe("narrative vault", () => {
     const compile = await executeDecksTool({ action: "compileNarrativeVault" }, root)
 
     expect(summary.vaultDiagnostics).toMatchObject({ ok: false, errorCount: 1 })
+    expect(summary.narrativeInventory).toMatchObject({ counts: expect.objectContaining({ claims: 2, evidence: 1, unresolvedRefs: 1 }) })
     expect(summary.vaultDiagnostics.blockers).toContainEqual(expect.objectContaining({ code: "broken_link", suggestedAction: "Repair the wikilink and rerun compileNarrativeVault." }))
     expect(compile.ok).toBe(false)
     expect(compile.diagnosticReport).toMatchObject({ ok: false, errorCount: 1 })
+  })
+
+  it("builds a read-only narrative inventory for existing vault nodes", async () => {
+    const root = tempWorkspace("revela-vault-inventory-")
+    writeDecksState(root, narrativeMapState())
+    writeMutableVault(root)
+
+    const direct = buildNarrativeVaultInventory(root)
+    const tool = await executeDecksTool({ action: "narrativeInventory" }, root)
+    const alias = await executeDecksTool({ action: "vaultInventory" }, root)
+
+    expect(direct.ok).toBe(true)
+    expect(direct.counts).toMatchObject({ claims: 2, evidence: 0, researchGaps: 1, objections: 1, risks: 1, relations: 1, unresolvedRefs: 0 })
+    expect(direct.claims).toContainEqual(expect.objectContaining({ id: "claim:pilot", file: "claims/pilot.md", evidenceRequired: true }))
+    expect(direct.researchGaps).toContainEqual(expect.objectContaining({ id: "gap:pilot-evidence", targetId: "claim:pilot", status: "open" }))
+    expect(direct.relations).toContainEqual(expect.objectContaining({ fromId: "claim:pilot", toId: "claim:execution", unresolved: false }))
+    expect(direct.idHints.nextClaimIdExamples[0]).toContain("claim-market-context")
+    expect(tool.ok).toBe(true)
+    expect(tool.narrativeInventory.counts.claims).toBe(2)
+    expect(tool.authoringContract.standardSession).toContain("narrativeInventory before authoring ids or relations")
+    expect(alias.narrativeInventory.counts.researchGaps).toBe(1)
   })
 
   it("upserts evidence Markdown nodes without rewriting unrelated vault nodes", () => {

@@ -1,4 +1,6 @@
 export interface NarrativeVaultAuthoringContract {
+  role: string
+  standardSession: string[]
   allowedActions: string[]
   forbiddenCompatibilityActions: string[]
   validNodeTypes: string[]
@@ -22,6 +24,14 @@ export interface NarrativeVaultAuthoringContract {
 
 export function narrativeVaultAuthoringContract(): NarrativeVaultAuthoringContract {
   return {
+    role: "Markdown authoring guide. The LLM may maintain revela-narrative/**/*.md knowledge nodes directly; structured actions are optional safety helpers, not the primary authoring model.",
+    standardSession: [
+      "read(summary:true)",
+      "narrativeInventory before authoring ids or relations",
+      "edit Markdown nodes or use an optional targeted helper",
+      "markdown QA / compileNarrativeVault after authoring",
+      "report remaining blockers, evidence gaps, and unsupported scope",
+    ],
     allowedActions: [
       "initNarrativeVault",
       "updateVaultCoreNarrative",

@@ -26,8 +26,9 @@ ${workspaceRoot ? `- Current workspace root: \`${workspaceRoot}\`` : ""}
 
 Required first calls:
 1. Call \`revela-decks read\` with \`summary: true\`.
-2. Call \`revela-decks reviewNarrative\`.
-3. Call \`revela-decks deriveResearchTargets\` and treat \`selected\`, \`bindingDiagnostic\`, and target order as deterministic inputs, not LLM judgement.
+2. If the workspace has a Markdown narrative vault, inspect \`narrativeInventory\` from the read summary or call \`revela-decks narrativeInventory\` before editing claims, gaps, evidence, or relations.
+3. Call \`revela-decks reviewNarrative\`.
+4. Call \`revela-decks deriveResearchTargets\` and treat \`selected\`, \`bindingDiagnostic\`, and target order as deterministic inputs, not LLM judgement.
 
 Tool-driven research contract:
 - If \`selected\` or any high-priority target references a \`findingsFile\`, call \`revela-decks evaluateResearchFindings\` before external search.
@@ -38,8 +39,8 @@ Tool-driven research contract:
 
 Allowed mutations:
 - Canonical evidence: use \`bindResearchFindings\` for bindable saved findings; the safe boundary writes \`revela-narrative/evidence/*.md\` and compiles the vault.
-- Research gap lifecycle: edit \`revela-narrative/research-gaps/*.md\` or use \`updateVaultResearchGap\` when the update is explicit.
-- Safe claim narrowing: edit \`revela-narrative/claims/*.md\` only when it preserves strategic meaning and evidence boundaries.
+- Research gap lifecycle: after checking inventory and reading the target node, edit \`revela-narrative/research-gaps/*.md\` or use \`updateVaultResearchGap\` when the update is explicit.
+- Safe claim narrowing: after checking inventory and reading the target node, edit \`revela-narrative/claims/*.md\` only when it preserves strategic meaning and evidence boundaries.
 - Relation rewrites and strategic claim changes must be reported in \`Narrative changes\`; broader narrative rewrites require Story/user confirmation.
 - Initialize the vault with \`initNarrativeVault\` if a canonical vault is needed and missing.
 - Never call \`upsertNarrative\` during research.
@@ -72,6 +73,7 @@ Report format:
 Rules:
 - Do not use primary-agent broad websearch. Use the \`revela-research\` subagent for external search.
 - Do not invent quotes, source paths, URLs, page references, locations, or caveats.
+- Do not invent \`claimId\`, evidence ids, research-gap ids, or relation targets before checking \`narrativeInventory\` unless you are intentionally creating the missing node in Markdown.
 - Do not treat \`researches/**/*.md\` as canonical evidence until attached or evidence-bound, but do not stop at findings_saved when binding criteria are met.
 - Do not bypass \`deriveResearchTargets\` or \`evaluateResearchFindings\`; target selection, \`selected\`, \`bindingDiagnostic\`, and \`bindingEval\` are deterministic inputs, not LLM judgement.
 - Do not mutate canonical claims merely to fit a source; narrow only to preserve evidence boundaries and avoid overstated claims.
@@ -79,5 +81,5 @@ Rules:
 - Do not ask the user to approve each evidence binding. Ask only when binding would change strategic meaning, downgrade a central claim, rely on suspicious sources, or require narrative approval.
 - Do not store secrets, credentials, tokens, or sensitive personal information.
 
-Start now by reading ${DECKS_STATE_FILE} through \`revela-decks\`, reviewing current readiness, deriving research targets, and running the first research/binding loop from the selected target.`
+Start now by reading ${DECKS_STATE_FILE} through \`revela-decks\`, inspecting narrative inventory when a vault exists, reviewing current readiness, deriving research targets, and running the first research/binding loop from the selected target.`
 }

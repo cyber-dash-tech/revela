@@ -35,7 +35,7 @@ import { closeResearchGapInState, deriveResearchGapsFromReadiness, deriveResearc
 import { evaluateResearchFindingsBinding } from "../lib/narrative-state/research-binding-eval"
 import { stableEvidenceId } from "../lib/narrative-state/hash"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
-import { compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, hasNarrativeVault, initNarrativeVault, narrativeVaultAuthoringContract, narrativeVaultTimestampMs, VAULT_MIGRATION_PRESERVED_IN_DECKS_JSON, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
+import { buildNarrativeVaultInventory, compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, hasNarrativeVault, initNarrativeVault, narrativeVaultAuthoringContract, narrativeVaultTimestampMs, VAULT_MIGRATION_PRESERVED_IN_DECKS_JSON, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRiskNode } from "../lib/narrative-vault"
 import { compileCacheMirrorNarrativeVault } from "../lib/narrative-vault/compile-mirror"
 
 function missingBindableEvidenceFields(input: Record<string, unknown>): string[] {
@@ -67,7 +67,7 @@ export default tool({
     "It stores workspace narrative state, active deck specs, per-slide content/layout/components, and computes narrative or deck readiness.",
   args: {
     action: tool.schema
-      .enum(["read", "init", "initNarrativeVault", "upsertDeck", "upsertSlides", "upsertNarrative", "compileNarrativeVault", "exportNarrativeVault", "upsertVaultEvidence", "bindResearchFindings", "updateVaultResearchGap", "upsertVaultResearchGap", "upsertVaultClaim", "upsertVaultObjection", "upsertVaultRisk", "updateVaultCoreNarrative", "compileDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "deriveResearchTargets", "evaluateResearchFindings", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
+      .enum(["read", "init", "initNarrativeVault", "narrativeInventory", "vaultInventory", "upsertDeck", "upsertSlides", "upsertNarrative", "compileNarrativeVault", "exportNarrativeVault", "upsertVaultEvidence", "bindResearchFindings", "updateVaultResearchGap", "upsertVaultResearchGap", "upsertVaultClaim", "upsertVaultObjection", "upsertVaultRisk", "updateVaultCoreNarrative", "compileDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "deriveResearchTargets", "evaluateResearchFindings", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
       .describe("Action to perform on DECKS.json."),
     summary: tool.schema.boolean().optional().describe("For read: return a compact summary instead of full state."),
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
@@ -321,9 +321,19 @@ export default tool({
             : undefined
           const migration = getNarrativeVaultMigrationHint(workspaceRoot, state)
           const authoringContract = hasNarrativeVault(workspaceRoot) || migration.available ? narrativeVaultAuthoringContract() : undefined
-          return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, activeDeck: state.activeDeck, deck, vaultDiagnostics, migration, authoringContract }, null, 2)
+          const narrativeInventory = hasNarrativeVault(workspaceRoot) ? buildNarrativeVaultInventory(workspaceRoot) : undefined
+          return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, activeDeck: state.activeDeck, deck, vaultDiagnostics, migration, authoringContract, narrativeInventory }, null, 2)
         }
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, state }, null, 2)
+      }
+
+      if (args.action === "narrativeInventory" || args.action === "vaultInventory") {
+        if (!hasNarrativeVault(workspaceRoot)) {
+          const migration = getNarrativeVaultMigrationHint(workspaceRoot, state)
+          return JSON.stringify({ ok: false, path: "revela-narrative", error: "narrativeInventory requires revela-narrative/ to exist. Use initNarrativeVault or exportNarrativeVault first.", migration, authoringContract: migration.available ? narrativeVaultAuthoringContract() : undefined }, null, 2)
+        }
+        const inventory = buildNarrativeVaultInventory(workspaceRoot)
+        return JSON.stringify({ ok: inventory.ok, path: inventory.path, narrativeInventory: inventory, authoringContract: narrativeVaultAuthoringContract() }, null, 2)
       }
 
       if (args.action === "compileNarrativeVault") {
@@ -357,7 +367,7 @@ export default tool({
       if (args.action === "initNarrativeVault") {
         if (hasNarrativeVault(workspaceRoot)) {
           const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
-          return JSON.stringify({ ok: true, path: "revela-narrative", created: false, files: [], diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, authoringContract: narrativeVaultAuthoringContract(), nextActions: ["Use structured vault actions from authoringContract to record stable findings, then inspect diagnosticReport.", "Use upsertVaultResearchGap for new or updated research gaps; reserve Markdown patches for small read-before-edit repairs."], narrative: compiled.result.narrative }, null, 2)
+          return JSON.stringify({ ok: true, path: "revela-narrative", created: false, files: [], diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract(), nextActions: ["Inspect narrativeInventory before authoring; reuse existing ids and relation targets.", "Maintain Markdown nodes directly when useful, then run compileNarrativeVault. Use structured vault helpers only when they reduce schema risk."], narrative: compiled.result.narrative }, null, 2)
         }
         const result = initNarrativeVault(workspaceRoot, {
           id: `narrative:${defaultSlug}`,
@@ -367,7 +377,7 @@ export default tool({
           thesis: args.narrative?.thesis as any,
         })
         const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
-        return JSON.stringify({ ok: compiled.result.ok, path: result.path, created: result.created, files: result.files, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, authoringContract: narrativeVaultAuthoringContract(), nextActions: ["Record stable findings with structured vault actions: updateVaultCoreNarrative, upsertVaultClaim, upsertVaultEvidence, upsertVaultObjection, upsertVaultRisk, upsertVaultResearchGap, or bindResearchFindings.", "Treat workspace source material records as candidates until explicit evidence trace is written."], narrative: compiled.result.narrative }, null, 2)
+        return JSON.stringify({ ok: compiled.result.ok, path: result.path, created: result.created, files: result.files, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract(), nextActions: ["Inspect narrativeInventory before adding claims, evidence, relations, or research gaps; reuse existing ids where possible.", "Maintain Markdown nodes directly when useful. Use structured vault helpers for evidence binding or when they reduce schema risk.", "Treat workspace source material records as candidates until explicit evidence trace is written."], narrative: compiled.result.narrative }, null, 2)
       }
 
       if (args.action === "upsertVaultEvidence") {
