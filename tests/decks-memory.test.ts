@@ -43,6 +43,9 @@ describe("buildInitPrompt", () => {
     expect(prompt).toContain("Stay strictly inside the current workspace root")
     expect(prompt).toContain("Call `revela-workspace-scan` with no `path` and `max_depth: 2`")
     expect(prompt).toContain("Do not require slide count, visual style, design selection, output path, layout choices, or component choices")
+    expect(prompt).toContain("Expected tool use during init")
+    expect(prompt).toContain("controlled workspace-state/vault boundaries")
+    expect(prompt).toContain("schema display artifact")
   })
 
   it("keeps init search bounded to the current workspace", () => {
@@ -78,6 +81,8 @@ describe("buildInitPrompt", () => {
     expect(prompt).toContain("needsExtraction")
     expect(prompt).toContain("migration.available: true")
     expect(prompt).toContain("exportNarrativeVault")
+    expect(prompt).toContain("complete payload")
+    expect(prompt).toContain("read the current Markdown node first")
   })
 
   it("keeps init source trace adoption conservative", () => {
@@ -86,6 +91,9 @@ describe("buildInitPrompt", () => {
     expect(prompt).toContain("Do not infer hidden evidence")
     expect(prompt).toContain("workspace.sourceMaterials` and ingest task hints are candidate context, not proof")
     expect(prompt).toContain("source trace, quote/snippet, support scope, unsupported scope, caveat, and strength")
+    expect(prompt).toContain("Intent briefs, proposals, and user-authored plans")
+    expect(prompt).toContain("do not by themselves prove market size, competitor performance")
+    expect(prompt).toContain("record the strategy as a claim with partial or missing support")
   })
 
   it("does not make deck render inputs mandatory during narrative init", () => {
@@ -97,8 +105,14 @@ describe("buildInitPrompt", () => {
     expect(prompt).toContain("initNarrativeVault")
     expect(prompt).toContain("Distill stable findings into `revela-narrative/**/*.md`")
     expect(prompt).toContain("partial claims, caveats, unsupported scope, and research gaps")
+    expect(prompt).toContain("Preserve frontmatter ids and existing section headings")
     expect(prompt).toContain("## Relations")
+    expect(prompt).toContain("Do not duplicate stable headings")
+    expect(prompt).toContain("## Caveats")
+    expect(prompt).toContain("## Evidence")
     expect(prompt).toContain("Do not use `upsertNarrative`")
+    expect(prompt).toContain("structurally valid")
+    expect(prompt).toContain("not evidence readiness")
   })
 })
 

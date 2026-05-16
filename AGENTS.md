@@ -81,6 +81,10 @@ Slash commands are explicit entry points, not the only workflow. Explicit workfl
 - Extract or read selected relevant local materials when useful.
 - Distill stable findings from ingested files into `revela-narrative/**/*.md`; source-material records alone are candidate context, not evidence.
 - Derive initial claims, evidence bindings, caveats, unsupported scope, and source trace only when explicit support exists.
+- `revela-decks init` and `initNarrativeVault` are expected controlled state/vault boundaries during init; empty-looking optional tool fields are schema noise, not evidence.
+- Targeted vault helpers are for complete node/action payloads. When modifying existing nodes or multiple related sections, read the Markdown node and patch existing sections in place.
+- Do not duplicate stable vault headings such as `## Evidence`, `## Caveats`, `## Relations`, `## Response`, or `## Mitigation` when patching Markdown.
+- Intent briefs and proposals may support audience, decision, thesis, stakeholder framing, and stated internal intent, but they do not by themselves prove external market, competitor, product, or operating-model claims.
 - Ask the smallest missing intent questions after local evidence has been considered.
 - Do not require slide count, design choice, layout choice, output path, or visual style unless the user explicitly asks to make an artifact immediately.
 
