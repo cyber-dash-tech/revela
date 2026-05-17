@@ -23,9 +23,9 @@ import { CANVAS_W, CANVAS_H } from "./measure"
 export type IssueSeverity = "error" | "warning" | "info"
 
 export interface LayoutIssue {
-  type: "canvas" | "scrollbar" | "overflow" | "text_overflow" | "density" | "balance" | "symmetry" | "rhythm" | "compliance" | "asset"
+  type: "canvas" | "scrollbar" | "navigation" | "overflow" | "text_overflow" | "density" | "balance" | "symmetry" | "rhythm" | "compliance" | "asset"
   /** Sub-category within the dimension */
-  sub?: "size_mismatch" | "page_scroll" | "text_clipped" | "thin_content"
+  sub?: "size_mismatch" | "page_scroll" | "fixed_overlay_slides" | "hidden_paging" | "unreachable_slides" | "text_clipped" | "thin_content"
       | "centroid_offset" | "bottom_gap" | "sparse"
       | "height_mismatch" | "density_mismatch"
       | "gap_variance"
@@ -205,13 +205,76 @@ function checkCanvas(metrics: SlideMetrics): LayoutIssue[] {
 }
 
 function checkScrollbars(metrics: SlideMetrics): LayoutIssue[] {
-  if (!metrics.hasScrollbars) return []
+  const scrollbars = metrics.scrollbars
+  const totalSlides = metrics.navigation?.totalSlides ?? 1
+  const hasAllowedMultiSlideVerticalScroll = totalSlides > 1
+
+  if (scrollbars) {
+    const hasBlockingScrollbars =
+      scrollbars.documentHorizontal ||
+      scrollbars.bodyHorizontal ||
+      scrollbars.slideHorizontal ||
+      scrollbars.slideVertical ||
+      (!hasAllowedMultiSlideVerticalScroll && (scrollbars.documentVertical || scrollbars.bodyVertical))
+
+    if (!hasBlockingScrollbars) return []
+  } else if (!metrics.hasScrollbars) {
+    return []
+  }
+
   return [{
     type: "scrollbar",
     sub: "page_scroll",
     severity: "error",
-    detail: "Rendered slide/page has scrollbars at 1920x1080. Deck slides must fit the fixed canvas without document, body, or slide scrolling.",
+    detail: "Rendered slide/page has blocking scrollbars at 1920x1080. Normal vertical document scroll is allowed for multi-slide navigation, but horizontal document/body scroll and slide-internal scroll must be removed.",
   }]
+}
+
+function checkNavigationModel(allMetrics: SlideMetrics[]): LayoutIssue[] {
+  if (allMetrics.length <= 1) return []
+
+  const nav = allMetrics.map((metrics) => metrics.navigation).filter((item): item is NonNullable<SlideMetrics["navigation"]> => Boolean(item))
+  if (nav.length <= 1) return []
+
+  const positioned = nav.filter((item) => item.position === "fixed" || item.position === "absolute")
+  const hiddenByAria = nav.filter((item) => item.ariaHidden === "true" || item.visibility === "hidden" || item.display === "none")
+  const uniqueTops = new Set(nav.map((item) => Math.round(item.initialTop)))
+  const stacked = uniqueTops.size <= 1
+  const documentCanScroll = nav[0].documentScrollHeight > nav[0].viewportHeight + 2
+  const overflowHidden = nav[0].bodyOverflowY === "hidden" || nav[0].documentOverflowY === "hidden"
+
+  const issues: LayoutIssue[] = []
+  if (positioned.length === nav.length && stacked) {
+    issues.push({
+      type: "navigation",
+      sub: "fixed_overlay_slides",
+      severity: "error",
+      detail: "Slides are stacked with fixed/absolute positioning. Revela decks must keep each .slide in normal document flow so scrollIntoView and keyboard navigation can reach every slide.",
+      data: { slideCount: nav.length, positionedSlides: positioned.length },
+    })
+  }
+
+  if (positioned.length === nav.length && hiddenByAria.length > 0) {
+    issues.push({
+      type: "navigation",
+      sub: "hidden_paging",
+      severity: "error",
+      detail: "Slides use aria-hidden/visibility toggles with fixed overlay pagination. Do not make slide visibility depend on aria-hidden; keep slides visible in normal flow and navigate with scrollIntoView.",
+      data: { hiddenSlides: hiddenByAria.length, slideCount: nav.length },
+    })
+  }
+
+  if (!documentCanScroll && overflowHidden && allMetrics.length > 1) {
+    issues.push({
+      type: "navigation",
+      sub: "unreachable_slides",
+      severity: "error",
+      detail: "Multi-slide deck disables document vertical scrolling. Normal slide flow needs enough document height for all slides; fix slide overflow locally instead of hiding body/html overflow.",
+      data: { slideCount: nav.length, documentScrollHeight: nav[0].documentScrollHeight, viewportHeight: nav[0].viewportHeight },
+    })
+  }
+
+  return issues
 }
 
 /**
@@ -621,9 +684,11 @@ export function runChecks(
   _options?: RunChecksOptions,
 ): QAReport {
   const slides: SlideReport[] = []
+  const navigationIssues = checkNavigationModel(allMetrics)
 
   for (const metrics of allMetrics) {
     const issues: LayoutIssue[] = [
+      ...(metrics.index === 0 ? navigationIssues : []),
       ...checkCanvas(metrics),
       ...checkScrollbars(metrics),
       ...checkOverflow(metrics),
@@ -693,7 +758,8 @@ export function formatReport(report: QAReport): string {
     ``,
     `Please fix the above hard-error issues in the HTML file. For each issue type:`,
     `- **canvas**: ensure each slide and .slide-canvas render exactly 1920x1080px, not merely any 16:9 size.`,
-    `- **scrollbar**: remove document/body/slide scrolling; content must fit inside the fixed 1920x1080 canvas.`,
+    `- **scrollbar**: remove horizontal document/body scrolling and slide-internal scrolling. Multi-slide decks may use normal vertical document scroll for navigation.`,
+    `- **navigation**: keep every .slide in normal document flow; do not stack slides with fixed/absolute positioning or rely on aria-hidden/visibility toggles for pagination. Use scrollIntoView-based navigation.`,
     `- **overflow**: reduce font size, padding, or content amount for the affected element.`,
     `- **text_overflow**: increase the text container size, reduce copy, or adjust font/line-height so text is not clipped.`,
     `- **density/thin_content**: add concrete claim/evidence points, metrics, chart/table support, or source/caveat text. This is a warning for content substance, not a blank-space failure.`,

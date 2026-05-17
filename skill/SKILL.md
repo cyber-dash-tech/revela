@@ -95,7 +95,8 @@ Before writing HTML, the confirmed plan must include:
   non-structural slides assigned to each chapter.
 - One row per slide with title, purpose, narrative role, content summary, layout,
   components, primary/supporting claim ids, evidence binding ids or source
-  summary, visual intent, and caveats/unsupported scope.
+  summary, `content.data.visualIntent`, `visuals[]`, and caveats/unsupported
+  scope.
 - A low-fidelity layout sketch for every slide when requested by the handoff
   prompt.
 
@@ -110,6 +111,10 @@ Rules for the slide plan:
   "overview of topic".
 - Every content slide must carry a distinct claim, evidence item, comparison,
   risk, or action.
+- Treat `content.data.visualIntent` and `visuals[]` as required render
+  instructions, not optional decoration. Do not downgrade a planned metric card,
+  evidence table, comparison grid, risk matrix, steps view, chart, or media brief
+  into generic bullets unless the user revises and reconfirms the plan.
 - Normal content slides should usually contain 2-4 semantic boxes/cards unless
   intentionally using a focus layout.
 - If a chapter lacks enough substance for its allocated slides, reduce the slide

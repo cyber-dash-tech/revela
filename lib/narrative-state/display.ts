@@ -9,6 +9,7 @@ export interface NarrativeDisplayModel {
   summaryLine?: string
   labels?: Partial<NarrativeDisplayLabels>
   claimCards?: NarrativeDisplayClaimCard[]
+  researchGapCards?: NarrativeDisplayResearchGapCard[]
   relations?: NarrativeDisplayRelation[]
 }
 
@@ -17,6 +18,18 @@ export interface NarrativeDisplayLabels {
   claimFlow: string
   flowNote: string
   selectedClaim: string
+  selectedEvidence: string
+  evidenceList: string
+  gap: string
+  gaps: string
+  noEvidence: string
+  selectEvidencePrompt: string
+  sourceTrace: string
+  evidenceSource: string
+  whyThisSupports: string
+  linkedGaps: string
+  selectedGap: string
+  noLinkedGaps: string
   claim: string
   claimId: string
   status: string
@@ -48,6 +61,11 @@ export interface NarrativeDisplayClaimCard {
   researchGapsSummary?: string
 }
 
+export interface NarrativeDisplayResearchGapCard {
+  gapId: string
+  displayQuestion?: string
+}
+
 export interface NarrativeDisplayRelation {
   fromClaimId: string
   toClaimId: string
@@ -63,6 +81,7 @@ export interface ValidatedNarrativeDisplayModel {
   summaryLine?: string
   labels: NarrativeDisplayLabels
   claimCards: Map<string, NarrativeDisplayClaimCard>
+  researchGapCards: Map<string, NarrativeDisplayResearchGapCard>
   relations: Map<string, NarrativeDisplayRelation>
 }
 
@@ -71,8 +90,20 @@ export function defaultNarrativeDisplayLabels(language: NarrativeViewLanguage): 
     return {
       eyebrow: "只读主张流",
       claimFlow: "主张推进",
-      flowNote: "点击主张查看证据、关系、风险、缺口和已覆盖页面。",
+      flowNote: "点击主张查看论据和真实存在的缺口；点击论据查看它关联的缺口。",
       selectedClaim: "当前主张",
+      selectedEvidence: "当前论据",
+      evidenceList: "论据",
+      gap: "缺口",
+      gaps: "缺口",
+      noEvidence: "没有绑定论据",
+      selectEvidencePrompt: "选择一条论据或缺口查看详情",
+      sourceTrace: "来源追踪",
+      evidenceSource: "来源",
+      whyThisSupports: "为什么支撑论点",
+      linkedGaps: "这条论据关联的缺口",
+      selectedGap: "当前缺口",
+      noLinkedGaps: "这条论据没有关联缺口",
       claim: "主张",
       claimId: "主张 ID",
       status: "状态",
@@ -93,8 +124,20 @@ export function defaultNarrativeDisplayLabels(language: NarrativeViewLanguage): 
     return {
       eyebrow: "読み取り専用クレームフロー",
       claimFlow: "クレームフロー",
-      flowNote: "クレームをクリックすると、根拠、関係、リスク、ギャップ、該当スライドを確認できます。",
+      flowNote: "クレームをクリックして根拠と実在するギャップを確認し、根拠をクリックして紐づくギャップを確認します。",
       selectedClaim: "選択中のクレーム",
+      selectedEvidence: "選択中の根拠",
+      evidenceList: "根拠",
+      gap: "ギャップ",
+      gaps: "ギャップ",
+      noEvidence: "紐づいた根拠はありません",
+      selectEvidencePrompt: "根拠またはギャップを選択して詳細を確認してください",
+      sourceTrace: "出典トレース",
+      evidenceSource: "出典",
+      whyThisSupports: "この根拠がクレームを支える理由",
+      linkedGaps: "この根拠に紐づくギャップ",
+      selectedGap: "選択中のギャップ",
+      noLinkedGaps: "この根拠に紐づくギャップはありません",
       claim: "クレーム",
       claimId: "クレーム ID",
       status: "ステータス",
@@ -114,8 +157,20 @@ export function defaultNarrativeDisplayLabels(language: NarrativeViewLanguage): 
   return {
     eyebrow: "Read-only claim flow board",
     claimFlow: "Claim Flow",
-    flowNote: "Click a claim to inspect support, relation context, gaps, and covered slides.",
+    flowNote: "Click a claim to read its evidence and real gaps; click evidence to see gaps linked to that evidence.",
     selectedClaim: "Selected claim",
+    selectedEvidence: "Selected evidence",
+    evidenceList: "Evidence",
+    gap: "Gap",
+    gaps: "Gaps",
+    noEvidence: "No evidence bound",
+    selectEvidencePrompt: "Select evidence or a gap to inspect details.",
+    sourceTrace: "Source trace",
+    evidenceSource: "Source",
+    whyThisSupports: "Why this supports the claim",
+    linkedGaps: "Gaps linked to evidence",
+    selectedGap: "Selected gap",
+    noLinkedGaps: "No gaps linked to this evidence.",
     claim: "Claim",
     claimId: "Claim ID",
     status: "Status",
@@ -140,11 +195,18 @@ export function validateNarrativeDisplayModel(map: NarrativeMap, input: Narrativ
   if (input.language !== language) throw new Error(`Narrative display model language must be ${language}.`)
 
   const claimIds = new Set(map.claimFlow.map((claim) => claim.id))
+  const gapIds = new Set(map.researchGaps.map((gap) => gap.id))
   const relationByKey = new Map(map.claimRelations.map((relation) => [relationKey(relation), relation]))
   const claimCards = new Map<string, NarrativeDisplayClaimCard>()
   for (const card of input.claimCards ?? []) {
     if (!claimIds.has(card.claimId)) throw new Error(`Unknown display claimId: ${card.claimId}`)
     claimCards.set(card.claimId, cleanClaimCard(card))
+  }
+
+  const researchGapCards = new Map<string, NarrativeDisplayResearchGapCard>()
+  for (const card of input.researchGapCards ?? []) {
+    if (!gapIds.has(card.gapId)) throw new Error(`Unknown display gapId: ${card.gapId}`)
+    researchGapCards.set(card.gapId, cleanResearchGapCard(card))
   }
 
   const relations = new Map<string, NarrativeDisplayRelation>()
@@ -162,12 +224,13 @@ export function validateNarrativeDisplayModel(map: NarrativeMap, input: Narrativ
     summaryLine: clean(input.summaryLine),
     labels: mergeLabels(defaults, input.labels),
     claimCards,
+    researchGapCards,
     relations,
   }
 }
 
 export function emptyDisplayModel(language: NarrativeViewLanguage, labels = defaultNarrativeDisplayLabels(language)): ValidatedNarrativeDisplayModel {
-  return { version: 1, language, labels, claimCards: new Map(), relations: new Map() }
+  return { version: 1, language, labels, claimCards: new Map(), researchGapCards: new Map(), relations: new Map() }
 }
 
 export function relationKey(relation: Pick<NarrativeDisplayRelation, "fromClaimId" | "toClaimId" | "relation">): string {
@@ -207,6 +270,13 @@ function cleanClaimCard(card: NarrativeDisplayClaimCard): NarrativeDisplayClaimC
     risksSummary: clean(card.risksSummary),
     riskOrGapSummary: clean(card.riskOrGapSummary),
     researchGapsSummary: clean(card.researchGapsSummary),
+  }
+}
+
+function cleanResearchGapCard(card: NarrativeDisplayResearchGapCard): NarrativeDisplayResearchGapCard {
+  return {
+    gapId: card.gapId,
+    displayQuestion: clean(card.displayQuestion),
   }
 }
 

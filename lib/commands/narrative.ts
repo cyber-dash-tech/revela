@@ -147,7 +147,7 @@ export function buildNarrativeViewPrompt(options: { workspaceRoot: string; langu
     relations: map.claimRelations.map((relation) => ({ id: relation.id, fromClaimId: relation.fromClaimId, toClaimId: relation.toClaimId, relation: relation.relation, rationale: relation.rationale, inferred: relation.inferred })),
     objections: map.objections.map((objection) => ({ id: objection.id, claimId: objection.claimId, priority: objection.priority, text: objection.text, response: objection.response })),
     risks: map.risks.map((risk) => ({ id: risk.id, claimId: risk.claimId, severity: risk.severity, text: risk.text, mitigation: risk.mitigation })),
-    researchGaps: map.researchGaps.map((gap) => ({ id: gap.id, targetType: gap.targetType, targetId: gap.targetId, status: gap.status, priority: gap.priority, question: gap.question })),
+    researchGaps: map.researchGaps.map((gap) => ({ id: gap.id, targetType: gap.targetType, targetId: gap.targetId, status: gap.status, priority: gap.priority, question: gap.question, findingsFile: gap.findingsFile, evidenceBindingIds: gap.evidenceBindingIds, notes: gap.notes })),
     artifactCoverage: map.artifactCoverage.map((artifact) => ({ type: artifact.type, outputPath: artifact.outputPath, stale: artifact.stale, coverageStatus: artifact.coverageStatus, affectedClaimIds: artifact.affectedClaimIds, missingClaimIds: artifact.missingClaimIds, slideRefs: artifact.slideRefs.map((ref) => ({ claimId: ref.claimId, slideIndex: ref.slideIndex, role: ref.role, match: ref.match, location: ref.location })) })),
   }
 
@@ -165,18 +165,27 @@ Hard rules:
 - Do not invent new claims, evidence, relations, slide coverage, source paths, findings files, quotes, or caveats.
 - Preserve every claimId exactly.
 - Preserve every relation endpoint exactly: fromClaimId, toClaimId, relation.
-- You may only organize and localize display copy for the UI: pageTitle, summaryLine, section labels, claim card displayTitle, roleLabel, narrativeJob, evidenceSummary, supportRationale, supportedScope, unsupportedScope, objectionsSummary, risksSummary, riskOrGapSummary, researchGapsSummary, relation displayLabel, and relation displayRationale.
+- You may only organize and localize display copy for the UI: pageTitle, summaryLine, section labels, claim card displayTitle, roleLabel, narrativeJob, evidenceSummary, supportRationale, supportedScope, unsupportedScope, objectionsSummary, risksSummary, riskOrGapSummary, researchGapsSummary, research gap displayQuestion, relation displayLabel, and relation displayRationale.
 - For inferred relations, do not provide relation displayLabel or displayRationale; inferred relations are unconfirmed order notes, not causal/support/dependency judgments.
 - relation displayRationale may only localize or clarify an existing canonical relation rationale. If relation.rationale is missing or the relation is inferred, do not provide displayRationale; the UI will show the missing or inferred status.
 - Keep source paths, findings files, claim IDs, narrative hash, and numbers unchanged.
-- Translate normal UI/display text into the target language request: pageTitle, summaryLine, labels, claim displayTitle, roleLabel, narrativeJob, evidenceSummary, supportRationale, supportedScope, unsupportedScope, objectionsSummary, risksSummary, riskOrGapSummary, researchGapsSummary, relation displayLabel, and relation displayRationale.
+- Translate normal UI/display text into the target language request: pageTitle, summaryLine, labels, claim displayTitle, roleLabel, narrativeJob, evidenceSummary, supportRationale, supportedScope, unsupportedScope, objectionsSummary, risksSummary, riskOrGapSummary, researchGapsSummary, research gap displayQuestion, relation displayLabel, and relation displayRationale.
 - For every claim in a non-English target language, provide displayTitle so the selected-claim panel does not fall back to canonical English claim text.
-- For every selected-claim detail field that has canonical user-facing text, provide the matching localized display field when it exists: supportedScope for supported scope, unsupportedScope for evidence boundaries, supportRationale for why the evidence supports the claim, objectionsSummary for objections, risksSummary for risks, and researchGapsSummary for research gaps.
+- For every evidence/detail field that has canonical user-facing text, provide the matching localized display field when it exists: supportedScope for supported scope, unsupportedScope for evidence boundaries, supportRationale for why the evidence supports the claim, objectionsSummary for objections, risksSummary for risks, and researchGapsSummary for canonical research gaps.
 - Do not translate claim IDs, relation endpoints, narrative hash, source paths, findings files, URLs, numbers, or quoted/source facts.
+- For every canonical research gap in a non-English target language, provide researchGapCards[].displayQuestion so gap cards do not fall back to canonical English question text. Preserve gapId exactly and do not change the gap meaning.
 - Use natural business and manufacturing terminology in the target language, not word-by-word machine translation.
 - If a fact is missing, describe it as missing instead of filling it in.
 - If vaultDiagnostics.blockers is present in the compact map, keep Story read-only but surface the blocker state in summaryLine and the relevant claim card riskOrGapSummary when applicable. Include diagnostic file/nodeId/code/message/suggestedAction in display copy; do not invent missing evidence, source trace, quotes, or caveats to hide the blocker.
 - Do not turn Story into a workflow dashboard: diagnostic copy is for reading context only, not command suggestions or mutation planning.
+- Story UI is evidence-first: clicking a claim shows evidence/gap cards; evidence cards must carry the evidence description, why it supports the claim, and source trace; clicking evidence shows only canonical gaps linked to that evidence.
+- The selected-claim panel is only an evidence/research-gap card list. Do not repeat canonical claim text there; the claim itself is already visible in Claim Flow.
+- Claim cards should not explain gaps or risks through riskOrGapSummary when the same topic belongs in evidence/gap cards. Keep claim cards focused on role, narrative job, and evidence summary.
+- Do not make evidence detail a schema dump. Do not default to unsupportedScope, caveat, IDs, target fields, or evidenceBindingIds for evidence cards; evidence cards should explain what the source says, why it supports the claim, and where it came from.
+- Do not invent, infer, or soften new gaps in display copy. Show research gaps only when they exist in compactMap.researchGaps; do not turn unsupportedScope, weak evidence, caveats, objections, risks, or your own judgment into a gap.
+- researchGapsSummary and riskOrGapSummary may only summarize existing canonical research gaps or diagnostics. If no canonical gap exists for the claim, leave gap-specific display copy empty instead of implying a gap.
+- Localize new Story labels when useful: selectedEvidence, evidenceList, gap, gaps, noEvidence, selectEvidencePrompt, sourceTrace, evidenceSource, whyThisSupports, linkedGaps, selectedGap, and noLinkedGaps.
+- Gap detail may only use canonical research gap fields from the compact map: id, targetType, targetId, status, priority, question, findingsFile, evidenceBindingIds, and notes.
 
 Chinese localization rules when the target language request is Chinese, zh, zh-CN, --cn, 中文, or Simplified Chinese:
 - Use natural business/manufacturing Chinese, not word-by-word machine translation.

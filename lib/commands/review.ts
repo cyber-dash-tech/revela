@@ -94,15 +94,16 @@ Workflow:
 3. If the read summary returned \`markdownQa.blockers\` or \`vaultDiagnostics.blockers\`, stop before deck planning and report Markdown QA repair cards separately from compile diagnostics with file/node/code/message and smallest repair or suggested next action. If narrative readiness is \`approved\`, continue. If it is \`ready_for_approval\`, ask the user for explicit approval before continuing. If it is blocked, stale, or needs research, stop and report the smallest next action. Do not call \`approveNarrative\` unless the user explicitly approves or requests a render override.
 4. After approval or explicit render override exists, call \`revela-decks\` action \`compileDeckPlan\`. This projects canonical narrative claims and evidence bindings into compatibility \`slides[]\` and \`slides[].evidence[]\`; it must not write HTML.
 5. If \`compileDeckPlan\` returns \`skipped\`, stop and report the reason. Do not invent slide specs manually to bypass approval.
-6. Present the compiled deck plan to the user and include a low-fidelity layout sketch for every slide. The plan must identify the chapter structure first: 3-5 chapter headings, each chapter's slide range, and which non-structural slides belong to each chapter. The sketch is ASCII/text structure only; do not generate visual images or HTML mockups.
-7. Stop after presenting the plan. Ask the user to confirm or request changes. Do not call \`revela-decks review\`, do not fetch design context, and do not write HTML in the same turn unless the user had already explicitly confirmed the current plan before this command.
-8. Only after explicit user confirmation of the current slide plan, call \`revela-decks\` action \`confirmDeckPlan\` with \`approvalBy=user\` and a compact \`approvalNote\`.
-9. After confirmation is recorded, ask for or confirm visual design only after the narrative deck plan exists. Fetch required design layouts/components with \`revela-designs read\` as needed.
-10. Update only deck/artifact metadata through \`revela-decks upsertDeck\` / \`upsertSlides\` when required by confirmed design/layout choices. Do not change canonical narrative claims unless the user asks to revise the narrative.
-11. Call \`revela-decks\` action \`review\` as the artifact gate. It computes \`writeReadiness\` and review snapshots for deck HTML writing. If it reports \`slide_plan_unconfirmed\`, stop and ask for explicit deck-plan confirmation.
-12. Write \`decks/*.html\` only if the deck/artifact gate is ready and all deck HTML contract requirements can be satisfied. Generate the artifact chapter by chapter instead of drafting all content slides in one broad pass. Keep the HTML file valid after every write, preserve already-written slides, and update one chapter's slide sections at a time.
-13. For each chapter, make every content slide carry a distinct claim, evidence item, comparison, risk, or action. If a chapter lacks enough substance for its allocated slides, merge weak slides or reduce the slide count instead of creating sparse filler.
-14. After each HTML write, the system automatically runs artifact QA before opening Review. If post-write artifact QA reports hard errors, fix them and let QA run again. Review opens only after hard errors pass. Density warnings about thin claim/evidence substance should be reported and improved when useful, but they do not block Review.
+6. Treat each compiled slide's \`visuals[]\` and \`content.data.visualIntent\` as required render instructions, not optional decoration. Do not downgrade a planned chart, metric card, evidence table, comparison grid, risk matrix, steps view, or media brief into generic bullets unless the plan is revised and reconfirmed.
+7. Present the compiled deck plan to the user and include a low-fidelity layout sketch for every slide. The plan must identify the chapter structure first: 3-5 chapter headings, each chapter's slide range, and which non-structural slides belong to each chapter. The sketch is ASCII/text structure only; do not generate visual images or HTML mockups.
+8. Stop after presenting the plan. Ask the user to confirm or request changes. Do not call \`revela-decks review\`, do not fetch design context, and do not write HTML in the same turn unless the user had already explicitly confirmed the current plan before this command.
+9. Only after explicit user confirmation of the current slide plan, call \`revela-decks\` action \`confirmDeckPlan\` with \`approvalBy=user\` and a compact \`approvalNote\`.
+10. After confirmation is recorded, ask for or confirm visual design only after the narrative deck plan exists. Fetch required design layouts/components with \`revela-designs read\` as needed.
+11. Update only deck/artifact metadata through \`revela-decks upsertDeck\` / \`upsertSlides\` when required by confirmed design/layout choices. Do not change canonical narrative claims unless the user asks to revise the narrative.
+12. Call \`revela-decks\` action \`review\` as the artifact gate. It computes \`writeReadiness\` and review snapshots for deck HTML writing. If it reports \`slide_plan_unconfirmed\`, stop and ask for explicit deck-plan confirmation.
+13. Write \`decks/*.html\` only if the deck/artifact gate is ready and all deck HTML contract requirements can be satisfied. Generate the artifact chapter by chapter instead of drafting all content slides in one broad pass. Keep the HTML file valid after every write, preserve already-written slides, and update one chapter's slide sections at a time.
+14. For each chapter, make every content slide carry a distinct claim, evidence item, comparison, risk, or action. If a chapter lacks enough substance for its allocated slides, merge weak slides or reduce the slide count instead of creating sparse filler.
+15. After each HTML write, the system automatically runs artifact QA before opening Review. If post-write artifact QA reports hard errors, fix them and let QA run again. Review opens only after hard errors pass. Density warnings about thin claim/evidence substance should be reported and improved when useful, but they do not block Review.
 
 Deck plan report format:
 - Start with \`Deck plan: awaiting confirmation\` when a plan was compiled and has not yet been confirmed.
@@ -111,7 +112,7 @@ Deck plan report format:
 - Include whether \`compileDeckPlan\` compiled or skipped.
 - Include \`Required structure: Cover + Table of Contents + Closing\` and do not omit any of those slides.
 - Include a \`Chapters\` section before the slide list. It must list 3-5 TOC headings, their slide ranges, and the non-structural slides assigned to each chapter.
-- For every slide, include: slide index, title, purpose, narrative role, low-fidelity layout sketch, layout, components, primary/supporting claim ids, evidence binding ids or source summary, visual intent, and caveats/unsupported scope.
+- For every slide, include: slide index, title, purpose, narrative role, low-fidelity layout sketch, layout, components, primary/supporting claim ids, evidence binding ids or source summary, visual intent from \`content.data.visualIntent\`, visual brief from \`visuals[]\`, and caveats/unsupported scope.
 - Use this sketch style or similarly simple ASCII boxes:
 
 \`\`\`text
@@ -133,6 +134,8 @@ Components:
 Primary claim:
 Supporting claims:
 Evidence bindings:
+Visual intent:
+Visual brief:
 Caveats / unsupported scope:
 \`\`\`
 - End by asking the user to confirm the deck plan or request changes.
@@ -146,6 +149,7 @@ Report format before any HTML write after confirmation:
 
 Rules:
 - \`compileDeckPlan\` is the canonical narrative-to-deck planning path. Do not manually invent slide specs to avoid it.
+- Visual intent is part of the confirmed plan. During HTML generation, satisfy the planned component/visual brief using fetched design components; do not collapse planned visuals into prose-only bullets.
 - Deck slide specs are render-target projections. Canonical narrative remains the authority for audience, decision, claims, evidence boundaries, objections, risks, and approval.
 - Cover, Table of Contents, and Closing are mandatory deck structure. TOC chapter headings must match the chapter grouping used for generation.
 - Do not generate the complete deck content in one broad pass after confirmation. Work chapter by chapter while keeping the artifact valid after each write.

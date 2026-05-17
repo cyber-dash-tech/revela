@@ -4,7 +4,7 @@ import { join } from "path"
 import { runChecks, formatReport } from "../lib/qa/checks"
 import { runComplianceQA } from "../lib/qa/compliance"
 import { CANVAS_W, CANVAS_H } from "../lib/qa/measure"
-import type { SlideMetrics, ElementInfo, Rect } from "../lib/qa/measure"
+import type { SlideMetrics, ElementInfo, Rect, ScrollbarMetrics, SlideNavigationMetrics } from "../lib/qa/measure"
 import type { DesignClassVocabulary } from "../lib/design/designs"
 import { tempWorkspace } from "./helpers/tool-helpers"
 
@@ -31,6 +31,8 @@ function makeMetrics(
     elements?: ElementInfo[]
     contentRect?: Rect
     title?: string
+    scrollbars?: ScrollbarMetrics
+    navigation?: SlideNavigationMetrics
   } = {},
 ): SlideMetrics {
   const index = opts.index ?? 0
@@ -58,10 +60,41 @@ function makeMetrics(
     slideQa,
     canvasRect: CANVAS_RECT,
     slideRect: CANVAS_RECT,
-    hasScrollbars: false,
+    hasScrollbars: Boolean(opts.scrollbars && Object.values(opts.scrollbars).some(Boolean)),
+    scrollbars: opts.scrollbars,
+    navigation: opts.navigation,
     elements,
     contentRect,
     contentStats: { bodyTextPoints: 0, contentUnits: elements.length, supportReferences: 0 },
+  }
+}
+
+function scrollbars(overrides: Partial<ScrollbarMetrics> = {}): ScrollbarMetrics {
+  return {
+    documentHorizontal: false,
+    documentVertical: false,
+    bodyHorizontal: false,
+    bodyVertical: false,
+    slideHorizontal: false,
+    slideVertical: false,
+    ...overrides,
+  }
+}
+
+function navigation(overrides: Partial<SlideNavigationMetrics> = {}): SlideNavigationMetrics {
+  return {
+    totalSlides: 2,
+    initialTop: 0,
+    initialLeft: 0,
+    position: "static",
+    visibility: "visible",
+    display: "flex",
+    ariaHidden: null,
+    bodyOverflowY: "visible",
+    documentOverflowY: "visible",
+    documentScrollHeight: CANVAS_H * 2,
+    viewportHeight: CANVAS_H,
+    ...overrides,
   }
 }
 
@@ -135,6 +168,39 @@ describe("canvas and text checks", () => {
     const issue = report.slides[0].issues.find((i) => i.type === "text_overflow")
     expect(issue?.severity).toBe("error")
     expect(issue?.detail).toContain("Long clipped copy")
+  })
+})
+
+describe("navigation model", () => {
+  it("flags fixed overlay slides hidden with aria-hidden pagination", () => {
+    const report = runChecks("test.html", [
+      makeMetrics({ index: 0, navigation: navigation({ totalSlides: 2, position: "fixed", initialTop: 0, ariaHidden: "false", bodyOverflowY: "hidden", documentScrollHeight: CANVAS_H }) }),
+      makeMetrics({ index: 1, navigation: navigation({ totalSlides: 2, position: "fixed", initialTop: 0, ariaHidden: "true", visibility: "hidden", bodyOverflowY: "hidden", documentScrollHeight: CANVAS_H }) }),
+    ])
+
+    const firstIssues = report.slides[0].issues
+    expect(firstIssues.some((issue) => issue.type === "navigation" && issue.sub === "fixed_overlay_slides" && issue.severity === "error")).toBe(true)
+    expect(firstIssues.some((issue) => issue.type === "navigation" && issue.sub === "hidden_paging" && issue.severity === "error")).toBe(true)
+    expect(firstIssues.some((issue) => issue.type === "navigation" && issue.sub === "unreachable_slides" && issue.severity === "error")).toBe(true)
+  })
+
+  it("allows normal multi-slide vertical document flow", () => {
+    const report = runChecks("test.html", [
+      makeMetrics({ index: 0, scrollbars: scrollbars({ documentVertical: true, bodyVertical: true }), navigation: navigation({ totalSlides: 2, initialTop: 0, documentScrollHeight: CANVAS_H * 2 }) }),
+      makeMetrics({ index: 1, scrollbars: scrollbars({ documentVertical: true, bodyVertical: true }), navigation: navigation({ totalSlides: 2, initialTop: CANVAS_H, documentScrollHeight: CANVAS_H * 2 }) }),
+    ])
+
+    expect(report.slides.flatMap((slide) => slide.issues).some((issue) => issue.type === "navigation")).toBe(false)
+    expect(report.slides.flatMap((slide) => slide.issues).some((issue) => issue.type === "scrollbar")).toBe(false)
+  })
+
+  it("still flags slide-internal scrollbars", () => {
+    const report = runChecks("test.html", [
+      makeMetrics({ index: 0, scrollbars: scrollbars({ slideVertical: true }), navigation: navigation({ totalSlides: 2, initialTop: 0 }) }),
+      makeMetrics({ index: 1, navigation: navigation({ totalSlides: 2, initialTop: CANVAS_H }) }),
+    ])
+
+    expect(report.slides[0].issues.some((issue) => issue.type === "scrollbar" && issue.sub === "page_scroll")).toBe(true)
   })
 })
 

@@ -416,10 +416,33 @@ describe("narrative state", () => {
       title: "Demand supports phased expansion.",
       claimIds: [expect.stringMatching(/^claim:/)],
       claimRefs: [expect.objectContaining({ claimId: expect.stringMatching(/^claim:/), role: "primary" })],
-      components: ["box", "text-panel", "quote"],
+      components: expect.arrayContaining(["box", "text-panel", "quote", "stat-card"]),
       evidenceBindingIds: [expect.stringMatching(/^evidence:/)],
-      content: { headline: "Demand supports phased expansion." },
+      content: {
+        headline: "Demand supports phased expansion.",
+        data: {
+          visualIntent: expect.objectContaining({
+            kind: "metric-stat",
+            component: "stat-card",
+            dataSignals: expect.arrayContaining(["25%", "2024", "2025"]),
+            evidenceBindingIds: [expect.stringMatching(/^evidence:/)],
+          }),
+        },
+      },
       evidence: [expect.objectContaining({ findingsFile: "researches/narrative-demo/market.md", quote: "Demand increased 25% from 2024 to 2025." })],
+      visuals: [expect.objectContaining({ purpose: "metric-stat", brief: expect.stringContaining("stat-card") })],
+    })
+    expect(deck.slides[3]).toMatchObject({
+      title: "Supporting Logic",
+      components: expect.arrayContaining(["box", "text-panel", "data-table"]),
+      content: { data: { visualIntent: expect.objectContaining({ kind: "comparison-grid", component: "data-table" }) } },
+      visuals: [expect.objectContaining({ purpose: "comparison-grid", brief: expect.stringContaining("comparison grid") })],
+    })
+    expect(deck.slides[4]).toMatchObject({
+      title: "Risks And Objections",
+      components: expect.arrayContaining(["box", "text-panel", "data-table"]),
+      content: { data: { visualIntent: expect.objectContaining({ kind: "risk-matrix", component: "data-table" }) } },
+      visuals: [expect.objectContaining({ purpose: "risk-matrix", brief: expect.stringContaining("matrix") })],
     })
     expect(deck.requiredInputs).toMatchObject({
       topicClarified: true,

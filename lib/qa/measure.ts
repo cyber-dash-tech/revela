@@ -64,6 +64,29 @@ export interface SlideContentStats {
   supportReferences: number
 }
 
+export interface ScrollbarMetrics {
+  documentHorizontal: boolean
+  documentVertical: boolean
+  bodyHorizontal: boolean
+  bodyVertical: boolean
+  slideHorizontal: boolean
+  slideVertical: boolean
+}
+
+export interface SlideNavigationMetrics {
+  totalSlides: number
+  initialTop: number
+  initialLeft: number
+  position: string
+  visibility: string
+  display: string
+  ariaHidden: string | null
+  bodyOverflowY: string
+  documentOverflowY: string
+  documentScrollHeight: number
+  viewportHeight: number
+}
+
 export interface SlideMetrics {
   /** 0-based slide index */
   index: number
@@ -82,6 +105,10 @@ export interface SlideMetrics {
   slideRect: Rect
   /** whether document/body/slide has scrollbars at 1920x1080 */
   hasScrollbars: boolean
+  /** detailed scrollbar source signals for document/body/slide */
+  scrollbars?: ScrollbarMetrics
+  /** deck navigation model signals captured before per-slide scrolling */
+  navigation?: SlideNavigationMetrics
   /** top-level visible children of .slide-canvas */
   elements: ElementInfo[]
   /** union bounding box of all visible leaf elements */
@@ -162,6 +189,31 @@ export async function measureSlides(htmlFilePath: string): Promise<MeasurementRe
     const slideCount: number = await page.evaluate(
       () => document.querySelectorAll(".slide").length
     )
+
+    const navigationData = await page.evaluate(() => {
+      const doc = document.documentElement
+      const body = document.body
+      const docStyle = window.getComputedStyle(doc)
+      const bodyStyle = window.getComputedStyle(body)
+      const slides = Array.from(document.querySelectorAll(".slide")) as HTMLElement[]
+      return slides.map((slide) => {
+        const rect = slide.getBoundingClientRect()
+        const style = window.getComputedStyle(slide)
+        return {
+          totalSlides: slides.length,
+          initialTop: rect.top,
+          initialLeft: rect.left,
+          position: style.position,
+          visibility: style.visibility,
+          display: style.display,
+          ariaHidden: slide.getAttribute("aria-hidden"),
+          bodyOverflowY: bodyStyle.overflowY,
+          documentOverflowY: docStyle.overflowY,
+          documentScrollHeight: doc.scrollHeight,
+          viewportHeight: window.innerHeight,
+        }
+      })
+    })
 
     const metrics: SlideMetrics[] = []
 
@@ -370,6 +422,15 @@ export async function measureSlides(htmlFilePath: string): Promise<MeasurementRe
             slideEl.scrollWidth > slideEl.clientWidth + 2 ||
             slideEl.scrollHeight > slideEl.clientHeight + 2
 
+          const scrollbars = {
+            documentHorizontal: doc.scrollWidth > window.innerWidth + 2,
+            documentVertical: doc.scrollHeight > window.innerHeight + 2,
+            bodyHorizontal: body.scrollWidth > window.innerWidth + 2,
+            bodyVertical: body.scrollHeight > window.innerHeight + 2,
+            slideHorizontal: slideEl.scrollWidth > slideEl.clientWidth + 2,
+            slideVertical: slideEl.scrollHeight > slideEl.clientHeight + 2,
+          }
+
           const titleEl = canvas.querySelector("h1, h2")
           const title = titleEl
             ? (titleEl.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80)
@@ -382,6 +443,7 @@ export async function measureSlides(htmlFilePath: string): Promise<MeasurementRe
             canvasRect,
             slideRect,
             hasScrollbars,
+            scrollbars,
             elements,
             contentRect: unionRect(elements),
             contentStats: { bodyTextPoints, contentUnits, supportReferences },
@@ -390,7 +452,7 @@ export async function measureSlides(htmlFilePath: string): Promise<MeasurementRe
         idx
       )
 
-      if (slideData) metrics.push(slideData as SlideMetrics)
+      if (slideData) metrics.push({ ...(slideData as SlideMetrics), navigation: navigationData[idx] })
     }
 
     // Extract all CSS class names defined in <style> blocks.

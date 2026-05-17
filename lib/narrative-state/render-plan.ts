@@ -1,4 +1,4 @@
-import { deckPlanHash, upsertDeck, upsertSlides, type DecksState, type EvidenceRef, type RequiredInputs, type SlideSpec } from "../decks-state"
+import { deckPlanHash, upsertDeck, upsertSlides, type DecksState, type EvidenceRef, type RequiredInputs, type SlideSpec, type VisualBrief } from "../decks-state"
 import { ensureActiveHtmlDeckRenderTarget } from "../workspace-state/render-targets"
 import { getClaimSlideRefs } from "./queries"
 import { computeNarrativeHash } from "./hash"
@@ -33,6 +33,16 @@ export interface DeckPlanQualityCheck {
   id: string
   status: "pass" | "warning" | "blocker"
   message: string
+}
+
+type VisualIntentKind = "hero" | "toc" | "metric-stat" | "evidence-table" | "comparison-grid" | "risk-matrix" | "steps" | "text-only"
+
+interface VisualIntent {
+  kind: VisualIntentKind
+  component: string
+  rationale: string
+  dataSignals: string[]
+  evidenceBindingIds: string[]
 }
 
 export function compileDeckPlanFromNarrative(state: DecksState, options: CompileDeckPlanOptions = {}): { state: DecksState; result: CompileDeckPlanResult } {
@@ -168,6 +178,7 @@ function buildDeckPlan(narrative: NarrativeStateV1): { slides: SlideSpec[]; chap
 }
 
 function coverSlide(index: number, narrative: NarrativeStateV1): SlideSpec {
+  const visualIntent = visualIntentForStructuralSlide("hero", "Use a hero frame to anchor the decision context and belief shift before evidence detail.")
   return {
     index,
     title: "Decision Context",
@@ -183,13 +194,16 @@ function coverSlide(index: number, narrative: NarrativeStateV1): SlideSpec {
         narrative.audience.beliefAfter ? `After: ${narrative.audience.beliefAfter}` : "After belief needs confirmation.",
       ],
       bullets: narrative.decision.action ? [`Decision: ${narrative.decision.action}`] : [],
+      data: { visualIntent },
     },
+    visuals: visualBriefs(index, visualIntent),
     evidence: [],
     status: "planned",
   }
 }
 
 function tocSlide(index: number, chapters: DeckPlanChapter[]): SlideSpec {
+  const visualIntent = visualIntentForStructuralSlide("toc", "Render the chapter sequence as a visual table of contents instead of a bullet-only agenda.")
   return {
     index,
     title: "Storyline",
@@ -201,14 +215,16 @@ function tocSlide(index: number, chapters: DeckPlanChapter[]): SlideSpec {
     content: {
       headline: "How the decision story is organized",
       bullets: chapters.map((chapter) => chapter.title),
-      data: { chapters: chapters.map((chapter) => ({ title: chapter.title, role: chapter.role })) },
+      data: { chapters: chapters.map((chapter) => ({ title: chapter.title, role: chapter.role })), visualIntent },
     },
+    visuals: visualBriefs(index, visualIntent),
     evidence: [],
     status: "planned",
   }
 }
 
 function claimSlide(index: number, claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): SlideSpec {
+  const visualIntent = visualIntentForClaim(claim, bindings)
   return {
     index,
     title: titleFromClaim(claim),
@@ -216,21 +232,24 @@ function claimSlide(index: number, claim: NarrativeClaim, bindings: NarrativeEvi
     narrativeRole: claim.kind === "risk" || claim.kind === "assumption" ? "risk" : claim.kind === "ask" ? "ask" : claim.kind === "recommendation" ? "recommendation" : "evidence",
     layout: "two-col",
     qa: true,
-    components: claimComponents(claim, bindings),
+    components: claimComponents(claim, bindings, visualIntent),
     claimIds: [claim.id],
     claimRefs: [{ claimId: claim.id, role: "primary", note: claimBoundaryNote(claim) }],
     evidenceBindingIds: bindings.map((binding) => binding.id),
     content: {
       headline: claim.text,
       bullets: claimBullets(claim, bindings),
+      data: { visualIntent },
     },
     evidence: bindings.map(evidenceRefFromBinding),
+    visuals: visualBriefs(index, visualIntent),
     status: "planned",
   }
 }
 
 function supportingLogicSlide(index: number, claims: NarrativeClaim[], evidenceByClaim: Map<string, NarrativeEvidenceBinding[]>): SlideSpec {
   const supportingBindings = claims.flatMap((claim) => evidenceByClaim.get(claim.id) ?? [])
+  const visualIntent = visualIntentForSupportingLogic(claims, supportingBindings)
   return {
     index,
     title: "Supporting Logic",
@@ -238,15 +257,17 @@ function supportingLogicSlide(index: number, claims: NarrativeClaim[], evidenceB
     narrativeRole: "evidence",
     layout: "card-grid",
     qa: true,
-    components: ["box", "text-panel"],
+    components: componentsForVisualIntent(["box", "text-panel"], visualIntent),
     claimIds: claims.map((claim) => claim.id),
     claimRefs: claims.map((claim) => ({ claimId: claim.id, role: "supporting" as const, note: claimBoundaryNote(claim) })),
     evidenceBindingIds: supportingBindings.map((binding) => binding.id),
     content: {
       headline: "Supporting claims and boundaries",
       bullets: claims.slice(0, 5).flatMap((claim) => [claim.text, ...claimBoundaryBullets(claim), evidenceGapBullet(claim, evidenceByClaim.get(claim.id) ?? [])]).filter((item): item is string => Boolean(item)).slice(0, 8),
+      data: { visualIntent },
     },
     evidence: supportingBindings.map(evidenceRefFromBinding),
+    visuals: visualBriefs(index, visualIntent),
     status: "planned",
   }
 }
@@ -258,6 +279,7 @@ function riskObjectionSlide(index: number, narrative: NarrativeStateV1, evidence
   ]
   const challengedClaimIds = [...new Set(challengedClaimRefs.map((ref) => ref.claimId))]
   const challengedBindings = challengedClaimIds.flatMap((claimId) => evidenceByClaim.get(claimId) ?? [])
+  const visualIntent = visualIntentForRiskObjection(narrative, challengedBindings)
   return {
     index,
     title: "Risks And Objections",
@@ -265,7 +287,7 @@ function riskObjectionSlide(index: number, narrative: NarrativeStateV1, evidence
     narrativeRole: "risk",
     layout: "two-col",
     qa: true,
-    components: ["box", "text-panel"],
+    components: componentsForVisualIntent(["box", "text-panel"], visualIntent),
     claimIds: challengedClaimIds,
     claimRefs: dedupeClaimRefs(challengedClaimRefs),
     evidenceBindingIds: challengedBindings.map((binding) => binding.id),
@@ -275,14 +297,17 @@ function riskObjectionSlide(index: number, narrative: NarrativeStateV1, evidence
         ...narrative.risks.slice(0, 3).map((risk) => risk.mitigation ? `${risk.text} Mitigation: ${risk.mitigation}` : risk.text),
         ...narrative.objections.slice(0, 3).map((objection) => objection.response ? `${objection.text} Response: ${objection.response}` : objection.text),
       ],
+      data: { visualIntent },
     },
     evidence: challengedBindings.map(evidenceRefFromBinding),
+    visuals: visualBriefs(index, visualIntent),
     status: "planned",
   }
 }
 
 function decisionAskSlide(index: number, narrative: NarrativeStateV1): SlideSpec {
   const askClaims = orderedClaims(narrative, (claim) => claim.kind === "ask" || claim.kind === "recommendation")
+  const visualIntent = visualIntentForStructuralSlide("steps", "Show the requested decision, owner, deadline, and consequence as an action sequence rather than a dense closing paragraph.")
   return {
     index,
     title: "Decision Ask",
@@ -300,8 +325,10 @@ function decisionAskSlide(index: number, narrative: NarrativeStateV1): SlideSpec
         narrative.decision.deadline ? `Deadline: ${narrative.decision.deadline}` : undefined,
         narrative.decision.consequenceOfNoDecision ? `If no decision: ${narrative.decision.consequenceOfNoDecision}` : undefined,
       ].filter((item): item is string => Boolean(item)),
+      data: { visualIntent },
     },
     evidence: [],
+    visuals: visualBriefs(index, visualIntent),
     status: "planned",
   }
 }
@@ -377,10 +404,99 @@ function hasClaimKind(claims: NarrativeClaim[], kinds: NarrativeClaim["kind"][])
   return claims.some((claim) => kinds.includes(claim.kind))
 }
 
-function claimComponents(claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): string[] {
-  if (bindings.some((binding) => binding.quote?.trim())) return ["box", "text-panel", "quote"]
-  if (claim.kind === "recommendation" || claim.kind === "ask") return ["box", "text-panel", "steps"]
-  return ["box", "text-panel"]
+function claimComponents(claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[], visualIntent: VisualIntent): string[] {
+  const base = bindings.some((binding) => binding.quote?.trim()) ? ["box", "text-panel", "quote"] : ["box", "text-panel"]
+  if ((claim.kind === "recommendation" || claim.kind === "ask") && visualIntent.kind === "text-only") return ["box", "text-panel", "steps"]
+  return componentsForVisualIntent(base, visualIntent)
+}
+
+function visualIntentForClaim(claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): VisualIntent {
+  const evidenceBindingIds = bindings.map((binding) => binding.id)
+  const dataSignals = dataSignalsFromBindings(bindings)
+  if (bindings.length >= 2) {
+    return {
+      kind: "evidence-table",
+      component: "data-table",
+      rationale: "Compare multiple evidence bindings with source, support scope, and caveat columns so the slide is not a bullet stack.",
+      dataSignals,
+      evidenceBindingIds,
+    }
+  }
+  if (dataSignals.length > 0) {
+    return {
+      kind: "metric-stat",
+      component: "stat-card",
+      rationale: "Promote the strongest quantitative evidence signal into a metric card, with the source quote retained for traceability.",
+      dataSignals,
+      evidenceBindingIds,
+    }
+  }
+  if (claim.kind === "recommendation" || claim.kind === "ask") {
+    return {
+      kind: "steps",
+      component: "steps",
+      rationale: "Show the recommendation as phased actions or decision gates rather than a paragraph.",
+      dataSignals,
+      evidenceBindingIds,
+    }
+  }
+  return {
+    kind: "text-only",
+    component: "box",
+    rationale: "No quantified or multi-source visual signal is available; use semantic evidence boxes and keep boundaries explicit.",
+    dataSignals,
+    evidenceBindingIds,
+  }
+}
+
+function visualIntentForSupportingLogic(claims: NarrativeClaim[], bindings: NarrativeEvidenceBinding[]): VisualIntent {
+  const dataSignals = dataSignalsFromBindings(bindings)
+  return {
+    kind: claims.length >= 3 || bindings.length >= 2 ? "comparison-grid" : "evidence-table",
+    component: "data-table",
+    rationale: "Organize supporting claims as a comparison grid with evidence status and boundaries, avoiding a long undifferentiated bullet list.",
+    dataSignals,
+    evidenceBindingIds: bindings.map((binding) => binding.id),
+  }
+}
+
+function visualIntentForRiskObjection(narrative: NarrativeStateV1, bindings: NarrativeEvidenceBinding[]): VisualIntent {
+  return {
+    kind: "risk-matrix",
+    component: "data-table",
+    rationale: "Pair each risk or objection with mitigation or response in a compact matrix so caveats stay visible without becoming prose-heavy.",
+    dataSignals: [...narrative.risks.map((risk) => risk.severity), ...narrative.objections.map((objection) => objection.priority)].filter(Boolean),
+    evidenceBindingIds: bindings.map((binding) => binding.id),
+  }
+}
+
+function visualIntentForStructuralSlide(kind: Extract<VisualIntentKind, "hero" | "toc" | "steps">, rationale: string): VisualIntent {
+  return { kind, component: kind === "toc" ? "toc" : kind === "steps" ? "steps" : "hero", rationale, dataSignals: [], evidenceBindingIds: [] }
+}
+
+function componentsForVisualIntent(base: string[], visualIntent: VisualIntent): string[] {
+  const next = [...base]
+  if (visualIntent.component && !next.includes(visualIntent.component)) next.push(visualIntent.component)
+  return next
+}
+
+function visualBriefs(slideIndex: number, visualIntent: VisualIntent): VisualBrief[] {
+  return [{
+    id: `visual:${slideIndex}:${visualIntent.kind}`,
+    purpose: visualIntent.kind,
+    brief: `${visualIntent.rationale} Use ${visualIntent.component} and preserve cited evidence boundaries${visualIntent.dataSignals.length > 0 ? `; visible signals: ${visualIntent.dataSignals.slice(0, 4).join(", ")}.` : "."}`,
+  }]
+}
+
+function dataSignalsFromBindings(bindings: NarrativeEvidenceBinding[]): string[] {
+  const signals = bindings.flatMap((binding) => numericSignals([binding.quote, binding.supportScope, binding.source, binding.location].filter(Boolean).join(" ")))
+  return [...new Set(signals)].slice(0, 6)
+}
+
+function numericSignals(text: string): string[] {
+  return [...text.matchAll(/(?:[$€£¥]\s*)?\d+(?:\.\d+)?\s*(?:%|bps|x|k|m|bn|billion|million|year|years|yr|yrs)?/gi)]
+    .map((match) => match[0].trim())
+    .filter(Boolean)
 }
 
 function claimBullets(claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): string[] {
