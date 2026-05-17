@@ -994,6 +994,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .skeleton-line.long { width: 92%; }
     .asset-card.is-saving::after { content: ""; position: absolute; inset: 0; background: rgba(15,23,42,.32); }
     .asset-card.is-saving .asset-save { z-index: 1; }
+    .asset-card.is-saved-candidate .asset-thumb { opacity: .72; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
     .asset-search { display: grid; grid-template-columns: minmax(0, 1fr) 118px; gap: 8px; }
@@ -1016,6 +1017,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .asset-search-title span { color: #756f66; font-size: 12px; line-height: 1.35; }
     .asset-back { width: auto; padding: 9px 11px; border-radius: 999px; background: #ebe4d8; color: #111827; box-shadow: none; }
     .asset-save { position: absolute; left: 7px; right: 7px; bottom: 7px; width: auto; padding: 7px 8px; border-radius: 10px; font-size: 11px; background: rgba(17,24,39,.9); color: #fbfaf7; box-shadow: 0 8px 16px rgba(31,41,51,.2); opacity: .96; }
+    .asset-save.saved { background: rgba(77,97,56,.94); color: #fbfaf7; cursor: default; }
     .asset-empty { grid-column: 1 / -1; margin: 0; color: #756f66; font-size: 12px; line-height: 1.45; }
     .edit-assets { padding: 10px; border: 1px solid #d8d2c6; border-radius: 16px; background: #f7f3ea; }
     .edit-assets .panel { gap: 8px; }
@@ -2103,9 +2105,13 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         }
         state.assetCandidates.forEach((candidate, index) => {
           const card = assetCard(candidate, false, index);
+          const savedAsset = savedAssetForCandidate(candidate);
           if (state.assetSavingIndex === index) {
             card.classList.add('is-saving');
             appendAssetSaveButton(card, 'Saving...', 'Saving to workspace', () => {}, true);
+          } else if (savedAsset) {
+            card.classList.add('is-saved-candidate');
+            appendAssetSaveButton(card, '✅ Saved', 'Asset already saved to Local Assets', () => {}, false, 'saved');
           } else {
             appendAssetSaveButton(card, 'Save', 'Save to workspace', () => saveCandidate(index));
           }
@@ -2167,6 +2173,19 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         state.savedAssets = next;
       }
 
+      function savedAssetForCandidate(candidate) {
+        const id = slugifyAssetId(candidate && candidate.candidateId);
+        if (!id) return null;
+        return state.savedAssets.find((asset) => asset.id === id) || null;
+      }
+
+      function slugifyAssetId(value) {
+        return String(value || '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+      }
+
       function renderSavedAssets() {
         renderSavedAssetGrid(els.editSavedAssets, 'No local assets yet. Click + to search assets.');
       }
@@ -2226,12 +2245,12 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         }
       }
 
-      function appendAssetSaveButton(card, text, label, onClick, loading) {
+      function appendAssetSaveButton(card, text, label, onClick, loading, variant) {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'asset-save';
+        button.className = variant ? 'asset-save ' + variant : 'asset-save';
         button.innerHTML = loading ? '<span class="spinner" aria-hidden="true"></span><span>' + escapeHtml(text) + '</span>' : escapeHtml(text);
-        button.disabled = !!loading;
+        button.disabled = !!loading || variant === 'saved';
         button.setAttribute('aria-label', label);
         button.title = label;
         button.addEventListener('click', onClick);
