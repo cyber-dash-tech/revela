@@ -8,7 +8,7 @@ import { handleInspect } from "../lib/commands/inspect"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { ensureRefineDeckOpenForChange, openRefineDeck } from "../lib/refine/open"
 import { renderRefineShell, stopRefineServer } from "../lib/refine/server"
-import { tempWorkspace } from "./helpers/tool-helpers"
+import { mockFetchWith, readJsonFile, tempWorkspace } from "./helpers/tool-helpers"
 
 const roots: string[] = []
 
@@ -114,6 +114,8 @@ describe("renderRefineShell", () => {
     expect(html).toContain("state.sendingEdit")
     expect(html).toContain("assetSavingIndex")
     expect(html).toContain("Saving to workspace")
+    expect(html).toContain("mergeSavedAsset")
+    expect(html).toContain("if (body.asset && (!listed || !findSavedAsset(body.asset.id)))")
     expect(html).toContain("setButtonLoading")
     expect(html).toContain("renderInspectLoading")
     expect(html).toContain("const comment = getInspectComment()")
@@ -432,6 +434,168 @@ describe("refine HTTP inspect lifecycle", () => {
 })
 
 describe("refine asset APIs", () => {
+  it("saves remote image candidates and immediately lists them as local assets", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><h1>Launch</h1></section>', "utf-8")
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = mockFetchWith(originalFetch, (url, init) => {
+      const value = typeof url === "string"
+        ? url
+        : url instanceof URL
+          ? url.toString()
+          : url instanceof Request
+            ? url.url
+            : String(url)
+      if (value.includes("/api/assets/save") || value.includes("/api/assets/list") || value.includes("/__revela_asset")) {
+        return originalFetch(url, init)
+      }
+      return new Response("png-bytes", {
+        status: 200,
+        headers: { "content-type": "image/png" },
+      })
+    })
+
+    try {
+      const opened = openRefineDeck("", {
+        client: { session: { prompt: async () => undefined } },
+        sessionID: "session-asset-save-success",
+        workspaceRoot: root,
+        openBrowser: false,
+      })
+      const saveUrl = new URL(opened.url)
+      saveUrl.pathname = "/api/assets/save"
+      const saveResponse = await fetch(saveUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          candidate: {
+            candidateId: "remote-hero",
+            provider: "test-provider",
+            title: "Remote hero",
+            thumbnailUrl: "https://example.com/hero-thumb.png",
+            imageUrl: "https://example.com/hero.png",
+            purpose: "hero",
+            alt: "Remote hero image",
+          },
+          purpose: "hero",
+        }),
+      })
+      const saveData = await saveResponse.json() as any
+
+      expect(saveResponse.status).toBe(200)
+      expect(saveData.ok).toBe(true)
+      expect(saveData.asset).toMatchObject({
+        id: "remote-hero",
+        status: "success",
+        path: `assets/${workspaceDeckSlug(root)}/media/remote-hero.png`,
+        deckPath: `../assets/${workspaceDeckSlug(root)}/media/remote-hero.png`,
+      })
+      expect(saveData.asset.previewUrl).toContain("/__revela_asset?token=")
+      expect(existsSync(join(root, "assets", workspaceDeckSlug(root), "media", "remote-hero.png"))).toBe(true)
+      expect(readJsonFile(join(root, "assets", workspaceDeckSlug(root), "media-manifest.json"))).toMatchObject({
+        topic: workspaceDeckSlug(root),
+        assets: [expect.objectContaining({ id: "remote-hero", status: "success" })],
+      })
+
+      const listUrl = new URL(opened.url)
+      listUrl.pathname = "/api/assets/list"
+      const listResponse = await fetch(listUrl)
+      const listData = await listResponse.json() as any
+      expect(listData.ok).toBe(true)
+      expect(listData.assets).toHaveLength(1)
+      expect(listData.assets[0]).toMatchObject({
+        id: "remote-hero",
+        path: `assets/${workspaceDeckSlug(root)}/media/remote-hero.png`,
+        deckPath: `../assets/${workspaceDeckSlug(root)}/media/remote-hero.png`,
+      })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("falls back to thumbnailUrl when the candidate imageUrl cannot be downloaded", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><h1>Launch</h1></section>', "utf-8")
+    const originalFetch = globalThis.fetch
+    const thumbnailUrl = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Dallas_Fuel_Fans_at_Esports_Stadium_Arlington.jpg/330px-Dallas_Fuel_Fans_at_Esports_Stadium_Arlington.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+    globalThis.fetch = mockFetchWith(originalFetch, (url, init) => {
+      const value = typeof url === "string"
+        ? url
+        : url instanceof URL
+          ? url.toString()
+          : url instanceof Request
+            ? url.url
+            : String(url)
+      if (value.includes("/api/assets/save") || value.includes("/api/assets/list") || value.includes("/__revela_asset")) {
+        return originalFetch(url, init)
+      }
+      if (value === thumbnailUrl) {
+        return new Response("jpg-bytes", {
+          status: 200,
+          headers: { "content-type": "image/jpeg" },
+        })
+      }
+      return new Response("blocked", { status: 403, headers: { "content-type": "text/html" } })
+    })
+
+    try {
+      const opened = openRefineDeck("", {
+        client: { session: { prompt: async () => undefined } },
+        sessionID: "session-asset-thumbnail-fallback",
+        workspaceRoot: root,
+        openBrowser: false,
+      })
+      const saveUrl = new URL(opened.url)
+      saveUrl.pathname = "/api/assets/save"
+      const response = await fetch(saveUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          candidate: {
+            candidateId: "wikimedia-dallas-fuel-fans",
+            provider: "wikimedia-commons",
+            title: "Dallas Fuel Fans at Esports Stadium Arlington",
+            thumbnailUrl,
+            imageUrl: "https://example.com/source-file-that-cannot-download.jpg",
+            purpose: "illustration",
+          },
+          purpose: "illustration",
+        }),
+      })
+      const data = await response.json() as any
+
+      expect(response.status).toBe(200)
+      expect(data.ok).toBe(true)
+      expect(data.asset).toMatchObject({
+        id: "wikimedia-dallas-fuel-fans",
+        status: "success",
+        path: `assets/${workspaceDeckSlug(root)}/media/wikimedia-dallas-fuel-fans.jpg`,
+        sourceUrl: thumbnailUrl,
+      })
+      expect(existsSync(join(root, "assets", workspaceDeckSlug(root), "media", "wikimedia-dallas-fuel-fans.jpg"))).toBe(true)
+      expect(readJsonFile(join(root, "assets", workspaceDeckSlug(root), "media-manifest.json"))).toMatchObject({
+        assets: [expect.objectContaining({
+          id: "wikimedia-dallas-fuel-fans",
+          status: "success",
+          sourceUrl: thumbnailUrl,
+        })],
+      })
+
+      const listUrl = new URL(opened.url)
+      listUrl.pathname = "/api/assets/list"
+      const listResponse = await fetch(listUrl)
+      const listData = await listResponse.json() as any
+      expect(listData.ok).toBe(true)
+      expect(listData.assets).toHaveLength(1)
+      expect(listData.assets[0]).toMatchObject({
+        id: "wikimedia-dallas-fuel-fans",
+        deckPath: `../assets/${workspaceDeckSlug(root)}/media/wikimedia-dallas-fuel-fans.jpg`,
+      })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
   it("rejects failed remote asset downloads instead of reporting saved", async () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><h1>Launch</h1></section>', "utf-8")
@@ -473,7 +637,8 @@ describe("refine asset APIs", () => {
 
       expect(response.status).toBe(400)
       expect(data.ok).toBe(false)
-      expect(data.error).toBe("Failed to save asset: cannot-download")
+      expect(data.error).toContain("Failed to save asset: cannot-download")
+      expect(data.error).toContain("https://cdn.simpleicons.org/claude: Failed to download image: DOWNLOAD_FAILED:403")
       expect(existsSync(join(root, "assets", workspaceDeckSlug(root), "media", "simple-icons-claude.svg"))).toBe(false)
     } finally {
       globalThis.fetch = originalFetch

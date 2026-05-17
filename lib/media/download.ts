@@ -12,6 +12,10 @@ const MIME_TO_EXT: Record<string, string> = {
 
 const ALLOWED_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".ico"])
 const DEFAULT_DOWNLOAD_TIMEOUT_MS = 10_000
+const PRODUCT_USER_AGENT = "Revela/0.17 asset-save"
+const BROWSER_USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
 
 function normalizeExtension(ext: string): string {
   const value = ext.toLowerCase()
@@ -47,6 +51,24 @@ export async function downloadImageFromUrl(
     throw new Error("INVALID_URL")
   }
 
+  const userAgents = [PRODUCT_USER_AGENT, BROWSER_USER_AGENT]
+  let lastError: unknown
+  for (const userAgent of userAgents) {
+    try {
+      return await downloadWithUserAgent(parsed, userAgent, options)
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError))
+}
+
+async function downloadWithUserAgent(
+  parsed: URL,
+  userAgent: string,
+  options: { timeoutMs?: number },
+): Promise<{ buffer: Buffer; contentType: string | null; extension: string }> {
   const controller = new AbortController()
   let timedOut = false
   const timer = setTimeout(() => {
@@ -60,9 +82,7 @@ export async function downloadImageFromUrl(
     response = await fetch(parsed, {
       headers: {
         Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-          "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "User-Agent": userAgent,
       },
       signal: controller.signal,
     })

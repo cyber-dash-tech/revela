@@ -59,6 +59,7 @@ export type MediaSaveResult =
     path: string | null
     manifestPath: string
     updated: boolean
+    failureReason?: string
   }
   | {
     ok: false

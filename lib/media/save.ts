@@ -141,6 +141,7 @@ function saveFailureResult(
     path: null,
     manifestPath: relative(workspaceDir, manifestPath),
     updated: true,
+    failureReason,
   }
 }
 

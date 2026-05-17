@@ -253,33 +253,103 @@ async function handleAssetSave(req: Request, session: EditSession): Promise<Resp
   const candidate = normalizeImageCandidate(body?.candidate ?? body)
   if (!candidate) return jsonResponse({ ok: false, error: "Valid image candidate is required" }, 400)
   const purpose = normalizeMediaPurpose(body?.purpose) || candidate.purpose || "illustration"
-  const result = await saveMediaAsset({
-    topic: session.deck,
+  const brief = body?.brief || `Saved from ${candidate.provider} for Review asset placement.`
+  const saved = await saveAssetCandidateUrls({
+    session,
+    candidate,
     id: body?.id || candidate.candidateId,
-    type: "image",
     purpose,
-    brief: body?.brief || `Saved from ${candidate.provider} for Review asset placement.`,
-    status: "success",
-    sourceUrl: candidate.imageUrl,
+    brief,
     alt: body?.alt || candidate.alt || candidate.title,
     notes: body?.notes,
-    provider: candidate.provider,
-    sourcePageUrl: candidate.sourcePageUrl,
-    license: candidate.license,
-    attribution: candidate.attribution,
-    width: candidate.width,
-    height: candidate.height,
-  }, session.workspaceRoot)
+  })
 
   session.lastActiveAt = Date.now()
   scheduleIdleStop()
+  const result = saved.result
   if (!result.ok) return jsonResponse({ ok: false, error: result.error }, 400)
   if (result.status !== "success" || !result.path) {
-    return jsonResponse({ ok: false, error: `Failed to save asset: ${result.status}` }, 400)
+    return jsonResponse({ ok: false, error: failedAssetSaveMessage(result.status, saved.failures) }, 400)
   }
   const asset = savedAssetForResult(session, result.assetId)
+    ?? savedAssetFallback(session, {
+      id: result.assetId,
+      path: result.path,
+      sourceUrl: saved.sourceUrl,
+      purpose,
+      brief,
+      candidate,
+    })
   if (!asset) return jsonResponse({ ok: false, error: "Saved asset was not found in workspace assets." }, 500)
   return jsonResponse({ ok: true, asset, result })
+}
+
+async function saveAssetCandidateUrls(input: {
+  session: EditSession
+  candidate: ImageCandidate
+  id: string
+  purpose: MediaPurpose
+  brief: string
+  alt?: string
+  notes?: string
+}): Promise<{
+  result: Awaited<ReturnType<typeof saveMediaAsset>>
+  sourceUrl?: string
+  failures: Array<{ url: string; status: string }>
+}> {
+  const urls = uniqueAssetUrls([input.candidate.imageUrl, input.candidate.thumbnailUrl])
+  const failures: Array<{ url: string; status: string }> = []
+  let lastResult: Awaited<ReturnType<typeof saveMediaAsset>> | undefined
+
+  for (const sourceUrl of urls) {
+    const result = await saveMediaAsset({
+      topic: input.session.deck,
+      id: input.id,
+      type: "image",
+      purpose: input.purpose,
+      brief: input.brief,
+      status: "success",
+      sourceUrl,
+      alt: input.alt,
+      notes: input.notes,
+      provider: input.candidate.provider,
+      sourcePageUrl: input.candidate.sourcePageUrl,
+      license: input.candidate.license,
+      attribution: input.candidate.attribution,
+      width: input.candidate.width,
+      height: input.candidate.height,
+    }, input.session.workspaceRoot)
+    lastResult = result
+    if (result.ok && result.status === "success" && result.path) return { result, sourceUrl, failures }
+    failures.push({ url: sourceUrl, status: result.ok ? result.failureReason ?? result.status : result.error })
+  }
+
+  return {
+    result: lastResult ?? { ok: false, error: "No downloadable image URL was provided" },
+    failures,
+  }
+}
+
+function uniqueAssetUrls(values: Array<string | undefined>): string[] {
+  const seen = new Set<string>()
+  return values.flatMap((value) => {
+    const url = value?.trim()
+    if (!url || seen.has(url)) return []
+    seen.add(url)
+    return [url]
+  })
+}
+
+function failedAssetSaveMessage(status: string, failures: Array<{ url: string; status: string }>): string {
+  if (!failures.length) return `Failed to save asset: ${status}`
+  const details = failures
+    .map((failure) => `${shortUrl(failure.url)}: ${failure.status}`)
+    .join("; ")
+  return `Failed to save asset: ${status} (${details})`
+}
+
+function shortUrl(value: string): string {
+  return value.length <= 96 ? value : `${value.slice(0, 93)}...`
 }
 
 function handleAssetList(session: EditSession): Response {
@@ -290,6 +360,39 @@ function handleAssetList(session: EditSession): Response {
 
 function savedAssetForResult(session: EditSession, assetId: string): (MediaAssetRecord & { previewUrl?: string; deckPath?: string }) | null {
   return listSavedAssets(session).find((asset) => asset.id === assetId) ?? null
+}
+
+function savedAssetFallback(
+  session: EditSession,
+  input: {
+    id: string
+    path: string | null
+    sourceUrl?: string
+    purpose: MediaPurpose
+    brief: string
+    candidate: ImageCandidate
+  },
+): (MediaAssetRecord & { previewUrl?: string; deckPath?: string }) | null {
+  if (!input.path) return null
+  return {
+    id: input.id,
+    type: "image",
+    purpose: input.purpose,
+    brief: input.brief,
+    status: "success",
+    path: input.path,
+    sourceUrl: input.sourceUrl ?? input.candidate.imageUrl,
+    alt: input.candidate.alt || input.candidate.title,
+    provider: input.candidate.provider,
+    sourcePageUrl: input.candidate.sourcePageUrl,
+    license: input.candidate.license,
+    attribution: input.candidate.attribution,
+    width: input.candidate.width,
+    height: input.candidate.height,
+    savedAt: new Date().toISOString(),
+    previewUrl: assetUrlForRef(input.path, session, session.workspaceRoot) ?? undefined,
+    deckPath: relative(dirname(session.absoluteFile), resolve(session.workspaceRoot, input.path)).replace(/\\/g, "/"),
+  }
 }
 
 function listSavedAssets(session: EditSession): Array<MediaAssetRecord & { previewUrl?: string; deckPath?: string }> {
@@ -2025,7 +2128,11 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           });
           const body = await res.json().catch(() => ({}));
           if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to save asset');
-          await loadSavedAssets();
+          const listed = await loadSavedAssets();
+          if (body.asset && (!listed || !findSavedAsset(body.asset.id))) {
+            mergeSavedAsset(body.asset);
+            renderSavedAssets();
+          }
           const path = body.asset && (body.asset.path || body.asset.deckPath);
           setStatus(path ? 'Saved to ' + path + '. Use it from Local Assets.' : 'Asset saved. Use it from Local Assets.');
         } catch (error) {
@@ -2043,10 +2150,21 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to list assets');
           state.savedAssets = Array.isArray(body.assets) ? body.assets : [];
           renderSavedAssets();
+          return true;
         } catch (error) {
-          const message = '<p class="asset-empty">' + escapeHtml(error && error.message ? error.message : String(error)) + '</p>';
-          els.editSavedAssets.innerHTML = message;
+          if (!state.savedAssets.length) {
+            const message = '<p class="asset-empty">' + escapeHtml(error && error.message ? error.message : String(error)) + '</p>';
+            els.editSavedAssets.innerHTML = message;
+          }
+          return false;
         }
+      }
+
+      function mergeSavedAsset(asset) {
+        if (!asset || !asset.id) return;
+        const next = state.savedAssets.filter((existing) => existing.id !== asset.id);
+        next.unshift(asset);
+        state.savedAssets = next;
       }
 
       function renderSavedAssets() {
