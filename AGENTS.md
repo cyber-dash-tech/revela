@@ -237,19 +237,38 @@ Do not use `[[supports:claim-a]]`; Obsidian treats that as a page id instead of 
 - ~~Full `bun test` passes: 522 tests, 0 failures.~~
 - ~~`npm pack --dry-run` passes for `@cyber-dash-tech/revela@0.17.0` with 157 package files.~~
 
-## Post-0.17 Candidates
+## Version Roadmap
 
-- Coverage-driven make/review/remake decisions using artifact coverage and narrative hash staleness.
-- 0.17.2 Claim-as-Chapter Deck Planning Contract:
-  - Prompt contract: teach `init` and `research` that central claims should be chapter-ready, meaning each central claim can support framing/context, proof/evidence, implication/decision relevance, and explicit boundary/gap/risk material. Do not ask for slide count or design during init/research, but avoid promoting small evidence fragments into central claims when they cannot sustain a chapter.
-  - Research contract: derive targets from claim-chapter sufficiency, not only missing source support. Each central claim should aim for framing/background support, 1-2 evidence bindings or cases/quantitative signals, and implication/risk/boundary material. Keep weak chapter support visible as canonical research gaps instead of inventing filler.
-  - Make-deck contract: `/revela make --deck` plan should be claim-led. Each central claim becomes one chapter unless explicitly merged, and each claim chapter should have at least three non-structural slides: claim framing, evidence/proof, and implication/boundary. Cover, TOC, and Decision Ask/Closing are structural and do not count toward the three-slide claim chapter minimum.
-  - Compiler contract: update `lib/narrative-state/render-plan.ts` from one-claim-one-slide to one-central-claim-one-chapter by generating `claimFramingSlide`, `claimEvidenceSlide`, and `claimImplicationSlide` per central claim while preserving visual intent, evidence bindings, claim refs, and chapter metadata.
-  - Plan quality: add checks such as `claim_chapters_present`, `claim_chapters_min_three_slides`, and `claim_chapter_evidence_visible`. If a claim cannot support a three-slide chapter, stop at plan review with a merge/research/scope-narrowing/shorter-chapter decision instead of creating sparse filler.
-  - Tests: update `tests/narrative-state.test.ts` to assert central-claim chapters, minimum three slides per claim chapter, TOC/chapter alignment, visible evidence gaps when support is missing, and preserved `content.data.visualIntent` plus `visuals[]`.
-- `/revela make --deck --desc "..."` decisioning, either explicitly unsupported or implemented as intent seeding that does not bypass grounding/readiness/approval.
-- Product positioning and docs cleanup: decks are render targets from trusted narrative state, not the durable source of truth.
-- Review Prep/Rehearsal, Audience Lens, and Meeting Prep Pack. Reuse inspection context first and keep exploratory outputs read-only.
+### 0.17.2 Make Deck Quality Upgrade
+
+- Goal: improve `/revela make --deck` generation quality so deck plans and artifacts become claim-led, evidence-visible, chapter-sufficient decision artifacts instead of slide-count fillers. A generated deck should not merely look complete; it must show why each central claim deserves its chapter, what evidence supports it, what boundaries remain, and what decision implication follows.
+- Prompt contract: teach `init` and `research` that central claims should be chapter-ready, meaning each central claim can support framing/context, proof/evidence, implication/decision relevance, and explicit boundary/gap/risk material. Do not ask for slide count or design during init/research, but avoid promoting small evidence fragments into central claims when they cannot sustain a chapter.
+- Research contract: derive targets from claim-chapter sufficiency, not only missing source support. Each central claim should aim for framing/background support, 1-2 evidence bindings or cases/quantitative signals, and implication/risk/boundary material. Keep weak chapter support visible as canonical research gaps instead of inventing filler.
+- Make-deck contract: `/revela make --deck` plan should be claim-led. Each central claim becomes one chapter unless explicitly merged, and each claim chapter should have at least three non-structural slides: claim framing, evidence/proof, and implication/boundary. Cover, TOC, and Decision Ask/Closing are structural and do not count toward the three-slide claim chapter minimum.
+- Compiler contract: update `lib/narrative-state/render-plan.ts` from one-claim-one-slide to one-central-claim-one-chapter by generating `claimFramingSlide`, `claimEvidenceSlide`, and `claimImplicationSlide` per central claim while preserving visual intent, evidence bindings, claim refs, and chapter metadata.
+- Anti-filler contract: do not pad weak chapters with section dividers, repeated thesis pages, generic implication pages, or bridge slides that do not carry a distinct claim, evidence item, boundary, risk, or decision action. If a central claim cannot support a full chapter, stop at plan review and require one of: merge with another claim, run research, narrow the claim, or explicitly accept a shorter chapter.
+- Evidence trace contract: visible source notes are not enough. Evidence-sensitive claim chapters should preserve canonical evidence ids, quote/snippet, source path or URL when known, location when known, support scope, unsupported scope, caveat, and strength. Generic source labels such as "public research" or "company statements" should remain a gap unless backed by canonical evidence bindings.
+- Boundary contract: caveats such as missing internal economics, ROI, unit sales, margin, price-tier share, governance design, or decision-right boundaries must influence plan quality and research targets, not only appear as footer text. Public directional proof should not be stretched into investment sizing, operating-model, or autonomy recommendations.
+- Deck HTML prewrite hook: before any LLM `write`, `edit`, or `apply_patch` touches `decks/*.html`, a plugin hook must surface the deck writing requirements to the LLM in-session. This is an execution boundary, not only prompt guidance. The reminder should cover confirmed plan/narrative fidelity, claim-led chapters, anti-filler rules, evidence trace preservation, fixed 1920x1080 canvas fit, no `scrollbar/page_scroll`, and the requirement to fix post-write Artifact QA failures before treating the deck as ready.
+- Plan quality: add checks such as `claim_chapters_present`, `claim_chapters_min_three_slides`, `claim_chapter_evidence_visible`, `claim_chapter_not_padded_by_dividers`, and `claim_chapter_boundary_visible`. If a claim cannot support a three-slide chapter, stop at plan review with a merge/research/scope-narrowing/shorter-chapter decision instead of creating sparse filler.
+- Artifact quality: generated HTML must pass browser QA before Review/Export. Treat systematic `scrollbar/page_scroll` failures, even when the deck looks visually complete, as make-deck quality regressions. Regression coverage should include fixed-canvas fit, no page-level scrollbars, and no artifact generation that hides overflow problems behind attractive layouts.
+- Tests: update `tests/narrative-state.test.ts` to assert central-claim chapters, minimum three slides per claim chapter, TOC/chapter alignment, visible evidence gaps when support is missing, and preserved `content.data.visualIntent` plus `visuals[]`. Add regression coverage for anti-filler plan quality, the deck HTML prewrite hook across `write`/`edit`/`apply_patch`, and artifact QA failures such as all-slide `scrollbar/page_scroll`.
+
+### 0.17.3 Coverage-Driven Remake Decisions
+
+- Add coverage-driven make/review/remake decisions using artifact coverage and narrative hash staleness.
+- Make artifact coverage status influence whether `/revela make --deck`, `/revela review --deck`, or remake guidance is the next safest action.
+- Keep coverage diagnostics explicit: current/stale/partial/missing artifact coverage, missing claim ids, affected claim ids, stale reasons, and next actions.
+
+### 0.17.4 Command Surface And Positioning Cleanup
+
+- Decide `/revela make --deck --desc "..."` behavior, either explicitly unsupported or implemented as intent seeding that does not bypass grounding/readiness/approval.
+- Clean up product positioning and docs so decks are consistently described as render targets from trusted narrative state, not the durable source of truth.
+
+### 0.17.5 Review Prep Extensions
+
+- Add Review Prep/Rehearsal, Audience Lens, and Meeting Prep Pack.
+- Reuse inspection context first and keep exploratory outputs read-only.
 
 ## Tool And State Rules
 
