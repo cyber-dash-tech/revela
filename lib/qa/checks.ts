@@ -23,9 +23,10 @@ import { CANVAS_W, CANVAS_H } from "./measure"
 export type IssueSeverity = "error" | "warning" | "info"
 
 export interface LayoutIssue {
-  type: "canvas" | "scrollbar" | "navigation" | "overflow" | "text_overflow" | "density" | "balance" | "symmetry" | "rhythm" | "compliance" | "asset"
+  type: "canvas" | "scrollbar" | "navigation" | "overflow" | "text_overflow" | "overlap" | "density" | "balance" | "symmetry" | "rhythm" | "compliance" | "asset"
   /** Sub-category within the dimension */
   sub?: "size_mismatch" | "page_scroll" | "fixed_overlay_slides" | "hidden_paging" | "unreachable_slides" | "text_clipped" | "thin_content"
+      | "element_collision" | "major_overlap" | "possible_overlay"
       | "centroid_offset" | "bottom_gap" | "sparse"
       | "height_mismatch" | "density_mismatch"
       | "gap_variance"
@@ -81,6 +82,12 @@ const T = {
   CANVAS_TOLERANCE: 1,
   DENSITY_MIN_TEXT_POINTS: 70,
   DENSITY_MIN_UNITS: 2,
+  OVERLAP_MIN_AREA: 1600,
+  OVERLAP_MIN_ELEMENT_AREA: 5000,
+  OVERLAP_WARN_RATIO: 0.08,
+  OVERLAP_ERROR_RATIO: 0.18,
+  OVERLAP_TEXT_WARN_RATIO: 0.05,
+  OVERLAP_TEXT_ERROR_RATIO: 0.12,
 }
 
 // ── Geometry helpers ──────────────────────────────────────────────────────────
@@ -331,6 +338,132 @@ function checkTextOverflow(metrics: SlideMetrics): LayoutIssue[] {
 
   walk(metrics.elements)
   return issues
+}
+
+const SEMANTIC_COMPONENT_CLASSES = [
+  "box",
+  "text-panel",
+  "media",
+  "echart-panel",
+  "data-table",
+  "stat-card",
+  "quote",
+  "hero",
+  "toc",
+  "steps",
+  "roadmap-horizontal",
+  "roadmap-vertical",
+]
+
+const DECORATIVE_CLASSES = [
+  "page-number",
+  "brand-watermark",
+  "watermark",
+  "background",
+  "decorative",
+  "motif",
+]
+
+function checkElementOverlap(metrics: SlideMetrics): LayoutIssue[] {
+  const candidates = overlapCandidates(metrics.elements)
+  const issues: LayoutIssue[] = []
+
+  for (let i = 0; i < candidates.length; i++) {
+    for (let j = i + 1; j < candidates.length; j++) {
+      const a = candidates[i]
+      const b = candidates[j]
+      if (isIntentionalOverlayPair(a, b)) continue
+
+      const overlap = intersection(a.rect, b.rect)
+      if (!overlap) continue
+
+      const intersectionArea = overlap.width * overlap.height
+      if (intersectionArea < T.OVERLAP_MIN_AREA) continue
+
+      const minArea = Math.min(area(a.rect), area(b.rect))
+      if (minArea <= 0) continue
+
+      const ratio = intersectionArea / minArea
+      const textSensitive = hasText(a) || hasText(b)
+      const errorRatio = textSensitive ? T.OVERLAP_TEXT_ERROR_RATIO : T.OVERLAP_ERROR_RATIO
+      const warnRatio = textSensitive ? T.OVERLAP_TEXT_WARN_RATIO : T.OVERLAP_WARN_RATIO
+      if (ratio < warnRatio) continue
+
+      const severity: IssueSeverity = ratio >= errorRatio ? "error" : "warning"
+      issues.push({
+        type: "overlap",
+        sub: severity === "error" ? "element_collision" : "possible_overlay",
+        severity,
+        detail: `Elements \`${a.selector}\` and \`${b.selector}\` overlap by ${Math.round(ratio * 100)}% of the smaller element (${Math.round(intersectionArea)}px²). Separate the components, reduce content, or choose a layout with more space.`,
+        data: {
+          elementA: a.selector,
+          elementB: b.selector,
+          overlapRatioPct: Math.round(ratio * 100),
+          intersectionArea: Math.round(intersectionArea),
+          rectA: rectData(a.rect),
+          rectB: rectData(b.rect),
+        },
+      })
+    }
+  }
+
+  return issues
+}
+
+function overlapCandidates(elements: ElementInfo[]): ElementInfo[] {
+  const semantic = elements.flatMap((element) => semanticDescendants(element))
+  const base = semantic.length > 1 ? semantic : elements.filter((element) => element.visible)
+  return base.filter((element) => {
+    if (!element.visible) return false
+    if (area(element.rect) < T.OVERLAP_MIN_ELEMENT_AREA) return false
+    if (isDecorative(element)) return false
+    return true
+  })
+}
+
+function semanticDescendants(element: ElementInfo): ElementInfo[] {
+  if (!element.visible || isDecorative(element)) return []
+  if (isSemanticComponent(element)) return [element]
+  return element.children.flatMap((child) => semanticDescendants(child))
+}
+
+function isSemanticComponent(element: ElementInfo): boolean {
+  return element.classList.some((className) =>
+    SEMANTIC_COMPONENT_CLASSES.includes(className) || className.startsWith("roadmap-")
+  )
+}
+
+function isDecorative(element: ElementInfo): boolean {
+  return element.classList.some((className) =>
+    DECORATIVE_CLASSES.includes(className) || className.startsWith("decorative-") || className.startsWith("background-")
+  )
+}
+
+function isIntentionalOverlayPair(a: ElementInfo, b: ElementInfo): boolean {
+  const classes = new Set([...a.classList, ...b.classList])
+  return classes.has("hero") && (classes.has("media") || classes.has("text-panel"))
+}
+
+function intersection(a: Rect, b: Rect): Rect | undefined {
+  const left = Math.max(a.left, b.left)
+  const top = Math.max(a.top, b.top)
+  const right = Math.min(a.right, b.right)
+  const bottom = Math.min(a.bottom, b.bottom)
+  if (right <= left || bottom <= top) return undefined
+  return { left, top, right, bottom, width: right - left, height: bottom - top }
+}
+
+function area(rect: Rect): number {
+  return Math.max(0, rect.width) * Math.max(0, rect.height)
+}
+
+function hasText(element: ElementInfo): boolean {
+  if (element.text?.trim()) return true
+  return element.children.some(hasText)
+}
+
+function rectData(rect: Rect): string {
+  return `${Math.round(rect.left)},${Math.round(rect.top)},${Math.round(rect.right)},${Math.round(rect.bottom)}`
 }
 
 function checkContentDensity(metrics: SlideMetrics): LayoutIssue[] {
@@ -693,6 +826,7 @@ export function runChecks(
       ...checkScrollbars(metrics),
       ...checkOverflow(metrics),
       ...checkTextOverflow(metrics),
+      ...checkElementOverlap(metrics),
       ...checkContentDensity(metrics),
     ]
 
@@ -762,6 +896,7 @@ export function formatReport(report: QAReport): string {
     `- **navigation**: keep every .slide in normal document flow; do not stack slides with fixed/absolute positioning or rely on aria-hidden/visibility toggles for pagination. Use scrollIntoView-based navigation.`,
     `- **overflow**: reduce font size, padding, or content amount for the affected element.`,
     `- **text_overflow**: increase the text container size, reduce copy, or adjust font/line-height so text is not clipped.`,
+    `- **overlap**: separate overlapping components, reduce copy, resize media/table/chart blocks, or use a layout with more space.`,
     `- **density/thin_content**: add concrete claim/evidence points, metrics, chart/table support, or source/caveat text. This is a warning for content substance, not a blank-space failure.`,
     `- **compliance/unknown_class**: an HTML element uses a CSS class not defined in the active design. Replace it with a class from the Component Index or Layout Index. Fetch the component/layout details with the \`revela-designs\` tool if needed.`,
     `- **compliance/novel_css_rule**: \`<style>\` defines a CSS class that is not part of the active design. Remove the custom rule and use the design's existing component styles. For minor spacing/sizing adjustments, use inline \`style=""\` instead.`,

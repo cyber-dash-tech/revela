@@ -171,6 +171,62 @@ describe("canvas and text checks", () => {
   })
 })
 
+describe("element overlap", () => {
+  it("reports large overlap between sibling semantic cards", () => {
+    const first = makeElement(makeRect(100, 100, 700, 500), "div.box:nth-child(1)", [], true, ["box"])
+    const second = makeElement(makeRect(480, 180, 1080, 580), "div.box:nth-child(2)", [], true, ["box"])
+
+    const report = runChecks("test.html", [makeMetrics({ elements: [first, second] })])
+    const issue = report.slides[0].issues.find((item) => item.type === "overlap")
+
+    expect(issue?.sub).toBe("element_collision")
+    expect(issue?.severity).toBe("error")
+    expect(issue?.detail).toContain("div.box:nth-child(1)")
+    expect(issue?.detail).toContain("div.box:nth-child(2)")
+    expect(issue?.data?.overlapRatioPct).toBeGreaterThanOrEqual(12)
+  })
+
+  it("does not report parent-child containment as overlap", () => {
+    const child = makeElement(makeRect(140, 140, 420, 260), "h2.title", [], true, ["title"])
+    const parent = makeElement(makeRect(100, 100, 700, 500), "div.box", [child], true, ["box"])
+
+    const report = runChecks("test.html", [makeMetrics({ elements: [parent] })])
+
+    expect(report.slides[0].issues.some((item) => item.type === "overlap")).toBe(false)
+  })
+
+  it("does not report hero background text overlays", () => {
+    const hero = makeElement(makeRect(0, 0, CANVAS_W, CANVAS_H), "section.hero", [], true, ["hero"])
+    const headline = makeElement(makeRect(180, 260, 980, 420), "div.text-panel", [], true, ["text-panel"])
+
+    const report = runChecks("test.html", [makeMetrics({ elements: [hero, headline] })])
+
+    expect(report.slides[0].issues.some((item) => item.type === "overlap")).toBe(false)
+  })
+
+  it("ignores edge contact and tiny intersections", () => {
+    const touchingA = makeElement(makeRect(100, 100, 500, 300), "div.box:nth-child(1)", [], true, ["box"])
+    const touchingB = makeElement(makeRect(500, 100, 900, 300), "div.box:nth-child(2)", [], true, ["box"])
+    const tinyA = makeElement(makeRect(100, 400, 500, 700), "div.stat-card:nth-child(1)", [], true, ["stat-card"])
+    const tinyB = makeElement(makeRect(490, 690, 900, 990), "div.stat-card:nth-child(2)", [], true, ["stat-card"])
+
+    const report = runChecks("test.html", [makeMetrics({ elements: [touchingA, touchingB, tinyA, tinyB] })])
+
+    expect(report.slides[0].issues.some((item) => item.type === "overlap")).toBe(false)
+  })
+
+  it("reports text and media collisions", () => {
+    const media = makeElement(makeRect(640, 160, 1480, 760), "figure.media", [], true, ["media"])
+    const text = { ...makeElement(makeRect(580, 240, 1180, 640), "div.text-panel", [], true, ["text-panel"]), text: "Market demand evidence" }
+
+    const report = runChecks("test.html", [makeMetrics({ elements: [media, text] })])
+    const issue = report.slides[0].issues.find((item) => item.type === "overlap")
+
+    expect(issue?.severity).toBe("error")
+    expect(issue?.sub).toBe("element_collision")
+  })
+})
+
 describe("navigation model", () => {
   it("flags fixed overlay slides hidden with aria-hidden pagination", () => {
     const report = runChecks("test.html", [
