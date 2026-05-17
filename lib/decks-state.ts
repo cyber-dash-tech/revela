@@ -329,6 +329,7 @@ export interface ConfirmDeckPlanOptions {
   note?: string
   now?: string
   approvedAt?: string
+  planHash?: string
 }
 
 export interface ConfirmDeckPlanResult {
@@ -442,12 +443,12 @@ export function deckPlanHash(slides: SlideSpec[]): string {
 }
 
 export function currentDeckPlanReviewStatus(deck: DeckSpec, narrativeHash?: string): { current: boolean; stale: boolean; reason?: string; planHash: string } {
-  const planHash = deckPlanHash(deck.slides)
   const review = deck.planReview
+  const planHash = deck.slides.length > 0 ? deckPlanHash(deck.slides) : review?.planHash ?? deckPlanHash(deck.slides)
   if (!review) return { current: false, stale: false, reason: "deck plan has not been shown and confirmed", planHash }
   if (review.status !== "confirmed") return { current: false, stale: false, reason: "deck plan is pending user confirmation", planHash }
   if (narrativeHash && review.narrativeHash !== narrativeHash) return { current: false, stale: true, reason: "deck plan confirmation is stale because the narrative hash changed", planHash }
-  if (review.planHash !== planHash) return { current: false, stale: true, reason: "deck plan confirmation is stale because the slide plan changed", planHash }
+  if (deck.slides.length > 0 && review.planHash !== planHash) return { current: false, stale: true, reason: "deck plan confirmation is stale because the cached slide projection changed", planHash }
   return { current: true, stale: false, planHash }
 }
 
@@ -458,14 +459,14 @@ export function confirmDeckPlan(state: DecksState, options: ConfirmDeckPlanOptio
   if (!deck) {
     return { state: normalized, result: { confirmed: false, skipped: true, reason: `No active deck exists in ${DECKS_STATE_FILE}.` } }
   }
-  if (deck.slides.length === 0) {
-    return { state: normalized, result: { confirmed: false, skipped: true, slug: deck.slug, reason: "Cannot confirm a deck plan with no slides." } }
-  }
   const narrative = normalizeNarrativeState(normalized)
   const narrativeHash = computeNarrativeHash(narrative)
-  const planHash = deckPlanHash(deck.slides)
+  const planHash = options.planHash ?? deckPlanHash(deck.slides)
   const pending = deck.planReview
-  if (pending && pending.status === "pending" && (pending.narrativeHash !== narrativeHash || pending.planHash !== planHash)) {
+  if (pending && pending.status === "pending" && pending.narrativeHash !== narrativeHash) {
+    return { state: normalized, result: { confirmed: false, skipped: true, slug: deck.slug, narrativeHash, planHash, reason: "Cannot confirm because the pending deck plan is stale. Re-run compileDeckPlan first." } }
+  }
+  if (!options.planHash && pending && pending.status === "pending" && pending.planHash !== planHash) {
     return { state: normalized, result: { confirmed: false, skipped: true, slug: deck.slug, narrativeHash, planHash, reason: "Cannot confirm because the pending deck plan is stale. Re-run compileDeckPlan first." } }
   }
 
@@ -805,7 +806,7 @@ export function buildDecksStatePromptLayer(workspaceRoot: string, maxChars = 140
   }
   let text = JSON.stringify(compact, null, 2)
   if (text.length > maxChars) text = text.slice(0, maxChars).trimEnd() + "\n[DECKS.json state truncated for prompt size.]"
-  return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as the source of truth for the single current deck's specs, slide plan, evidence, render targets, and write readiness.\n- The decks map is compatibility storage; operate only on the current workspace deck.\n- ${DECKS_STATE_FILE} deck slides use 1-based \`slides[].index\` values. Render every HTML \`<section class="slide">\` with a matching 1-based \`data-slide-index\` attribute, and do not use 0-based \`data-index\` as slide identity.\n- The active HTML deck is represented as a \`renderTarget\` of type \`html_deck\`; PDF/PPTX exports should be recorded as derived render targets, not as separate deck specs.\n- \`writeReadiness\` is a compatibility projection for the /revela make --deck generation workflow, not a hard blocker for targeted artifact-level HTML fixes.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- For /revela make --deck generated HTML, use the current deck's outputPath and satisfy the deck HTML contract. For targeted artifact-level edits, patch the requested deck HTML directly without treating \`writeReadiness\` or \`planReview\` as a precondition.`
+  return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as compatibility/render state: workspace context, active output path, render targets, reviews, readiness, provenance, artifact coverage, and cached projections.\n- Do not treat ${DECKS_STATE_FILE} \`slides[]\` as the authoritative HTML slide-count, slide-order, or slide-content contract. When \`decks/deck-plan.md\` exists and is approved, use it as the deck execution blueprint for HTML generation/remake.\n- The decks map is compatibility storage; operate only on the current workspace deck.\n- HTML slide identity is artifact self-consistency: each \`<section class="slide">\` needs a positive 1-based \`data-slide-index\`, indexes must be unique and strictly increase in DOM order, and 0-based \`data-index\` is never canonical identity. Cached ${DECKS_STATE_FILE} \`slides[].index\` values are diagnostic context only.\n- The active HTML deck is represented as a \`renderTarget\` of type \`html_deck\`; PDF/PPTX exports should be recorded as derived render targets, not as separate deck specs.\n- \`writeReadiness\` and \`planReview\` are compatibility projections for the /revela make --deck generation workflow, not hard blockers for targeted artifact-level HTML fixes.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- For /revela make --deck generated HTML, use the current deck's outputPath, read the approved \`decks/deck-plan.md\` when present, and satisfy the deck HTML contract without padding missing chapters just to match cached ${DECKS_STATE_FILE} \`slides[]\`. For targeted artifact-level edits, patch the requested deck HTML directly without treating \`writeReadiness\` or \`planReview\` as a precondition.`
 }
 
 function compactWorkspaceForPrompt(workspace: DecksState["workspace"]): DecksState["workspace"] {
@@ -989,16 +990,13 @@ function computeDeckReadinessIssues(state: DecksState, deck: DeckSpec, options: 
     }
   }
 
-  if (deck.slides.length === 0) issues.push(blockerIssue("missing_slide_spec", "slides are missing", "Add the confirmed slide plan through revela-decks upsertSlides."))
-  if (deck.slides.length > 0) {
-    const planReview = currentDeckPlanReviewStatus(deck, options.narrativeHash)
-    if (!planReview.current) {
-      issues.push(blockerIssue(
-        "slide_plan_unconfirmed",
-        planReview.stale ? `Deck slide plan confirmation is stale: ${planReview.reason}` : `Deck slide plan is not confirmed: ${planReview.reason}`,
-        "Show the compiled deck plan with low-fidelity layout sketches to the user, then call revela-decks confirmDeckPlan only after explicit user confirmation.",
-      ))
-    }
+  const planReview = currentDeckPlanReviewStatus(deck, options.narrativeHash)
+  if (!planReview.current) {
+    issues.push(blockerIssue(
+      "slide_plan_unconfirmed",
+      planReview.stale ? `Deck plan confirmation is stale: ${planReview.reason}` : `Deck plan is not confirmed: ${planReview.reason}`,
+      "Write or read decks/deck-plan.md, have the user sign its Approval block, then call revela-decks confirmDeckPlan.",
+    ))
   }
   issues.push(...deckPlanQualityIssues(deck))
   issues.push(...artifactCoverageIssues(state, deck))

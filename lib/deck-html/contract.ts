@@ -9,11 +9,12 @@ export type DeckHtmlContractIssueType =
   | "file_not_found"
   | "no_matching_deck_spec"
   | "missing_slide_section"
-  | "slide_count_mismatch"
+  | "partial_deck"
+  | "extra_slide"
   | "missing_data_slide_index"
   | "invalid_data_slide_index"
   | "duplicate_data_slide_index"
-  | "slide_index_mismatch"
+  | "slide_index_order"
   | "legacy_data_index_noncanonical"
 
 export interface DeckHtmlContractIssue {
@@ -95,15 +96,19 @@ export function validateDeckHtmlContract(workspaceRoot: string, filePath: string
     return finalize(base)
   }
 
-  if (sections.length !== base.expectedIndexes.length) {
-    base.issues.push({
-      type: "slide_count_mismatch",
-      severity: "error",
-      message: `Deck HTML has ${sections.length} slide sections, but DECKS.json expects ${base.expectedIndexes.length}.`,
+  if (base.expectedIndexes.length > 0 && sections.length !== base.expectedIndexes.length) {
+    const partial = sections.length < base.expectedIndexes.length
+    base.warnings.push({
+      type: partial ? "partial_deck" : "extra_slide",
+      severity: "warning",
+      message: partial
+        ? `Deck HTML currently has ${sections.length} slide sections while the cached DECKS.json projection has ${base.expectedIndexes.length}. This is allowed during chapter-by-chapter authoring.`
+        : `Deck HTML has ${sections.length} slide sections while the cached DECKS.json projection has ${base.expectedIndexes.length}. Treat the cached slide projection as compatibility context, not the artifact source of truth.`,
     })
   }
 
   const seen = new Set<number>()
+  let previousIndex = 0
   sections.forEach((section, offset) => {
     const expectedIndex = base.expectedIndexes[offset]
     if (section.dataIndex !== undefined) {
@@ -150,13 +155,24 @@ export function validateDeckHtmlContract(workspaceRoot: string, filePath: string
     }
     seen.add(actualIndex)
 
-    if (expectedIndex !== undefined && actualIndex !== expectedIndex) {
+    if (actualIndex <= previousIndex) {
       base.issues.push({
-        type: "slide_index_mismatch",
+        type: "slide_index_order",
         severity: "error",
-        message: `Slide ${section.position} has data-slide-index=${actualIndex}, but DECKS.json expects ${expectedIndex}.`,
+        message: `Slide ${section.position} has data-slide-index=${actualIndex}, but slide indexes must increase in DOM order.`,
         slidePosition: section.position,
         expectedIndex,
+        actualIndex,
+      })
+    }
+    previousIndex = actualIndex
+
+    if (base.expectedIndexes.length > 0 && !base.expectedIndexes.includes(actualIndex)) {
+      base.warnings.push({
+        type: "extra_slide",
+        severity: "warning",
+        message: `Slide ${section.position} has data-slide-index=${actualIndex}, which is not present in the cached DECKS.json slide projection.`,
+        slidePosition: section.position,
         actualIndex,
       })
     }

@@ -58,7 +58,7 @@ describe("deck HTML contract", () => {
     }
   })
 
-  it("rejects duplicate and out-of-sequence canonical indexes", () => {
+  it("rejects duplicate and descending canonical indexes", () => {
     const root = workspace()
     try {
       writeDeck(root, `
@@ -70,14 +70,14 @@ describe("deck HTML contract", () => {
       const report = validateDeckHtmlContract(root, "decks/demo.html")
 
       expect(report.status).toBe("invalid")
-      expect(report.issues.map((issue) => issue.type)).toContain("slide_index_mismatch")
       expect(report.issues.map((issue) => issue.type)).toContain("duplicate_data_slide_index")
+      expect(report.issues.map((issue) => issue.type)).toContain("slide_index_order")
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
   })
 
-  it("rejects slide count mismatches", () => {
+  it("warns on slide count mismatches without failing contract", () => {
     const root = workspace()
     try {
       writeDeck(root, `<section class="slide" data-slide-index="1"><h1>One</h1></section>`)
@@ -85,8 +85,52 @@ describe("deck HTML contract", () => {
 
       const report = validateDeckHtmlContract(root, "decks/demo.html")
 
+      expect(report.status).toBe("valid")
+      expect(report.ok).toBe(true)
+      expect(report.issues).toEqual([])
+      expect(report.warnings.map((issue) => issue.type)).toContain("partial_deck")
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it("accepts partial prefix decks during chapter-by-chapter authoring", () => {
+    const root = workspace()
+    try {
+      writeDeck(root, `
+        <section class="slide" data-slide-index="1"><h1>One</h1></section>
+        <section class="slide" data-slide-index="2"><h1>Two</h1></section>
+        <section class="slide" data-slide-index="3"><h1>Three</h1></section>
+        <section class="slide" data-slide-index="4"><h1>Four</h1></section>
+        <section class="slide" data-slide-index="5"><h1>Five</h1></section>
+      `)
+      writeState(root, Array.from({ length: 35 }, (_, index) => index + 1))
+
+      const report = validateDeckHtmlContract(root, "decks/demo.html")
+
+      expect(report.status).toBe("valid")
+      expect(report.actualIndexes).toEqual([1, 2, 3, 4, 5])
+      expect(report.expectedIndexes).toHaveLength(35)
+      expect(report.warnings).toContainEqual(expect.objectContaining({ type: "partial_deck", severity: "warning" }))
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it("rejects out-of-order slide indexes even when counts differ", () => {
+    const root = workspace()
+    try {
+      writeDeck(root, `
+        <section class="slide" data-slide-index="1"><h1>One</h1></section>
+        <section class="slide" data-slide-index="3"><h1>Three</h1></section>
+        <section class="slide" data-slide-index="2"><h1>Two</h1></section>
+      `)
+      writeState(root, [1, 2, 3, 4])
+
+      const report = validateDeckHtmlContract(root, "decks/demo.html")
+
       expect(report.status).toBe("invalid")
-      expect(report.issues.map((issue) => issue.type)).toContain("slide_count_mismatch")
+      expect(report.issues.map((issue) => issue.type)).toContain("slide_index_order")
     } finally {
       rmSync(root, { recursive: true, force: true })
     }

@@ -21,13 +21,19 @@ The active design is injected after this prompt. Follow it exactly.
 
 ## Source Of Truth
 
-- `DECKS.json` is the workspace state source for approved narrative, confirmed
-  slide specs, evidence bindings, output path, artifact readiness, and render
-  targets.
+- `DECKS.json` is the workspace state source for approved narrative, output
+  path, artifact readiness, render targets, provenance, and compatibility
+  projections.
 - Do not patch `DECKS.json` directly. Use `revela-decks` actions for state
   updates.
 - Canonical narrative remains the authority for audience, decision, thesis,
   claims, evidence boundaries, objections, risks, caveats, and approval.
+- Once generated, `decks/deck-plan.md` is the deck execution blueprint for slide
+  order, chapter batches, visual intent, and evidence trace. It does not replace
+  canonical narrative meaning.
+- `DECKS.json.slides[]` is a compatibility/cache projection, not the authority
+  for HTML slide count. Do not force partial chapter-by-chapter artifacts to
+  match cached slide totals while authoring.
 - Deck slide specs are render-target projections. Do not use the deck artifact
   to silently change canonical meaning.
 - Full domain definitions are injected in narrative mode only. In deck-render
@@ -49,9 +55,12 @@ handoff exactly:
 1. Read `DECKS.json` through `revela-decks`.
 2. Review narrative readiness before planning or writing.
 3. Require approved narrative or explicit render override.
-4. Use `compileDeckPlan`; do not invent slide specs to bypass approval.
-5. Present the generated `decks/deck-plan.md` deck plan with low-fidelity
-   sketches and stop for confirmation.
+4. Use `compileDeckPlan` to prepare the claim/evidence planning packet and
+   deck-plan authoring requirements. It does not write the final slide list.
+5. If target slide count, audience, language, output purpose, or visual style is
+   unclear, ask the user for the smallest needed confirmation. Then write
+   `decks/deck-plan.md` from the planning packet and requirements, including
+   low-fidelity sketches, and stop for confirmation.
 6. Ask the user to approve by editing the Approval block in
    `decks/deck-plan.md`; then record confirmation and run the deck/artifact gate.
 7. Fetch the required design layouts/components with `revela-designs read`.
@@ -60,8 +69,12 @@ handoff exactly:
 
 Do not write or overwrite `decks/*.html` before plan confirmation and artifact
 readiness. Do not call narrative approval tools unless the user explicitly asks.
-Before any HTML generation, read `decks/deck-plan.md` and follow its Chapter
-Writing Batches, slide plan, visual intent, evidence trace, and approval hashes.
+Before any HTML generation, call `revela-decks` action `readDeckPlan` and follow
+the current `decks/deck-plan.md`: Source Authority, deck parameters, Chapter
+Writing Batches, slide plan, visual intent, evidence trace, boundaries, and
+approval status. Do not call `compileDeckPlan` merely to understand an existing
+plan, and do not reinterpret cached `DECKS.json.slides[]` as the render
+contract.
 
 Decks with 5 or more slides must be generated chapter by chapter, not in one
 broad `write` or `apply_patch` call. The first HTML write may create the stable
@@ -101,8 +114,8 @@ the deck's chapter grouping and the order of non-structural slides that follow.
 
 Before writing HTML, the confirmed plan must include:
 
-- A generated `decks/deck-plan.md` artifact with matching `narrativeHash` and
-  `planHash` in its Approval block.
+- A user-approved `decks/deck-plan.md` artifact with matching current
+  `narrativeHash` and a valid Approval block.
 - `Required structure: Cover + Table of Contents + Closing`.
 - A `Chapters` section with 3-5 TOC headings, slide ranges, and the
   non-structural slides assigned to each chapter.
@@ -110,6 +123,8 @@ Before writing HTML, the confirmed plan must include:
   components, primary/supporting claim ids, evidence binding ids or source
   summary, `content.data.visualIntent`, `visuals[]`, and caveats/unsupported
   scope.
+- Source Authority, Chapter Writing Batches, Evidence Trace, Boundary / Risk
+  Treatment, and HTML Identity Contract sections.
 - A low-fidelity layout sketch for every slide when requested by the handoff
   prompt.
 
@@ -128,6 +143,9 @@ Rules for the slide plan:
   instructions, not optional decoration. Do not downgrade a planned metric card,
   evidence table, comparison grid, risk matrix, steps view, chart, or media brief
   into generic bullets unless the user revises and reconfirms the plan.
+- Chapter divider or chapter TOC slides are structural wayfinding and should
+  usually render with the `toc` component; they must not replace framing, proof,
+  and implication coverage in substantive chapters.
 - Normal content slides should usually contain 2-4 semantic boxes/cards unless
   intentionally using a focus layout.
 - If a chapter lacks enough substance for its allocated slides, reduce the slide
@@ -148,8 +166,10 @@ For decks with 5 or more slides:
 - First create a stable HTML shell plus structural slides and the first chapter.
 - Then fill or revise exactly one chapter range at a time.
 - Do not mix multiple central-claim chapters in the same write.
-- Do not add placeholder, blank, repeated thesis, or divider-only slides just to
-  satisfy missing slide indexes.
+- Chapter divider or chapter TOC slides are allowed as structural wayfinding and
+  should usually use the `toc` component.
+- Do not use placeholder, blank, repeated thesis, or generic transition slides as
+  substitutes for required claim substance.
 - Treat appendix, summary, and closing slides as the final batch unless the
   confirmed plan assigns them to a specific earlier chapter.
 
@@ -197,8 +217,8 @@ Required contract:
 
 - Use one `<section class="slide">` per slide.
 - Every slide must include a `.slide-canvas` wrapper.
-- Every slide must include canonical positive 1-based `data-slide-index` matching
-  the corresponding `DECKS.json` slide index.
+- Every slide must include a canonical positive 1-based `data-slide-index`.
+- Slide indexes must be unique and strictly increase in DOM order.
 - Every slide must include `slide-qa`.
 - Use `slide-qa="true"` for content-heavy layouts that should be density/overflow
   checked. Use `slide-qa="false"` for structural or sparse layouts such as cover,
@@ -215,6 +235,9 @@ Required contract:
 - During chapter-by-chapter generation, a partial deck file is acceptable only
   when the HTML remains valid and every written slide satisfies this contract.
   Do not use filler or hidden overflow to make missing chapters appear complete.
+- Do not treat cached `DECKS.json.slides[]` length mismatches as an HTML identity
+  failure; plan completeness belongs to the confirmed `decks/deck-plan.md` and
+  chapter batches.
 
 Example slide identity:
 
@@ -260,6 +283,14 @@ patch and rerun QA before considering the deck ready.
   roadmap, or product-vision claims.
 - Keep missing evidence visible as a caveat, gap, or blocker instead of filling
   it with assumptions.
+- Do not render internal evidence diagnostics as executive-facing body copy.
+  Avoid labels such as `Evidence gap:`, `Unsupported scope:`, `Caveat:`,
+  `Missing Data`, or `Evidence Boundary` in normal slide text unless the user
+  explicitly asks for an appendix or audit checklist.
+- Translate evidence limits into audience-facing decision language: what the
+  evidence supports, what should not yet be concluded, and what decision should
+  wait for internal validation. Put raw diagnostic fields in speaker notes,
+  source notes, appendix, or Review/Insight context instead of main slide bullets.
 
 ---
 

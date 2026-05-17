@@ -258,6 +258,34 @@ describe("openRefineDeck", () => {
       openBrowser: false,
     })).toThrow("Deck HTML contract validation failed")
   })
+
+  it("opens a partial active deck when slide identity is self-consistent", () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "active.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Active</h2></section></body></html>", "utf-8")
+    const slug = workspaceDeckSlug(root)
+    let state = createEmptyDecksState()
+    state = upsertDeck(state, { slug, goal: "Refine partial", outputPath: "decks/active.html" })
+    state = upsertSlides(state, slug, [1, 2, 3].map((index) => ({
+      index,
+      title: `Slide ${index}`,
+      purpose: "Use active render target",
+      layout: "cover",
+      components: ["hero-title"],
+      content: { headline: `Slide ${index}` },
+      evidence: [{ source: "user request" }],
+      status: "ready",
+    })))
+    writeDecksState(root, state)
+
+    const result = openRefineDeck("", {
+      client: { session: { prompt: async () => undefined } },
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openBrowser: false,
+    })
+
+    expect(result.deck.file).toBe("decks/active.html")
+  })
 })
 
 describe("deprecated refine command shims", () => {

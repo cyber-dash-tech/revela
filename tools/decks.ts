@@ -30,11 +30,11 @@ import {
   reviewNarrativeState,
 } from "../lib/narrative-state/readiness"
 import { compileDeckPlanFromNarrative } from "../lib/narrative-state/render-plan"
-import { validateDeckPlanApprovalFile, writeDeckPlanArtifact } from "../lib/narrative-state/deck-plan-artifact"
+import { DECK_PLAN_ARTIFACT_PATH, readDeckPlanArtifact, validateDeckPlanApprovalFile } from "../lib/narrative-state/deck-plan-artifact"
 import { backfillSlideClaimRefsFromCoverage } from "../lib/narrative-state/coverage"
 import { closeResearchGapInState, deriveResearchGapsFromReadiness, deriveResearchTargets, updateResearchGapInState, upsertResearchGapsInState } from "../lib/narrative-state/research-gaps"
 import { evaluateResearchFindingsBinding } from "../lib/narrative-state/research-binding-eval"
-import { stableEvidenceId } from "../lib/narrative-state/hash"
+import { computeNarrativeHash, stableEvidenceId } from "../lib/narrative-state/hash"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { buildNarrativeVaultInventory, compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, hasNarrativeVault, initNarrativeVault, narrativeVaultAuthoringContract, narrativeVaultTimestampMs, removeVaultRelation, runNarrativeMarkdownQa, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRelation, upsertVaultRiskNode, VAULT_MIGRATION_PRESERVED_IN_DECKS_JSON } from "../lib/narrative-vault"
 import { compileCacheMirrorNarrativeVault } from "../lib/narrative-vault/compile-mirror"
@@ -115,10 +115,10 @@ export default tool({
   description:
     `Read and update ${DECKS_STATE_FILE}, Revela's workspace deck state file. ` +
     "Use this tool instead of writing or patching the state file directly. " +
-    "It stores workspace narrative state, active deck specs, per-slide content/layout/components, and computes narrative or deck readiness.",
+    "It stores compatibility/render state, narrative projections, active output paths, cached deck projections, approvals, reviews, artifact coverage, and readiness.",
   args: {
     action: tool.schema
-      .enum(["read", "init", "initNarrativeVault", "narrativeInventory", "vaultInventory", "markdownQa", "upsertDeck", "upsertSlides", "upsertNarrative", "compileNarrativeVault", "exportNarrativeVault", "upsertVaultEvidence", "bindResearchFindings", "updateVaultResearchGap", "upsertVaultResearchGap", "upsertVaultClaim", "upsertVaultObjection", "upsertVaultRisk", "upsertVaultRelation", "removeVaultRelation", "updateVaultCoreNarrative", "compileDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "deriveResearchTargets", "evaluateResearchFindings", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
+      .enum(["read", "init", "initNarrativeVault", "narrativeInventory", "vaultInventory", "markdownQa", "upsertDeck", "upsertSlides", "upsertNarrative", "compileNarrativeVault", "exportNarrativeVault", "upsertVaultEvidence", "bindResearchFindings", "updateVaultResearchGap", "upsertVaultResearchGap", "upsertVaultClaim", "upsertVaultObjection", "upsertVaultRisk", "upsertVaultRelation", "removeVaultRelation", "updateVaultCoreNarrative", "compileDeckPlan", "readDeckPlan", "confirmDeckPlan", "backfillClaimRefs", "review", "reviewNarrative", "approveNarrative", "deriveResearchGaps", "deriveResearchTargets", "evaluateResearchFindings", "upsertResearchGaps", "updateResearchGap", "closeResearchGap", "applyEvidenceCandidates", "attachResearchFindings", "remember"])
       .describe("Action to perform on DECKS.json."),
     summary: tool.schema.boolean().optional().describe("For read: return a compact summary instead of full state."),
     goal: tool.schema.string().optional().describe("For upsertDeck: deck goal."),
@@ -688,18 +688,7 @@ export default tool({
         const qaGate = strictVaultMarkdownQaGate(workspaceRoot, "render", "compileDeckPlan")
         if (qaGate) return JSON.stringify(qaGate, null, 2)
         const compiled = compileDeckPlanFromNarrative(state)
-        let planArtifact: { path: string; absolutePath: string } | undefined
-        if (compiled.result.compiled && compiled.state.activeDeck && compiled.result.planHash) {
-          planArtifact = writeDeckPlanArtifact(workspaceRoot, {
-            deck: compiled.state.decks[compiled.state.activeDeck],
-            narrativeHash: compiled.result.narrativeHash,
-            planHash: compiled.result.planHash,
-            chapters: compiled.result.chapters ?? [],
-            qualityChecks: compiled.result.qualityChecks ?? [],
-            compiledAt: new Date().toISOString(),
-          })
-          compiled.result.planArtifactPath = planArtifact.path
-        }
+        const planArtifact = compiled.result.compiled ? { path: DECK_PLAN_ARTIFACT_PATH } : undefined
         if (compiled.result.compiled) {
           recordWorkspaceAction(compiled.state, {
             type: "deck.plan_compiled",
@@ -707,13 +696,14 @@ export default tool({
             inputs: { narrativeId: compiled.state.narrative?.id, activeDeck: compiled.state.activeDeck },
             outputs: {
               narrativeHash: compiled.result.narrativeHash,
-              planHash: compiled.result.planHash,
               planArtifactPath: planArtifact?.path,
+              planningPacket: Boolean(compiled.result.planningPacket),
+              deckPlanRequirements: Boolean(compiled.result.deckPlanRequirements),
               slideCount: compiled.result.slideCount,
               outputPath: compiled.state.activeDeck ? compiled.state.decks[compiled.state.activeDeck]?.outputPath : undefined,
             },
             status: "success",
-            summary: `Compiled deck plan from canonical narrative with ${compiled.result.slideCount} slide${compiled.result.slideCount === 1 ? "" : "s"}.`,
+            summary: "Prepared deck planning packet and deck-plan authoring requirements from canonical narrative.",
             nodeIds: [compiled.state.narrative?.id, compiled.state.activeDeck ? `artifact:${compiled.state.decks[compiled.state.activeDeck]?.outputPath ?? compiled.state.activeDeck}` : undefined].filter((item): item is string => Boolean(item)),
           })
         }
@@ -721,17 +711,25 @@ export default tool({
         return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, planArtifact, result: compiled.result, deck: compiled.state.activeDeck ? compiled.state.decks[compiled.state.activeDeck] : undefined, narrative: compiled.state.narrative }, null, 2)
       }
 
+      if (args.action === "readDeckPlan") {
+        const narrative = normalizeNarrativeState(state)
+        const read = readDeckPlanArtifact(workspaceRoot, { narrativeHash: computeNarrativeHash(narrative) })
+        return JSON.stringify({ ok: read.ok, planArtifact: read }, null, 2)
+      }
+
       if (args.action === "confirmDeckPlan") {
         if (args.approvalBy && args.approvalBy !== "user") return JSON.stringify({ ok: false, error: "confirmDeckPlan requires approvalBy=user" })
         const deck = state.activeDeck ? state.decks[state.activeDeck] : undefined
-        const pending = deck?.planReview
-        if (!deck || !pending) return JSON.stringify({ ok: false, result: { confirmed: false, skipped: true, reason: "Cannot confirm because no compiled deck plan is pending. Run compileDeckPlan first." } }, null, 2)
-        const approval = validateDeckPlanApprovalFile(workspaceRoot, { narrativeHash: pending.narrativeHash, planHash: pending.planHash })
-        if (!approval.ok) return JSON.stringify({ ok: false, result: { confirmed: false, skipped: true, slug: deck.slug, narrativeHash: pending.narrativeHash, planHash: pending.planHash, reason: approval.reason }, approval: approval.approval }, null, 2)
+        if (!deck) return JSON.stringify({ ok: false, result: { confirmed: false, skipped: true, reason: "Cannot confirm because no current deck exists." } }, null, 2)
+        const narrative = normalizeNarrativeState(state)
+        const narrativeHash = computeNarrativeHash(narrative)
+        const approval = validateDeckPlanApprovalFile(workspaceRoot, { narrativeHash })
+        if (!approval.ok) return JSON.stringify({ ok: false, result: { confirmed: false, skipped: true, slug: deck.slug, narrativeHash, planHash: approval.planHash, reason: approval.reason }, approval: approval.approval, missingSections: approval.missingSections }, null, 2)
         const confirmed = confirmDeckPlan(state, {
           approvedBy: "user",
           approvedAt: approval.approval?.approvedAt,
           note: args.approvalNote ?? approval.approval?.approvalNote,
+          planHash: approval.planHash,
         })
         if (confirmed.result.confirmed) {
           recordWorkspaceAction(confirmed.state, {
@@ -744,12 +742,12 @@ export default tool({
               planHash: confirmed.result.planHash,
             },
             status: "success",
-            summary: args.approvalNote?.trim() || "User confirmed the compiled deck plan.",
+            summary: args.approvalNote?.trim() || "User confirmed the deck-plan.md artifact.",
             nodeIds: [confirmed.state.narrative?.id, confirmed.result.slug ? `deck:${confirmed.result.slug}` : undefined].filter((item): item is string => Boolean(item)),
           })
         }
         writeDecksState(workspaceRoot, confirmed.state)
-        return JSON.stringify({ ok: confirmed.result.confirmed, path: DECKS_STATE_FILE, result: confirmed.result, deck: confirmed.state.activeDeck ? confirmed.state.decks[confirmed.state.activeDeck] : undefined }, null, 2)
+        return JSON.stringify({ ok: confirmed.result.confirmed, path: DECKS_STATE_FILE, result: confirmed.result, approval: approval.approval, deck: confirmed.state.activeDeck ? confirmed.state.decks[confirmed.state.activeDeck] : undefined }, null, 2)
       }
 
       if (args.action === "backfillClaimRefs") {

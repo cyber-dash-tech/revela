@@ -1,4 +1,4 @@
-import { deckPlanHash, upsertDeck, upsertSlides, type DecksState, type EvidenceRef, type RequiredInputs, type SlideSpec, type VisualBrief } from "../decks-state"
+import { deckPlanHash, upsertDeck, upsertSlides, type DeckSpec, type DecksState, type EvidenceRef, type RequiredInputs, type SlideSpec, type VisualBrief } from "../decks-state"
 import { ensureActiveHtmlDeckRenderTarget } from "../workspace-state/render-targets"
 import { getClaimSlideRefs } from "./queries"
 import { computeNarrativeHash } from "./hash"
@@ -21,6 +21,32 @@ export interface CompileDeckPlanResult {
   slides: SlideSpec[]
   chapters?: DeckPlanChapter[]
   qualityChecks?: DeckPlanQualityCheck[]
+  renderPlan?: RenderPlanContract
+  planningPacket?: DeckPlanningPacket
+  deckPlanRequirements?: DeckPlanRequirements
+}
+
+export interface DeckPlanningPacket {
+  narrativeHash: string
+  outputPath: string
+  audience: NarrativeStateV1["audience"]
+  decision: NarrativeStateV1["decision"]
+  thesis: NarrativeStateV1["thesis"]
+  centralClaims: NarrativeClaim[]
+  supportingClaims: NarrativeClaim[]
+  evidenceBindings: NarrativeEvidenceBinding[]
+  objections: NarrativeStateV1["objections"]
+  risks: NarrativeStateV1["risks"]
+  researchGaps: NarrativeStateV1["researchGaps"]
+}
+
+export interface DeckPlanRequirements {
+  planArtifactPath: string
+  defaultProfile: string
+  userConfirmations: string[]
+  authoringRules: string[]
+  requiredSections: string[]
+  approvalBlockTemplate: string
 }
 
 export interface DeckPlanChapter {
@@ -36,6 +62,52 @@ export interface DeckPlanQualityCheck {
   id: string
   status: "pass" | "warning" | "blocker"
   message: string
+}
+
+export type RenderPlanSlideKind = "cover" | "toc" | "chapter-divider" | "claim-framing" | "claim-evidence" | "claim-implication" | "supporting-evidence" | "risk" | "ask" | "content"
+
+export interface RenderPlanSlideMetadata {
+  index: number
+  title: string
+  chapterTitle?: string
+  chapterRole?: DeckPlanChapter["role"]
+  slideKind: RenderPlanSlideKind
+  structural: boolean
+  countsTowardClaimSubstance: boolean
+  requiredComponents: string[]
+  evidenceTraceRequired: boolean
+  claimChapterRequirement?: "divider" | "framing" | "proof" | "implication" | "supporting-evidence" | "risk" | "ask"
+}
+
+export interface RenderPlanChapterRequirement {
+  title: string
+  role: DeckPlanChapter["role"]
+  sourceClaimId?: string
+  slideIndexes: number[]
+  requiredSubstanceSlides: number
+  actualSubstanceSlides: number
+  allowedStructuralSlides: string[]
+}
+
+export interface RenderPlanWritingBatch {
+  label: string
+  chapterTitle: string
+  slideIndexes: number[]
+  instructions: string
+}
+
+export interface RenderPlanContract {
+  sourceAuthority: {
+    meaning: string
+    renderPlan: string
+    state: string
+    htmlIdentity: string
+  }
+  renderRules: string[]
+  htmlIdentityContract: string[]
+  chapterRequirements: RenderPlanChapterRequirement[]
+  chapterWritingBatches: RenderPlanWritingBatch[]
+  slideRenderMetadata: RenderPlanSlideMetadata[]
 }
 
 type VisualIntentKind = "hero" | "toc" | "metric-stat" | "evidence-table" | "comparison-grid" | "risk-matrix" | "steps" | "text-only"
@@ -70,10 +142,8 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
   const deckKey = state.activeDeck ?? Object.keys(state.decks)[0]
   const deck = deckKey ? state.decks[deckKey] : undefined
   const slug = deck?.slug ?? state.activeDeck ?? "deck"
-  const plan = buildDeckPlan(narrative)
-  const { slides, chapters } = plan
-  const qualityChecks = checkPlanQuality(narrative, slides, chapters)
-  const planCoverage = deckPlanCoverage(narrative, slides)
+  const planningPacket = buildDeckPlanningPacket(narrative, narrativeHash, deck?.outputPath ?? `decks/${slug}.html`)
+  const deckPlanRequirements = buildDeckPlanRequirements(narrativeHash)
   const requiredInputs: Partial<RequiredInputs> = {
     topicClarified: true,
     audienceClarified: Boolean(narrative.audience.primary),
@@ -97,14 +167,12 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
     } as RequiredInputs,
     writeReadiness: deck?.writeReadiness ?? { status: "blocked" as const, blockers: [] },
   })
-  next = upsertSlides(next, slug, slides)
   const plannedDeck = next.decks[slug]
-  const planHash = deckPlanHash(plannedDeck.slides)
   plannedDeck.planReview = {
     status: "pending",
     narrativeHash,
-    planHash,
-    qualityChecks,
+    planHash: "pending-deck-plan-md",
+    qualityChecks: [],
   }
   plannedDeck.requiredInputs = { ...plannedDeck.requiredInputs, slidePlanConfirmed: false }
   plannedDeck.writeReadiness = { status: "blocked", blockers: [] }
@@ -114,13 +182,13 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
   if (htmlTarget) {
     htmlTarget.data = {
       ...(htmlTarget.data ?? {}),
-      narrativeId: narrative.id,
-      narrativeHash,
-        planQualityChecks: qualityChecks,
-        planChapters: chapters,
-        requiredClaimIds: planCoverage.requiredClaimIds,
-      coveredClaimIds: planCoverage.coveredClaimIds,
-      missingClaimIds: planCoverage.missingClaimIds,
+        narrativeId: narrative.id,
+        narrativeHash,
+        planningPacket,
+        deckPlanRequirements,
+        requiredClaimIds: narrative.claims.filter((claim) => claim.importance === "central").map((claim) => claim.id),
+      coveredClaimIds: [],
+      missingClaimIds: narrative.claims.filter((claim) => claim.importance === "central").map((claim) => claim.id),
       claimSlideRefs: getClaimSlideRefs(next).map((ref) => ({
         claimId: ref.claimId,
         claimText: ref.claimText,
@@ -139,13 +207,167 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
         compiled: true,
         skipped: false,
         narrativeHash,
-        planHash,
-        slideCount: slides.length,
-        slides,
-        chapters,
-        qualityChecks,
+        planArtifactPath: "decks/deck-plan.md",
+        slideCount: 0,
+        slides: [],
+        chapters: [],
+        qualityChecks: [],
+        planningPacket,
+        deckPlanRequirements,
       },
     }
+}
+
+function buildDeckPlanningPacket(narrative: NarrativeStateV1, narrativeHash: string, outputPath: string): DeckPlanningPacket {
+  return {
+    narrativeHash,
+    outputPath,
+    audience: narrative.audience,
+    decision: narrative.decision,
+    thesis: narrative.thesis,
+    centralClaims: orderedClaims(narrative, (claim) => claim.importance === "central"),
+    supportingClaims: orderedClaims(narrative, (claim) => claim.importance !== "central"),
+    evidenceBindings: narrative.evidenceBindings,
+    objections: narrative.objections,
+    risks: narrative.risks,
+    researchGaps: narrative.researchGaps,
+  }
+}
+
+function buildDeckPlanRequirements(narrativeHash: string): DeckPlanRequirements {
+  return {
+    planArtifactPath: "decks/deck-plan.md",
+    defaultProfile: "executive decision deck, usually 12-18 slides unless the user confirms otherwise",
+    userConfirmations: [
+      "Confirm target slide count or acceptable range when it is unclear.",
+      "Confirm audience and decision context when the narrative does not make them explicit.",
+      "Confirm language, emphasis, or visual style only when needed before writing the plan.",
+    ],
+    authoringRules: [
+      "LLM writes decks/deck-plan.md from the planning packet; compileDeckPlan does not generate the final slide list.",
+      "Use 3-5 chapters for normal executive decks.",
+      "Cover every central claim, but group related central claims into chapters instead of giving each claim its own chapter.",
+      "Each substantive chapter should have framing, proof, and implication/boundary coverage.",
+      "Chapter divider or chapter TOC slides may use the toc component as structural wayfinding.",
+      "Do not create filler slides, repeated thesis pages, or generic bridge slides.",
+      "Preserve evidence ids, source trace, supported scope, unsupported scope, caveats, and strength where available.",
+      "Do not render internal labels such as Evidence gap:, Unsupported scope:, Caveat:, Missing Data, or Evidence Boundary in executive body copy.",
+      "Do not infer plan structure from DECKS.json slides[]; it is compatibility cache only.",
+    ],
+    requiredSections: [
+      "Source Authority",
+      "Audience / Goal / Decision",
+      "Deck Parameters",
+      "Chapter Map",
+      "Slide Plan",
+      "Evidence Trace",
+      "Boundary / Risk Treatment",
+      "Chapter Writing Batches",
+      "HTML Identity Contract",
+      "Approval",
+    ],
+    approvalBlockTemplate: `## Approval\n\n\`\`\`yaml\nstatus: pending\napprovedBy:\napprovedAt:\napprovalNote:\nplanHash:\nnarrativeHash: ${narrativeHash}\n\`\`\``,
+  }
+}
+
+export function buildRenderPlanContract(deck: DeckSpec, chapters: DeckPlanChapter[]): RenderPlanContract {
+  return {
+    sourceAuthority: {
+      meaning: "revela-narrative/ canonical narrative state",
+      renderPlan: "decks/deck-plan.md execution blueprint and compileDeckPlan result",
+      state: "DECKS.json compatibility/render state only; slides[] is cached projection data",
+      htmlIdentity: "positive 1-based data-slide-index values, unique and strictly increasing in DOM order",
+    },
+    renderRules: [
+      "Do not infer deck structure, slide count, or chapter substance from DECKS.json slides[].",
+      "Use the compileDeckPlan result and approved decks/deck-plan.md as the render-plan contract.",
+      "Render chapter divider slides with the toc component when slideKind is chapter-divider.",
+      "Chapter divider and global TOC slides are structural wayfinding and do not count toward central-claim substance.",
+      "Each central claim chapter needs non-structural framing, proof, and implication/boundary slides unless the approved plan explicitly says otherwise.",
+      "Generate HTML chapter by chapter, preserving valid HTML and already-written slides after every batch.",
+    ],
+    htmlIdentityContract: [
+      "Every written slide section uses class slide and a positive 1-based data-slide-index.",
+      "data-slide-index values are unique and strictly increase in DOM order.",
+      "Partial chapter-by-chapter artifacts are allowed when written slide identities are self-consistent.",
+      "Do not pad missing planned chapters just to match cached DECKS.json slides[].",
+    ],
+    chapterRequirements: chapters.map((chapter) => {
+      const substanceSlides = chapter.slideIndexes
+        .map((index) => deck.slides.find((slide) => slide.index === index))
+        .filter((slide): slide is SlideSpec => Boolean(slide))
+        .filter((slide) => slideCountsTowardClaimSubstance(slide))
+      return {
+        title: chapter.title,
+        role: chapter.role,
+        sourceClaimId: chapter.sourceClaimId,
+        slideIndexes: chapter.slideIndexes,
+        requiredSubstanceSlides: chapter.sourceClaimId ? 3 : 0,
+        actualSubstanceSlides: substanceSlides.length,
+        allowedStructuralSlides: chapter.sourceClaimId ? ["chapter-divider", "toc"] : ["cover", "toc", "ask"],
+      }
+    }),
+    chapterWritingBatches: chapters.map((chapter, index) => ({
+      label: index === 0 ? "Initial shell and first chapter" : `Chapter batch ${index + 1}`,
+      chapterTitle: chapter.title,
+      slideIndexes: chapter.slideIndexes,
+      instructions: index === 0
+        ? "Create the stable HTML shell, required structural slides, and this first chapter range only."
+        : "Patch exactly this chapter range, preserve previously written slides, and keep the file valid after the patch.",
+    })),
+    slideRenderMetadata: deck.slides.map((slide) => slideRenderMetadata(slide, chapters)),
+  }
+}
+
+function slideRenderMetadata(slide: SlideSpec, chapters: DeckPlanChapter[]): RenderPlanSlideMetadata {
+  const chapter = chapters.find((item) => item.slideIndexes.includes(slide.index))
+  const slideKind = renderPlanSlideKind(slide, chapter)
+  return {
+    index: slide.index,
+    title: slide.title,
+    chapterTitle: chapter?.title,
+    chapterRole: chapter?.role,
+    slideKind,
+    structural: isStructuralRenderPlanSlide(slideKind),
+    countsTowardClaimSubstance: slideCountsTowardClaimSubstance(slide),
+    requiredComponents: slide.components ?? [],
+    evidenceTraceRequired: (slide.evidenceBindingIds?.length ?? 0) > 0 || (slide.evidence?.length ?? 0) > 0,
+    claimChapterRequirement: claimChapterRequirementForSlideKind(slideKind),
+  }
+}
+
+function renderPlanSlideKind(slide: SlideSpec, chapter: DeckPlanChapter | undefined): RenderPlanSlideKind {
+  const chapterSlide = (slide.content?.data as { chapterSlide?: string } | undefined)?.chapterSlide
+  if (slide.index === 1 && slide.components.includes("hero")) return "cover"
+  if (slide.layout === "toc" && chapter?.sourceClaimId) return "chapter-divider"
+  if (slide.layout === "toc") return "toc"
+  if (chapterSlide === "framing") return "claim-framing"
+  if (chapterSlide === "evidence") return "claim-evidence"
+  if (chapterSlide === "implication") return "claim-implication"
+  if (slide.narrativeRole === "risk") return "risk"
+  if (slide.narrativeRole === "ask" || slide.narrativeRole === "close") return "ask"
+  if (slide.narrativeRole === "evidence") return "supporting-evidence"
+  return "content"
+}
+
+function isStructuralRenderPlanSlide(kind: RenderPlanSlideKind): boolean {
+  return kind === "cover" || kind === "toc" || kind === "chapter-divider" || kind === "ask"
+}
+
+function slideCountsTowardClaimSubstance(slide: SlideSpec): boolean {
+  const kind = (slide.content?.data as { chapterSlide?: string } | undefined)?.chapterSlide
+  return kind === "framing" || kind === "evidence" || kind === "implication"
+}
+
+function claimChapterRequirementForSlideKind(kind: RenderPlanSlideKind): RenderPlanSlideMetadata["claimChapterRequirement"] {
+  if (kind === "chapter-divider") return "divider"
+  if (kind === "claim-framing") return "framing"
+  if (kind === "claim-evidence") return "proof"
+  if (kind === "claim-implication") return "implication"
+  if (kind === "supporting-evidence") return "supporting-evidence"
+  if (kind === "risk") return "risk"
+  if (kind === "ask") return "ask"
+  return undefined
 }
 
 function buildDeckPlan(narrative: NarrativeStateV1): { slides: SlideSpec[]; chapters: DeckPlanChapter[] } {
@@ -162,6 +384,10 @@ function buildDeckPlan(narrative: NarrativeStateV1): { slides: SlideSpec[]; chap
   for (const claim of centralClaims) {
     const bindings = evidenceByClaim.get(claim.id) ?? []
     const chapter = chapters.find((item) => item.sourceClaimId === claim.id)
+    const divider = chapterDividerSlide(slides.length + 1, chapters, chapter ?? chapterForClaimFallback(claim))
+    slides.push(divider)
+    if (chapter) assignSlideToSpecificChapter(chapter, divider)
+    else assignSlideToChapter(chapters, chapterRoleForClaim(claim), divider)
     for (const kind of ["framing", "evidence", "implication"] as const) {
       const slide = claimChapterSlide(slides.length + 1, claim, bindings, kind, narrative)
       slides.push(slide)
@@ -234,6 +460,45 @@ function tocSlide(index: number, chapters: DeckPlanChapter[]): SlideSpec {
   }
 }
 
+function chapterDividerSlide(index: number, chapters: DeckPlanChapter[], chapter: DeckPlanChapter): SlideSpec {
+  const visualIntent = visualIntentForStructuralSlide("toc", "Use a chapter divider as wayfinding before the claim-led chapter; it is structural and does not replace framing, proof, or implication slides.")
+  return {
+    index,
+    title: chapter.title,
+    purpose: `Open the ${chapter.title} chapter with a TOC-style divider before claim substance slides.`,
+    narrativeRole: "context",
+    layout: "toc",
+    qa: false,
+    components: ["toc", "text-panel"],
+    claimIds: chapter.sourceClaimId ? [chapter.sourceClaimId] : [],
+    claimRefs: chapter.sourceClaimId ? [{ claimId: chapter.sourceClaimId, role: "supporting", note: "Structural chapter divider; not counted as claim proof." }] : [],
+    evidenceBindingIds: [],
+    content: {
+      headline: chapter.title,
+      bullets: chapters.map((item) => item.title),
+      data: {
+        activeChapter: chapter.title,
+        chapters: chapters.map((item) => ({ title: item.title, role: item.role, active: item.title === chapter.title })),
+        visualIntent,
+      },
+    },
+    visuals: visualBriefs(index, visualIntent),
+    evidence: [],
+    status: "planned",
+  }
+}
+
+function chapterForClaimFallback(claim: NarrativeClaim): DeckPlanChapter {
+  return {
+    title: claimChapterTitle(claim),
+    role: chapterRoleForClaim(claim),
+    slideIndexes: [],
+    claimIds: [claim.id],
+    evidenceBindingIds: [],
+    sourceClaimId: claim.id,
+  }
+}
+
 function claimSlide(index: number, claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): SlideSpec {
   const visualIntent = visualIntentForClaim(claim, bindings)
   return {
@@ -266,6 +531,7 @@ function claimChapterSlide(index: number, claim: NarrativeClaim, bindings: Narra
 
 function claimFramingSlide(index: number, claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): SlideSpec {
   const visualIntent = visualIntentForStructuralSlide("text-only", "Frame why this central claim deserves a chapter before proof detail; keep evidence boundaries visible.")
+  const notes = internalEvidenceDiagnostics(claim, bindings)
   return {
     index,
     title: `${titleFromClaim(claim)} - framing`,
@@ -281,9 +547,10 @@ function claimFramingSlide(index: number, claim: NarrativeClaim, bindings: Narra
       headline: claim.text,
       bullets: [
         `Chapter claim: ${claim.text}`,
-        claim.supportedScope ? `What is supported: ${claim.supportedScope}` : undefined,
-        claim.evidenceRequired ? evidenceGapBullet(claim, bindings) ?? `Proof available: ${bindings.length} bound evidence item${bindings.length === 1 ? "" : "s"}.` : "Evidence is not required for this framing claim.",
+        claim.supportedScope ? `What the available evidence supports: ${claim.supportedScope}` : undefined,
+        claim.evidenceRequired ? audienceEvidenceGapBullet(claim, bindings) ?? `Proof base: ${bindings.length} bound evidence item${bindings.length === 1 ? "" : "s"} supports this claim.` : "This framing claim does not require separate proof in the deck plan.",
       ].filter((item): item is string => Boolean(item)),
+      speakerNotes: notes,
       data: { visualIntent, chapterSlide: "framing" },
     },
     evidence: bindings.map(evidenceRefFromBinding),
@@ -294,6 +561,7 @@ function claimFramingSlide(index: number, claim: NarrativeClaim, bindings: Narra
 
 function claimEvidenceSlide(index: number, claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): SlideSpec {
   const visualIntent = visualIntentForClaim(claim, bindings)
+  const notes = internalEvidenceDiagnostics(claim, bindings)
   return {
     index,
     title: `${titleFromClaim(claim)} - proof`,
@@ -308,6 +576,7 @@ function claimEvidenceSlide(index: number, claim: NarrativeClaim, bindings: Narr
     content: {
       headline: claim.text,
       bullets: claimBullets(claim, bindings),
+      speakerNotes: notes,
       data: { visualIntent, chapterSlide: "evidence" },
     },
     evidence: bindings.map(evidenceRefFromBinding),
@@ -320,6 +589,7 @@ function claimImplicationSlide(index: number, claim: NarrativeClaim, bindings: N
   const relatedRisks = narrative.risks.filter((risk) => risk.claimId === claim.id)
   const relatedObjections = narrative.objections.filter((objection) => objection.claimId === claim.id)
   const visualIntent = visualIntentForClaimImplication(claim, relatedRisks.length + relatedObjections.length)
+  const notes = internalEvidenceDiagnostics(claim, bindings)
   return {
     index,
     title: `${titleFromClaim(claim)} - implication`,
@@ -337,8 +607,9 @@ function claimImplicationSlide(index: number, claim: NarrativeClaim, bindings: N
         ...claimBoundaryBullets(claim),
         ...relatedRisks.slice(0, 2).map((risk) => risk.mitigation ? `Risk: ${risk.text} Mitigation: ${risk.mitigation}` : `Risk: ${risk.text}`),
         ...relatedObjections.slice(0, 2).map((objection) => objection.response ? `Objection: ${objection.text} Response: ${objection.response}` : `Objection: ${objection.text}`),
-        relatedRisks.length === 0 && relatedObjections.length === 0 && !claim.unsupportedScope && (claim.caveats ?? []).length === 0 ? "Boundary check: no specific risk, objection, or unsupported scope is recorded for this central claim." : undefined,
+        relatedRisks.length === 0 && relatedObjections.length === 0 && !claim.unsupportedScope && (claim.caveats ?? []).length === 0 ? "Decision use: no specific limiting condition is recorded for this central claim." : undefined,
       ].filter((item): item is string => Boolean(item)),
+      speakerNotes: notes,
       data: { visualIntent, chapterSlide: "implication" },
     },
     evidence: bindings.map(evidenceRefFromBinding),
@@ -350,6 +621,7 @@ function claimImplicationSlide(index: number, claim: NarrativeClaim, bindings: N
 function supportingLogicSlide(index: number, claims: NarrativeClaim[], evidenceByClaim: Map<string, NarrativeEvidenceBinding[]>): SlideSpec {
   const supportingBindings = claims.flatMap((claim) => evidenceByClaim.get(claim.id) ?? [])
   const visualIntent = visualIntentForSupportingLogic(claims, supportingBindings)
+  const notes = claims.map((claim) => internalEvidenceDiagnostics(claim, evidenceByClaim.get(claim.id) ?? [])).filter(Boolean).join("\n\n") || undefined
   return {
     index,
     title: "Supporting Logic",
@@ -363,7 +635,8 @@ function supportingLogicSlide(index: number, claims: NarrativeClaim[], evidenceB
     evidenceBindingIds: supportingBindings.map((binding) => binding.id),
     content: {
       headline: "Supporting claims and boundaries",
-      bullets: claims.slice(0, 5).flatMap((claim) => [claim.text, ...claimBoundaryBullets(claim), evidenceGapBullet(claim, evidenceByClaim.get(claim.id) ?? [])]).filter((item): item is string => Boolean(item)).slice(0, 8),
+      bullets: claims.slice(0, 5).flatMap((claim) => [claim.text, ...claimBoundaryBullets(claim), audienceEvidenceGapBullet(claim, evidenceByClaim.get(claim.id) ?? [])]).filter((item): item is string => Boolean(item)).slice(0, 8),
+      speakerNotes: notes,
       data: { visualIntent },
     },
     evidence: supportingBindings.map(evidenceRefFromBinding),
@@ -641,27 +914,45 @@ function numericSignals(text: string): string[] {
 function claimBullets(claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): string[] {
   return [
     ...claimBoundaryBullets(claim),
-    ...bindings.slice(0, 2).map((binding) => binding.supportScope ? `Evidence supports: ${binding.supportScope}` : undefined),
-    evidenceGapBullet(claim, bindings),
+    ...bindings.slice(0, 2).map((binding) => binding.supportScope ? `Evidence points to: ${binding.supportScope}` : undefined),
+    audienceEvidenceGapBullet(claim, bindings),
   ].filter((item): item is string => Boolean(item))
 }
 
-function evidenceGapBullet(claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): string | undefined {
+function audienceEvidenceGapBullet(claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): string | undefined {
   if (!claim.evidenceRequired || bindings.length > 0) return undefined
-  return `Evidence gap: ${claim.evidenceStatus === "missing" ? "no binding yet" : "support remains incomplete"}.`
+  return claim.evidenceStatus === "missing"
+    ? "Decision boundary: this point needs supporting proof before it can carry the recommendation."
+    : "Decision boundary: current support is incomplete, so use this point as a qualified signal rather than a proven conclusion."
+}
+
+function isAudienceEvidenceGapBullet(text: string): boolean {
+  return text.startsWith("Decision boundary:") && (text.includes("supporting proof") || text.includes("qualified signal"))
 }
 
 function claimBoundaryBullets(claim: NarrativeClaim): string[] {
   return [
-    claim.supportedScope ? `Supported scope: ${claim.supportedScope}` : undefined,
-    claim.unsupportedScope ? `Unsupported scope: ${claim.unsupportedScope}` : undefined,
-    ...(claim.caveats ?? []).map((caveat) => `Caveat: ${caveat}`),
+    claim.supportedScope ? `What the available evidence supports: ${claim.supportedScope}` : undefined,
+    claim.unsupportedScope ? `What this does not yet prove: ${claim.unsupportedScope}` : undefined,
+    ...(claim.caveats ?? []).map((caveat) => `Use with caution: ${caveat}`),
   ].filter((item): item is string => Boolean(item))
 }
 
 function claimBoundaryNote(claim: NarrativeClaim): string | undefined {
   const notes = claimBoundaryBullets(claim)
   return notes.length > 0 ? notes.join(" ") : undefined
+}
+
+function internalEvidenceDiagnostics(claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): string | undefined {
+  const lines = [
+    claim.supportedScope ? `Supported scope: ${claim.supportedScope}` : undefined,
+    claim.unsupportedScope ? `Unsupported scope: ${claim.unsupportedScope}` : undefined,
+    ...(claim.caveats ?? []).map((caveat) => `Caveat: ${caveat}`),
+    !claim.evidenceRequired ? undefined : bindings.length === 0 ? `Evidence gap: ${claim.evidenceStatus === "missing" ? "no binding yet" : "support remains incomplete"}.` : undefined,
+    ...bindings.map((binding) => binding.caveat ? `Evidence ${binding.id} caveat: ${binding.caveat}` : undefined),
+    ...bindings.map((binding) => binding.unsupportedScope ? `Evidence ${binding.id} unsupported scope: ${binding.unsupportedScope}` : undefined),
+  ].filter((item): item is string => Boolean(item))
+  return lines.length > 0 ? `Internal evidence diagnostics for author/reviewer use only. Do not render these labels as executive-facing body copy.\n${lines.map((line) => `- ${line}`).join("\n")}` : undefined
 }
 
 function dedupeClaimRefs<T extends { claimId: string; role: "risk" | "objection" }>(refs: T[]): T[] {
@@ -696,7 +987,7 @@ function checkPlanQuality(narrative: NarrativeStateV1, slides: SlideSpec[], chap
   const evidenceInvisibleChapters = claimChapters.filter((chapter) => {
     const claim = narrative.claims.find((item) => item.id === chapter.sourceClaimId)
     if (!claim?.evidenceRequired) return false
-    return chapter.evidenceBindingIds.length === 0 && !nonStructuralClaimSlides(chapter, slides).some((slide) => (slide.content.bullets ?? []).some((bullet) => bullet.includes("Evidence gap")))
+    return chapter.evidenceBindingIds.length === 0 && !nonStructuralClaimSlides(chapter, slides).some((slide) => (slide.content.bullets ?? []).some((bullet) => isAudienceEvidenceGapBullet(bullet)))
   })
   const paddedClaimChapters = claimChapters.filter((chapter) => nonStructuralClaimSlides(chapter, slides).some((slide) => isFillerSlide(slide)))
   const boundaryMissingChapters = claimChapters.filter((chapter) => {
@@ -705,7 +996,8 @@ function checkPlanQuality(narrative: NarrativeStateV1, slides: SlideSpec[], chap
     const hasBoundary = Boolean(claim.unsupportedScope || (claim.caveats ?? []).length > 0 || narrative.risks.some((risk) => risk.claimId === claim.id) || narrative.objections.some((objection) => objection.claimId === claim.id))
     if (!hasBoundary) return false
     const text = nonStructuralClaimSlides(chapter, slides).flatMap((slide) => [slide.content.headline, ...(slide.content.bullets ?? [])]).join("\n")
-    return !(text.includes("Unsupported scope:") || text.includes("Caveat:") || text.includes("Risk:") || text.includes("Objection:"))
+    const claimBoundaryVisible = [claim.unsupportedScope, ...(claim.caveats ?? [])].filter(Boolean).some((boundary) => text.includes(boundary!))
+    return !(claimBoundaryVisible || text.includes("Risk:") || text.includes("Objection:"))
   })
   const incompatibleComponents = [...new Set(slides.flatMap((slide) => slide.components).filter((component) => component === "card"))]
   const toc = slides.find((slide) => slide.components.includes("toc"))
@@ -732,9 +1024,9 @@ function checkPlanQuality(narrative: NarrativeStateV1, slides: SlideSpec[], chap
       message: evidenceInvisibleChapters.length === 0 ? "Evidence-required claim chapters show bound evidence or an explicit evidence gap." : `Evidence-required claim chapters hide evidence gaps: ${evidenceInvisibleChapters.map((chapter) => chapter.sourceClaimId).join(", ")}`,
     },
     {
-      id: "claim_chapter_not_padded_by_dividers",
+      id: "claim_chapter_not_padded_by_filler",
       status: paddedClaimChapters.length === 0 ? "pass" : "blocker",
-      message: paddedClaimChapters.length === 0 ? "Claim chapters are not padded by dividers, repeated thesis pages, or generic bridge slides." : `Claim chapters contain filler slides: ${paddedClaimChapters.map((chapter) => chapter.sourceClaimId).join(", ")}`,
+      message: paddedClaimChapters.length === 0 ? "Claim chapters may use structural TOC dividers, but are not padded by placeholder, repeated thesis, or generic bridge slides." : `Claim chapters contain filler slides: ${paddedClaimChapters.map((chapter) => chapter.sourceClaimId).join(", ")}`,
     },
     {
       id: "claim_chapter_boundary_visible",

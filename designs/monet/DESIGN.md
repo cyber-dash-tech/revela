@@ -507,7 +507,7 @@ These rules are mandatory for Monet.
 
 ### Layout Types
 
-Each `<section class="slide">` must set `slide-qa="true"` or `slide-qa="false"`. It must also set `data-slide-index="N"`, where `N` is the 1-based `DECKS.json` `slides[].index` value. Use the QA column to decide which value to write. Fetch any layout with the `revela-designs` tool (`action: "read"`, `layout: "<name>"`).
+Each `<section class="slide">` must set `slide-qa="true"` or `slide-qa="false"`. It must also set `data-slide-index="N"`, where `N` is the canonical positive 1-based artifact slide identity from the approved deck plan or DOM order. Indexes must be unique and strictly increase. Use the QA column to decide which `slide-qa` value to write. Fetch any layout with the `revela-designs` tool (`action: "read"`, `layout: "<name>"`).
 
 <!-- @layout:fullbleed:start qa=false -->
 #### Fullbleed

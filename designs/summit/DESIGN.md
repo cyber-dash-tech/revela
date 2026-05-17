@@ -470,7 +470,7 @@ These rules are mandatory for Summit.
 
 ### Layout Types
 
-Each `<section class="slide">` must set `slide-qa="true"` or `slide-qa="false"`. It must also set `data-slide-index="N"`, where `N` is the 1-based `DECKS.json` `slides[].index` value. Use the QA column to decide which value to write. Fetch any layout with the `revela-designs` tool (`action: "read"`, `layout: "<name>"`).
+Each `<section class="slide">` must set `slide-qa="true"` or `slide-qa="false"`. It must also set `data-slide-index="N"`, where `N` is the canonical positive 1-based artifact slide identity from the approved deck plan or DOM order. Indexes must be unique and strictly increase. Use the QA column to decide which `slide-qa` value to write. Fetch any layout with the `revela-designs` tool (`action: "read"`, `layout: "<name>"`).
 
 Normal `qa=true` content layouts should start with a slide-level title block unless the layout marker explicitly says otherwise. Use an eyebrow for chapter/section context, then an `h2` that states the slide's claim or takeaway. Body boxes, charts, media, tables, and text panels should sit below or beside that title region rather than replacing it.
 

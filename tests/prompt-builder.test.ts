@@ -74,6 +74,14 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("decks/deck-plan.md")
     expect(prompt).toContain("Approval block")
     expect(prompt).toContain("Writing Batches")
+    expect(prompt).toContain("claim/evidence planning packet")
+    expect(prompt).toContain("readDeckPlan")
+    expect(prompt).toContain("Do not call `compileDeckPlan` merely")
+    expect(prompt).toContain("reinterpret cached `DECKS.json.slides[]`")
+    expect(prompt).toContain("compatibility/cache projection")
+    expect(prompt).toContain("Slide indexes must be unique and strictly increase")
+    expect(prompt).toContain("Do not render internal evidence diagnostics as executive-facing body copy")
+    expect(prompt).toContain("Missing Data")
   })
 
   it("excludes full domain guidance from deck-render mode", () => {
