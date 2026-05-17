@@ -162,6 +162,20 @@ describe("canvas and text checks", () => {
     expect(canvas?.detail).toContain("1920x1080")
   })
 
+  it("does not accept smaller fixed-ratio canvases as deck-ready", () => {
+    const metrics = makeMetrics({ elements: [makeElement(makeRect(80, 80, 1520, 820))] })
+    metrics.slideRect = makeRect(0, 0, 1600, 900)
+    metrics.canvasRect = makeRect(0, 0, 1600, 900)
+
+    const report = runChecks("test.html", [metrics])
+    const canvas = report.slides[0].issues.find((i) => i.type === "canvas" && i.sub === "size_mismatch")
+
+    expect(canvas?.severity).toBe("error")
+    expect(canvas?.detail).toContain("exactly 1920x1080px")
+    expect(canvas?.data?.expectedWidth).toBe(CANVAS_W)
+    expect(canvas?.data?.expectedHeight).toBe(CANVAS_H)
+  })
+
   it("reports clipped text containers", () => {
     const el = { ...makeElement(makeRect(100, 100, 500, 180), "p.copy"), textOverflow: true, text: "Long clipped copy" }
     const report = runChecks("test.html", [makeMetrics({ elements: [el] })])
@@ -257,6 +271,19 @@ describe("navigation model", () => {
     ])
 
     expect(report.slides[0].issues.some((issue) => issue.type === "scrollbar" && issue.sub === "page_scroll")).toBe(true)
+  })
+
+  it("flags systematic slide-level page_scroll failures on every affected slide", () => {
+    const report = runChecks("test.html", [
+      makeMetrics({ index: 0, scrollbars: scrollbars({ slideVertical: true }), navigation: navigation({ totalSlides: 3, initialTop: 0, documentScrollHeight: CANVAS_H * 3 }) }),
+      makeMetrics({ index: 1, scrollbars: scrollbars({ slideVertical: true }), navigation: navigation({ totalSlides: 3, initialTop: CANVAS_H, documentScrollHeight: CANVAS_H * 3 }) }),
+      makeMetrics({ index: 2, scrollbars: scrollbars({ slideVertical: true }), navigation: navigation({ totalSlides: 3, initialTop: CANVAS_H * 2, documentScrollHeight: CANVAS_H * 3 }) }),
+    ])
+
+    expect(report.slides).toHaveLength(3)
+    for (const slide of report.slides) {
+      expect(slide.issues.some((issue) => issue.type === "scrollbar" && issue.sub === "page_scroll" && issue.severity === "error")).toBe(true)
+    }
   })
 })
 

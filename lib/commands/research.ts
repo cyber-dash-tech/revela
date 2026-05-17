@@ -16,6 +16,7 @@ export function buildResearchPrompt({
 Goal:
 - Reduce open gaps, unsupported scope, weak evidence, unattached findings, and overextended relation rationale for the current story.
 - Drive research from canonical narrative gaps: unsupported central claims, objections, risks, decision questions, explicit researchGaps, and claim_chain_gap warnings.
+- Drive research from central-claim chapter sufficiency, not only missing proof. Each central claim should aim for framing/background support, one or two bound evidence items or cases/quantitative signals, and implication/risk/boundary material before it is treated as deck-ready.
 - Treat /revela research as authorization to bind clearly supported findings through the safe \`bindResearchFindings\` boundary without asking for item-by-item user confirmation.
 - Preserve evidence boundaries: eliminate caveats only when evidence or narrower wording actually resolves them; otherwise keep precise caveats visible.
 - Do not write decks, briefs, or design artifacts during research.
@@ -50,6 +51,7 @@ Allowed mutations:
 
 Binding criteria:
 - supported claim id exists and is expressed as \`## Relations\` with \`- supports: [[claim-id]]\` for new evidence; quote/snippet is traceable and not invented; source URL/path/findingsFile is present; supportScope and unsupportedScope are explicit; caveat is preserved; strength is strong or useful partial; binding does not expand the claim. Frontmatter \`claimId\` is compatibility fallback, not the preferred graph source.
+- For central claims, prefer evidence that helps one of the future chapter jobs: framing/background, proof/case/quantitative signal, or implication/risk/boundary. If research only finds a weak context fact, bind or record it narrowly and keep the chapter sufficiency gap open.
 
 Stop conditions:
 - No open externally researchable gaps remain.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { mkdirSync, writeFileSync } from "fs"
+import { mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 import { readDecksState, writeDecksState } from "../lib/decks-state"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
@@ -388,13 +388,27 @@ describe("narrative state", () => {
     const deck = reloaded.decks[reloaded.activeDeck!]
 
     expect(result.ok).toBe(true)
-    expect(result.result).toMatchObject({ compiled: true, skipped: false, slideCount: 6 })
+    expect(result.result).toMatchObject({ compiled: true, skipped: false, slideCount: 8 })
+    expect(result.result.planArtifactPath).toBe("decks/deck-plan.md")
+    const planMarkdown = readFileSync(join(workspaceRoot, "decks/deck-plan.md"), "utf-8")
+    expect(planMarkdown).toContain("# Revela Deck Plan")
+    expect(planMarkdown).toContain("## Chapter Map")
+    expect(planMarkdown).toContain("## Chapter Writing Batches")
+    expect(planMarkdown).toContain("status: pending")
+    expect(planMarkdown).toContain(`planHash: ${result.result.planHash}`)
+    expect(planMarkdown).toContain(`narrativeHash: ${result.result.narrativeHash}`)
     expect(result.result.chapters).toEqual(expect.arrayContaining([
       expect.objectContaining({ title: "Context and belief shift", role: "context", slideIndexes: [1] }),
-      expect.objectContaining({ title: "Evidence and proof", role: "evidence", slideIndexes: expect.arrayContaining([4]) }),
-      expect.objectContaining({ title: "Decision ask", role: "ask", slideIndexes: [6] }),
+      expect.objectContaining({ title: "Demand supports phased expansion", role: "recommendation", slideIndexes: [3, 4, 5], sourceClaimId: expect.stringMatching(/^claim:/) }),
+      expect.objectContaining({ title: "Evidence and proof", role: "evidence", slideIndexes: expect.arrayContaining([6]) }),
+      expect.objectContaining({ title: "Decision ask", role: "ask", slideIndexes: [8] }),
     ]))
     expect(result.result.qualityChecks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "claim_chapters_present", status: "pass" }),
+      expect.objectContaining({ id: "claim_chapters_min_three_slides", status: "pass" }),
+      expect.objectContaining({ id: "claim_chapter_evidence_visible", status: "pass" }),
+      expect.objectContaining({ id: "claim_chapter_not_padded_by_dividers", status: "pass" }),
+      expect.objectContaining({ id: "claim_chapter_boundary_visible", status: "pass" }),
       expect.objectContaining({ id: "chapter_structure_present", status: "pass" }),
       expect.objectContaining({ id: "toc_matches_chapters", status: "pass" }),
       expect.objectContaining({ id: "toc_present", status: "pass" }),
@@ -404,23 +418,37 @@ describe("narrative state", () => {
       expect.objectContaining({ id: "risk_or_objection_visible", status: "pass" }),
       expect.objectContaining({ id: "simplified_design_grammar", status: "pass" }),
     ]))
-    expect(deck.slides.map((slide) => slide.narrativeRole)).toEqual(["context", "context", "recommendation", "evidence", "risk", "ask"])
+    expect(deck.slides.map((slide) => slide.narrativeRole)).toEqual(["context", "context", "evidence", "evidence", "recommendation", "evidence", "risk", "ask"])
     expect(deck.slides[1]).toMatchObject({
       title: "Storyline",
       layout: "toc",
       components: ["toc", "text-panel"],
-      content: { bullets: expect.arrayContaining(["Context and belief shift", "Evidence and proof", "Decision ask"]) },
+      content: { bullets: expect.arrayContaining(["Context and belief shift", "Demand supports phased expansion", "Evidence and proof", "Decision ask"]) },
     })
     expect(deck.slides.flatMap((slide) => slide.components)).not.toContain("card")
     expect(deck.slides[2]).toMatchObject({
-      title: "Demand supports phased expansion.",
+      title: "Demand supports phased expansion. - framing",
       claimIds: [expect.stringMatching(/^claim:/)],
       claimRefs: [expect.objectContaining({ claimId: expect.stringMatching(/^claim:/), role: "primary" })],
+      components: expect.arrayContaining(["box", "text-panel"]),
+      evidenceBindingIds: [expect.stringMatching(/^evidence:/)],
+      content: {
+        headline: "Demand supports phased expansion.",
+        data: { chapterSlide: "framing", visualIntent: expect.objectContaining({ kind: "text-only", component: "box" }) },
+      },
+      evidence: [expect.objectContaining({ findingsFile: "researches/narrative-demo/market.md", quote: "Demand increased 25% from 2024 to 2025." })],
+      visuals: [expect.objectContaining({ purpose: "text-only", brief: expect.stringContaining("Frame why this central claim deserves a chapter") })],
+    })
+    expect(deck.slides[3]).toMatchObject({
+      title: "Demand supports phased expansion. - proof",
+      claimIds: [expect.stringMatching(/^claim:/)],
+      claimRefs: [expect.objectContaining({ claimId: expect.stringMatching(/^claim:/), role: "evidence" })],
       components: expect.arrayContaining(["box", "text-panel", "quote", "stat-card"]),
       evidenceBindingIds: [expect.stringMatching(/^evidence:/)],
       content: {
         headline: "Demand supports phased expansion.",
         data: {
+          chapterSlide: "evidence",
           visualIntent: expect.objectContaining({
             kind: "metric-stat",
             component: "stat-card",
@@ -432,13 +460,20 @@ describe("narrative state", () => {
       evidence: [expect.objectContaining({ findingsFile: "researches/narrative-demo/market.md", quote: "Demand increased 25% from 2024 to 2025." })],
       visuals: [expect.objectContaining({ purpose: "metric-stat", brief: expect.stringContaining("stat-card") })],
     })
-    expect(deck.slides[3]).toMatchObject({
+    expect(deck.slides[4]).toMatchObject({
+      title: "Demand supports phased expansion. - implication",
+      claimRefs: [expect.objectContaining({ claimId: expect.stringMatching(/^claim:/), role: "supporting" })],
+      components: expect.arrayContaining(["box", "text-panel", "steps"]),
+      content: { data: { chapterSlide: "implication", visualIntent: expect.objectContaining({ kind: "steps", component: "steps" }) } },
+      visuals: [expect.objectContaining({ purpose: "steps", brief: expect.stringContaining("decision gates") })],
+    })
+    expect(deck.slides[5]).toMatchObject({
       title: "Supporting Logic",
       components: expect.arrayContaining(["box", "text-panel", "data-table"]),
       content: { data: { visualIntent: expect.objectContaining({ kind: "comparison-grid", component: "data-table" }) } },
       visuals: [expect.objectContaining({ purpose: "comparison-grid", brief: expect.stringContaining("comparison grid") })],
     })
-    expect(deck.slides[4]).toMatchObject({
+    expect(deck.slides[6]).toMatchObject({
       title: "Risks And Objections",
       components: expect.arrayContaining(["box", "text-panel", "data-table"]),
       content: { data: { visualIntent: expect.objectContaining({ kind: "risk-matrix", component: "data-table" }) } },
@@ -466,7 +501,7 @@ describe("narrative state", () => {
       data: expect.objectContaining({
         narrativeHash: result.result.narrativeHash,
         planQualityChecks: expect.arrayContaining([expect.objectContaining({ id: "simplified_design_grammar", status: "pass" })]),
-        planChapters: expect.arrayContaining([expect.objectContaining({ title: "Decision ask", slideIndexes: [6] })]),
+        planChapters: expect.arrayContaining([expect.objectContaining({ title: "Decision ask", slideIndexes: [8] })]),
         requiredClaimIds: expect.arrayContaining([expect.stringMatching(/^claim:/)]),
         coveredClaimIds: expect.arrayContaining([expect.stringMatching(/^claim:/)]),
         claimSlideRefs: expect.arrayContaining([expect.objectContaining({ claimId: expect.stringMatching(/^claim:/), slideIndex: 3, match: "metadata", role: "primary", location: "claimRefs:primary" })]),
@@ -475,7 +510,7 @@ describe("narrative state", () => {
     expect(reloaded.actions).toContainEqual(expect.objectContaining({
       type: "deck.plan_compiled",
       actor: "revela-decks",
-      outputs: expect.objectContaining({ slideCount: 6, narrativeHash: expect.any(String) }),
+      outputs: expect.objectContaining({ slideCount: 8, narrativeHash: expect.any(String) }),
     }))
   })
 
@@ -530,8 +565,9 @@ describe("narrative state", () => {
       content: expect.objectContaining({ bullets: expect.arrayContaining([expect.stringContaining("Evidence gap")]) }),
     }))
     expect(result.result.chapters).toEqual(expect.arrayContaining([
-      expect.objectContaining({ title: "Risks and boundaries", role: "risk", slideIndexes: expect.arrayContaining([5]) }),
-      expect.objectContaining({ title: "Decision ask", role: "ask", slideIndexes: [6] }),
+      expect.objectContaining({ title: "Evidence and proof", role: "evidence", slideIndexes: expect.arrayContaining([6]) }),
+      expect.objectContaining({ title: "Risks and boundaries", role: "risk", slideIndexes: expect.arrayContaining([7]) }),
+      expect.objectContaining({ title: "Decision ask", role: "ask", slideIndexes: [8] }),
     ]))
   })
 
@@ -540,6 +576,7 @@ describe("narrative state", () => {
     writeDecksState(workspaceRoot, legacyDecisionDeck())
     await runDecksTool({ action: "approveNarrative", approvalNote: "Approved for deck planning." }, workspaceRoot)
     await runDecksTool({ action: "compileDeckPlan" }, workspaceRoot)
+    approveDeckPlanMarkdown(workspaceRoot, "Confirmed slide plan and low-fi sketches.")
 
     const result = await executeDecksTool({ action: "confirmDeckPlan", approvalBy: "user", approvalNote: "Confirmed slide plan and low-fi sketches." }, workspaceRoot)
     const reloaded = readDecksState(workspaceRoot)
@@ -561,6 +598,37 @@ describe("narrative state", () => {
       actor: "revela-decks",
       outputs: expect.objectContaining({ slug: deck.slug, narrativeHash: expect.any(String), planHash: expect.any(String) }),
     }))
+  })
+
+  it("refuses to confirm a pending deck plan until deck-plan.md approval is signed", async () => {
+    const workspaceRoot = tempWorkspace("revela-narrative-plan-confirm-pending-")
+    writeDecksState(workspaceRoot, legacyDecisionDeck())
+    await runDecksTool({ action: "approveNarrative", approvalNote: "Approved for deck planning." }, workspaceRoot)
+    await runDecksTool({ action: "compileDeckPlan" }, workspaceRoot)
+
+    const result = await executeDecksTool({ action: "confirmDeckPlan", approvalBy: "user" }, workspaceRoot)
+    const reloaded = readDecksState(workspaceRoot)
+    const deck = reloaded.decks[reloaded.activeDeck!]
+
+    expect(result.ok).toBe(false)
+    expect(result.result.reason).toContain("not approved")
+    expect(deck.requiredInputs.slidePlanConfirmed).toBe(false)
+    expect(deck.planReview?.status).toBe("pending")
+  })
+
+  it("refuses stale deck-plan.md approval hashes", async () => {
+    const workspaceRoot = tempWorkspace("revela-narrative-plan-confirm-stale-")
+    writeDecksState(workspaceRoot, legacyDecisionDeck())
+    await runDecksTool({ action: "approveNarrative", approvalNote: "Approved for deck planning." }, workspaceRoot)
+    await runDecksTool({ action: "compileDeckPlan" }, workspaceRoot)
+    const planPath = join(workspaceRoot, "decks/deck-plan.md")
+    const signed = signedDeckPlanMarkdown(readFileSync(planPath, "utf-8"), "Approved stale plan.").replace(/planHash: [a-f0-9]+/, "planHash: stale")
+    writeFileSync(planPath, signed, "utf-8")
+
+    const result = await executeDecksTool({ action: "confirmDeckPlan", approvalBy: "user" }, workspaceRoot)
+
+    expect(result.ok).toBe(false)
+    expect(result.result.reason).toContain("planHash")
   })
 
   it("backfills slide claimRefs through the decks tool without mutating HTML or narrative substance", async () => {
@@ -882,3 +950,16 @@ sources:
     ]))
   })
 })
+
+function approveDeckPlanMarkdown(workspaceRoot: string, note: string): void {
+  const planPath = join(workspaceRoot, "decks/deck-plan.md")
+  writeFileSync(planPath, signedDeckPlanMarkdown(readFileSync(planPath, "utf-8"), note), "utf-8")
+}
+
+function signedDeckPlanMarkdown(markdown: string, note: string): string {
+  return markdown
+    .replace("status: pending", "status: approved")
+    .replace("approvedBy:", "approvedBy: test-user")
+    .replace("approvedAt:", "approvedAt: 2026-05-17T00:00:00.000Z")
+    .replace("approvalNote:", `approvalNote: ${note}`)
+}

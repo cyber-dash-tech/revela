@@ -50,14 +50,25 @@ handoff exactly:
 2. Review narrative readiness before planning or writing.
 3. Require approved narrative or explicit render override.
 4. Use `compileDeckPlan`; do not invent slide specs to bypass approval.
-5. Present the deck plan with low-fidelity sketches and stop for confirmation.
-6. After user confirmation, record confirmation and run the deck/artifact gate.
+5. Present the generated `decks/deck-plan.md` deck plan with low-fidelity
+   sketches and stop for confirmation.
+6. Ask the user to approve by editing the Approval block in
+   `decks/deck-plan.md`; then record confirmation and run the deck/artifact gate.
 7. Fetch the required design layouts/components with `revela-designs read`.
 8. Write HTML only when artifact readiness is ready and the deck contract can be
    satisfied.
 
 Do not write or overwrite `decks/*.html` before plan confirmation and artifact
 readiness. Do not call narrative approval tools unless the user explicitly asks.
+Before any HTML generation, read `decks/deck-plan.md` and follow its Chapter
+Writing Batches, slide plan, visual intent, evidence trace, and approval hashes.
+
+Decks with 5 or more slides must be generated chapter by chapter, not in one
+broad `write` or `apply_patch` call. The first HTML write may create the stable
+HTML shell, structural slides, and the first chapter only. Subsequent writes
+must patch one chapter at a time, preserving already-written slides and keeping
+the file valid after every write. Do not continue to the next chapter while the
+current file has Artifact QA hard errors.
 
 ---
 
@@ -90,6 +101,8 @@ the deck's chapter grouping and the order of non-structural slides that follow.
 
 Before writing HTML, the confirmed plan must include:
 
+- A generated `decks/deck-plan.md` artifact with matching `narrativeHash` and
+  `planHash` in its Approval block.
 - `Required structure: Cover + Table of Contents + Closing`.
 - A `Chapters` section with 3-5 TOC headings, slide ranges, and the
   non-structural slides assigned to each chapter.
@@ -120,14 +133,25 @@ Rules for the slide plan:
 - If a chapter lacks enough substance for its allocated slides, reduce the slide
   count or merge weak slides instead of creating sparse filler.
 
-Do not write any HTML until the user confirms the current deck plan.
+Do not write any HTML until the user confirms the current deck plan by approving
+the Approval block in `decks/deck-plan.md` and `confirmDeckPlan` succeeds.
 
 ---
 
 ## Chapter-By-Chapter Generation
 
-Generate the artifact chapter by chapter. Do not draft all content slides in one
-broad pass unless the deck has fewer than 5 slides.
+Generate the artifact chapter by chapter. Never draft a full 5+ slide deck in
+one broad `write`, `edit`, or `apply_patch` call.
+
+For decks with 5 or more slides:
+
+- First create a stable HTML shell plus structural slides and the first chapter.
+- Then fill or revise exactly one chapter range at a time.
+- Do not mix multiple central-claim chapters in the same write.
+- Do not add placeholder, blank, repeated thesis, or divider-only slides just to
+  satisfy missing slide indexes.
+- Treat appendix, summary, and closing slides as the final batch unless the
+  confirmed plan assigns them to a specific earlier chapter.
 
 For each chapter:
 
@@ -188,6 +212,9 @@ Required contract:
 - Do not add deck-local editing JavaScript, `contenteditable`, `editable` classes,
   or `window.getEditedHTML()` implementations. Post-artifact editing belongs in
   `/revela review --deck`.
+- During chapter-by-chapter generation, a partial deck file is acceptable only
+  when the HTML remains valid and every written slide satisfies this contract.
+  Do not use filler or hidden overflow to make missing chapters appear complete.
 
 Example slide identity:
 

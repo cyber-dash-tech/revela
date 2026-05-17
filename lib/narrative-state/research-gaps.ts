@@ -328,8 +328,11 @@ function questionForClaimTarget(kind: ResearchTargetKind, claim: NarrativeClaim)
 function requiredEvidenceForClaim(claim: NarrativeClaim | undefined): string[] {
   const base = ["source", "quote/snippet", "support scope", "unsupported scope", "caveat", "strength"]
   if (!claim) return base
-  if (claim.unsupportedScope) return [...base, `address unsupported scope: ${claim.unsupportedScope}`]
-  return base
+  const chapterReady = claim.importance === "central"
+    ? ["framing/background support", "1-2 evidence bindings, cases, or quantitative signals", "implication, risk, or boundary material"]
+    : []
+  if (claim.unsupportedScope) return [...base, ...chapterReady, `address unsupported scope: ${claim.unsupportedScope}`]
+  return [...base, ...chapterReady]
 }
 
 function bindingFailuresForClaim(claim: NarrativeClaim): EvidenceBindingFailureReason[] {

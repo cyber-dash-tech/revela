@@ -66,7 +66,14 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("| Table of Contents | Always |")
     expect(prompt).toContain("Never skip Cover, Table of Contents, Background, or Closing")
     expect(prompt).toContain("Generate the artifact chapter by chapter")
-    expect(prompt).toContain("Do not draft all content slides in")
+    expect(prompt).toContain("must be generated chapter by chapter")
+    expect(prompt).toContain("The first HTML write may create the stable")
+    expect(prompt).toContain("Never draft a full 5+ slide deck")
+    expect(prompt).toContain("one chapter range at a time")
+    expect(prompt).toContain("valid after every write")
+    expect(prompt).toContain("decks/deck-plan.md")
+    expect(prompt).toContain("Approval block")
+    expect(prompt).toContain("Writing Batches")
   })
 
   it("excludes full domain guidance from deck-render mode", () => {

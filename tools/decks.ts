@@ -30,6 +30,7 @@ import {
   reviewNarrativeState,
 } from "../lib/narrative-state/readiness"
 import { compileDeckPlanFromNarrative } from "../lib/narrative-state/render-plan"
+import { validateDeckPlanApprovalFile, writeDeckPlanArtifact } from "../lib/narrative-state/deck-plan-artifact"
 import { backfillSlideClaimRefsFromCoverage } from "../lib/narrative-state/coverage"
 import { closeResearchGapInState, deriveResearchGapsFromReadiness, deriveResearchTargets, updateResearchGapInState, upsertResearchGapsInState } from "../lib/narrative-state/research-gaps"
 import { evaluateResearchFindingsBinding } from "../lib/narrative-state/research-binding-eval"
@@ -687,6 +688,18 @@ export default tool({
         const qaGate = strictVaultMarkdownQaGate(workspaceRoot, "render", "compileDeckPlan")
         if (qaGate) return JSON.stringify(qaGate, null, 2)
         const compiled = compileDeckPlanFromNarrative(state)
+        let planArtifact: { path: string; absolutePath: string } | undefined
+        if (compiled.result.compiled && compiled.state.activeDeck && compiled.result.planHash) {
+          planArtifact = writeDeckPlanArtifact(workspaceRoot, {
+            deck: compiled.state.decks[compiled.state.activeDeck],
+            narrativeHash: compiled.result.narrativeHash,
+            planHash: compiled.result.planHash,
+            chapters: compiled.result.chapters ?? [],
+            qualityChecks: compiled.result.qualityChecks ?? [],
+            compiledAt: new Date().toISOString(),
+          })
+          compiled.result.planArtifactPath = planArtifact.path
+        }
         if (compiled.result.compiled) {
           recordWorkspaceAction(compiled.state, {
             type: "deck.plan_compiled",
@@ -694,6 +707,8 @@ export default tool({
             inputs: { narrativeId: compiled.state.narrative?.id, activeDeck: compiled.state.activeDeck },
             outputs: {
               narrativeHash: compiled.result.narrativeHash,
+              planHash: compiled.result.planHash,
+              planArtifactPath: planArtifact?.path,
               slideCount: compiled.result.slideCount,
               outputPath: compiled.state.activeDeck ? compiled.state.decks[compiled.state.activeDeck]?.outputPath : undefined,
             },
@@ -703,14 +718,20 @@ export default tool({
           })
         }
         writeDecksState(workspaceRoot, compiled.state)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: compiled.result, deck: compiled.state.activeDeck ? compiled.state.decks[compiled.state.activeDeck] : undefined, narrative: compiled.state.narrative }, null, 2)
+        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, planArtifact, result: compiled.result, deck: compiled.state.activeDeck ? compiled.state.decks[compiled.state.activeDeck] : undefined, narrative: compiled.state.narrative }, null, 2)
       }
 
       if (args.action === "confirmDeckPlan") {
         if (args.approvalBy && args.approvalBy !== "user") return JSON.stringify({ ok: false, error: "confirmDeckPlan requires approvalBy=user" })
+        const deck = state.activeDeck ? state.decks[state.activeDeck] : undefined
+        const pending = deck?.planReview
+        if (!deck || !pending) return JSON.stringify({ ok: false, result: { confirmed: false, skipped: true, reason: "Cannot confirm because no compiled deck plan is pending. Run compileDeckPlan first." } }, null, 2)
+        const approval = validateDeckPlanApprovalFile(workspaceRoot, { narrativeHash: pending.narrativeHash, planHash: pending.planHash })
+        if (!approval.ok) return JSON.stringify({ ok: false, result: { confirmed: false, skipped: true, slug: deck.slug, narrativeHash: pending.narrativeHash, planHash: pending.planHash, reason: approval.reason }, approval: approval.approval }, null, 2)
         const confirmed = confirmDeckPlan(state, {
           approvedBy: "user",
-          note: args.approvalNote,
+          approvedAt: approval.approval?.approvedAt,
+          note: args.approvalNote ?? approval.approval?.approvalNote,
         })
         if (confirmed.result.confirmed) {
           recordWorkspaceAction(confirmed.state, {

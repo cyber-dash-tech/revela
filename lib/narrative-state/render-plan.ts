@@ -15,6 +15,8 @@ export interface CompileDeckPlanResult {
   skipped: boolean
   reason?: string
   narrativeHash: string
+  planHash?: string
+  planArtifactPath?: string
   slideCount: number
   slides: SlideSpec[]
   chapters?: DeckPlanChapter[]
@@ -27,6 +29,7 @@ export interface DeckPlanChapter {
   slideIndexes: number[]
   claimIds: string[]
   evidenceBindingIds: string[]
+  sourceClaimId?: string
 }
 
 export interface DeckPlanQualityCheck {
@@ -36,6 +39,7 @@ export interface DeckPlanQualityCheck {
 }
 
 type VisualIntentKind = "hero" | "toc" | "metric-stat" | "evidence-table" | "comparison-grid" | "risk-matrix" | "steps" | "text-only"
+type ClaimChapterSlideKind = "framing" | "evidence" | "implication"
 
 interface VisualIntent {
   kind: VisualIntentKind
@@ -95,10 +99,11 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
   })
   next = upsertSlides(next, slug, slides)
   const plannedDeck = next.decks[slug]
+  const planHash = deckPlanHash(plannedDeck.slides)
   plannedDeck.planReview = {
     status: "pending",
     narrativeHash,
-    planHash: deckPlanHash(plannedDeck.slides),
+    planHash,
     qualityChecks,
   }
   plannedDeck.requiredInputs = { ...plannedDeck.requiredInputs, slidePlanConfirmed: false }
@@ -134,6 +139,7 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
         compiled: true,
         skipped: false,
         narrativeHash,
+        planHash,
         slideCount: slides.length,
         slides,
         chapters,
@@ -154,9 +160,14 @@ function buildDeckPlan(narrative: NarrativeStateV1): { slides: SlideSpec[]; chap
   slides.push(tocSlide(slides.length + 1, chapters))
 
   for (const claim of centralClaims) {
-    const slide = claimSlide(slides.length + 1, claim, evidenceByClaim.get(claim.id) ?? [])
-    slides.push(slide)
-    assignSlideToChapter(chapters, chapterRoleForClaim(claim), slide)
+    const bindings = evidenceByClaim.get(claim.id) ?? []
+    const chapter = chapters.find((item) => item.sourceClaimId === claim.id)
+    for (const kind of ["framing", "evidence", "implication"] as const) {
+      const slide = claimChapterSlide(slides.length + 1, claim, bindings, kind, narrative)
+      slides.push(slide)
+      if (chapter) assignSlideToSpecificChapter(chapter, slide)
+      else assignSlideToChapter(chapters, chapterRoleForClaim(claim), slide)
+    }
   }
   if (supportingClaims.length > 0) {
     const slide = supportingLogicSlide(slides.length + 1, supportingClaims, evidenceByClaim)
@@ -240,6 +251,95 @@ function claimSlide(index: number, claim: NarrativeClaim, bindings: NarrativeEvi
       headline: claim.text,
       bullets: claimBullets(claim, bindings),
       data: { visualIntent },
+    },
+    evidence: bindings.map(evidenceRefFromBinding),
+    visuals: visualBriefs(index, visualIntent),
+    status: "planned",
+  }
+}
+
+function claimChapterSlide(index: number, claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[], kind: ClaimChapterSlideKind, narrative: NarrativeStateV1): SlideSpec {
+  if (kind === "framing") return claimFramingSlide(index, claim, bindings)
+  if (kind === "evidence") return claimEvidenceSlide(index, claim, bindings)
+  return claimImplicationSlide(index, claim, bindings, narrative)
+}
+
+function claimFramingSlide(index: number, claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): SlideSpec {
+  const visualIntent = visualIntentForStructuralSlide("text-only", "Frame why this central claim deserves a chapter before proof detail; keep evidence boundaries visible.")
+  return {
+    index,
+    title: `${titleFromClaim(claim)} - framing`,
+    purpose: `Frame the audience context, decision relevance, and evidence boundary for central claim ${claim.id}.`,
+    narrativeRole: claim.kind === "problem" || claim.kind === "opportunity" ? "tension" : claim.kind === "context" ? "context" : "evidence",
+    layout: "two-col",
+    qa: true,
+    components: componentsForVisualIntent(["box", "text-panel"], visualIntent),
+    claimIds: [claim.id],
+    claimRefs: [{ claimId: claim.id, role: "primary", note: claimBoundaryNote(claim) }],
+    evidenceBindingIds: bindings.map((binding) => binding.id),
+    content: {
+      headline: claim.text,
+      bullets: [
+        `Chapter claim: ${claim.text}`,
+        claim.supportedScope ? `What is supported: ${claim.supportedScope}` : undefined,
+        claim.evidenceRequired ? evidenceGapBullet(claim, bindings) ?? `Proof available: ${bindings.length} bound evidence item${bindings.length === 1 ? "" : "s"}.` : "Evidence is not required for this framing claim.",
+      ].filter((item): item is string => Boolean(item)),
+      data: { visualIntent, chapterSlide: "framing" },
+    },
+    evidence: bindings.map(evidenceRefFromBinding),
+    visuals: visualBriefs(index, visualIntent),
+    status: "planned",
+  }
+}
+
+function claimEvidenceSlide(index: number, claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[]): SlideSpec {
+  const visualIntent = visualIntentForClaim(claim, bindings)
+  return {
+    index,
+    title: `${titleFromClaim(claim)} - proof`,
+    purpose: `Show the specific evidence, source trace, support scope, unsupported scope, caveat, and strength for central claim ${claim.id}.`,
+    narrativeRole: "evidence",
+    layout: "two-col",
+    qa: true,
+    components: claimComponents(claim, bindings, visualIntent),
+    claimIds: [claim.id],
+    claimRefs: [{ claimId: claim.id, role: "evidence", note: claimBoundaryNote(claim) }],
+    evidenceBindingIds: bindings.map((binding) => binding.id),
+    content: {
+      headline: claim.text,
+      bullets: claimBullets(claim, bindings),
+      data: { visualIntent, chapterSlide: "evidence" },
+    },
+    evidence: bindings.map(evidenceRefFromBinding),
+    visuals: visualBriefs(index, visualIntent),
+    status: "planned",
+  }
+}
+
+function claimImplicationSlide(index: number, claim: NarrativeClaim, bindings: NarrativeEvidenceBinding[], narrative: NarrativeStateV1): SlideSpec {
+  const relatedRisks = narrative.risks.filter((risk) => risk.claimId === claim.id)
+  const relatedObjections = narrative.objections.filter((objection) => objection.claimId === claim.id)
+  const visualIntent = visualIntentForClaimImplication(claim, relatedRisks.length + relatedObjections.length)
+  return {
+    index,
+    title: `${titleFromClaim(claim)} - implication`,
+    purpose: `Translate central claim ${claim.id} into decision implication while keeping boundaries and risks explicit.`,
+    narrativeRole: claim.kind === "recommendation" || claim.kind === "ask" ? "recommendation" : relatedRisks.length > 0 || relatedObjections.length > 0 ? "risk" : "evidence",
+    layout: "two-col",
+    qa: true,
+    components: componentsForVisualIntent(["box", "text-panel"], visualIntent),
+    claimIds: [claim.id],
+    claimRefs: [{ claimId: claim.id, role: relatedRisks.length > 0 || relatedObjections.length > 0 ? "risk" : "supporting", note: claimBoundaryNote(claim) }],
+    evidenceBindingIds: bindings.map((binding) => binding.id),
+    content: {
+      headline: `Decision implication: ${claim.text}`,
+      bullets: [
+        ...claimBoundaryBullets(claim),
+        ...relatedRisks.slice(0, 2).map((risk) => risk.mitigation ? `Risk: ${risk.text} Mitigation: ${risk.mitigation}` : `Risk: ${risk.text}`),
+        ...relatedObjections.slice(0, 2).map((objection) => objection.response ? `Objection: ${objection.text} Response: ${objection.response}` : `Objection: ${objection.text}`),
+        relatedRisks.length === 0 && relatedObjections.length === 0 && !claim.unsupportedScope && (claim.caveats ?? []).length === 0 ? "Boundary check: no specific risk, objection, or unsupported scope is recorded for this central claim." : undefined,
+      ].filter((item): item is string => Boolean(item)),
+      data: { visualIntent, chapterSlide: "implication" },
     },
     evidence: bindings.map(evidenceRefFromBinding),
     visuals: visualBriefs(index, visualIntent),
@@ -359,18 +459,25 @@ function deriveChapters(narrative: NarrativeStateV1, centralClaims: NarrativeCla
   const claims = [...centralClaims, ...supportingClaims]
   const chapters: DeckPlanChapter[] = []
   addChapter(chapters, narrative.audience.decisionContext ? "Decision context" : "Context and belief shift", "context")
-  if (hasClaimKind(claims, ["problem", "opportunity"])) addChapter(chapters, "Tension and opportunity", "tension")
-  if (claims.some((claim) => claim.kind === "evidence") || narrative.evidenceBindings.length > 0) addChapter(chapters, "Evidence and proof", "evidence")
-  if (claims.some((claim) => claim.kind === "recommendation" || claim.kind === "ask") || narrative.decision.action) addChapter(chapters, "Recommendation and decision", "recommendation")
+  for (const claim of centralClaims) addClaimChapter(chapters, claim)
+  if (supportingClaims.length > 0 || centralClaims.length === 0 && (claims.some((claim) => claim.kind === "evidence") || narrative.evidenceBindings.length > 0)) addChapter(chapters, "Evidence and proof", "evidence")
+  if (centralClaims.length === 0 && claims.some((claim) => claim.kind === "recommendation" || claim.kind === "ask")) addChapter(chapters, "Recommendation and decision", "recommendation")
   if (narrative.risks.length > 0 || narrative.objections.length > 0 || centralClaims.some((claim) => claim.unsupportedScope || (claim.caveats ?? []).length > 0)) addChapter(chapters, "Risks and boundaries", "risk")
   addChapter(chapters, "Decision ask", "ask")
   if (chapters.length < 3) addChapter(chapters, "Evidence and proof", "evidence")
   while (chapters.length > 5) {
-    const tensionIndex = chapters.findIndex((chapter) => chapter.role === "tension")
-    if (tensionIndex >= 0) chapters.splice(tensionIndex, 1)
-    else chapters.splice(Math.max(1, chapters.length - 2), 1)
+    const removableIndex = chapters.findIndex((chapter) => !chapter.sourceClaimId && chapter.role !== "context" && chapter.role !== "ask")
+    if (removableIndex >= 0) chapters.splice(removableIndex, 1)
+    else break
   }
   return chapters
+}
+
+function addClaimChapter(chapters: DeckPlanChapter[], claim: NarrativeClaim): void {
+  const role = chapterRoleForClaim(claim)
+  const title = claimChapterTitle(claim)
+  if (chapters.some((chapter) => chapter.sourceClaimId === claim.id)) return
+  chapters.push({ title, role, slideIndexes: [], claimIds: [], evidenceBindingIds: [], sourceClaimId: claim.id })
 }
 
 function addChapter(chapters: DeckPlanChapter[], title: string, role: DeckPlanChapter["role"]): void {
@@ -381,6 +488,10 @@ function addChapter(chapters: DeckPlanChapter[], title: string, role: DeckPlanCh
 function assignSlideToChapter(chapters: DeckPlanChapter[], role: DeckPlanChapter["role"], slide: SlideSpec): void {
   const chapter = chapters.find((item) => item.role === role) ?? chapters.find((item) => item.role === "evidence") ?? chapters[chapters.length - 1]
   if (!chapter) return
+  assignSlideToSpecificChapter(chapter, slide)
+}
+
+function assignSlideToSpecificChapter(chapter: DeckPlanChapter, slide: SlideSpec): void {
   chapter.slideIndexes.push(slide.index)
   for (const claimId of slide.claimIds ?? []) addUnique(chapter.claimIds, claimId)
   for (const ref of slide.claimRefs ?? []) addUnique(chapter.claimIds, ref.claimId)
@@ -470,8 +581,36 @@ function visualIntentForRiskObjection(narrative: NarrativeStateV1, bindings: Nar
   }
 }
 
-function visualIntentForStructuralSlide(kind: Extract<VisualIntentKind, "hero" | "toc" | "steps">, rationale: string): VisualIntent {
-  return { kind, component: kind === "toc" ? "toc" : kind === "steps" ? "steps" : "hero", rationale, dataSignals: [], evidenceBindingIds: [] }
+function visualIntentForStructuralSlide(kind: Extract<VisualIntentKind, "hero" | "toc" | "steps" | "text-only">, rationale: string): VisualIntent {
+  return { kind, component: kind === "toc" ? "toc" : kind === "steps" ? "steps" : kind === "text-only" ? "box" : "hero", rationale, dataSignals: [], evidenceBindingIds: [] }
+}
+
+function visualIntentForClaimImplication(claim: NarrativeClaim, relatedBoundaryCount: number): VisualIntent {
+  if (claim.kind === "recommendation" || claim.kind === "ask") {
+    return {
+      kind: "steps",
+      component: "steps",
+      rationale: "Translate the chapter proof into concrete decision gates or actions while preserving evidence boundaries.",
+      dataSignals: [],
+      evidenceBindingIds: [],
+    }
+  }
+  if (relatedBoundaryCount > 0 || claim.unsupportedScope || (claim.caveats ?? []).length > 0) {
+    return {
+      kind: "risk-matrix",
+      component: "data-table",
+      rationale: "Show the decision implication alongside risks, objections, unsupported scope, and caveats so boundaries shape the recommendation.",
+      dataSignals: [],
+      evidenceBindingIds: [],
+    }
+  }
+  return {
+    kind: "text-only",
+    component: "box",
+    rationale: "State the decision implication without inventing risk or ROI detail that is not present in the canonical narrative.",
+    dataSignals: [],
+    evidenceBindingIds: [],
+  }
 }
 
 function componentsForVisualIntent(base: string[], visualIntent: VisualIntent): string[] {
@@ -551,6 +690,23 @@ function checkPlanQuality(narrative: NarrativeStateV1, slides: SlideSpec[], chap
   const coverage = deckPlanCoverage(narrative, slides)
   const centralClaimIds = narrative.claims.filter((claim) => claim.importance === "central").map((claim) => claim.id)
   const missingCentralClaims = centralClaimIds.filter((claimId) => coverage.missingClaimIds.includes(claimId))
+  const claimChapters = chapters.filter((chapter) => chapter.sourceClaimId)
+  const centralClaimsWithoutChapter = centralClaimIds.filter((claimId) => !claimChapters.some((chapter) => chapter.sourceClaimId === claimId))
+  const thinClaimChapters = claimChapters.filter((chapter) => nonStructuralClaimSlides(chapter, slides).length < 3)
+  const evidenceInvisibleChapters = claimChapters.filter((chapter) => {
+    const claim = narrative.claims.find((item) => item.id === chapter.sourceClaimId)
+    if (!claim?.evidenceRequired) return false
+    return chapter.evidenceBindingIds.length === 0 && !nonStructuralClaimSlides(chapter, slides).some((slide) => (slide.content.bullets ?? []).some((bullet) => bullet.includes("Evidence gap")))
+  })
+  const paddedClaimChapters = claimChapters.filter((chapter) => nonStructuralClaimSlides(chapter, slides).some((slide) => isFillerSlide(slide)))
+  const boundaryMissingChapters = claimChapters.filter((chapter) => {
+    const claim = narrative.claims.find((item) => item.id === chapter.sourceClaimId)
+    if (!claim) return false
+    const hasBoundary = Boolean(claim.unsupportedScope || (claim.caveats ?? []).length > 0 || narrative.risks.some((risk) => risk.claimId === claim.id) || narrative.objections.some((objection) => objection.claimId === claim.id))
+    if (!hasBoundary) return false
+    const text = nonStructuralClaimSlides(chapter, slides).flatMap((slide) => [slide.content.headline, ...(slide.content.bullets ?? [])]).join("\n")
+    return !(text.includes("Unsupported scope:") || text.includes("Caveat:") || text.includes("Risk:") || text.includes("Objection:"))
+  })
   const incompatibleComponents = [...new Set(slides.flatMap((slide) => slide.components).filter((component) => component === "card"))]
   const toc = slides.find((slide) => slide.components.includes("toc"))
   const tocBullets = toc?.content.bullets ?? []
@@ -560,6 +716,31 @@ function checkPlanQuality(narrative: NarrativeStateV1, slides: SlideSpec[], chap
   const risksOrObjectionsVisible = narrative.risks.length === 0 && narrative.objections.length === 0 || slides.some((slide) => slide.narrativeRole === "risk")
 
   return [
+    {
+      id: "claim_chapters_present",
+      status: centralClaimsWithoutChapter.length === 0 ? "pass" : "blocker",
+      message: centralClaimsWithoutChapter.length === 0 ? "Every central claim has a deterministic claim-led chapter." : `Central claims missing claim-led chapters: ${centralClaimsWithoutChapter.join(", ")}`,
+    },
+    {
+      id: "claim_chapters_min_three_slides",
+      status: thinClaimChapters.length === 0 ? "pass" : "blocker",
+      message: thinClaimChapters.length === 0 ? "Every central claim chapter has at least three non-structural slides: framing, proof, and implication/boundary." : `Central claim chapters need at least three non-structural slides: ${thinClaimChapters.map((chapter) => chapter.sourceClaimId).join(", ")}`,
+    },
+    {
+      id: "claim_chapter_evidence_visible",
+      status: evidenceInvisibleChapters.length === 0 ? "pass" : "blocker",
+      message: evidenceInvisibleChapters.length === 0 ? "Evidence-required claim chapters show bound evidence or an explicit evidence gap." : `Evidence-required claim chapters hide evidence gaps: ${evidenceInvisibleChapters.map((chapter) => chapter.sourceClaimId).join(", ")}`,
+    },
+    {
+      id: "claim_chapter_not_padded_by_dividers",
+      status: paddedClaimChapters.length === 0 ? "pass" : "blocker",
+      message: paddedClaimChapters.length === 0 ? "Claim chapters are not padded by dividers, repeated thesis pages, or generic bridge slides." : `Claim chapters contain filler slides: ${paddedClaimChapters.map((chapter) => chapter.sourceClaimId).join(", ")}`,
+    },
+    {
+      id: "claim_chapter_boundary_visible",
+      status: boundaryMissingChapters.length === 0 ? "pass" : "blocker",
+      message: boundaryMissingChapters.length === 0 ? "Central claim chapter boundaries, risks, objections, and caveats remain visible when recorded." : `Central claim chapters hide recorded boundaries: ${boundaryMissingChapters.map((chapter) => chapter.sourceClaimId).join(", ")}`,
+    },
     {
       id: "chapter_structure_present",
       status: chapters.length >= 3 && chapters.length <= 5 && chapters.every((chapter) => chapter.slideIndexes.length > 0) ? "pass" : "blocker",
@@ -608,6 +789,17 @@ function checkPlanQuality(narrative: NarrativeStateV1, slides: SlideSpec[], chap
   ]
 }
 
+function nonStructuralClaimSlides(chapter: DeckPlanChapter, slides: SlideSpec[]): SlideSpec[] {
+  const indexes = new Set(chapter.slideIndexes)
+  return slides.filter((slide) => indexes.has(slide.index) && slide.qa && slide.title !== "Decision Ask" && !slide.components.includes("toc"))
+}
+
+function isFillerSlide(slide: SlideSpec): boolean {
+  const text = `${slide.title}\n${slide.purpose}\n${slide.content.headline}\n${(slide.content.bullets ?? []).join("\n")}`.toLowerCase()
+  if (slide.components.includes("hero") && slide.qa) return true
+  return ["section divider", "bridge slide", "repeat thesis", "repeated thesis", "generic overview"].some((marker) => text.includes(marker))
+}
+
 function deckPlanCoverage(narrative: NarrativeStateV1, slides: SlideSpec[]): { requiredClaimIds: string[]; coveredClaimIds: string[]; missingClaimIds: string[] } {
   const requiredClaimIds = narrative.claims
     .filter((claim) => claim.importance === "central" || claim.evidenceRequired)
@@ -625,6 +817,11 @@ function deckPlanCoverage(narrative: NarrativeStateV1, slides: SlideSpec[]): { r
 function titleFromClaim(claim: NarrativeClaim): string {
   const words = claim.text.split(/\s+/).filter(Boolean).slice(0, 6).join(" ")
   return words || claim.kind
+}
+
+function claimChapterTitle(claim: NarrativeClaim): string {
+  const title = titleFromClaim(claim)
+  return title.endsWith(".") ? title.slice(0, -1) : title
 }
 
 function hasCurrentApprovalOrOverride(narrative: NarrativeStateV1, narrativeHash: string): boolean {

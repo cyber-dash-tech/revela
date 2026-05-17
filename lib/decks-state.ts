@@ -328,6 +328,7 @@ export interface ConfirmDeckPlanOptions {
   approvedBy?: "user"
   note?: string
   now?: string
+  approvedAt?: string
 }
 
 export interface ConfirmDeckPlanResult {
@@ -472,7 +473,7 @@ export function confirmDeckPlan(state: DecksState, options: ConfirmDeckPlanOptio
     status: "confirmed",
     narrativeHash,
     planHash,
-    confirmedAt: options.now ?? new Date().toISOString(),
+    confirmedAt: options.approvedAt ?? options.now ?? new Date().toISOString(),
     confirmedBy: options.approvedBy ?? "user",
     summary: cleanOptionalText(options.note),
     qualityChecks: pending?.qualityChecks,
@@ -1072,7 +1073,7 @@ function deckPlanQualityIssues(deck: DeckSpec): ReadinessIssue[] {
   return checks.flatMap((check): ReadinessIssue[] => {
     if (check.status === "pass") return []
     const suggestedAction = check.status === "blocker"
-      ? "Re-run compileDeckPlan or revise the deck projection so the deterministic plan includes Cover, TOC, central claim coverage, compatible components, and Closing/Decision Ask before confirming or writing the deck."
+      ? "Re-run compileDeckPlan or revise the deck projection so each central claim has a claim-led chapter with framing, evidence/proof, and implication/boundary slides. If a claim cannot support that chapter, merge it, run research, narrow it, or explicitly accept a shorter chapter before writing the deck."
       : "Keep the stated claim boundaries visible in the plan and rendered artifact; do not stretch partial evidence beyond the supported scope."
     return [{
       type: "plan_quality",

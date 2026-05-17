@@ -784,7 +784,7 @@ Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSl
     // Handles PDF and images — read tool succeeds with base64 attachment.
     // PDF: extract text, remove base64. Images: jimp compress.
     //
-    // Also reports writes/patches blocked by the DECKS.json prewrite gate and
+    // Also reports writes/patches blocked by the DECKS.json state gate and
     // runs artifact QA before opening Refine after successful deck changes.
     "tool.execute.after": async (input, output) => {
       // ── Post-read processing ───────────────────────────────────────────
@@ -830,7 +830,7 @@ Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSl
         if (blockedPath) blockedPatches.delete(blockedPath)
         appendToolResult(
           output,
-          "---\n\n**[revela prewrite gate]** Patch was blocked.\n\n" +
+            "---\n\n**[revela state gate]** Patch was blocked.\n\n" +
           `${blockedReason}\n\n` +
             "Use the `revela-decks` tool for controlled workspace state changes."
         )

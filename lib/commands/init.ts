@@ -18,6 +18,7 @@ Goal:
 - Treat init as repeatable ingest: discover files, register source materials, follow returned ingest task hints, and distill stable narrative meaning.
 - Capture primary audience, belief before/after, decision/action, thesis, central claims, evidence availability, objections, risks, source materials, artifact history, and open questions.
 - Do not treat initialization as permission to write a deck. Do not require slide count, visual style, design selection, output path, layout choices, or component choices unless the user explicitly asks to render.
+- Treat central claims as chapter-ready claims, not evidence fragments: a central claim should be able to support framing/context, proof/evidence, decision implication, and explicit boundary/gap/risk material. If local material only supports a narrow fact, record it as supporting evidence or a supporting claim instead of promoting it to central importance.
 
 Current state:
 - ${mode}
@@ -67,6 +68,7 @@ Evidence boundary:
 - Preserve graph meaning by writing explicit edges in node-local \`## Relations\` sections after nodes exist. Use plain node-id wikilinks and optional inline rationale.
 - Intent briefs, proposals, and user-authored plans may support audience, decision, thesis, stakeholder framing, and stated internal intent. They do not by themselves prove market size, competitor performance, product-market fit, operating-model effectiveness, or external factual claims.
 - If a source states an intended strategy but not its external factual basis, record the strategy as a claim with partial or missing support and add a research gap instead of binding it as strong evidence.
+- If a central claim cannot yet sustain a future claim-led chapter, keep the insufficiency visible through evidence status, unsupported scope, caveats, or a research gap rather than padding the future deck with generic slides.
 - A successful vault compile means the vault is structurally valid. It is not evidence readiness, narrative approval, or permission to make a deck/brief.
 
 Narrative questions to ask only when missing:
