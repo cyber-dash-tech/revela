@@ -2,7 +2,7 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-05-16 for 0.17.0 Wikilink-First Vault Graph baseline.
+> Last updated: 2026-05-17 for 0.17.1 Story/Review/QA refinement release.
 
 ## Product Baseline
 
@@ -12,7 +12,7 @@ Product promise:
 
 **Turn source materials, research, data, and user intent into trusted, traceable, presentation-ready decision artifacts.**
 
-Current baseline: `0.17.0`.
+Current baseline: `0.17.1`.
 
 User-facing workflow:
 
@@ -187,6 +187,8 @@ Structured helper role:
 - Inline node `## Relations` replaced `relations.md`; compiler-generated deterministic relation ids and layered relation QA are in place.
 - Wikilink-first graph baseline: relation-derived canonical bindings take precedence over frontmatter fallback, research gaps can depend on evidence nodes and derive claim context through evidence, helpers write `## Relations`, and inventory/Markdown QA warn on frontmatter-only bindings.
 - Release gate passed after folding wikilink-first graph into the 0.17.0 baseline: fresh init smoke, Markdown QA repair feedback, inventory-first authoring, vault compile persistence, `bun test`, `bun run typecheck`, and `npm pack --dry-run`.
+- 0.17.1 refinement baseline: evidence-first Story UI with claim/evidence/gap reading, localized research-gap display questions, cleaner Story card typography/layout, saved Review asset state and remote-image download fallbacks, deterministic deck visual intent planning, deck QA navigation checks, and deck QA semantic overlap detection.
+- 0.17.1 release gate passed: `bun test` (534 tests), `bun run typecheck`, and `npm pack --dry-run` for `@cyber-dash-tech/revela@0.17.0` before version bump.
 
 ## Wikilink-First Vault Graph
 
