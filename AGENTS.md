@@ -238,6 +238,13 @@ Do not use `[[supports:claim-a]]`; Obsidian treats that as a page id instead of 
 ## Post-0.17 Candidates
 
 - Coverage-driven make/review/remake decisions using artifact coverage and narrative hash staleness.
+- 0.17.2 Claim-as-Chapter Deck Planning Contract:
+  - Prompt contract: teach `init` and `research` that central claims should be chapter-ready, meaning each central claim can support framing/context, proof/evidence, implication/decision relevance, and explicit boundary/gap/risk material. Do not ask for slide count or design during init/research, but avoid promoting small evidence fragments into central claims when they cannot sustain a chapter.
+  - Research contract: derive targets from claim-chapter sufficiency, not only missing source support. Each central claim should aim for framing/background support, 1-2 evidence bindings or cases/quantitative signals, and implication/risk/boundary material. Keep weak chapter support visible as canonical research gaps instead of inventing filler.
+  - Make-deck contract: `/revela make --deck` plan should be claim-led. Each central claim becomes one chapter unless explicitly merged, and each claim chapter should have at least three non-structural slides: claim framing, evidence/proof, and implication/boundary. Cover, TOC, and Decision Ask/Closing are structural and do not count toward the three-slide claim chapter minimum.
+  - Compiler contract: update `lib/narrative-state/render-plan.ts` from one-claim-one-slide to one-central-claim-one-chapter by generating `claimFramingSlide`, `claimEvidenceSlide`, and `claimImplicationSlide` per central claim while preserving visual intent, evidence bindings, claim refs, and chapter metadata.
+  - Plan quality: add checks such as `claim_chapters_present`, `claim_chapters_min_three_slides`, and `claim_chapter_evidence_visible`. If a claim cannot support a three-slide chapter, stop at plan review with a merge/research/scope-narrowing/shorter-chapter decision instead of creating sparse filler.
+  - Tests: update `tests/narrative-state.test.ts` to assert central-claim chapters, minimum three slides per claim chapter, TOC/chapter alignment, visible evidence gaps when support is missing, and preserved `content.data.visualIntent` plus `visuals[]`.
 - `/revela make --deck --desc "..."` decisioning, either explicitly unsupported or implemented as intent seeding that does not bypass grounding/readiness/approval.
 - Product positioning and docs cleanup: decks are render targets from trusted narrative state, not the durable source of truth.
 - Review Prep/Rehearsal, Audience Lens, and Meeting Prep Pack. Reuse inspection context first and keep exploratory outputs read-only.
