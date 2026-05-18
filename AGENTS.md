@@ -2,7 +2,7 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-05-18 for 0.17.2 file-native deck workflow release.
+> Last updated: 2026-05-17 for 0.17.1 Story/Review/QA refinement release.
 
 ## Product Baseline
 
@@ -12,7 +12,7 @@ Product promise:
 
 **Turn source materials, research, data, and user intent into trusted, traceable, presentation-ready decision artifacts.**
 
-Current baseline: `0.17.2`.
+Current baseline: `0.17.1`.
 
 User-facing workflow:
 
@@ -192,8 +192,6 @@ Structured helper role:
 - Release gate passed after folding wikilink-first graph into the 0.17.0 baseline: fresh init smoke, Markdown QA repair feedback, inventory-first authoring, vault compile persistence, `bun test`, `bun run typecheck`, and `npm pack --dry-run`.
 - 0.17.1 refinement baseline: evidence-first Story UI with claim/evidence/gap reading, localized research-gap display questions, cleaner Story card typography/layout, saved Review asset state and remote-image download fallbacks, deterministic deck visual intent planning, deck QA navigation checks, and deck QA semantic overlap detection.
 - 0.17.1 release gate passed: `bun test` (534 tests), `bun run typecheck`, and `npm pack --dry-run` for `@cyber-dash-tech/revela@0.17.0` before version bump.
-- 0.17.2 file-native deck workflow baseline: claim-led deck-plan projection workspace, chapter-by-chapter deck-render contract, artifact/review/export flows that do not treat `DECKS.json` as workflow authority, fresh vault/tool actions that avoid creating `DECKS.json`, and simplified install/quick-start README docs with built-in design previews.
-- 0.17.2 release gate passed: `bun test` (546 tests), `bun run typecheck`, and `npm pack --dry-run` for `@cyber-dash-tech/revela@0.17.1` before version bump.
 
 ## Wikilink-First Vault Graph
 
@@ -264,12 +262,12 @@ Do not use `[[supports:claim-a]]`; Obsidian treats that as a page id instead of 
 - ~~Plan quality: add checks such as `claim_chapters_present`, `claim_chapters_min_three_slides`, `claim_chapter_evidence_visible`, `claim_chapter_not_padded_by_filler`, and `claim_chapter_boundary_visible`. If a claim cannot support a three-slide chapter, stop at plan review with a merge/research/scope-narrowing/shorter-chapter decision instead of creating sparse filler.~~
 - ~~Artifact quality: generated HTML must pass browser QA before Review/Export. Treat systematic `scrollbar/page_scroll` failures, even when the deck looks visually complete, as make-deck quality regressions. Regression coverage should include fixed-canvas fit, no page-level scrollbars, and no artifact generation that hides overflow problems behind attractive layouts.~~
 - ~~Tests: update `tests/narrative-state.test.ts` to assert central-claim chapters, minimum three slides per claim chapter, TOC/chapter alignment, visible evidence gaps when support is missing, and preserved `content.data.visualIntent` plus `visuals[]`. Add regression coverage for anti-filler plan quality, deck-render skill chapter-by-chapter prompt rules, and artifact QA failures such as all-slide `scrollbar/page_scroll`.~~
-- ~~File-native workflow contract: remove `DECKS.json` as a product state center. New workflow authority should come from files: `revela-narrative/` for meaning, `deck-plan/` for render planning, `decks/*.html` for artifacts, `researches/` for findings, and `assets/` for media. Do not preserve `activeDeck`, cached `slides[]`, `requiredInputs`, `writeReadiness`, `planReview`, or approval fields as workflow authority.~~
-- ~~Gate removal contract: remove narrative approval, stale approval, deck-plan confirmation, write readiness, required-input, research-complete, and cached-slide completeness gates. These states may be reported as diagnostics while they exist, but they must not block `init`, `research`, `story`, `make`, `review`, or `export` when the user chooses to proceed.~~
-- ~~Hard-blocker boundary: retain blockers only for technical artifact validity, data-safety/integrity protections, and executable preconditions. Examples: missing/ambiguous file path, invalid HTML contract, invalid slide identity or DOM order, canvas/overflow/export failure, malformed vault frontmatter, invalid JSON/Markdown writes, or filesystem errors.~~
-- ~~File-native command behavior: `review` and `export` should be path-based or discover `decks/*.html` from the filesystem; `make --deck` should resolve output path from user input, `deck-plan/index.md`, or a deterministic default; `story` should compile `revela-narrative/` plus `deck-plan/` graph projection without `DECKS.json`.~~
-- ~~Tool cleanup: audit and remove or replace `upsertDeck`, `upsertSlides`, `confirmDeckPlan`, `approveNarrative`, `requiredInputs`, `writeReadiness`, `planReview`, `slidePlanConfirmed`, `narrativeApprovals`, active-deck lookup, render-target lookup, and `DECKS.json` creation/read/write paths. If temporary tool metadata is still needed, move it to file-native runtime/cache storage outside the workflow model.~~
-- ~~Test cleanup: delete blocker tests for missing approval, stale approval, unconfirmed deck plan, missing required inputs, unread research, missing cached slides, or `DECKS.json.slides[]` count mismatch. Add no-`DECKS.json` happy paths for `init`, `research`, `story`, `make`, `review`, and `export`, plus diagnostics-do-not-block tests and retained technical-blocker tests.~~
+- File-native workflow contract: remove `DECKS.json` as a product state center. New workflow authority should come from files: `revela-narrative/` for meaning, `deck-plan/` for render planning, `decks/*.html` for artifacts, `researches/` for findings, and `assets/` for media. Do not preserve `activeDeck`, cached `slides[]`, `requiredInputs`, `writeReadiness`, `planReview`, or approval fields as workflow authority.
+- Gate removal contract: remove narrative approval, stale approval, deck-plan confirmation, write readiness, required-input, research-complete, and cached-slide completeness gates. These states may be reported as diagnostics while they exist, but they must not block `init`, `research`, `story`, `make`, `review`, or `export` when the user chooses to proceed.
+- Hard-blocker boundary: retain blockers only for technical artifact validity, data-safety/integrity protections, and executable preconditions. Examples: missing/ambiguous file path, invalid HTML contract, invalid slide identity or DOM order, canvas/overflow/export failure, malformed vault frontmatter, invalid JSON/Markdown writes, or filesystem errors.
+- File-native command behavior: `review` and `export` should be path-based or discover `decks/*.html` from the filesystem; `make --deck` should resolve output path from user input, `deck-plan/index.md`, or a deterministic default; `story` should compile `revela-narrative/` plus `deck-plan/` graph projection without `DECKS.json`.
+- Tool cleanup: audit and remove or replace `upsertDeck`, `upsertSlides`, `confirmDeckPlan`, `approveNarrative`, `requiredInputs`, `writeReadiness`, `planReview`, `slidePlanConfirmed`, `narrativeApprovals`, active-deck lookup, render-target lookup, and `DECKS.json` creation/read/write paths. If temporary tool metadata is still needed, move it to file-native runtime/cache storage outside the workflow model.
+- Test cleanup: delete blocker tests for missing approval, stale approval, unconfirmed deck plan, missing required inputs, unread research, missing cached slides, or `DECKS.json.slides[]` count mismatch. Add no-`DECKS.json` happy paths for `init`, `research`, `story`, `make`, `review`, and `export`, plus diagnostics-do-not-block tests and retained technical-blocker tests.
 
 ### 0.17.3 Coverage-Driven Remake Decisions
 
@@ -401,7 +399,7 @@ npm pack --dry-run
 
 Focused tests are preferred during development when they cover the changed module. Run the full suite before release, command-surface changes, state migrations, prompt-mode changes, or export/QA changes.
 
-README no longer carries a passing-test badge. Re-run tests before adding or changing docs badges.
+Current README badges report 451 passing tests. Re-run tests before changing this number in docs or badges.
 
 ## Release SOP
 
