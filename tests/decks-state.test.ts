@@ -84,7 +84,7 @@ describe("DECKS.json state readiness", () => {
     expect(result.ready).toBe(true)
   })
 
-  it("blocks when deck plan has not been confirmed", () => {
+  it("surfaces unconfirmed deck-plan state as an advisory warning", () => {
     const state = upsertDeck(createEmptyDecksState(), createDeckSpec({
       slug: "incomplete",
       goal: "Incomplete deck",
@@ -92,10 +92,11 @@ describe("DECKS.json state readiness", () => {
     }))
     const reviewed = reviewDeckState(state, "incomplete")
     expect(reviewed.result.ready).toBe(false)
-    expect(reviewed.result.blocker).toContain("Deck plan is not confirmed")
+    expect(reviewed.result.blocker).toContain("requiredInputs.audienceClarified")
     expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
       type: "slide_plan_unconfirmed",
-      suggestedAction: expect.stringContaining("decks/deck-plan.md"),
+      severity: "warning",
+      suggestedAction: expect.stringContaining("deck-plan/"),
     }))
   })
 

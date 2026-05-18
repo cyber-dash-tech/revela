@@ -30,6 +30,89 @@ describe("narrative vault", () => {
     expect(inventory.evidence).toContainEqual(expect.objectContaining({ id: "evidence:pilot", claimId: "claim:pilot" }))
   })
 
+  it("projects deck-plan slide wikilinks into the workspace graph without changing narrative state", () => {
+    const root = tempWorkspace("revela-vault-deck-plan-projection-")
+    writeRegistryVault(root)
+    const before = compileNarrativeVault(root)
+    const narrativeHash = before.narrative ? computeNarrativeHash(before.narrative) : ""
+    mkdirSync(join(root, "deck-plan", "slides"), { recursive: true })
+    writeFileSync(join(root, "deck-plan", "index.md"), `---
+id: deck-plan
+narrativeHash: ${narrativeHash}
+outputPath: decks/pilot.html
+---
+
+# Deck Plan
+
+## Source Authority
+
+- Meaning: revela-narrative/.
+
+## Audience / Goal / Decision
+
+- Audience: committee.
+
+## Deck Parameters
+
+- Target slides: 8.
+
+## Chapter Map
+
+- Pilot: slides 1-3.
+
+## Slide Plan
+
+- [[slide-pilot-proof]] uses the pilot claim and evidence.
+
+## Evidence Trace
+
+- Preserve evidence source trace.
+
+## Boundary / Risk Treatment
+
+- Keep caveats audience-facing.
+
+## Chapter Writing Batches
+
+- Batch 1: pilot.
+
+## HTML Identity Contract
+
+- Use positive 1-based slide indexes.
+`, "utf-8")
+    writeFileSync(join(root, "deck-plan", "slides", "001-pilot-proof.md"), `---
+type: deck-plan-slide
+id: slide-pilot-proof
+slideIndex: 1
+title: Pilot proof
+chapter: Pilot
+layout: narrative
+components: box, text-panel
+structural: false
+---
+
+# Pilot proof
+
+## Narrative Links
+
+Claims:
+- [[claim:pilot]]
+
+Evidence:
+- [[evidence:pilot]]
+`, "utf-8")
+
+    const compiled = compileNarrativeVault(root)
+
+    expect(compiled.ok).toBe(true)
+    expect(compiled.narrative?.claimRelations).toEqual(before.narrative?.claimRelations)
+    expect(computeNarrativeHash(compiled.narrative!)).toBe(narrativeHash)
+    expect(compiled.graph.nodes).toContainEqual(expect.objectContaining({ id: "deck-plan", type: "deck-plan", file: "deck-plan/index.md" }))
+    expect(compiled.graph.nodes).toContainEqual(expect.objectContaining({ id: "slide-pilot-proof", type: "deck-plan-slide", file: "deck-plan/slides/001-pilot-proof.md" }))
+    expect(compiled.graph.relations).toContainEqual(expect.objectContaining({ fromId: "slide-pilot-proof", relation: "uses_claim", toId: "claim:pilot" }))
+    expect(compiled.graph.relations).toContainEqual(expect.objectContaining({ fromId: "slide-pilot-proof", relation: "uses_evidence", toId: "evidence:pilot" }))
+  })
+
   it("prefers wikilink relations over frontmatter bindings and derives gap context through evidence", () => {
     const root = tempWorkspace("revela-vault-wikilink-first-")
     writeRegistryVault(root)

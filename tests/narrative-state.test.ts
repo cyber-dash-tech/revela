@@ -390,7 +390,7 @@ describe("narrative state", () => {
 
     expect(result.ok).toBe(true)
     expect(result.result).toMatchObject({ compiled: true, skipped: false, slideCount: 0, slides: [], chapters: [], qualityChecks: [] })
-    expect(result.result.planArtifactPath).toBe("decks/deck-plan.md")
+    expect(result.result.planArtifactPath).toBe("deck-plan/index.md")
     expect(result.result.planningPacket).toMatchObject({
       narrativeHash: result.result.narrativeHash,
       outputPath: "decks/narrative-demo.html",
@@ -400,17 +400,19 @@ describe("narrative state", () => {
       risks: expect.arrayContaining([expect.objectContaining({ text: "Execution risk remains material." })]),
     })
     expect(result.result.deckPlanRequirements).toMatchObject({
-      planArtifactPath: "decks/deck-plan.md",
+      planArtifactPath: "deck-plan/index.md",
+      slidePlanDir: "deck-plan/slides",
       defaultProfile: expect.stringContaining("12-18 slides"),
       userConfirmations: expect.arrayContaining([expect.stringContaining("target slide count")]),
       authoringRules: expect.arrayContaining([
-        expect.stringContaining("LLM writes decks/deck-plan.md"),
+        expect.stringContaining("LLM writes deck-plan/index.md and deck-plan/slides/*.md"),
         expect.stringContaining("group related central claims"),
         expect.stringContaining("Do not render internal labels"),
+        expect.stringContaining("## Narrative Links"),
       ]),
-      requiredSections: expect.arrayContaining(["Source Authority", "Slide Plan", "Approval"]),
-      approvalBlockTemplate: expect.stringContaining(`narrativeHash: ${result.result.narrativeHash}`),
+      requiredSections: expect.arrayContaining(["Source Authority", "Slide Plan", "HTML Identity Contract"]),
     })
+    expect(Object.values(result.result.deckPlanRequirements?.requiredSections ?? {}).includes("Approval")).toBe(false)
     expect(deck.slides).toHaveLength(1)
     expect(deck.slides[0].title).toBe("Demand Proof")
     expect(deck.requiredInputs).toMatchObject({
@@ -494,12 +496,12 @@ describe("narrative state", () => {
     expect(result.result.qualityChecks).toEqual([])
   })
 
-  it("records user confirmation for the current compiled deck plan", async () => {
+  it("records compatibility provenance for the current deck-plan projection", async () => {
     const workspaceRoot = tempWorkspace("revela-narrative-plan-confirm-")
     writeDecksState(workspaceRoot, legacyDecisionDeck())
     await runDecksTool({ action: "approveNarrative", approvalNote: "Approved for deck planning." }, workspaceRoot)
     const compiled = await executeDecksTool({ action: "compileDeckPlan" }, workspaceRoot)
-    writeApprovedDeckPlanMarkdown(workspaceRoot, compiled.result.narrativeHash, "Confirmed slide plan and low-fi sketches.")
+    writeDeckPlanProjection(workspaceRoot, compiled.result.narrativeHash)
 
     const result = await executeDecksTool({ action: "confirmDeckPlan", approvalBy: "user", approvalNote: "Confirmed slide plan and low-fi sketches." }, workspaceRoot)
     const reloaded = readDecksState(workspaceRoot)
@@ -522,53 +524,60 @@ describe("narrative state", () => {
     }))
   })
 
-  it("refuses to confirm a pending deck plan until deck-plan.md approval is signed", async () => {
+  it("treats confirmDeckPlan as compatibility provenance even without approval", async () => {
     const workspaceRoot = tempWorkspace("revela-narrative-plan-confirm-pending-")
     writeDecksState(workspaceRoot, legacyDecisionDeck())
     await runDecksTool({ action: "approveNarrative", approvalNote: "Approved for deck planning." }, workspaceRoot)
     const compiled = await executeDecksTool({ action: "compileDeckPlan" }, workspaceRoot)
-    writePendingDeckPlanMarkdown(workspaceRoot, compiled.result.narrativeHash)
+    writeDeckPlanProjection(workspaceRoot, compiled.result.narrativeHash)
 
     const result = await executeDecksTool({ action: "confirmDeckPlan", approvalBy: "user" }, workspaceRoot)
     const reloaded = readDecksState(workspaceRoot)
     const deck = reloaded.decks[reloaded.activeDeck!]
 
-    expect(result.ok).toBe(false)
-    expect(result.result.reason).toContain("not approved")
-    expect(deck.requiredInputs.slidePlanConfirmed).toBe(false)
-    expect(deck.planReview?.status).toBe("pending")
+    expect(result.ok).toBe(true)
+    expect(result.result).toMatchObject({ confirmed: true, skipped: false })
+    expect(result.planArtifact.approvalStatus).toBe("missing")
+    expect(deck.requiredInputs.slidePlanConfirmed).toBe(true)
+    expect(deck.planReview?.status).toBe("confirmed")
   })
 
-  it("refuses stale deck-plan.md approval narrative hashes", async () => {
+  it("surfaces stale deck-plan narrative hashes as readDeckPlan diagnostics", async () => {
     const workspaceRoot = tempWorkspace("revela-narrative-plan-confirm-stale-")
     writeDecksState(workspaceRoot, legacyDecisionDeck())
     await runDecksTool({ action: "approveNarrative", approvalNote: "Approved for deck planning." }, workspaceRoot)
     await runDecksTool({ action: "compileDeckPlan" }, workspaceRoot)
-    writeApprovedDeckPlanMarkdown(workspaceRoot, "stale-narrative-hash", "Approved stale plan.")
+    writeDeckPlanProjection(workspaceRoot, "stale-narrative-hash")
 
-    const result = await executeDecksTool({ action: "confirmDeckPlan", approvalBy: "user" }, workspaceRoot)
+    const result = await executeDecksTool({ action: "readDeckPlan" }, workspaceRoot)
 
-    expect(result.ok).toBe(false)
-    expect(result.result.reason).toContain("narrativeHash")
+    expect(result.ok).toBe(true)
+    expect(result.planArtifact.warnings).toContain("Deck plan narrativeHash does not match current narrative state.")
   })
 
-  it("reads the current deck-plan.md without regenerating it", async () => {
+  it("reads the current deck-plan/ projection without regenerating it", async () => {
     const workspaceRoot = tempWorkspace("revela-narrative-plan-read-")
     writeDecksState(workspaceRoot, legacyDecisionDeck())
     await runDecksTool({ action: "approveNarrative", approvalNote: "Approved for deck planning." }, workspaceRoot)
     const compiled = await executeDecksTool({ action: "compileDeckPlan" }, workspaceRoot)
-    writeApprovedDeckPlanMarkdown(workspaceRoot, compiled.result.narrativeHash, "Approved readable plan.")
+    writeDeckPlanProjection(workspaceRoot, compiled.result.narrativeHash)
 
     const result = await executeDecksTool({ action: "readDeckPlan" }, workspaceRoot)
 
     expect(result.ok).toBe(true)
     expect(result.planArtifact).toMatchObject({
       ok: true,
-      path: "decks/deck-plan.md",
-      approvalStatus: "approved",
+      path: "deck-plan/index.md",
+      approvalStatus: "missing",
       planHash: expect.any(String),
-      sections: expect.arrayContaining(["Source Authority", "Slide Plan", "Approval"]),
+      sections: expect.arrayContaining(["Source Authority", "Slide Plan", "HTML Identity Contract"]),
       missingSections: [],
+    })
+    expect(result.planArtifact.projection).toMatchObject({
+      path: "deck-plan/index.md",
+      slides: [expect.objectContaining({ id: "slide-demand-proof", links: expect.arrayContaining([expect.objectContaining({ id: expect.stringMatching(/^claim:/), relation: "uses_claim" })]) })],
+      graphNodes: expect.arrayContaining([expect.objectContaining({ id: "deck-plan", type: "deck-plan" }), expect.objectContaining({ id: "slide-demand-proof", type: "deck-plan-slide" })]),
+      graphRelations: expect.arrayContaining([expect.objectContaining({ fromId: "slide-demand-proof", relation: "uses_claim", toId: expect.stringMatching(/^claim:/) })]),
     })
   })
 
@@ -892,20 +901,25 @@ sources:
   })
 })
 
-function writePendingDeckPlanMarkdown(workspaceRoot: string, narrativeHash: string): void {
-  const planPath = join(workspaceRoot, "decks/deck-plan.md")
-  mkdirSync(join(workspaceRoot, "decks"), { recursive: true })
-  writeFileSync(planPath, deckPlanMarkdown(narrativeHash, "pending"), "utf-8")
+function writeDeckPlanProjection(workspaceRoot: string, narrativeHash: string): void {
+  const state = readDecksState(workspaceRoot)
+  const narrative = normalizeNarrativeState(state)
+  const claimId = narrative.claims[0]?.id ?? "claim:demand"
+  const evidenceId = narrative.evidenceBindings[0]?.id ?? "evidence:demand"
+  const riskId = narrative.risks[0]?.id ?? "risk:execution"
+  mkdirSync(join(workspaceRoot, "deck-plan", "slides"), { recursive: true })
+  writeFileSync(join(workspaceRoot, "deck-plan", "index.md"), deckPlanIndexMarkdown(narrativeHash), "utf-8")
+  writeFileSync(join(workspaceRoot, "deck-plan", "slides", "001-demand-proof.md"), deckPlanSlideMarkdown({ claimId, evidenceId, riskId }), "utf-8")
 }
 
-function writeApprovedDeckPlanMarkdown(workspaceRoot: string, narrativeHash: string, note: string): void {
-  const planPath = join(workspaceRoot, "decks/deck-plan.md")
-  mkdirSync(join(workspaceRoot, "decks"), { recursive: true })
-  writeFileSync(planPath, deckPlanMarkdown(narrativeHash, "approved", note), "utf-8")
-}
+function deckPlanIndexMarkdown(narrativeHash: string): string {
+  return `---
+id: deck-plan
+narrativeHash: ${narrativeHash}
+outputPath: decks/narrative-demo.html
+---
 
-function deckPlanMarkdown(narrativeHash: string, status: "pending" | "approved", note = ""): string {
-  return `# Revela Deck Plan
+# Revela Deck Plan
 
 ## Source Authority
 
@@ -949,17 +963,42 @@ function deckPlanMarkdown(narrativeHash: string, status: "pending" | "approved",
 ## HTML Identity Contract
 
 - Use positive 1-based data-slide-index values that are unique and strictly increase in DOM order.
+`
+}
 
-## Approval
+function deckPlanSlideMarkdown({ claimId, evidenceId, riskId }: { claimId: string; evidenceId: string; riskId: string }): string {
+  return `---
+type: deck-plan-slide
+id: slide-demand-proof
+slideIndex: 3
+title: Demand proof
+chapter: Recommendation
+layout: narrative
+components: box, text-panel
+structural: false
+narrativeRole: evidence
+---
 
-\`\`\`yaml
-status: ${status}
-approvedBy:${status === "approved" ? " test-user" : ""}
-approvedAt:${status === "approved" ? " 2026-05-17T00:00:00.000Z" : ""}
-approvalNote:${note ? ` ${note}` : ""}
-planHash:
-narrativeHash: ${narrativeHash}
-\`\`\`
+# Demand proof
+
+## Purpose
+
+Show why demand evidence supports phased expansion.
+
+## Narrative Links
+
+Claims:
+- [[${claimId}]]
+
+Evidence:
+- [[${evidenceId}]]
+
+Risks:
+- [[${riskId}]]
+
+## Layout Sketch
+
+Text panel plus evidence box.
 `
 }
 

@@ -42,11 +42,11 @@ export interface DeckPlanningPacket {
 
 export interface DeckPlanRequirements {
   planArtifactPath: string
+  slidePlanDir: string
   defaultProfile: string
   userConfirmations: string[]
   authoringRules: string[]
   requiredSections: string[]
-  approvalBlockTemplate: string
 }
 
 export interface DeckPlanChapter {
@@ -207,7 +207,7 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
         compiled: true,
         skipped: false,
         narrativeHash,
-        planArtifactPath: "decks/deck-plan.md",
+        planArtifactPath: "deck-plan/index.md",
         slideCount: 0,
         slides: [],
         chapters: [],
@@ -236,7 +236,8 @@ function buildDeckPlanningPacket(narrative: NarrativeStateV1, narrativeHash: str
 
 function buildDeckPlanRequirements(narrativeHash: string): DeckPlanRequirements {
   return {
-    planArtifactPath: "decks/deck-plan.md",
+    planArtifactPath: "deck-plan/index.md",
+    slidePlanDir: "deck-plan/slides",
     defaultProfile: "executive decision deck, usually 12-18 slides unless the user confirms otherwise",
     userConfirmations: [
       "Confirm target slide count or acceptable range when it is unclear.",
@@ -244,7 +245,7 @@ function buildDeckPlanRequirements(narrativeHash: string): DeckPlanRequirements 
       "Confirm language, emphasis, or visual style only when needed before writing the plan.",
     ],
     authoringRules: [
-      "LLM writes decks/deck-plan.md from the planning packet; compileDeckPlan does not generate the final slide list.",
+      "LLM writes deck-plan/index.md and deck-plan/slides/*.md from the planning packet; compileDeckPlan does not generate the final slide list.",
       "Use 3-5 chapters for normal executive decks.",
       "Cover every central claim, but group related central claims into chapters instead of giving each claim its own chapter.",
       "Each substantive chapter should have framing, proof, and implication/boundary coverage.",
@@ -253,6 +254,7 @@ function buildDeckPlanRequirements(narrativeHash: string): DeckPlanRequirements 
       "Preserve evidence ids, source trace, supported scope, unsupported scope, caveats, and strength where available.",
       "Do not render internal labels such as Evidence gap:, Unsupported scope:, Caveat:, Missing Data, or Evidence Boundary in executive body copy.",
       "Do not infer plan structure from DECKS.json slides[]; it is compatibility cache only.",
+      "Use ## Narrative Links in slide files for [[claim-id]], [[evidence-id]], [[risk-id]], [[objection-id]], or [[gap-id]] references; do not use canonical ## Relations in deck-plan files.",
     ],
     requiredSections: [
       "Source Authority",
@@ -264,9 +266,7 @@ function buildDeckPlanRequirements(narrativeHash: string): DeckPlanRequirements 
       "Boundary / Risk Treatment",
       "Chapter Writing Batches",
       "HTML Identity Contract",
-      "Approval",
     ],
-    approvalBlockTemplate: `## Approval\n\n\`\`\`yaml\nstatus: pending\napprovedBy:\napprovedAt:\napprovalNote:\nplanHash:\nnarrativeHash: ${narrativeHash}\n\`\`\``,
   }
 }
 
@@ -274,16 +274,16 @@ export function buildRenderPlanContract(deck: DeckSpec, chapters: DeckPlanChapte
   return {
     sourceAuthority: {
       meaning: "revela-narrative/ canonical narrative state",
-      renderPlan: "decks/deck-plan.md execution blueprint and compileDeckPlan result",
+      renderPlan: "deck-plan/ projection workspace plus compileDeckPlan planning packet",
       state: "DECKS.json compatibility/render state only; slides[] is cached projection data",
       htmlIdentity: "positive 1-based data-slide-index values, unique and strictly increasing in DOM order",
     },
     renderRules: [
       "Do not infer deck structure, slide count, or chapter substance from DECKS.json slides[].",
-      "Use the compileDeckPlan result and approved decks/deck-plan.md as the render-plan contract.",
+      "Use the compileDeckPlan planning packet plus deck-plan/ projection Markdown as the render-plan contract.",
       "Render chapter divider slides with the toc component when slideKind is chapter-divider.",
       "Chapter divider and global TOC slides are structural wayfinding and do not count toward central-claim substance.",
-      "Each central claim chapter needs non-structural framing, proof, and implication/boundary slides unless the approved plan explicitly says otherwise.",
+      "Each central claim chapter needs non-structural framing, proof, and implication/boundary slides unless the current deck-plan projection explicitly says otherwise.",
       "Generate HTML chapter by chapter, preserving valid HTML and already-written slides after every batch.",
     ],
     htmlIdentityContract: [

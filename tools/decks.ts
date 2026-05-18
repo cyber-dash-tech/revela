@@ -30,7 +30,7 @@ import {
   reviewNarrativeState,
 } from "../lib/narrative-state/readiness"
 import { compileDeckPlanFromNarrative } from "../lib/narrative-state/render-plan"
-import { DECK_PLAN_ARTIFACT_PATH, readDeckPlanArtifact, validateDeckPlanApprovalFile } from "../lib/narrative-state/deck-plan-artifact"
+import { DECK_PLAN_ARTIFACT_PATH, readDeckPlanArtifact } from "../lib/narrative-state/deck-plan-artifact"
 import { backfillSlideClaimRefsFromCoverage } from "../lib/narrative-state/coverage"
 import { closeResearchGapInState, deriveResearchGapsFromReadiness, deriveResearchTargets, updateResearchGapInState, upsertResearchGapsInState } from "../lib/narrative-state/research-gaps"
 import { evaluateResearchFindingsBinding } from "../lib/narrative-state/research-binding-eval"
@@ -713,23 +713,27 @@ export default tool({
 
       if (args.action === "readDeckPlan") {
         const narrative = normalizeNarrativeState(state)
-        const read = readDeckPlanArtifact(workspaceRoot, { narrativeHash: computeNarrativeHash(narrative) })
+        const knownNodeIds = new Set([
+          ...narrative.claims.map((claim) => claim.id),
+          ...narrative.evidenceBindings.map((binding) => binding.id),
+          ...narrative.risks.map((risk) => risk.id),
+          ...narrative.objections.map((objection) => objection.id),
+          ...(narrative.researchGaps ?? []).map((gap) => gap.id),
+        ])
+        const read = readDeckPlanArtifact(workspaceRoot, { narrativeHash: computeNarrativeHash(narrative), knownNodeIds })
         return JSON.stringify({ ok: read.ok, planArtifact: read }, null, 2)
       }
 
       if (args.action === "confirmDeckPlan") {
-        if (args.approvalBy && args.approvalBy !== "user") return JSON.stringify({ ok: false, error: "confirmDeckPlan requires approvalBy=user" })
         const deck = state.activeDeck ? state.decks[state.activeDeck] : undefined
         if (!deck) return JSON.stringify({ ok: false, result: { confirmed: false, skipped: true, reason: "Cannot confirm because no current deck exists." } }, null, 2)
         const narrative = normalizeNarrativeState(state)
         const narrativeHash = computeNarrativeHash(narrative)
-        const approval = validateDeckPlanApprovalFile(workspaceRoot, { narrativeHash })
-        if (!approval.ok) return JSON.stringify({ ok: false, result: { confirmed: false, skipped: true, slug: deck.slug, narrativeHash, planHash: approval.planHash, reason: approval.reason }, approval: approval.approval, missingSections: approval.missingSections }, null, 2)
+        const read = readDeckPlanArtifact(workspaceRoot, { narrativeHash })
         const confirmed = confirmDeckPlan(state, {
           approvedBy: "user",
-          approvedAt: approval.approval?.approvedAt,
-          note: args.approvalNote ?? approval.approval?.approvalNote,
-          planHash: approval.planHash,
+          note: args.approvalNote ?? "Deprecated confirmDeckPlan compatibility confirmation; deck-plan/ diagnostics are advisory.",
+          planHash: read.planHash,
         })
         if (confirmed.result.confirmed) {
           recordWorkspaceAction(confirmed.state, {
@@ -742,12 +746,12 @@ export default tool({
               planHash: confirmed.result.planHash,
             },
             status: "success",
-            summary: args.approvalNote?.trim() || "User confirmed the deck-plan.md artifact.",
+            summary: args.approvalNote?.trim() || "Recorded deck-plan compatibility confirmation; deck-plan/ remains user-directed projection state.",
             nodeIds: [confirmed.state.narrative?.id, confirmed.result.slug ? `deck:${confirmed.result.slug}` : undefined].filter((item): item is string => Boolean(item)),
           })
         }
         writeDecksState(workspaceRoot, confirmed.state)
-        return JSON.stringify({ ok: confirmed.result.confirmed, path: DECKS_STATE_FILE, result: confirmed.result, approval: approval.approval, deck: confirmed.state.activeDeck ? confirmed.state.decks[confirmed.state.activeDeck] : undefined }, null, 2)
+        return JSON.stringify({ ok: confirmed.result.confirmed, path: DECKS_STATE_FILE, result: confirmed.result, planArtifact: read, deck: confirmed.state.activeDeck ? confirmed.state.decks[confirmed.state.activeDeck] : undefined }, null, 2)
       }
 
       if (args.action === "backfillClaimRefs") {

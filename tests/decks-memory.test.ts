@@ -189,7 +189,7 @@ describe("review command", () => {
     expect(prompt).toContain("Narrative readiness is reviewed through `/revela story`")
     expect(prompt).toContain("compatibility/render state")
     expect(prompt).toContain("Do not treat its `slides[]` cache as the authoritative deck execution plan")
-    expect(prompt).toContain("decks/deck-plan.md")
+    expect(prompt).toContain("deck-plan/")
     expect(prompt).toContain("writeReadiness")
     expect(prompt).toContain("evidence and Narrative Compiler readiness review")
     expect(prompt).toContain("unsupported numbers")
@@ -231,7 +231,7 @@ describe("review command", () => {
     expect(prompt).toContain("readDeckPlan")
     expect(prompt).toContain("Do not infer render structure from `DECKS.json.slides[]`")
     expect(prompt).toContain("low-fidelity layout sketch")
-    expect(prompt).toContain("Deck plan: awaiting confirmation")
+    expect(prompt).toContain("Deck plan: drafted")
     expect(prompt).toContain("Cover, Table of Contents, and Closing")
     expect(prompt).toContain("Required structure: Cover + Table of Contents + Closing")
     expect(prompt).toContain("Chapters")
@@ -239,7 +239,7 @@ describe("review command", () => {
     expect(prompt).toContain("one broad pass")
     expect(prompt).toContain("Stop after presenting the plan")
     expect(prompt).toContain("confirmDeckPlan")
-    expect(prompt).toContain("approved")
+    expect(prompt).toContain("compatibility/provenance")
     expect(prompt).toContain("ready_for_approval")
     expect(prompt).toContain("render override")
     expect(prompt).toContain("revela-designs read")
@@ -252,7 +252,7 @@ describe("review command", () => {
     expect(prompt).toContain("Deck handoff: <status>")
     expect(prompt).toContain("deck HTML contract")
     expect(prompt).toContain("Do not write or overwrite `decks/*.html` until")
-    expect(prompt).toContain("user deck-plan confirmation")
+    expect(prompt).toContain("user chooses to proceed")
     expect(prompt).toContain("Current workspace root: `/workspace/project`")
   })
 
@@ -396,7 +396,7 @@ describe("DECKS.json state readiness", () => {
     expect(result.blocker).toContain("requiredInputs.audienceClarified")
   })
 
-  it("blocks when the slide plan has not been confirmed", () => {
+  it("warns when the slide plan has not been confirmed", () => {
     let state = createEmptyDecksState()
     state = upsertDeck(state, {
       slug: "investor-update",
@@ -422,20 +422,20 @@ describe("DECKS.json state readiness", () => {
     state = reviewDeckState(state, "investor-update").state
 
     const result = evaluateDeckStateWriteReadiness(state, "decks/investor-update.html")
-    expect(result.ready).toBe(false)
+    expect(result.ready).toBe(true)
     expect(result.issues.some((issue) => issue.type === "slide_plan_unconfirmed")).toBe(true)
-    expect(result.blocker).toContain("Deck plan is not confirmed")
+    expect(result.warnings.some((warning) => warning.includes("Deck plan is not confirmed"))).toBe(true)
   })
 
-  it("blocks when confirmed slide plan changes", () => {
+  it("warns when confirmed slide plan changes", () => {
     let state = readyState()
     state = upsertSlides(state, "investor-update", [{ ...readySlide(), content: { headline: "Changed headline", bullets: ["One concrete point"] } }])
     state = reviewDeckState(state, "investor-update").state
 
     const result = evaluateDeckStateWriteReadiness(state, "decks/investor-update.html")
-    expect(result.ready).toBe(false)
+    expect(result.ready).toBe(true)
     expect(result.issues.some((issue) => issue.type === "slide_plan_unconfirmed")).toBe(true)
-    expect(result.blocker).toContain("confirmation is stale")
+    expect(result.warnings.some((warning) => warning.includes("confirmation is stale"))).toBe(true)
   })
 
   it("blocks when slide specs are missing content", () => {
@@ -528,7 +528,7 @@ describe("DECKS.json state readiness", () => {
 
       expect(layer).toContain("findingsFile")
       expect(layer).toContain("compatibility/render state")
-      expect(layer).toContain("decks/deck-plan.md")
+      expect(layer).toContain("deck-plan/")
       expect(layer).toContain("Do not treat DECKS.json `slides[]` as the authoritative HTML slide-count")
       expect(layer).toContain("unique and strictly increase in DOM order")
       expect(layer).not.toContain("source of truth for the single current deck's specs, slide plan")

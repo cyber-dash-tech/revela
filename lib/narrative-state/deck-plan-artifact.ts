@@ -1,10 +1,18 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
-import { dirname, join } from "path"
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs"
+import { dirname, join, relative } from "path"
 import { createHash } from "crypto"
 import type { DeckSpec, SlideSpec } from "../decks-state"
+import { parseVaultFrontmatter } from "../narrative-vault/frontmatter"
+import { splitMarkdownSections } from "../narrative-vault/markdown"
+import { stableVaultRelationId } from "../narrative-vault/relations"
+import type { VaultRelation, WorkspaceGraphNodeType } from "../narrative-vault/types"
 import type { DeckPlanChapter, DeckPlanQualityCheck, RenderPlanContract, RenderPlanSlideMetadata } from "./render-plan"
 
-export const DECK_PLAN_ARTIFACT_PATH = "decks/deck-plan.md"
+export const DECK_PLAN_DIR = "deck-plan"
+export const DECK_PLAN_INDEX_PATH = "deck-plan/index.md"
+export const DECK_PLAN_SLIDES_DIR = "deck-plan/slides"
+export const LEGACY_DECK_PLAN_ARTIFACT_PATH = "decks/deck-plan.md"
+export const DECK_PLAN_ARTIFACT_PATH = DECK_PLAN_INDEX_PATH
 
 export interface DeckPlanArtifactInput {
   deck: DeckSpec
@@ -46,6 +54,53 @@ export interface DeckPlanReadResult {
   missingSections: string[]
   warnings: string[]
   reason?: string
+  projection?: DeckPlanProjection
+}
+
+export interface DeckPlanProjection {
+  path: string
+  absolutePath: string
+  id: string
+  markdown: string
+  frontmatter: Record<string, string | string[] | boolean>
+  sections: string[]
+  narrativeHash?: string
+  outputPath?: string
+  slides: DeckPlanSlideProjection[]
+  graphNodes: Array<{ id: string; type: WorkspaceGraphNodeType; file: string }>
+  graphRelations: VaultRelation[]
+  diagnostics: DeckPlanProjectionDiagnostic[]
+}
+
+export interface DeckPlanSlideProjection {
+  path: string
+  absolutePath: string
+  id: string
+  slideIndex?: number
+  title: string
+  chapter: string
+  layout: string
+  components: string[]
+  structural: boolean
+  narrativeRole: string
+  markdown: string
+  frontmatter: Record<string, string | string[] | boolean>
+  sections: string[]
+  links: DeckPlanNarrativeLink[]
+}
+
+export interface DeckPlanNarrativeLink {
+  id: string
+  relation: "uses_claim" | "uses_evidence" | "addresses_risk" | "answers_objection" | "mentions_gap"
+  group: string
+}
+
+export interface DeckPlanProjectionDiagnostic {
+  severity: "warning" | "error"
+  code: string
+  message: string
+  file?: string
+  nodeId?: string
 }
 
 export const REQUIRED_DECK_PLAN_SECTIONS = [
@@ -58,7 +113,6 @@ export const REQUIRED_DECK_PLAN_SECTIONS = [
   "Boundary / Risk Treatment",
   "Chapter Writing Batches",
   "HTML Identity Contract",
-  "Approval",
 ]
 
 export function writeDeckPlanArtifact(workspaceRoot: string, input: DeckPlanArtifactInput): { path: string; absolutePath: string } {
@@ -68,26 +122,27 @@ export function writeDeckPlanArtifact(workspaceRoot: string, input: DeckPlanArti
   return { path: DECK_PLAN_ARTIFACT_PATH, absolutePath }
 }
 
-export function readDeckPlanArtifact(workspaceRoot: string, expected?: { narrativeHash?: string }): DeckPlanReadResult {
-  const absolutePath = join(workspaceRoot, DECK_PLAN_ARTIFACT_PATH)
+export function readDeckPlanArtifact(workspaceRoot: string, expected?: { narrativeHash?: string; knownNodeIds?: Set<string> }): DeckPlanReadResult {
+  const projection = readDeckPlanProjection(workspaceRoot, expected)
+  const absolutePath = projection?.absolutePath ?? join(workspaceRoot, DECK_PLAN_INDEX_PATH)
   if (!existsSync(absolutePath)) {
     return {
       ok: false,
-      path: DECK_PLAN_ARTIFACT_PATH,
+      path: DECK_PLAN_INDEX_PATH,
       absolutePath,
       approvalStatus: "missing",
       sections: [],
       missingSections: REQUIRED_DECK_PLAN_SECTIONS,
       warnings: [],
-      reason: `Deck plan file is missing: ${DECK_PLAN_ARTIFACT_PATH}. Write the LLM-authored deck plan before confirmation or HTML generation.`,
+      reason: `Deck plan file is missing: ${DECK_PLAN_INDEX_PATH}. Write the LLM-authored deck-plan/ projection before HTML generation.`,
     }
   }
-  const markdown = readFileSync(absolutePath, "utf-8")
+  const markdown = projection?.markdown ?? readFileSync(absolutePath, "utf-8")
   const planHash = deckPlanBodyHash(markdown)
   const approval = parseDeckPlanApproval(markdown)
-  const sections = parseMarkdownSections(markdown)
+  const sections = projection?.sections ?? parseMarkdownSections(markdown)
   const missingSections = REQUIRED_DECK_PLAN_SECTIONS.filter((section) => !sections.includes(section))
-  const warnings: string[] = []
+  const warnings: string[] = projection?.diagnostics.map((diagnostic) => diagnostic.message) ?? []
   if (missingSections.length > 0) warnings.push(`Missing required deck-plan sections: ${missingSections.join(", ")}.`)
   let approvalStatus: DeckPlanReadResult["approvalStatus"] = "missing"
   if (approval) {
@@ -98,14 +153,14 @@ export function readDeckPlanArtifact(workspaceRoot: string, expected?: { narrati
     }
     if (approval.planHash && !isPlaceholderPlanHash(approval.planHash) && approval.planHash !== planHash) {
       approvalStatus = "stale"
-      warnings.push("Approval planHash does not match the current deck-plan.md body.")
+      warnings.push("Legacy approval planHash does not match the current deck-plan body.")
     }
   } else {
-    warnings.push("Approval block is missing or malformed.")
+    approvalStatus = "missing"
   }
   return {
     ok: true,
-    path: DECK_PLAN_ARTIFACT_PATH,
+    path: projection?.path ?? DECK_PLAN_INDEX_PATH,
     absolutePath,
     markdown,
     planHash,
@@ -114,6 +169,54 @@ export function readDeckPlanArtifact(workspaceRoot: string, expected?: { narrati
     sections,
     missingSections,
     warnings,
+    projection,
+  }
+}
+
+export function readDeckPlanProjection(workspaceRoot: string, expected?: { narrativeHash?: string; knownNodeIds?: Set<string> }): DeckPlanProjection | undefined {
+  const root = join(workspaceRoot, DECK_PLAN_DIR)
+  const indexPath = join(workspaceRoot, DECK_PLAN_INDEX_PATH)
+  const legacyPath = join(workspaceRoot, LEGACY_DECK_PLAN_ARTIFACT_PATH)
+  const absolutePath = existsSync(indexPath) ? indexPath : existsSync(legacyPath) ? legacyPath : ""
+  if (!absolutePath) return undefined
+  const markdown = readFileSync(absolutePath, "utf-8")
+  const parsed = parseVaultFrontmatter(markdown)
+  const split = splitMarkdownSections(parsed.body)
+  const sections = parseMarkdownSections(markdown)
+  const path = relativePath(workspaceRoot, absolutePath)
+  const id = stringField(parsed.frontmatter, "id") || "deck-plan"
+  const slides = existsSync(join(root, "slides")) ? readDeckPlanSlideFiles(workspaceRoot, expected?.knownNodeIds) : []
+  const diagnostics: DeckPlanProjectionDiagnostic[] = []
+  const narrativeHash = stringField(parsed.frontmatter, "narrativeHash") || narrativeHashFromMarkdown(markdown)
+  if (expected?.narrativeHash && narrativeHash && narrativeHash !== expected.narrativeHash) diagnostics.push({ severity: "warning", code: "stale_narrative_hash", message: "Deck plan narrativeHash does not match current narrative state.", file: path, nodeId: id })
+  if (expected?.narrativeHash && !narrativeHash) diagnostics.push({ severity: "warning", code: "missing_narrative_hash", message: "Deck plan index is missing narrativeHash; stale plan detection is limited.", file: path, nodeId: id })
+  diagnostics.push(...deckPlanIndexDiagnostics(slides))
+  diagnostics.push(...slides.flatMap((slide) => slideDiagnostics(slide, expected?.knownNodeIds)))
+  const graphNodes = [
+    { id, type: "deck-plan" as const, file: path },
+    ...slides.map((slide) => ({ id: slide.id, type: "deck-plan-slide" as const, file: slide.path })),
+  ]
+  const graphRelations = slides.flatMap((slide) => slide.links.map((link) => ({
+    id: stableVaultRelationId(slide.id, link.relation, link.id),
+    fromId: slide.id,
+    relation: link.relation,
+    toId: link.id,
+    file: slide.path,
+    source: "inline" as const,
+  })))
+  return {
+    path,
+    absolutePath,
+    id,
+    markdown,
+    frontmatter: parsed.frontmatter,
+    sections,
+    narrativeHash,
+    outputPath: stringField(parsed.frontmatter, "outputPath"),
+    slides,
+    graphNodes,
+    graphRelations,
+    diagnostics,
   }
 }
 
@@ -129,19 +232,169 @@ export function validateDeckPlanApproval(markdown: string, expected: { narrative
   const sections = parseMarkdownSections(markdown)
   const missingSections = REQUIRED_DECK_PLAN_SECTIONS.filter((section) => !sections.includes(section))
   if (!approval) return { ok: false, reason: "Deck plan approval block is missing or malformed." }
-  if (approval.status !== "approved") return { ok: false, approval, reason: "Deck plan is not approved. Set Approval status to approved in decks/deck-plan.md." }
+  if (approval.status !== "approved") return { ok: false, approval, reason: "Legacy deck plan approval is not approved." }
   if (!approval.approvedBy) return { ok: false, approval, reason: "Deck plan approval requires approvedBy." }
   if (!approval.approvedAt) return { ok: false, approval, reason: "Deck plan approval requires approvedAt." }
   if (Number.isNaN(Date.parse(approval.approvedAt))) return { ok: false, approval, reason: "Deck plan approval approvedAt must be a parseable date/time." }
   if (missingSections.length > 0) return { ok: false, approval, planHash, sections, missingSections, reason: `Deck plan is missing required sections: ${missingSections.join(", ")}.` }
   if (approval.narrativeHash !== expected.narrativeHash) return { ok: false, approval, reason: "Deck plan approval is stale because narrativeHash does not match current narrative state." }
   if (expected.planHash && approval.planHash !== expected.planHash) return { ok: false, approval, planHash, reason: "Deck plan approval is stale because planHash does not match the expected deck plan." }
-  if (approval.planHash && !isPlaceholderPlanHash(approval.planHash) && approval.planHash !== planHash) return { ok: false, approval, planHash, reason: "Deck plan approval is stale because planHash does not match the current deck-plan.md body." }
+  if (approval.planHash && !isPlaceholderPlanHash(approval.planHash) && approval.planHash !== planHash) return { ok: false, approval, planHash, reason: "Legacy deck plan approval is stale because planHash does not match the current deck-plan body." }
   return { ok: true, approval, planHash, sections, missingSections }
 }
 
 export function deckPlanBodyHash(markdown: string): string {
   return createHash("sha1").update(stripApprovalSection(markdown).trim()).digest("hex")
+}
+
+function readDeckPlanSlideFiles(workspaceRoot: string, knownNodeIds?: Set<string>): DeckPlanSlideProjection[] {
+  const slidesDir = join(workspaceRoot, DECK_PLAN_SLIDES_DIR)
+  if (!existsSync(slidesDir) || !statSync(slidesDir).isDirectory()) return []
+  const slides: DeckPlanSlideProjection[] = []
+  for (const entry of readdirSync(slidesDir).sort()) {
+    const absolutePath = join(slidesDir, entry)
+    if (!entry.endsWith(".md") || !statSync(absolutePath).isFile()) continue
+    const markdown = readFileSync(absolutePath, "utf-8")
+    const parsed = parseVaultFrontmatter(markdown)
+    const split = splitMarkdownSections(parsed.body)
+    const path = relativePath(workspaceRoot, absolutePath)
+    const id = stringField(parsed.frontmatter, "id") || fileId(entry)
+    const links = parseDeckPlanNarrativeLinks(split.sections["narrative-links"] ?? parsed.body, knownNodeIds)
+    slides.push({
+      path,
+      absolutePath,
+      id,
+      slideIndex: numberField(parsed.frontmatter, "slideIndex"),
+      title: stringField(parsed.frontmatter, "title") || id,
+      chapter: stringField(parsed.frontmatter, "chapter"),
+      layout: stringField(parsed.frontmatter, "layout"),
+      components: arrayField(parsed.frontmatter, "components"),
+      structural: booleanField(parsed.frontmatter, "structural", false),
+      narrativeRole: stringField(parsed.frontmatter, "narrativeRole"),
+      markdown,
+      frontmatter: parsed.frontmatter,
+      sections: parseMarkdownSections(markdown),
+      links,
+    })
+  }
+  return slides.sort((a, b) => (a.slideIndex ?? Number.MAX_SAFE_INTEGER) - (b.slideIndex ?? Number.MAX_SAFE_INTEGER) || a.path.localeCompare(b.path))
+}
+
+function parseDeckPlanNarrativeLinks(section: string, knownNodeIds?: Set<string>): DeckPlanNarrativeLink[] {
+  const links: DeckPlanNarrativeLink[] = []
+  let group = ""
+  for (const rawLine of section.replace(/\r\n/g, "\n").split("\n")) {
+    const heading = /^\s*([A-Za-z][A-Za-z\s/-]*):\s*$/.exec(rawLine)
+    if (heading) {
+      group = heading[1].trim().toLowerCase()
+      continue
+    }
+    for (const match of rawLine.matchAll(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g)) {
+      const id = match[1].trim()
+      const relation = relationForDeckPlanLink(group, id)
+      links.push({ id, relation, group: group || inferredLinkGroup(id, knownNodeIds) })
+    }
+  }
+  return uniqueLinks(links)
+}
+
+function relationForDeckPlanLink(group: string, id: string): DeckPlanNarrativeLink["relation"] {
+  const normalized = group.toLowerCase()
+  if (normalized.includes("evidence") || id.startsWith("evidence")) return "uses_evidence"
+  if (normalized.includes("risk") || id.startsWith("risk")) return "addresses_risk"
+  if (normalized.includes("objection") || id.startsWith("objection")) return "answers_objection"
+  if (normalized.includes("gap") || id.startsWith("gap") || id.startsWith("research-gap")) return "mentions_gap"
+  return "uses_claim"
+}
+
+function inferredLinkGroup(id: string, knownNodeIds?: Set<string>): string {
+  if (id.startsWith("evidence")) return "evidence"
+  if (id.startsWith("risk")) return "risk"
+  if (id.startsWith("objection")) return "objection"
+  if (id.startsWith("gap") || id.startsWith("research-gap")) return "gaps"
+  if (knownNodeIds?.has(id)) return "claims"
+  return "unknown"
+}
+
+function deckPlanIndexDiagnostics(slides: DeckPlanSlideProjection[]): DeckPlanProjectionDiagnostic[] {
+  const diagnostics: DeckPlanProjectionDiagnostic[] = []
+  if (slides.length === 0) diagnostics.push({ severity: "warning", code: "deck_plan_slides_missing", message: "deck-plan/slides contains no slide plan Markdown files." })
+  const seen = new Map<number, DeckPlanSlideProjection>()
+  let previous = 0
+  for (const slide of slides) {
+    if (!slide.slideIndex || slide.slideIndex < 1) {
+      diagnostics.push({ severity: "warning", code: "slide_index_missing", message: `Deck-plan slide ${slide.id} is missing a positive 1-based slideIndex.`, file: slide.path, nodeId: slide.id })
+      continue
+    }
+    const duplicate = seen.get(slide.slideIndex)
+    if (duplicate) diagnostics.push({ severity: "warning", code: "slide_index_duplicate", message: `Deck-plan slideIndex ${slide.slideIndex} is duplicated by ${duplicate.id} and ${slide.id}.`, file: slide.path, nodeId: slide.id })
+    if (slide.slideIndex <= previous) diagnostics.push({ severity: "warning", code: "slide_index_order", message: `Deck-plan slide ${slide.id} is not in strictly increasing slideIndex order.`, file: slide.path, nodeId: slide.id })
+    previous = slide.slideIndex
+    seen.set(slide.slideIndex, slide)
+  }
+  return diagnostics
+}
+
+function slideDiagnostics(slide: DeckPlanSlideProjection, knownNodeIds?: Set<string>): DeckPlanProjectionDiagnostic[] {
+  const diagnostics: DeckPlanProjectionDiagnostic[] = []
+  if (!slide.structural && !slide.links.some((link) => link.relation === "uses_claim")) diagnostics.push({ severity: "warning", code: "slide_claim_link_missing", message: `Non-structural deck-plan slide ${slide.id} has no claim wikilink in ## Narrative Links.`, file: slide.path, nodeId: slide.id })
+  if (knownNodeIds) {
+    for (const link of slide.links) {
+      if (!knownNodeIds.has(link.id)) diagnostics.push({ severity: "warning", code: "deck_plan_broken_link", message: `Deck-plan slide ${slide.id} links to unknown narrative node ${link.id}.`, file: slide.path, nodeId: slide.id })
+    }
+  }
+  return diagnostics
+}
+
+function narrativeHashFromMarkdown(markdown: string): string {
+  const match = markdown.match(/narrativeHash:\s*`?([^`\s]+)`?/)
+  return match?.[1]?.trim() ?? ""
+}
+
+function relativePath(workspaceRoot: string, absolutePath: string): string {
+  return relative(workspaceRoot, absolutePath).replace(/\\/g, "/")
+}
+
+function stringField(frontmatter: Record<string, string | string[] | boolean>, key: string): string {
+  const value = frontmatter[key]
+  return typeof value === "string" ? value.trim() : ""
+}
+
+function numberField(frontmatter: Record<string, string | string[] | boolean>, key: string): number | undefined {
+  const value = Number(stringField(frontmatter, key))
+  return Number.isFinite(value) ? value : undefined
+}
+
+function booleanField(frontmatter: Record<string, string | string[] | boolean>, key: string, fallback: boolean): boolean {
+  const value = frontmatter[key]
+  if (typeof value === "boolean") return value
+  if (typeof value === "string" && (value === "true" || value === "false")) return value === "true"
+  return fallback
+}
+
+function arrayField(frontmatter: Record<string, string | string[] | boolean>, key: string): string[] {
+  const value = frontmatter[key]
+  if (Array.isArray(value)) return value.map((item) => item.trim()).filter(Boolean)
+  if (typeof value === "string" && value.trim()) return value.split(",").map((item) => item.trim()).filter(Boolean)
+  return []
+}
+
+function titleFromSectionKey(key: string): string {
+  return key.split("-").map((part) => part ? `${part[0].toUpperCase()}${part.slice(1)}` : part).join(" ")
+}
+
+function fileId(file: string): string {
+  return file.replace(/\.md$/i, "")
+}
+
+function uniqueLinks(links: DeckPlanNarrativeLink[]): DeckPlanNarrativeLink[] {
+  const seen = new Set<string>()
+  return links.filter((link) => {
+    const key = `${link.relation}:${link.id}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 function renderDeckPlanMarkdown(input: DeckPlanArtifactInput): string {

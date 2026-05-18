@@ -1,11 +1,13 @@
 import { normalizeCanonicalNarrativeState } from "../narrative-state/normalize"
 import { computeNarrativeHash } from "../narrative-state/hash"
+import { readDeckPlanProjection } from "../narrative-state/deck-plan-artifact"
 import type {
   AudienceIntent,
   DecisionIntent,
   NarrativeApproval,
   NarrativeClaim,
   NarrativeClaimKind,
+  NarrativeClaimRelationType,
   NarrativeEvidenceBinding,
   NarrativeObjection,
   NarrativeResearchGap,
@@ -89,7 +91,7 @@ export function compileNarrativeVault(workspaceRoot: string, options: CompileNar
     risks: docs.filter((doc) => typeField(doc) === "risk").map((doc) => compileRisk(doc, relationTargets)),
     researchGaps: docs.filter((doc) => typeField(doc) === "research-gap").map((doc) => compileResearchGap(doc, options.now, relationTargets)),
     claimRelations: relations
-      .filter((relation) => byId.get(relation.fromId) && typeField(byId.get(relation.fromId)) === "claim" && byId.get(relation.toId) && typeField(byId.get(relation.toId)) === "claim")
+      .filter((relation): relation is VaultRelation & { relation: NarrativeClaimRelationType } => isNarrativeClaimRelationType(relation.relation) && Boolean(byId.get(relation.fromId)) && typeField(byId.get(relation.fromId)) === "claim" && Boolean(byId.get(relation.toId)) && typeField(byId.get(relation.toId)) === "claim")
       .map((relation) => ({ id: relation.id ?? `${relation.fromId}:${relation.relation}:${relation.toId}`, fromClaimId: relation.fromId, toClaimId: relation.toId, relation: relation.relation, rationale: relation.rationale })),
     approvals: options.fallbackApprovals ?? [],
     updatedAt: options.now ?? new Date().toISOString(),
@@ -107,6 +109,15 @@ export function compileNarrativeVault(workspaceRoot: string, options: CompileNar
   const graph: NarrativeVaultGraph = {
     nodes: nodeDocs.map((doc) => ({ id: stringField(doc, "id"), type: typeField(doc), file: doc.relativePath })),
     relations,
+  }
+  if (normalized) {
+    const knownNodeIds = new Set(graph.nodes.map((node) => node.id))
+    const deckPlan = readDeckPlanProjection(workspaceRoot, { narrativeHash: computeNarrativeHash(normalized), knownNodeIds })
+    if (deckPlan) {
+      graph.nodes.push(...deckPlan.graphNodes)
+      graph.relations.push(...deckPlan.graphRelations)
+      for (const diagnostic of deckPlan.diagnostics) diagnostics.push({ severity: diagnostic.severity, code: diagnostic.code, message: diagnostic.message, file: diagnostic.file, nodeId: diagnostic.nodeId })
+    }
   }
   return { ok: !diagnostics.some((diagnostic) => diagnostic.severity === "error") && Boolean(normalized), narrative: normalized, diagnostics, graph }
 }
@@ -225,6 +236,10 @@ function typeField(doc: VaultDocument | undefined): VaultNodeType {
 
 function isVaultNodeType(value: string): value is VaultNodeType {
   return value === "research-gap" || ["index", "audience", "decision", "thesis", "claim", "evidence", "objection", "risk"].includes(value)
+}
+
+function isNarrativeClaimRelationType(value: string): value is NarrativeClaimRelationType {
+  return ["leads_to", "supports", "depends_on", "contrasts_with", "constrains", "answers"].includes(value)
 }
 
 function illegalRelationReason(fromType: VaultNodeType, toType: VaultNodeType, relation: string): string | undefined {

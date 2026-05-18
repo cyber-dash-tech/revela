@@ -1,6 +1,8 @@
 import type { NarrativeClaimRelationType, NarrativeStateV1 } from "../narrative-state/types"
 
 export type VaultNodeType = "index" | "audience" | "decision" | "thesis" | "claim" | "evidence" | "objection" | "risk" | "research-gap"
+export type WorkspaceGraphNodeType = VaultNodeType | "deck-plan" | "deck-plan-slide"
+export type WorkspaceGraphRelationType = NarrativeClaimRelationType | "uses_claim" | "uses_evidence" | "addresses_risk" | "answers_objection" | "mentions_gap"
 
 export type VaultDiagnosticSeverity = "error" | "warning"
 
@@ -15,7 +17,7 @@ export interface VaultDiagnostic {
 export interface VaultRelation {
   id?: string
   fromId: string
-  relation: NarrativeClaimRelationType
+  relation: WorkspaceGraphRelationType
   toId: string
   rationale?: string
   file: string
@@ -39,6 +41,6 @@ export interface NarrativeVaultCompileResult {
 }
 
 export interface NarrativeVaultGraph {
-  nodes: Array<{ id: string; type: VaultNodeType; file: string }>
+  nodes: Array<{ id: string; type: WorkspaceGraphNodeType; file: string }>
   relations: VaultRelation[]
 }
