@@ -109,7 +109,7 @@ describe("buildInitPrompt", () => {
   it("does not make deck render inputs mandatory during narrative init", () => {
     const prompt = buildInitPrompt({ exists: false })
     expect(prompt).toContain("Do not require slide count, visual style, design selection, output path, layout choices, or component choices")
-    expect(prompt).toContain("Do not mark narrative approval, render override, or writeReadiness as ready during init")
+    expect(prompt).toContain("Do not create or update approval, render override, or writeReadiness workflow state during init")
     expect(prompt).toContain("Markdown narrative vault")
     expect(prompt).toContain("compileNarrativeVault")
     expect(prompt).toContain("initNarrativeVault")
@@ -169,15 +169,14 @@ describe("review command", () => {
     expect(prompt).toContain("canonical narrative state")
     expect(prompt).toContain("reviewNarrative")
     expect(prompt).toContain("vaultDiagnostics")
-    expect(prompt).toContain("Markdown QA repair cards and compile diagnostics before readiness blockers")
+    expect(prompt).toContain("Markdown QA repair cards and compile diagnostics with file/node/code/message")
     expect(prompt).toContain("file/node/code/message")
     expect(prompt).toContain("Keep Markdown QA repair cards separate from compiler diagnostics")
     expect(prompt).toContain("Do not call `revela-decks` action `review` here")
     expect(prompt).toContain("writeReadiness.status")
     expect(prompt).toContain("Narrative readiness: <status>")
-    expect(prompt).toContain("ready_for_approval")
-    expect(prompt).toContain("approved")
-    expect(prompt).toContain("render override")
+    expect(prompt).toContain("Do not ask for narrative approval")
+    expect(prompt).toContain("Do not report missing or stale approval as a problem")
     expect(prompt).toContain("/revela make --deck")
     expect(prompt).toContain("Do not write or overwrite `decks/*.html`")
   })
@@ -185,39 +184,28 @@ describe("review command", () => {
   it("builds a deck/artifact gate prompt separately", () => {
     const prompt = buildDeckReviewPrompt({ exists: true })
     expect(prompt).toContain("Review Revela deck/artifact write readiness")
-    expect(prompt).toContain("artifact gate")
-    expect(prompt).toContain("Narrative readiness is reviewed through `/revela story`")
-    expect(prompt).toContain("compatibility/render state")
-    expect(prompt).toContain("Do not treat its `slides[]` cache as the authoritative deck execution plan")
+    expect(prompt).toContain("artifact diagnostics")
+    expect(prompt).toContain("technical blockers only")
+    expect(prompt).toContain("legacy/cache state")
     expect(prompt).toContain("deck-plan/")
     expect(prompt).toContain("writeReadiness")
     expect(prompt).toContain("evidence and Narrative Compiler readiness review")
     expect(prompt).toContain("unsupported numbers")
-    expect(prompt).toContain("narrativeBrief")
+    expect(prompt).toContain("narrative risks as diagnostics")
     expect(prompt).toContain("audience belief change")
     expect(prompt).toContain("decision/action")
-    expect(prompt).toContain("subagent_type: \"revela-narrative-reviewer\"")
+    expect(prompt).toContain("read-only Task subagent `revela-narrative-reviewer`")
     expect(prompt).toContain("Do not self-certify semantic narrative quality")
     expect(prompt).toContain("findings as advisory critique only")
-    expect(prompt).toContain("run only its fixed rubric")
-    expect(prompt).toContain("stable finding IDs")
-    expect(prompt).toContain("Findings: none")
-    expect(prompt).toContain("avoid optional pre-write improvements")
-    expect(prompt).toContain("narrativeRole")
+    expect(prompt).toContain("advisory critique only")
     expect(prompt).toContain("narrative_gap")
     expect(prompt).toContain("warnings")
-    expect(prompt).toContain("Candidate evidence bindings")
-    expect(prompt).toContain("summary: true")
-    expect(prompt).toContain("markdownQa")
-    expect(prompt).toContain("vaultDiagnostics.blockers")
-    expect(prompt).toContain("Markdown QA repair cards separately from compile diagnostics before artifact readiness")
-    expect(prompt).toContain("file/node/code/message and smallestRepair/suggestedAction")
-    expect(prompt).toContain("Markdown QA")
-    expect(prompt).toContain("Vault diagnostics")
-    expect(prompt).toContain("diagnosticReport")
-    expect(prompt).toContain("requiredInputs")
+    expect(prompt).toContain("candidate evidence bindings")
+    expect(prompt).toContain("readDeckPlan")
+    expect(prompt).toContain("HTML contract")
+    expect(prompt).toContain("Technical blockers only")
     expect(prompt).toContain("DECKS.json")
-    expect(prompt).toContain("revela-decks")
+    expect(prompt).toContain("file-native artifact diagnostics")
     expect(prompt).toContain("Do not write or overwrite `decks/*.html`")
   })
 
@@ -240,15 +228,13 @@ describe("review command", () => {
     expect(prompt).toContain("Stop after presenting the plan")
     expect(prompt).toContain("confirmDeckPlan")
     expect(prompt).toContain("compatibility/provenance")
-    expect(prompt).toContain("ready_for_approval")
-    expect(prompt).toContain("render override")
+    expect(prompt).toContain("permission blockers")
     expect(prompt).toContain("revela-designs read")
-    expect(prompt).toContain("revela-decks` action `review`")
     expect(prompt).toContain("vaultDiagnostics.blockers")
     expect(prompt).toContain("markdownQa.blockers")
-    expect(prompt).toContain("stop before deck planning")
+    expect(prompt).toContain("data-integrity issues")
     expect(prompt).toContain("Markdown QA repair cards separately from compile diagnostics")
-    expect(prompt).toContain("Markdown QA repair cards and vault diagnostic blockers or warnings")
+    expect(prompt).toContain("Markdown QA repair cards and vault diagnostic warnings")
     expect(prompt).toContain("Deck handoff: <status>")
     expect(prompt).toContain("deck HTML contract")
     expect(prompt).toContain("Do not write or overwrite `decks/*.html` until")
@@ -256,24 +242,23 @@ describe("review command", () => {
     expect(prompt).toContain("Current workspace root: `/workspace/project`")
   })
 
-  it("initializes DECKS.json through the tool when missing", () => {
+  it("does not initialize DECKS.json when missing", () => {
     const prompt = buildDeckReviewPrompt({ exists: false })
-    expect(prompt).toContain("DECKS.json does not exist yet")
-    expect(prompt).toContain("Create it through the revela-decks tool")
-    expect(prompt).toContain("action `review`")
+    expect(prompt).toContain("DECKS.json does not exist")
+    expect(prompt).toContain("Review artifacts directly from files")
+    expect(prompt).toContain("Do not write, patch, or create DECKS.json")
   })
 
   it("requires source trace mapping during deck evidence readiness review", () => {
     const prompt = buildDeckReviewPrompt({ exists: true })
     expect(prompt).toContain("source trace mapping")
-    expect(prompt).toContain("researchPlan[].findingsFile")
+    expect(prompt).toContain("researchPlan` findings")
     expect(prompt).toContain("slides[].evidence[]")
     expect(prompt).toContain("findingsFile")
     expect(prompt).toContain("sourcePath")
-    expect(prompt).toContain("extractedTextPath")
     expect(prompt).toContain("evidenceCandidates")
     expect(prompt).toContain("candidateId")
-    expect(prompt).toContain("candidate bindings, not as already-bound evidence")
+    expect(prompt).toContain("conservative binding candidates only")
     expect(prompt).toContain("sourceKind")
     expect(prompt).toContain("researchesFallback")
     expect(prompt).toContain("evidenceDraft")
@@ -282,10 +267,9 @@ describe("review command", () => {
     expect(prompt).toContain("revela-narrative/evidence/*.md")
     expect(prompt).toContain("compileNarrativeVault")
     expect(prompt).toContain("write `revela-narrative/evidence/*.md` directly")
-    expect(prompt).toContain("initNarrativeVault")
     expect(prompt).toContain("evidenceCandidateSearch")
     expect(prompt).toContain("near misses")
-    expect(prompt).toContain("Do not invent quotes, page references, locations, URLs, caveats, or extraction paths")
+    expect(prompt).toContain("Do not invent evidence")
     expect(prompt).toContain("do not fill missing evidence, source trace, quotes, URLs, page references, or caveats")
   })
 })
@@ -380,7 +364,7 @@ describe("DECKS.json state readiness", () => {
     expect(evaluateDeckStateWriteReadiness(state, "./decks/investor-update.html").ready).toBe(true)
   })
 
-  it("blocks when required inputs are incomplete", () => {
+  it("warns when required inputs are incomplete", () => {
     let state = createEmptyDecksState()
     state = upsertDeck(state, {
       slug: "investor-update",
@@ -392,8 +376,8 @@ describe("DECKS.json state readiness", () => {
     state = reviewDeckState(state, "investor-update").state
 
     const result = evaluateDeckStateWriteReadiness(state, "decks/investor-update.html")
-    expect(result.ready).toBe(false)
-    expect(result.blocker).toContain("requiredInputs.audienceClarified")
+    expect(result.ready).toBe(true)
+    expect(result.warnings).toContain("Legacy requiredInputs.audienceClarified is not true")
   })
 
   it("warns when the slide plan has not been confirmed", () => {
@@ -438,24 +422,24 @@ describe("DECKS.json state readiness", () => {
     expect(result.warnings.some((warning) => warning.includes("confirmation is stale"))).toBe(true)
   })
 
-  it("blocks when slide specs are missing content", () => {
+  it("warns when cached slide specs are missing content", () => {
     let state = readyState()
     state.decks["investor-update"].slides[0].content = {}
     state = reviewDeckState(state, "investor-update").state
 
     const result = evaluateDeckStateWriteReadiness(state, "decks/investor-update.html")
-    expect(result.ready).toBe(false)
-    expect(result.blocker).toContain("Slide 1 content is missing")
+    expect(result.ready).toBe(true)
+    expect(result.warnings).toContain("Cached slide 1 content is missing")
   })
 
-  it("blocks when a needed research axis has not been read", () => {
+  it("warns when a needed research axis has not been read", () => {
     let state = readyState()
     state.decks["investor-update"].researchPlan = [{ axis: "Market", needed: true, status: "pending" }]
     state = reviewDeckState(state, "investor-update").state
 
     const result = evaluateDeckStateWriteReadiness(state, "decks/investor-update.html")
-    expect(result.ready).toBe(false)
-    expect(result.blocker).toContain("Research axis Market")
+    expect(result.ready).toBe(true)
+    expect(result.warnings).toContain("Research axis Market is needed but pending")
   })
 
   it("extracts DECKS.json patch targets", () => {

@@ -7,12 +7,11 @@
  * Example: decks/my-deck.html → decks/my-deck.pdf
  */
 
+import { existsSync, readdirSync } from "fs"
 import { resolve } from "path"
-import { hasDecksState, readDecksState } from "../decks-state"
 import { exportToPdf } from "../pdf/export"
 import { assertExportQAPassed } from "../qa/export-gate"
 import { recordRenderedArtifact, workspaceRelative } from "../workspace-state/rendered-artifacts"
-import { resolveActiveHtmlDeckPath } from "../workspace-state/render-targets"
 
 export async function handlePdf(
   filePath: string,
@@ -22,15 +21,15 @@ export async function handlePdf(
   const root = resolve(workspaceRoot)
   const resolvedFile = resolvePdfDeckFile(root, filePath)
 
-  if (!resolvedFile) {
+  if (!resolvedFile.ok) {
     await send(
-      "**Usage:** `/revela export --deck pdf [file_path]`\n\n" +
-      "Example: `/revela export --deck pdf decks/my-deck.html`"
+      `**PDF export cannot start**\n\n${resolvedFile.error}\n\n` +
+      "Usage: `/revela export --deck pdf [file_path]`"
     )
     return
   }
 
-  const abs = resolvedFile.absoluteFile
+  const abs = resolvedFile.deck.absoluteFile
   await send(`Running pre-export QA for \`${abs}\`...`)
 
   try {
@@ -38,7 +37,7 @@ export async function handlePdf(
     await send(`Exporting \`${abs}\` to PDF...`)
     const result = await exportToPdf(abs)
     recordRenderedArtifact(root, {
-      sourceHtmlPath: resolvedFile.file,
+      sourceHtmlPath: resolvedFile.deck.file,
       outputPath: result.outputPath,
       type: "pdf",
       actor: "revela-pdf",
@@ -56,17 +55,27 @@ export async function handlePdf(
   }
 }
 
-function resolvePdfDeckFile(workspaceRoot: string, filePath: string): { file: string; absoluteFile: string } | undefined {
+function resolvePdfDeckFile(workspaceRoot: string, filePath: string): { ok: true; deck: { file: string; absoluteFile: string } } | { ok: false; error: string } {
   const explicit = filePath.trim()
   if (explicit) {
     const absoluteFile = resolve(workspaceRoot, explicit)
-    return { file: workspaceRelative(workspaceRoot, absoluteFile), absoluteFile }
+    if (!existsSync(absoluteFile)) return { ok: false, error: `Deck HTML not found: ${explicit}` }
+    if (!/\.html?$/i.test(absoluteFile)) return { ok: false, error: `File must be an HTML file: ${explicit}` }
+    return { ok: true, deck: { file: workspaceRelative(workspaceRoot, absoluteFile), absoluteFile } }
   }
 
-  if (!hasDecksState(workspaceRoot)) return undefined
-  const state = readDecksState(workspaceRoot)
-  const activePath = resolveActiveHtmlDeckPath(state)
-  if (!activePath) return undefined
-  const absoluteFile = resolve(workspaceRoot, activePath)
-  return { file: workspaceRelative(workspaceRoot, absoluteFile), absoluteFile }
+  const htmlFiles = listDeckHtmlFiles(workspaceRoot)
+  if (htmlFiles.length === 0) return { ok: false, error: "No deck HTML found in decks/. Pass a file path or generate a deck first." }
+  if (htmlFiles.length > 1) return { ok: false, error: `Multiple deck HTML files found in decks/: ${htmlFiles.join(", ")}. Pass the deck path explicitly.` }
+  const absoluteFile = resolve(workspaceRoot, htmlFiles[0])
+  return { ok: true, deck: { file: workspaceRelative(workspaceRoot, absoluteFile), absoluteFile } }
+}
+
+function listDeckHtmlFiles(workspaceRoot: string): string[] {
+  const dir = resolve(workspaceRoot, "decks")
+  if (!existsSync(dir)) return []
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".html"))
+    .map((entry) => `decks/${entry.name}`)
+    .sort((a, b) => a.localeCompare(b))
 }

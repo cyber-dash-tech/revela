@@ -1,39 +1,27 @@
-import { existsSync, readdirSync } from "fs"
+import { existsSync, readdirSync, statSync } from "fs"
 import { relative, resolve, sep } from "path"
-import { DECKS_STATE_FILE, hasDecksState, isDeckHtmlPath, readDecksState, workspaceDeckSlug } from "../decks-state"
-import { resolveActiveHtmlDeckPath } from "../workspace-state/render-targets"
+import { isDeckHtmlPath, workspaceDeckSlug } from "../decks-state"
 
 export interface EditableDeck {
   slug: string
   file: string
   absoluteFile: string
-  source: "render-target" | "decks-state" | "fallback" | "file-path"
+  source: "discovered" | "file-path"
 }
 
 export function resolveEditableDeck(workspaceRoot: string, input = ""): EditableDeck {
-  if (input.trim()) {
-    throw new Error("/revela review --deck does not accept a target. It opens the active HTML deck or the only HTML deck in decks/.")
-  }
-
-  if (hasDecksState(workspaceRoot)) {
-    const state = readDecksState(workspaceRoot)
-    const deckPath = resolveActiveHtmlDeckPath(state)
-    const source = state.renderTargets.some((target) => target.type === "html_deck" && target.outputPath === deckPath) ? "render-target" : "decks-state"
-    if (deckPath && isDeckHtmlPath(deckPath)) {
-      const absoluteFile = resolve(workspaceRoot, deckPath)
-      if (existsSync(absoluteFile)) return resolveDeckFile(workspaceRoot, workspaceDeckSlug(workspaceRoot), deckPath, source)
-    }
-  }
+  const explicit = input.trim()
+  if (explicit) return resolveDeckFile(workspaceRoot, workspaceDeckSlug(workspaceRoot), explicit, "file-path")
 
   const htmlFiles = listDeckHtmlFiles(workspaceRoot)
   if (htmlFiles.length === 0) {
-    throw new Error("No deck HTML found in decks/. Generate a deck first.")
+    throw new Error("No deck HTML found in decks/. Pass a deck path or generate a deck first.")
   }
   if (htmlFiles.length > 1) {
-    throw new Error("This workspace contains multiple deck HTML files. Revela 0.8 expects one deck per workspace. Move extra decks to separate workspaces.")
+    throw new Error(`Multiple deck HTML files found in decks/: ${htmlFiles.join(", ")}. Pass the deck path explicitly.`)
   }
 
-  return resolveDeckFile(workspaceRoot, workspaceDeckSlug(workspaceRoot), htmlFiles[0], "file-path")
+  return resolveDeckFile(workspaceRoot, workspaceDeckSlug(workspaceRoot), htmlFiles[0], "discovered")
 }
 
 function listDeckHtmlFiles(workspaceRoot: string): string[] {
@@ -51,17 +39,19 @@ function resolveDeckFile(
   file: string,
   source: EditableDeck["source"],
 ): EditableDeck {
-  if (!isDeckHtmlPath(file)) {
-    throw new Error(`${DECKS_STATE_FILE} deck outputPath must be decks/*.html, got ${file || "missing"}.`)
-  }
-
   const root = resolve(workspaceRoot)
   const absoluteFile = resolve(root, file)
   if (!isInside(root, absoluteFile)) {
     throw new Error(`Resolved deck file is outside the workspace: ${file}`)
   }
+  if (!isDeckHtmlPath(workspaceRelative(root, absoluteFile)) && !/\.html?$/i.test(absoluteFile)) {
+    throw new Error(`Deck path must be an HTML file: ${file || "missing"}.`)
+  }
   if (!existsSync(absoluteFile)) {
     throw new Error(`Deck HTML not found: ${workspaceRelative(root, absoluteFile)}`)
+  }
+  if (!statSync(absoluteFile).isFile()) {
+    throw new Error(`Deck path is not a file: ${workspaceRelative(root, absoluteFile)}`)
   }
 
   return {

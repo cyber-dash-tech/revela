@@ -53,14 +53,14 @@ describe("DECKS.json state readiness", () => {
     expect(currentReviewInputHash(state, "test-two-page-deck")).toBe(before)
   })
 
-  it("blocks deck writes when the latest review snapshot is stale", () => {
+  it("warns when the latest review snapshot is stale", () => {
     const state = readyState()
     state.decks["test-two-page-deck"].slides[1].content.bullets = ["Updated post-review bullet"]
 
     const result = evaluateDeckStateWriteReadiness(state, "decks/test-two-page-deck.html")
 
-    expect(result.ready).toBe(false)
-    expect(result.blocker).toContain("Latest review snapshot is stale")
+    expect(result.ready).toBe(true)
+    expect(result.warnings).toContain("Latest review snapshot is stale for the current deck, sources, evidence, narrative state, or render target")
   })
 
   it("allows legacy ready states without review snapshots", () => {
@@ -75,7 +75,7 @@ describe("DECKS.json state readiness", () => {
   it("re-review refreshes stale review snapshots", () => {
     let state = readyState()
     state.decks["test-two-page-deck"].slides[1].content.bullets = ["Updated post-review bullet"]
-    expect(evaluateDeckStateWriteReadiness(state, "decks/test-two-page-deck.html").ready).toBe(false)
+    expect(evaluateDeckStateWriteReadiness(state, "decks/test-two-page-deck.html").ready).toBe(true)
 
     state = confirmPlan(state)
     const reviewed = reviewDeckState(state, "test-two-page-deck")
@@ -91,8 +91,8 @@ describe("DECKS.json state readiness", () => {
       outputPath: "decks/incomplete.html",
     }))
     const reviewed = reviewDeckState(state, "incomplete")
-    expect(reviewed.result.ready).toBe(false)
-    expect(reviewed.result.blocker).toContain("requiredInputs.audienceClarified")
+    expect(reviewed.result.ready).toBe(true)
+    expect(reviewed.result.warnings).toContain("Legacy requiredInputs.audienceClarified is not true")
     expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
       type: "slide_plan_unconfirmed",
       severity: "warning",
@@ -100,7 +100,7 @@ describe("DECKS.json state readiness", () => {
     }))
   })
 
-  it("blocks v2 compiled deck plans with quality check blockers", () => {
+  it("surfaces v2 compiled deck plan quality blockers as diagnostics", () => {
     const state = readyState()
     state.decks["test-two-page-deck"].planReview!.qualityChecks = [
       { id: "toc_present", status: "pass", message: "Deck plan includes a deterministic TOC slide." },
@@ -109,10 +109,10 @@ describe("DECKS.json state readiness", () => {
 
     const reviewed = reviewDeckState(state, "test-two-page-deck")
 
-    expect(reviewed.result.ready).toBe(false)
+    expect(reviewed.result.ready).toBe(true)
     expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
       type: "plan_quality",
-      severity: "blocker",
+      severity: "warning",
       message: "Deck plan uses incompatible primary components: card",
     }))
   })
@@ -133,7 +133,7 @@ describe("DECKS.json state readiness", () => {
     }))
   })
 
-  it("blocks make readiness when active artifact coverage is missing required claims", () => {
+  it("reports missing required claim coverage without blocking readiness", () => {
     const state = readyState()
     state.renderTargets = [{
       id: "target:html_deck:decks/test-two-page-deck.html",
@@ -150,20 +150,20 @@ describe("DECKS.json state readiness", () => {
 
     const reviewed = reviewDeckState(state, "test-two-page-deck")
 
-    expect(reviewed.result.ready).toBe(false)
+    expect(reviewed.result.ready).toBe(true)
     expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
       type: "artifact_coverage",
-      severity: "blocker",
+      severity: "warning",
       message: "Active deck plan is missing required narrative claims: claim:required",
     }))
     expect(reviewed.result.diagnostics?.artifactCoverage).toMatchObject({
       coverageStatus: expect.any(String),
       missingClaimIds: ["claim:required"],
     })
-    expect(reviewed.result.diagnostics?.nextActions).toContain("Review missingClaimIds in artifactCoverage and recompile the deterministic deck plan before writing HTML.")
+    expect(reviewed.result.diagnostics?.nextActions).toContain("Review missingClaimIds in artifactCoverage and decide whether to revise deck-plan/ or continue with the current artifact.")
   })
 
-  it("reports stale artifact coverage as a make readiness blocker", () => {
+  it("reports stale artifact coverage as a diagnostic", () => {
     const state = readyState()
     state.renderTargets = [{
       id: "target:html_deck:decks/test-two-page-deck.html",
@@ -181,10 +181,10 @@ describe("DECKS.json state readiness", () => {
 
     const reviewed = reviewDeckState(state, "test-two-page-deck")
 
-    expect(reviewed.result.ready).toBe(false)
+    expect(reviewed.result.ready).toBe(true)
     expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
       type: "artifact_coverage",
-      severity: "blocker",
+      severity: "warning",
       message: expect.stringContaining("Active deck artifact coverage is stale"),
     }))
     expect(reviewed.result.diagnostics?.artifactCoverage).toMatchObject({
@@ -193,18 +193,18 @@ describe("DECKS.json state readiness", () => {
     })
   })
 
-  it("blocks evidence-sensitive numeric claims without slide evidence", () => {
+  it("warns on evidence-sensitive numeric claims without slide evidence", () => {
     let state = readyState()
     state.decks["test-two-page-deck"].slides[1].content.bullets = ["Market grows 25% annually through 2028"]
     state.decks["test-two-page-deck"].slides[1].evidence = []
 
     const reviewed = reviewDeckState(state, "test-two-page-deck")
 
-    expect(reviewed.result.ready).toBe(false)
-    expect(reviewed.result.blocker).toContain("evidence-sensitive claim without evidence")
+    expect(reviewed.result.ready).toBe(true)
+    expect(reviewed.result.warnings).toContain("Slide 2 has an evidence-sensitive claim without evidence: Market grows 25% annually through 2028")
     expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
       type: "missing_evidence",
-      severity: "blocker",
+      severity: "warning",
       slideIndex: 2,
       claimText: "Market grows 25% annually through 2028",
       suggestedAction: expect.stringContaining("findingsFile or sourcePath"),
@@ -240,7 +240,7 @@ topic: factory
     const reviewed = reviewDeckState(state, "test-two-page-deck", { workspaceRoot })
     const missing = reviewed.result.issues.find((issue) => issue.type === "missing_evidence")
 
-    expect(reviewed.result.ready).toBe(false)
+    expect(reviewed.result.ready).toBe(true)
     expect(missing?.evidenceCandidates).toEqual([expect.objectContaining({
       findingsFile: "researches/factory/context.md",
       sourcePath: "Updating V2-Plug and Play Proposal for P&G (English).pdf",
@@ -336,7 +336,7 @@ topic: factory
     expect(slide.content.bullets).toEqual(["Automation Islands", "2030 AI Manufacturing OS", "Self-Organizing Manufacturing Ecosystem"])
     expect(slide.evidence).toHaveLength(1)
     expect(slide.evidence[0].caveat).toContain("partial")
-    expect(applied.state.decks["test-two-page-deck"].writeReadiness.status).toBe("blocked")
+    expect(applied.state.decks["test-two-page-deck"].writeReadiness.status).toBe("ready")
   })
 
   it("skips unknown or stale evidence candidate applications", () => {
@@ -753,17 +753,17 @@ topic: factory
     }))
   })
 
-  it("blocks discovered source materials when evidence-backed research is needed", () => {
+  it("warns on discovered source materials when evidence-backed research is needed", () => {
     let state = readyState()
     state.decks["test-two-page-deck"].researchPlan = [{ axis: "Market", needed: true, status: "read", findingsFile: "researches/test/market.md" }]
     upsertSourceMaterial(state, { path: "source.pdf", type: "pdf", status: "discovered" }, "discovered")
 
     const reviewed = reviewDeckState(state, "test-two-page-deck")
 
-    expect(reviewed.result.ready).toBe(false)
+    expect(reviewed.result.ready).toBe(true)
     expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
       type: "source_not_processed",
-      severity: "blocker",
+      severity: "warning",
       message: "Source material source.pdf has been identified but not extracted, summarized, or researched",
     }))
   })
@@ -836,10 +836,10 @@ topic: factory
     expect("slideCountDecided" in deck.requiredInputs).toBe(false)
   })
 
-  it("blocks target path mismatch", () => {
+  it("warns on target path mismatch", () => {
     const result = evaluateDeckStateWriteReadiness(readyState(), "decks/other.html")
-    expect(result.ready).toBe(false)
-    expect(result.blocker).toContain("Deck outputPath is decks/test-two-page-deck.html")
+    expect(result.ready).toBe(true)
+    expect(result.warnings).toContain("Deck outputPath is decks/test-two-page-deck.html, not decks/other.html")
   })
 
   it("rejects adding a second current deck", () => {

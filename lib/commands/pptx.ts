@@ -9,11 +9,9 @@
 
 import { existsSync, readdirSync } from "fs"
 import { relative, resolve, sep } from "path"
-import { hasDecksState, isDeckHtmlPath, readDecksState } from "../decks-state"
 import { assertDeckHtmlContractValid } from "../deck-html/contract"
 import { exportToPptx } from "../pptx/export"
 import { recordRenderedArtifact } from "../workspace-state/rendered-artifacts"
-import { resolveActiveHtmlDeckPath } from "../workspace-state/render-targets"
 
 export interface PptxArgs {
   filePath: string
@@ -23,7 +21,7 @@ export interface PptxArgs {
 export interface ResolvedPptxDeck {
   file: string
   absoluteFile: string
-  source: "render-target" | "decks-state" | "fallback" | "file-path"
+  source: "discovered" | "file-path"
 }
 
 function formatSecs(ms: number): string {
@@ -47,18 +45,6 @@ export function resolvePptxDeck(workspaceRoot: string, filePath = ""): ResolvedP
     return { file: workspaceRelative(root, absoluteFile), absoluteFile, source: "file-path" }
   }
 
-  if (hasDecksState(root)) {
-    const state = readDecksState(root)
-    const outputPath = resolveActiveHtmlDeckPath(state)
-    if (outputPath && isDeckHtmlPath(outputPath)) {
-      const absoluteFile = resolve(root, outputPath)
-      if (existsSync(absoluteFile)) {
-        const source = state.renderTargets.some((target) => target.type === "html_deck" && target.outputPath === outputPath) ? "render-target" : "decks-state"
-        return { file: workspaceRelative(root, absoluteFile), absoluteFile, source }
-      }
-    }
-  }
-
   const htmlFiles = listDeckHtmlFiles(root)
   if (htmlFiles.length === 0) {
     throw new Error("No deck HTML found in decks/. Generate a deck first or pass a file path.")
@@ -68,7 +54,7 @@ export function resolvePptxDeck(workspaceRoot: string, filePath = ""): ResolvedP
   }
 
   const absoluteFile = resolve(root, htmlFiles[0])
-  return { file: workspaceRelative(root, absoluteFile), absoluteFile, source: "fallback" }
+  return { file: workspaceRelative(root, absoluteFile), absoluteFile, source: "discovered" }
 }
 
 export function buildPptxNotesPrompt(deck: ResolvedPptxDeck): string {

@@ -78,8 +78,8 @@ function openRefineDeckInternal(
   return {
     deck,
     url,
-    source: deck.source === "render-target" ? "render target" : deck.source === "decks-state" ? "DECKS.json" : deck.source === "file-path" ? "file path" : "fallback path",
-    stateNote: preflight.changed ? "Deck state was prepared in DECKS.json for refinement." : "Deck state already points to this refinement target.",
+    source: deck.source === "file-path" ? "file path" : "discovered deck file",
+    stateNote: preflight.changed ? "Deck file preflight updated runtime state." : "Deck review uses the selected HTML artifact directly.",
     preflightChanged: preflight.changed,
     reusedSession: session.reused,
     liveSession: session.live,

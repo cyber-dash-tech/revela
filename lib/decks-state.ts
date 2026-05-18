@@ -678,20 +678,32 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
   const targetPath = normalizeDeckPath(filePath)
   const targetSlug = deckSlugFromPath(targetPath)
   const normalized = normalizeDecksState(state)
-  const key = currentDeckKey(normalized)
-  const deck = key ? normalized.decks[key] : undefined
-  if (!deck) {
+  if (!isDeckHtmlPath(targetPath)) {
+    const message = `Deck HTML writes must target decks/*.html, got ${filePath || "missing"}`
     return {
       ready: false,
       slug: targetSlug,
-      blocker: currentDeckBlocker(normalized),
-      blockers: [currentDeckBlocker(normalized)],
+      blocker: message,
+      blockers: [message],
       warnings: [],
+      issues: [blockerIssue("missing_slide_spec", message, "Write deck artifacts to a workspace-local decks/*.html path.")],
+    }
+  }
+  const key = currentDeckKey(normalized)
+  const deck = key ? normalized.decks[key] : undefined
+  if (!deck) {
+    const warning = currentDeckBlocker(normalized)
+    return {
+      ready: true,
+      slug: targetSlug,
+      blocker: "",
+      blockers: [],
+      warnings: [warning],
       issues: [{
         type: "missing_slide_spec",
-        severity: "blocker",
-        message: currentDeckBlocker(normalized),
-        suggestedAction: "Create or select the current workspace deck through revela-decks before writing deck HTML.",
+        severity: "warning",
+        message: warning,
+        suggestedAction: "Proceed from the file-native deck-plan/ projection or explicit user request; DECKS.json deck records are not required for artifact writing.",
       }],
     }
   }
@@ -703,32 +715,12 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
   const warnings = issues.filter((issue) => issue.severity === "warning").map((issue) => issue.message)
   if (normalizeDeckPath(deck.outputPath) !== targetPath) {
     const message = `Deck outputPath is ${deck.outputPath || "missing"}, not ${targetPath}`
-    blockers.unshift(message)
+    warnings.unshift(message)
     issues.unshift({
       type: "missing_slide_spec",
-      severity: "blocker",
+      severity: "warning",
       message,
-      suggestedAction: "Update deck.outputPath through revela-decks or write to the reviewed outputPath.",
-    })
-  }
-  if (deck.writeReadiness.status !== "ready") {
-    const message = `Deck writeReadiness is ${deck.writeReadiness.status || "missing"}, not ready`
-    blockers.unshift(message)
-    issues.unshift({
-      type: "missing_slide_spec",
-      severity: "blocker",
-      message,
-      suggestedAction: "Run /revela make --deck and resolve all readiness blockers before writing deck HTML.",
-    })
-  }
-  if (deck.writeReadiness.blockers.length > 0) {
-    const message = `Deck still has readiness blockers: ${deck.writeReadiness.blockers.join("; ")}`
-    blockers.unshift(message)
-    issues.unshift({
-      type: "missing_slide_spec",
-      severity: "blocker",
-      message,
-      suggestedAction: "Resolve the stored writeReadiness blockers and rerun /revela make --deck.",
+      suggestedAction: "Treat cached deck outputPath as diagnostic only; use the explicit artifact path requested by the user.",
     })
   }
   if (normalized.reviews.length > 0) {
@@ -736,30 +728,30 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
     const snapshot = latestReviewSnapshotForTarget(normalized, targetId)
     if (!snapshot) {
       const message = "No review snapshot exists for the active HTML render target"
-      blockers.unshift(message)
+      warnings.unshift(message)
       issues.unshift({
         type: "missing_slide_spec",
-        severity: "blocker",
+        severity: "warning",
         message,
-        suggestedAction: "Run /revela make --deck so readiness is recorded against the current active render target.",
+        suggestedAction: "Review snapshots are diagnostic only; proceed if the user explicitly requested this artifact path and HTML contract checks pass.",
       })
     } else if (!isReviewSnapshotCurrent(normalized, snapshot, deck.slug)) {
       const message = "Latest review snapshot is stale for the current deck, sources, evidence, narrative state, or render target"
-      blockers.unshift(message)
+      warnings.unshift(message)
       issues.unshift({
         type: "missing_slide_spec",
-        severity: "blocker",
+        severity: "warning",
         message,
-        suggestedAction: "Run /revela make --deck again after the latest state changes before writing deck HTML.",
+        suggestedAction: "Treat stale review snapshots as diagnostics; user decides whether to continue or refresh.",
       })
     } else if (snapshot.status !== "ready") {
       const message = `Latest review snapshot is ${snapshot.status}, not ready`
-      blockers.unshift(message)
+      warnings.unshift(message)
       issues.unshift({
         type: "missing_slide_spec",
-        severity: "blocker",
+        severity: "warning",
         message,
-        suggestedAction: "Resolve review blockers and rerun /revela make --deck before writing deck HTML.",
+        suggestedAction: "Treat prior review status as diagnostic only; current artifact validity checks decide whether writing can proceed.",
       })
     }
   }
@@ -971,23 +963,21 @@ function currentDeckBlocker(state: DecksState): string {
 function computeDeckReadinessIssues(state: DecksState, deck: DeckSpec, options: ReviewDeckStateOptions = {}): ReadinessIssue[] {
   const issues: ReadinessIssue[] = []
   const workspace = state.workspace
-  if (!deck.goal.trim()) issues.push(blockerIssue("missing_slide_spec", "Deck goal is missing", "Set the deck goal through revela-decks upsertDeck."))
+  if (!deck.goal.trim()) issues.push(warningIssue("missing_slide_spec", "Deck goal is missing", "Clarify the deck goal if it matters for this artifact pass; do not block execution solely on cached deck metadata."))
   if (!isDeckHtmlPath(deck.outputPath)) {
-    issues.push(blockerIssue(
+    issues.push(warningIssue(
       "missing_slide_spec",
       `outputPath must be decks/*.html, got ${deck.outputPath || "missing"}`,
-      "Set outputPath to the target decks/*.html file through revela-decks upsertDeck.",
+      "Resolve output path from the user request, deck-plan/index.md, or a deterministic decks/*.html default instead of treating cached state as permission.",
     ))
   }
 
   for (const [key, value] of Object.entries(deck.requiredInputs) as Array<[keyof RequiredInputs, boolean]>) {
-    if (value !== true) {
-      issues.push(blockerIssue(
-        "missing_required_input",
-        `requiredInputs.${key} is not true`,
-        `Complete and explicitly record requiredInputs.${key} before writing the deck.`,
-      ))
-    }
+    if (value !== true) issues.push(warningIssue(
+      "missing_required_input",
+      `Legacy requiredInputs.${key} is not true`,
+      "requiredInputs is legacy diagnostic/cache state only; ask the user for missing intent if needed, but do not block execution.",
+    ))
   }
 
   const planReview = currentDeckPlanReviewStatus(deck, options.narrativeHash)
@@ -1002,18 +992,18 @@ function computeDeckReadinessIssues(state: DecksState, deck: DeckSpec, options: 
   issues.push(...artifactCoverageIssues(state, deck))
   for (const slide of deck.slides) {
     const slideRef = { slideIndex: slide.index, slideTitle: slide.title }
-    if (!slide.title.trim()) issues.push(blockerIssue("missing_slide_spec", `Slide ${slide.index} title is missing`, "Add a slide title to the slide spec.", slideRef))
-    if (!slide.layout.trim()) issues.push(blockerIssue("missing_slide_spec", `Slide ${slide.index} layout is missing`, "Fetch and record the intended design layout for this slide.", slideRef))
-    if (slide.components.length === 0) issues.push(blockerIssue("missing_slide_spec", `Slide ${slide.index} components are missing`, "Record the design components needed for this slide.", slideRef))
-    if (!hasSlideContent(slide)) issues.push(blockerIssue("missing_slide_spec", `Slide ${slide.index} content is missing`, "Add structured headline/body/bullets/data content to the slide spec.", slideRef))
+    if (!slide.title.trim()) issues.push(warningIssue("missing_slide_spec", `Cached slide ${slide.index} title is missing`, "Use deck-plan/ and artifact content as source for rendering; cached slide specs are diagnostics only.", slideRef))
+    if (!slide.layout.trim()) issues.push(warningIssue("missing_slide_spec", `Cached slide ${slide.index} layout is missing`, "Fetch needed design layouts before writing HTML, but do not block solely on cached slide specs.", slideRef))
+    if (slide.components.length === 0) issues.push(warningIssue("missing_slide_spec", `Cached slide ${slide.index} components are missing`, "Fetch needed design components before writing HTML, but do not block solely on cached slide specs.", slideRef))
+    if (!hasSlideContent(slide)) issues.push(warningIssue("missing_slide_spec", `Cached slide ${slide.index} content is missing`, "Use deck-plan/ and the artifact request as render guidance; cached slide specs are diagnostics only.", slideRef))
 
     const claim = findEvidenceSensitiveClaim(slide)
     if (claim && slide.evidence.length === 0 && !isNavigationSlide(slide)) {
       const { candidates: evidenceCandidates, search: evidenceCandidateSearch } = findEvidenceBindingCandidates(deck, slide, claim, options)
-      issues.push(blockerIssue(
+      issues.push(warningIssue(
         "missing_evidence",
         `Slide ${slide.index} has an evidence-sensitive claim without evidence: ${claim}`,
-        SOURCE_TRACE_ACTION,
+        `${SOURCE_TRACE_ACTION} Missing evidence is diagnostic; keep the boundary visible rather than blocking the user's requested artifact step.`,
         {
           ...slideRef,
           claimText: claim,
@@ -1035,10 +1025,10 @@ function computeDeckReadinessIssues(state: DecksState, deck: DeckSpec, options: 
 
   for (const axis of deck.researchPlan) {
     if (axis.needed && axis.status !== "done" && axis.status !== "read" && axis.status !== "skipped") {
-      issues.push(blockerIssue(
+      issues.push(warningIssue(
         "research_not_ready",
         `Research axis ${axis.axis || "unnamed"} is needed but ${axis.status}`,
-        "Complete, read, or explicitly skip this research axis before writing the deck.",
+        "Research status is diagnostic only; user decides whether to continue, run research, or keep the gap visible.",
       ))
     }
   }
@@ -1049,10 +1039,10 @@ function computeDeckReadinessIssues(state: DecksState, deck: DeckSpec, options: 
     if (isIgnorableSourceMaterial(material.path)) continue
     const message = `Source material ${material.path} has been identified but not extracted, summarized, or researched`
     if (hasNeededResearch) {
-      issues.push(blockerIssue(
+      issues.push(warningIssue(
         "source_not_processed",
         message,
-        "Extract, summarize, research, or explicitly exclude this source before writing evidence-backed slides.",
+        "Extract, summarize, research, or exclude this source if it matters; do not block solely on source processing state.",
       ))
     } else {
       issues.push(warningIssue(
@@ -1071,11 +1061,11 @@ function deckPlanQualityIssues(deck: DeckSpec): ReadinessIssue[] {
   return checks.flatMap((check): ReadinessIssue[] => {
     if (check.status === "pass") return []
     const suggestedAction = check.status === "blocker"
-      ? "Re-run compileDeckPlan or revise the deck projection so each central claim has a claim-led chapter with framing, evidence/proof, and implication/boundary slides. If a claim cannot support that chapter, merge it, run research, narrow it, or explicitly accept a shorter chapter before writing the deck."
+      ? "Revise deck-plan/ if this quality issue matters for the user's goal. It is diagnostic, not a workflow permission blocker."
       : "Keep the stated claim boundaries visible in the plan and rendered artifact; do not stretch partial evidence beyond the supported scope."
     return [{
       type: "plan_quality",
-      severity: check.status,
+      severity: "warning",
       message: check.message,
       suggestedAction,
     }]
@@ -1087,17 +1077,17 @@ function artifactCoverageIssues(state: DecksState, deck: DeckSpec): ReadinessIss
   if (!coverage) return []
   const issues: ReadinessIssue[] = []
   if (coverage.missingClaimIds.length > 0) {
-    issues.push(blockerIssue(
+    issues.push(warningIssue(
       "artifact_coverage",
       `Active deck plan is missing required narrative claims: ${coverage.missingClaimIds.join(", ")}`,
-      "Re-run compileDeckPlan or revise the deck projection so every central or evidence-required claim appears in the planned slides before writing the deck.",
+      "Coverage gaps are diagnostic; revise deck-plan/ or proceed with the visible limitation if the user chooses.",
     ))
   }
   if (coverage.coverageStatus === "stale") {
-    issues.push(blockerIssue(
+    issues.push(warningIssue(
       "artifact_coverage",
       `Active deck artifact coverage is stale: ${coverage.staleReasons.join("; ") || "narrative or render target changed"}`,
-      "Re-run /revela make --deck so the deck plan and artifact coverage are regenerated from the current approved narrative state.",
+      "Artifact coverage staleness is diagnostic; user decides whether to remake, review, or export the current artifact.",
     ))
   } else if (coverage.coverageStatus === "partial") {
     issues.push(warningIssue(
@@ -1146,8 +1136,8 @@ function readinessNextActions(issues: ReadinessIssue[], coverage?: ArtifactCover
   const actions = issues
     .filter((issue) => issue.severity === "blocker" || issue.type === "plan_quality" || issue.type === "artifact_coverage")
     .map((issue) => issue.suggestedAction)
-  if (coverage?.missingClaimIds.length) actions.unshift("Review missingClaimIds in artifactCoverage and recompile the deterministic deck plan before writing HTML.")
-  if (coverage?.coverageStatus === "stale") actions.unshift("Regenerate the deck plan from the current narrative before writing or exporting artifacts.")
+  if (coverage?.missingClaimIds.length) actions.unshift("Review missingClaimIds in artifactCoverage and decide whether to revise deck-plan/ or continue with the current artifact.")
+  if (coverage?.coverageStatus === "stale") actions.unshift("Artifact coverage is stale; decide whether to remake, review, or export the current artifact.")
   return [...new Set(actions)].slice(0, 5)
 }
 

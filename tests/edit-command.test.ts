@@ -57,15 +57,15 @@ describe("resolveEditableDeck", () => {
     expect(deck).toMatchObject({
       slug: workspaceDeckSlug(root),
       file: "decks/only-deck.html",
-      source: "file-path",
+      source: "discovered",
     })
   })
 
-  it("rejects targets", () => {
+  it("accepts explicit HTML targets", () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "only-deck.html"), "<html></html>", "utf-8")
 
-    expect(() => resolveEditableDeck(root, "only-deck")).toThrow("/revela review --deck does not accept a target")
+    expect(resolveEditableDeck(root, "decks/only-deck.html")).toMatchObject({ file: "decks/only-deck.html", source: "file-path" })
   })
 
   it("rejects when decks/ has no HTML files", () => {
@@ -79,7 +79,7 @@ describe("resolveEditableDeck", () => {
     writeFileSync(join(root, "decks", "first.html"), "<html></html>", "utf-8")
     writeFileSync(join(root, "decks", "second.html"), "<html></html>", "utf-8")
 
-    expect(() => resolveEditableDeck(root, "")).toThrow("multiple deck HTML files")
+    expect(() => resolveEditableDeck(root, "")).toThrow("Multiple deck HTML files")
   })
 })
 
@@ -224,15 +224,8 @@ describe("ensureEditableDeckState", () => {
     const deck = resolveEditableDeck(root, "")
 
     const result = ensureEditableDeckState(root, deck)
-    const state = readDecksState(root)
 
-    expect(result.changed).toBe(true)
-    const slug = workspaceDeckSlug(root)
-    expect(state.activeDeck).toBe(slug)
-    expect(state.decks[slug].outputPath).toBe("decks/market-map.html")
-    expect(state.decks[slug].slides).toHaveLength(1)
-    expect(state.decks[slug].slides[0].title).toBe("Market Map")
-    expect(state.decks[slug].writeReadiness.status).toBe("blocked")
+    expect(result.changed).toBe(false)
   })
 
   it("does not block visual editing when existing deck state has stale slide specs", () => {
@@ -290,7 +283,7 @@ describe("openEditableDeck", () => {
     expect(result.deck.slug).toBe(workspaceDeckSlug(root))
     expect(result.deck.file).toBe("decks/market-map.html")
     expect(result.url).toStartWith("http://127.0.0.1:")
-    expect(readDecksState(root).decks[workspaceDeckSlug(root)].writeReadiness.status).toBe("blocked")
+    expect(result.stateNote).toContain("selected HTML artifact")
   })
 
   it("tracks live editor sessions by workspace deck file", () => {

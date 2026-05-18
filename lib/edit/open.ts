@@ -85,8 +85,8 @@ function openEditableDeckInternal(
   const shouldOpen = options.openBrowser !== false && !(behavior.skipLiveSession && session.live)
   if (shouldOpen) (options.openUrl ?? openUrl)(url)
 
-  const source = deck.source === "decks-state" ? "DECKS.json" : deck.source === "file-path" ? "file path" : "fallback path"
-  const stateNote = preflight.changed ? "Deck state was prepared in DECKS.json for visual editing." : "Deck state already points to this visual edit target."
+  const source = deck.source === "file-path" ? "file path" : "discovered deck file"
+  const stateNote = preflight.changed ? "Deck file preflight updated runtime state." : "Deck visual edit uses the selected HTML artifact directly."
 
   return {
     deck,

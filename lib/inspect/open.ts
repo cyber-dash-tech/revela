@@ -54,8 +54,8 @@ export function openInspectDeck(target: string, options: OpenInspectDeckOptions)
   return {
     deck,
     url,
-    source: deck.source === "render-target" ? "render target" : deck.source === "decks-state" ? "DECKS.json" : deck.source === "file-path" ? "file path" : "fallback path",
-    stateNote: preflight.changed ? "Deck state was prepared in DECKS.json for inspection." : "Deck state already points to this inspection target.",
+    source: deck.source === "file-path" ? "file path" : "discovered deck file",
+    stateNote: preflight.changed ? "Deck file preflight updated runtime state." : "Deck inspection uses the selected HTML artifact directly.",
     preflightChanged: preflight.changed,
     reusedSession: session.reused,
     openedBrowser: shouldOpen,

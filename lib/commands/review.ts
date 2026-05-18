@@ -8,21 +8,19 @@ export function buildReviewPrompt({
   workspaceRoot?: string
 }): string {
   const state = exists
-    ? `${DECKS_STATE_FILE} exists. Read it through the revela-decks tool.`
-    : `${DECKS_STATE_FILE} does not exist yet. Create or normalize it through the revela-decks tool only if there is enough workspace narrative context.`
+    ? `${DECKS_STATE_FILE} exists as legacy/cache state. Prefer file-native narrative sources.`
+    : `${DECKS_STATE_FILE} does not exist. Do not create it for narrative review.`
 
   return `Review Revela narrative readiness.
 
 Goal:
-- Use ${DECKS_STATE_FILE} as the compatibility workspace-state file, but review the canonical narrative state first: audience, belief shift, decision/action, thesis, central claims, evidence boundaries, objections, risks, and approval state.
+- Review canonical narrative state from \`revela-narrative/\` when present: audience, belief shift, decision/action, thesis, central claims, evidence boundaries, objections, and risks.
 - Treat this as a narrative readiness review, not a deck HTML write-readiness review.
-- Do not write, patch, or directly edit ${DECKS_STATE_FILE}. Use the \`revela-decks\` tool for all state changes.
-- Call \`revela-decks\` action \`reviewNarrative\` as the authoritative deterministic readiness engine.
-- Do not call \`revela-decks\` action \`review\` here. That action is the deck/artifact gate inside \`/revela make --deck\` after the deck plan is confirmed.
-- Do not treat legacy \`writeReadiness.status\`, old review snapshots, or an existing HTML deck as narrative approval.
+- Treat missing evidence, open research gaps, stale artifacts, and incomplete deck-plan links as diagnostics. They are not workflow permission gates.
+- Do not call \`revela-decks\` action \`review\` here. That action is legacy deck/artifact diagnostics.
+- Do not treat legacy \`writeReadiness.status\`, old review snapshots, or an existing HTML deck as narrative state.
 - Do not write or overwrite \`decks/*.html\` during narrative review.
-- If the narrative is \`ready_for_approval\`, ask whether the user wants to approve it or revise it. Do not approve automatically.
-- Only call \`revela-decks\` action \`approveNarrative\` when the user explicitly asks to approve or override.
+- Do not ask for narrative approval. Users decide whether to continue; report diagnostics and consequences.
 
 Current state:
 - ${state}
@@ -35,21 +33,19 @@ Workspace boundary rules:
 - For Glob/file searches, use the current workspace as the search root. Do not set the search root to a parent directory or home directory.
 
 Workflow:
-1. Call \`revela-decks\` with action \`read\` and \`summary: true\` to inspect the current workspace state, \`vaultDiagnostics\`, \`markdownQa\`, and \`narrativeInventory\` when a vault exists.
-2. If ${DECKS_STATE_FILE} is missing or empty, do not invent a deck plan, slide count, design, output path, or visual style. Report the smallest narrative inputs needed, usually audience, belief-before, belief-after, decision/action, thesis, central claims, evidence availability, objections, and risks.
-3. If legacy deck state exists, let the tool-normalized canonical narrative derived from \`narrativeBrief\`, slide roles, slide content, and slide evidence be reviewed. Do not assume old deck readiness means approval.
-4. Call \`revela-decks\` action \`reviewNarrative\`. Use its returned \`status\`, \`blockers\`, \`warnings\`, \`issues\`, \`narrativeHash\`, \`approval\`, and \`nextActions\` as authoritative. If the read summary returned \`markdownQa.repairCards\` or \`vaultDiagnostics\`, report Markdown QA repair cards and compile diagnostics before readiness blockers and include file/node/code/message plus smallest repair or suggested next action.
+1. Read/compile \`revela-narrative/\` when present; use \`revela-decks\` read/reviewNarrative only as a compatibility helper while migration is in progress.
+2. If canonical narrative is missing or thin, do not invent a deck plan, slide count, design, output path, or visual style. Report the smallest narrative inputs needed, usually audience, belief-before, belief-after, decision/action, thesis, central claims, evidence availability, objections, and risks.
+3. If legacy deck state exists, treat it as cache/provenance only. Do not assume old deck readiness or approval fields are workflow authority.
+4. Report \`status\`, \`warnings\`, \`issues\`, \`narrativeHash\`, and \`nextActions\` when returned. If the read summary returned \`markdownQa.repairCards\` or \`vaultDiagnostics\`, report Markdown QA repair cards and compile diagnostics with file/node/code/message plus smallest repair or suggested next action.
 5. If research findings have been saved but not attached or evidence-bound, report them as unattached research state, not proof.
 6. If central claims lack required evidence, report the named claim and the exact next action: attach findings, bind evidence, run targeted research, narrow unsupported scope, or rewrite the claim.
-7. If approval is missing or stale, clearly distinguish \`ready_for_approval\`, \`approved\`, and render override.
+7. Do not report missing or stale approval as a problem. If artifacts or deck-plan files may not reflect current narrative, describe that alignment gap directly.
 
 Report format:
 - Start with \`Narrative readiness: <status>\`.
 - Include \`Narrative hash: <hash>\` when returned.
-- If blocked or needs research, list each blocker with issue type, claim text when available, and suggested next action. Keep Markdown QA repair cards separate from compiler diagnostics and narrative readiness blockers.
+- List diagnostics with issue type, claim text when available, and suggested next action. Keep Markdown QA repair cards separate from compiler diagnostics.
 - If warnings exist, list them after blockers as residual risks.
-- If approval is missing, ask whether the user wants to approve the narrative or revise it.
-- If approval is stale, say the prior approval no longer matches the current narrative hash.
 - Keep deck/artifact readiness separate. If the user wants to write or review deck artifacts, tell them to run \`/revela make --deck\`.
 
 Rules:
@@ -59,7 +55,7 @@ Rules:
 - Do not store secrets, credentials, tokens, or sensitive personal information.
 - Do not add inferred user preferences to long-term preference state.
 
-Start now by reading ${DECKS_STATE_FILE} through \`revela-decks\`, then call \`revela-decks\` action \`reviewNarrative\`.`
+Start now by reading canonical narrative files and reporting diagnostics. Do not create ${DECKS_STATE_FILE} or request approval.`
 }
 
 export function buildDeckPrompt({
@@ -70,45 +66,45 @@ export function buildDeckPrompt({
   workspaceRoot?: string
 }): string {
   const state = exists
-    ? `${DECKS_STATE_FILE} exists. Read it through the revela-decks tool.`
-    : `${DECKS_STATE_FILE} does not exist yet. Do not invent a deck; initialize narrative state first with /revela init.`
+    ? `${DECKS_STATE_FILE} exists as legacy/cache state. Do not treat it as workflow authority.`
+    : `${DECKS_STATE_FILE} does not exist. Continue from file-native narrative and deck-plan files.`
 
   return `Begin Revela deck plan handoff.
 
 Goal:
-- Treat this as the explicit transition from approved narrative state to user-directed deck planning.
+- Treat this as the explicit transition from canonical narrative state to user-directed deck planning.
 - Use the deck-render prompt mode for design, layout, component, HTML, QA, and deck artifact rules.
 - Default behavior is two-stage: first generate or update \`deck-plan/index.md\` plus \`deck-plan/slides/*.md\` with low-fidelity layout sketches and narrative wikilinks, then proceed only when the user chooses to continue.
 - Every deck plan must include Cover, Table of Contents, and Closing slides. The TOC must show 3-5 chapter headings that match the deck's slide groups.
-- Do not write or overwrite \`decks/*.html\` until narrative handoff is satisfied and the user chooses to proceed from the current deck-plan projection.
-- Do not treat legacy \`writeReadiness.status\`, old review snapshots, or existing HTML decks as narrative approval.
-- Do not bypass the deck HTML contract, review snapshot freshness, source-trace expectations, or export preflight protections.
+- Do not write or overwrite \`decks/*.html\` until the user chooses to proceed from the current deck-plan projection.
+- Do not treat legacy \`writeReadiness.status\`, old review snapshots, approval fields, or existing HTML decks as workflow permission.
+- Do not bypass the deck HTML contract, source-trace expectations, or export preflight protections.
 
 Current state:
 - ${state}
 ${workspaceRoot ? `- Current workspace root: \`${workspaceRoot}\`` : ""}
 
 Workflow:
-1. Call \`revela-decks\` action \`read\` with \`summary: true\`.
-2. Call \`revela-decks\` action \`reviewNarrative\` before planning deck slides.
-3. If the read summary returned \`markdownQa.blockers\` or \`vaultDiagnostics.blockers\`, stop before deck planning and report Markdown QA repair cards separately from compile diagnostics with file/node/code/message and smallest repair or suggested next action. If narrative readiness is \`approved\`, continue. If it is \`ready_for_approval\`, ask the user for explicit approval before continuing. If it is blocked, stale, or needs research, stop and report the smallest next action. Do not call \`approveNarrative\` unless the user explicitly approves or requests a render override.
-4. After approval or explicit render override exists, call \`revela-decks\` action \`compileDeckPlan\`. This returns a claim/evidence planning packet plus deck-plan authoring requirements; it must not write HTML and does not generate the final slide list. Do not infer render structure from \`DECKS.json.slides[]\`.
-5. If \`compileDeckPlan\` returns \`skipped\`, stop and report the reason. Do not invent slide specs manually to bypass approval.
+1. Call \`revela-decks\` action \`read\` with \`summary: true\` when useful for vault diagnostics and canonical narrative projection.
+2. Call \`revela-decks\` action \`reviewNarrative\` or compile narrative files to surface diagnostics before planning deck slides. Treat missing evidence, research gaps, and stale hashes as diagnostics, not permission blockers.
+3. If the read summary returned \`markdownQa.blockers\` or \`vaultDiagnostics.blockers\`, report Markdown QA repair cards separately from compile diagnostics with file/node/code/message and smallest repair or suggested next action. These are data-integrity issues; ask the user whether to repair before proceeding.
+4. Call \`revela-decks\` action \`compileDeckPlan\`. This returns a claim/evidence planning packet plus deck-plan authoring requirements; it must not write HTML and does not generate the final slide list. Do not infer render structure from \`DECKS.json.slides[]\`.
+5. If \`compileDeckPlan\` returns \`skipped\`, report the reason and ask the user whether to continue manually, repair narrative files, or provide missing intent.
 6. If target slide count, audience, language, output purpose, or visual style is unclear, ask the user for the smallest needed confirmation before writing the plan.
 7. Write \`deck-plan/index.md\` and one file per planned slide under \`deck-plan/slides/*.md\` from the planning packet and requirements. The index must identify the chapter structure first: 3-5 chapter headings, each chapter's slide range, and which non-structural slides belong to each chapter. Each slide file must include frontmatter with positive 1-based \`slideIndex\` and \`## Narrative Links\` using plain wikilinks to canonical claim/evidence/risk/objection/gap ids. Include a low-fidelity ASCII/text layout sketch for every slide; do not generate visual images or HTML mockups.
 8. Stop after presenting the plan unless the user already asked to proceed. Ask whether to continue, revise the plan, or run more research. Do not require an Approval block or \`confirmDeckPlan\` gate; \`confirmDeckPlan\` is compatibility/provenance only.
 9. Ask for or confirm visual design only after the narrative deck plan exists. Fetch required design layouts/components with \`revela-designs read\` as needed.
-10. Update only deck/artifact metadata through \`revela-decks upsertDeck\` / \`upsertSlides\` when required by design/layout choices. Do not change canonical narrative claims unless the user asks to revise the narrative.
+10. Do not update cached \`DECKS.json\` slide specs for plan authoring. Use \`deck-plan/\` files and artifact files as the execution surface.
 11. Call \`revela-decks\` action \`readDeckPlan\` before artifact review or HTML writing; use it to inspect the current deck-plan projection without regenerating it. Treat stale hashes, missing links, or incomplete coverage as advisory diagnostics unless the user asks to stop.
-12. Call \`revela-decks\` action \`review\` as the artifact gate. It computes \`writeReadiness\` and review snapshots for deck HTML writing. \`slide_plan_unconfirmed\` is advisory, not a hard blocker.
-14. Write \`decks/*.html\` only if the deck/artifact gate is ready and all deck HTML contract requirements can be satisfied. Generate the artifact chapter by chapter instead of drafting all content slides in one broad pass. Partial decks are allowed during chapter-by-chapter authoring when written slide sections have unique, increasing 1-based \`data-slide-index\` values and valid canvases; do not pad missing planned chapters with filler to match cached \`DECKS.json.slides[]\` length. Keep the HTML file valid after every write, preserve already-written slides, and update one chapter's slide sections at a time.
+12. Run artifact diagnostics when useful, but do not treat \`writeReadiness\`, cached slide specs, unconfirmed plans, missing research, or stale coverage as workflow blockers.
+13. Write \`decks/*.html\` when the user chooses to proceed and all deck HTML contract requirements can be satisfied. Generate the artifact chapter by chapter instead of drafting all content slides in one broad pass. Partial decks are allowed during chapter-by-chapter authoring when written slide sections have unique, increasing 1-based \`data-slide-index\` values and valid canvases; do not pad missing planned chapters with filler to match cached \`DECKS.json.slides[]\` length. Keep the HTML file valid after every write, preserve already-written slides, and update one chapter's slide sections at a time.
 15. For each chapter, make every content slide carry a distinct claim, evidence item, comparison, risk, or action. If a chapter lacks enough substance for its allocated slides, merge weak slides or reduce the slide count instead of creating sparse filler.
 16. After each HTML write, the system automatically runs artifact QA before opening Review. If post-write artifact QA reports hard errors, fix them and let QA run again. Review opens only after hard errors pass. Density warnings about thin claim/evidence substance should be reported and improved when useful, but they do not block Review.
 
 Deck plan report format:
 - Start with \`Deck plan: drafted\` when the deck-plan projection has been written, or \`Deck plan: diagnostics\` when reporting \`readDeckPlan\` warnings.
 - Include narrative readiness status and narrative hash when available.
-- Include Markdown QA repair cards and vault diagnostic blockers or warnings when returned by \`read(summary: true)\`; blockers prevent deck planning until fixed.
+- Include Markdown QA repair cards and vault diagnostic warnings when returned by \`read(summary: true)\`; user decides whether to repair before planning unless the file is malformed or unsafe to write.
 - Include whether \`compileDeckPlan\` prepared the planning packet or skipped.
 - Include the plan artifact paths \`deck-plan/index.md\` and \`deck-plan/slides/*.md\`, and explain that the LLM-authored plan is advisory render-layer projection state.
 - Include the required Source Authority and remind that \`DECKS.json.slides[]\` is cache/compatibility data, not the render contract.
@@ -142,28 +138,28 @@ Caveats / unsupported scope:
 \`\`\`
 - End by asking the user whether to proceed to HTML, revise the plan, or run more research.
 
-Report format before any HTML write after confirmation:
+Report format before any HTML write:
 - Start with \`Deck handoff: <status>\`.
-- Include which deck-plan projection, approved narrative hash, and deck review snapshot are guiding artifact work.
+- Include which deck-plan projection and narrative hash are guiding artifact work.
 - State that \`revela-decks readDeckPlan\` was called and the current \`deck-plan/\` Chapter Writing Batches are being followed.
 - Include the chapter currently being generated and confirm already-written slides are being preserved.
-- If deck/artifact review is blocked, list blockers separately from narrative blockers.
+- If technical artifact checks cannot be satisfied, list those blockers separately from narrative/deck-plan diagnostics.
 - After writing HTML, read the appended \`Artifact QA\` report from the tool output. If it failed, fix hard errors before considering the deck ready for Review.
 
 Rules:
 - \`compileDeckPlan\` prepares the canonical narrative claim/evidence packet and deck-plan requirements. The LLM authors \`deck-plan/index.md\` and \`deck-plan/slides/*.md\` from that packet and asks the user for page count, audience, language, output purpose, or visual style when unclear.
 - \`deck-plan/\` is the execution blueprint for HTML generation when present. It must be read before writing HTML and followed chapter by chapter; \`DECKS.json.slides[]\` is compatibility/cache data, not the HTML slide-count authority.
 - Visual intent is part of the deck-plan projection. During HTML generation, satisfy the planned component/visual brief using fetched design components; do not collapse planned visuals into prose-only bullets.
-- Deck slide specs in \`DECKS.json\` are render-target projections for compatibility and provenance. Canonical narrative remains the authority for audience, decision, claims, evidence boundaries, objections, risks, and approval.
+- Cached deck slide specs in \`DECKS.json\` are legacy projections only. Canonical narrative remains the authority for audience, decision, claims, evidence boundaries, objections, and risks.
 - Cover, Table of Contents, and Closing are mandatory deck structure. TOC chapter headings must match the chapter grouping used for generation.
-- Do not generate the complete deck content in one broad pass after confirmation. Work chapter by chapter while keeping the artifact valid after each write.
-- Applying evidence candidates, rewriting canonical claims, or approving narratives requires explicit user instruction.
+- Do not generate the complete deck content in one broad pass. Work chapter by chapter while keeping the artifact valid after each write.
+- Applying evidence candidates or rewriting canonical claims requires explicit user instruction.
 - If the user requests slide order, layout, component, or visual-intent changes that do not alter meaning, update only the \`deck-plan/\` projection or artifact-level plan content.
-- If the user requests claim, evidence, caveat, decision, or recommendation meaning changes, update canonical narrative first and rerun narrative review/approval or explicit render override before compiling a new deck plan.
+- If the user requests claim, evidence, caveat, decision, or recommendation meaning changes, update canonical narrative first, then report alignment diagnostics before compiling a new deck plan.
 - Do not store secrets, credentials, tokens, or sensitive personal information.
 - Artifact QA requires each slide to render exactly 1920x1080px, not merely any 16:9 ratio. It also checks component compliance, text overflow/clipping, page scrollbars, and whether normal QA-enabled content slides have enough claim/evidence/source substance.
 
-Start now by reading ${DECKS_STATE_FILE}, reviewing narrative readiness, compiling the planning packet only if approval or explicit render override is current, then writing or updating the \`deck-plan/\` projection with low-fidelity layout sketches and narrative wikilinks.`
+Start now by reading canonical narrative files, reporting diagnostics, compiling the planning packet, then writing or updating the \`deck-plan/\` projection with low-fidelity layout sketches and narrative wikilinks. Do not create ${DECKS_STATE_FILE} as workflow state.`
 }
 
 export function buildDeckReviewPrompt({
@@ -174,18 +170,17 @@ export function buildDeckReviewPrompt({
   workspaceRoot?: string
 }): string {
   const state = exists
-    ? `${DECKS_STATE_FILE} exists. Read it through the revela-decks tool.`
-    : `${DECKS_STATE_FILE} does not exist yet. Create it through the revela-decks tool if there is enough deck context.`
+    ? `${DECKS_STATE_FILE} exists as legacy/cache state. Do not treat it as workflow authority.`
+    : `${DECKS_STATE_FILE} does not exist. Review artifacts directly from files.`
 
   return `Review Revela deck/artifact write readiness.
 
 Goal:
-- Use ${DECKS_STATE_FILE} as compatibility/render state for readiness, provenance, active output path, render targets, and cached projections. Do not treat its \`slides[]\` cache as the authoritative deck execution plan.
+- Review the current deck artifact and \`deck-plan/\` projection directly. ${DECKS_STATE_FILE}, when present, is legacy/cache state only.
 - When \`deck-plan/\` exists, treat it as the deck execution blueprint for slide order, chapter batches, visual intent, and evidence trace.
-- Treat this as an artifact gate for deck rendering, not strategic narrative approval. Narrative readiness is reviewed through \`/revela story\`.
-- Preserve compatibility projections for future sessions: cached slide content, layout, components, evidence, visuals, production status, and the 0.9 narrative compiler brief when available.
-- Do not write, patch, or directly edit ${DECKS_STATE_FILE}. Use the \`revela-decks\` tool for all state changes.
-- Let \`revela-decks\` action \`review\` compute writeReadiness; do not manually set readiness to ready.
+- Treat this as artifact diagnostics, not workflow permission. Narrative, research, and deck-plan gaps are warnings unless they are malformed/unsafe files.
+- Do not create or update ${DECKS_STATE_FILE}; use file-native sources and explicit artifact paths.
+- Use technical blockers only for missing/ambiguous deck files, invalid HTML contract, invalid slide identity, canvas/overflow/export failures, malformed vault frontmatter, or unsafe writes.
 - Treat this as an evidence and Narrative Compiler readiness review, not only a checklist review: unsupported numbers, market sizing, recommendations, competitor comparisons, technical assertions, investment conclusions, missing audience belief change, unclear decision/action, unproven key claims, unhandled objections, weak so-what, missing risk/assumption handling, or abrupt narrative transitions should be made visible before writing.
 - For substantial decision decks, use the read-only Task subagent \`revela-narrative-reviewer\` for independent rubric-based critique of narrative brief and slide-plan alignment. Do not self-certify semantic narrative quality in the primary agent.
 - Treat \`revela-narrative-reviewer\` findings as advisory critique only. Do not represent them as \`revela-decks\` readiness issues, blockers, or authoritative \`writeReadiness\`.
@@ -205,53 +200,37 @@ Workspace boundary rules:
 - For Glob/file searches, use the current workspace as the search root. Do not set the search root to a parent directory or home directory.
 
 Workflow:
-1. Call \`revela-decks\` with action \`read\` and \`summary: true\` for the current workspace deck and any \`markdownQa\`, \`vaultDiagnostics\`, and \`narrativeInventory\`.
-2. If the read summary returned \`markdownQa.blockers\` or \`vaultDiagnostics.blockers\`, report Markdown QA repair cards separately from compile diagnostics before artifact readiness with file/node/code/message and smallestRepair/suggestedAction; stop before \`revela-decks review\`, deck HTML writes, or export guidance until the blocker is fixed.
-3. If no current deck exists but the conversation contains enough deck context, call \`revela-decks\` action \`upsertDeck\` with goal, outputPath, theme, requiredInputs, researchPlan, and narrativeBrief if the story intent is clear. Do not invent or ask for a deck key; the tool uses the workspace folder name internally.
-4. If \`researchPlan[].status\` is \`done\` or \`read\` and \`researchPlan[].findingsFile\` exists, verify that evidence-sensitive slide claims are backed by compact \`slides[].evidence[]\` records that reference the relevant findings file or source material where known. The review tool may surface conservative \`evidenceCandidates\` for missing evidence by matching slide text against those findings files, and may fall back to bounded workspace \`researches/**/*.md\` discovery when the research plan has no matching findings file; report these as candidate bindings, not as already-bound evidence.
-5. If a user-confirmed slide plan is available, call \`revela-decks\` action \`upsertSlides\` with every slide's title, purpose, narrativeRole, layout, components, structured content, evidence, visuals, and status. Use only lightweight narrativeRole values that are clear from the plan: \`context\`, \`tension\`, \`evidence\`, \`recommendation\`, \`risk\`, \`ask\`, \`appendix\`, or \`close\`.
-6. Prefer evidence records with \`findingsFile\`, \`sourcePath\`, \`location\`, \`quote\`, \`url\`, \`caveat\`, \`extractedTextPath\`, or \`extractedManifestPath\` when those fields are known from research files or extracted workspace materials.
-7. Do not invent quotes, page references, locations, URLs, caveats, or extraction paths. If source trace is missing, preserve the blocker or warning and report exactly what trace is needed.
-8. Only set requiredInputs fields true when explicit conversation state, files read, research findings read, selected design, fetched layouts/components, or user confirmation supports them. Do not infer completion.
-9. For substantial decision decks, preserve a compact \`narrativeBrief\` through \`upsertDeck\` when the conversation or current deck-plan projection supports it. Do not invent stakeholder beliefs, objections, or risks; leave gaps visible if unknown.
-10. For substantial decision decks, launch the Task subagent with \`subagent_type: "revela-narrative-reviewer"\` after deck/slides are up to date. Ask it to read the current \`DECKS.json\`, run only its fixed rubric, use stable finding IDs, return \`Findings: none\` when all checks pass, and avoid optional pre-write improvements. Do not ask it to write state, call \`revela-decks review\`, or produce HTML.
-11. Call \`revela-decks\` action \`review\`. The tool computes and writes \`writeReadiness\` plus structured readiness issues for the current workspace deck.
-12. Briefly report whether the deck is ready. If blocked, list the exact blockers returned by the tool. If warnings exist, list them after blockers as residual risks; separate evidence/source warnings from narrative warnings when possible. If the read summary or review result includes \`markdownQa\`, \`vaultDiagnostics\`, or \`diagnosticReport\`, include \`Markdown QA\` and \`Vault diagnostics\` sections before artifact readiness with file/node/code/message and smallestRepair/suggestedAction. If the review result includes \`diagnostics\`, include a \`Plan and coverage diagnostics\` section with plan quality blockers/warnings, artifact \`coverageStatus\`, \`missingClaimIds\`, \`affectedClaimIds\`, stale reasons, and \`nextActions\`. If the review result includes \`evidenceCandidates\`, add a separate \`Candidate evidence bindings\` section with candidateId, slide index/title, supported claim scope, sourceKind, findingsFile/sourcePath, quote/snippet, caveat, evidenceDraft summary, unsupportedScope, and recommendedRewrite. Tell the user they may explicitly ask to apply selected candidate IDs; do not apply them during review. If candidates are absent but \`evidenceCandidateSearch\` is present, briefly report searched file counts and the best near misses so the user can tell whether review failed to search or searched but did not find a bindable match. If the reviewer returned findings, include them in a separate \`Narrative reviewer notes\` section and label them advisory.
+1. Resolve the deck artifact from an explicit user path or discover \`decks/*.html\` when unambiguous.
+2. Read \`deck-plan/\` with \`readDeckPlan\` when present and report stale hashes, missing links, missing coverage, or slide-index issues as diagnostics.
+3. Run HTML contract and Artifact QA checks for the artifact when the user is preparing to write, review, or export.
+4. Report evidence/source/narrative risks as diagnostics. Do not bind evidence, rewrite narrative, or update cached slide specs unless the user explicitly asks.
+5. If a technical blocker exists, report the exact blocker and smallest repair. Otherwise say the user can proceed and list residual diagnostics.
 
-Minimum conditions for \`ready\`:
-- Topic, audience, slide count, language, and visual style/design are decided.
-- Source materials have been identified or explicitly deemed unnecessary.
-- Research need has been assessed.
-- If research is needed, all relevant findings have been read and reflected in the slide specs.
-- Read or done research findings are mapped into \`slides[].evidence[]\` where they support evidence-sensitive slide claims.
-- The user has confirmed the slide plan.
-- ${DECKS_STATE_FILE} contains per-slide specs with content, layout, components, and evidence where applicable.
-- Evidence-sensitive slide claims have compact evidence references with source trace where available. Numeric claims and strong recommendations should not be unsupported or source-only when trace exists.
-- Multi-slide decision decks have a practical narrative flow: context/tension before evidence, recommendations after support, risk or assumption handling when recommending action, and a clear so-what or ask at the end. Narrative gaps are normally warnings, not hard blockers.
-- Substantial decision decks should have a compact \`narrativeBrief\` that states the intended audience belief change, required decision/action, key claims, likely objections, and risks/assumptions. Missing fields are narrative warnings, not hard blockers.
-- The needed design layouts and components have been fetched with \`revela-designs read\`.
-- No unresolved blockers remain.
+Technical blockers only:
+- Missing or ambiguous deck artifact path.
+- Invalid HTML contract, slide identity, DOM order, canvas, overflow, or export failure.
+- Malformed narrative/deck-plan Markdown/frontmatter or unsafe writes.
 
 Report format:
-- Start with \`Ready: yes/no\`.
-- If blocked, list each blocker with slide index/title when the tool provides it, the issue type, and the suggested next action.
-- If warnings exist but the deck is otherwise ready, say the deck can be written but note the residual risks.
+- Start with \`Artifact diagnostics: <status>\`.
+- If technically blocked, list each blocker with file/slide when available, issue type, and smallest repair.
+- If warnings exist but no technical blocker exists, say the user can proceed and note residual risks.
 - Include coverage-driven make diagnostics when returned: whether the active deck artifact coverage is current/stale/partial/missing, which required claims are missing, which claims are affected, and the next command/action recommended by the tool.
 - Report \`narrative_gap\` warnings as story-structure risks such as weak so-what, missing risk/assumption handling, conclusion before support, missing audience framing, or abrupt transition.
 - Do not invent evidence or silently downgrade blockers. Use the tool result as authoritative.
 - Do not convert \`revela-narrative-reviewer\` advisory findings into tool readiness issues. Keep them separate from \`revela-decks review\` blockers and warnings, and preserve the reviewer's stable finding IDs when reporting them.
 - When reporting weak evidence, say whether the missing trace is \`findingsFile\`, \`sourcePath\`, \`location\`, \`quote\`, \`url\`, or \`caveat\` if that is clear from the reviewed materials.
 - When reporting candidate evidence bindings, distinguish partial support from full-slide support. Never say a candidate supports unrelated future-state, recommendation, roadmap, or product-vision claims unless the candidate explicitly supports those claims.
-- Treat \`evidenceDraft\` as a proposed record, not a mutation. Do not call \`upsertSlides\` to bind it. If the user asks to apply candidate bindings, use \`initNarrativeVault\` if needed, write \`revela-narrative/evidence/*.md\` directly with explicit source trace, then run \`compileNarrativeVault\`. Use \`upsertVaultEvidence\` only as a fallback helper when direct Markdown editing is unavailable or unsafe.
+- Treat \`evidenceDraft\` as a proposed record, not a mutation. Do not call \`upsertSlides\` to bind it. If the user asks to apply candidate bindings, write \`revela-narrative/evidence/*.md\` directly with explicit source trace, then run \`compileNarrativeVault\`. Use \`upsertVaultEvidence\` only as a fallback helper when direct Markdown editing is unavailable or unsafe.
 - When reporting candidate search diagnostics, do not present near misses as evidence. Say they are below binding threshold and use them only to explain why no candidate was returned.
 - When reporting vault diagnostics, do not fill missing evidence, source trace, quotes, URLs, page references, or caveats from model memory. Preserve the blocker until the Markdown source is fixed and compiled.
 
 Rules:
 - Do not write or overwrite \`decks/*.html\` during review.
 - Treat the workspace as one deck project. If the user wants another deck, tell them to use a separate workspace/folder.
-- Do not write, patch, or directly edit ${DECKS_STATE_FILE}; use \`revela-decks\`.
+- Do not write, patch, or create ${DECKS_STATE_FILE} as workflow state.
 - Do not store secrets, credentials, tokens, or sensitive personal information.
 - Do not add inferred user preferences to long-term preference state.
 
-Start now by reading ${DECKS_STATE_FILE} through \`revela-decks\`.`
+Start now by resolving the artifact path and reporting file-native artifact diagnostics.`
 }

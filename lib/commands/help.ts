@@ -29,8 +29,8 @@ export async function handleHelp(
     `**Workflow**\n\n` +
     `1. \`init\` — discover workspace sources and capture intent\n` +
     `2. \`research\` — close evidence gaps and bind support\n` +
-    `3. \`story\` — inspect audience, thesis, claims, evidence, risks, and approval\n` +
-    `4. \`make\` — generate deck or brief from approved story state\n` +
+    `3. \`story\` — inspect audience, thesis, claims, evidence, risks, and diagnostics\n` +
+    `4. \`make\` — generate deck or brief from canonical story state\n` +
     `5. \`review\` — comment on and inspect rendered deck artifacts\n` +
     `6. \`export\` — export deck artifacts to PDF or PPTX\n\n` +
     `---\n\n` +
@@ -41,8 +41,8 @@ export async function handleHelp(
     `\`/revela init\`                                 — initialize or refresh workspace story state\n` +
     `\`/revela research\`                             — research, bind evidence, and reduce story gaps\n` +
     `\`/revela story [-l language]\`                   — open the read-only story workspace UI\n` +
-    `\`/revela make --deck\`                          — make a deck from approved story state\n` +
-    `\`/revela make --brief [file.md]\`                — render executive brief from approved story\n` +
+    `\`/revela make --deck\`                          — make a deck from story state and deck-plan/\n` +
+    `\`/revela make --brief [file.md]\`                — render executive brief from story state\n` +
     `\`/revela review --deck\`                        — open deck reading, insight, and comment workspace\n` +
     `\`/revela export --deck pdf [file.html]\`         — export HTML deck to PDF\n` +
     `\`/revela export --deck pptx [file.html] [--notes]\` — export HTML deck to PPTX\n` +

@@ -21,13 +21,13 @@ Init -> Research -> Story -> Make -> Review -> Export
 System surface: Design
 ```
 
-Decks are render targets. The durable core is source trust, canonical narrative state, evidence traceability, approval provenance, artifact coverage, and post-artifact reading/refinement.
+Decks are render targets. The durable core is source trust, canonical narrative state, evidence traceability, artifact coverage, and post-artifact reading/refinement.
 
 ## Non-Negotiable Product Rules
 
 - `revela-narrative/` is the editable source of truth for communication meaning when present.
 - Canonical narrative state (`NarrativeStateV1`) is the compiled internal interface for communication meaning.
-- `DECKS.json` is compatibility/render state: source materials, actions, render targets, reviews, cached deck projections, approvals, and artifact coverage.
+- Target architecture is file-native: `revela-narrative/` for meaning, `deck-plan/` for render planning, `decks/*.html` for artifacts, `researches/` for findings, and `assets/` for media. `DECKS.json` should be removed as a product state center, not preserved as workflow authority.
 - `deck-plan/`, when present, is the render-layer execution-plan workspace for slide order, chapter writing batches, visual intent, and evidence trace; it is not the source of canonical meaning.
 - `DECKS.json.slides[]` must not be treated as the authoritative HTML slide-count contract. Artifact identity is self-consistent positive 1-based slide indexes, unique indexes, DOM order, and canvas validity; plan completeness belongs to `deck-plan/` projection Markdown when present.
 - Vault workspaces must not persist top-level `DECKS.json.narrative`; runtime `state.narrative` may still be hydrated as a compatibility projection.
@@ -35,8 +35,9 @@ Decks are render targets. The durable core is source trust, canonical narrative 
 - Saved research findings are not evidence support until explicit evidence nodes or bindings preserve source, quote/snippet, support scope, unsupported scope, caveat, and strength.
 - Do not invent quotes, source paths, URLs, page references, caveats, claim ids, evidence ids, or artifact coverage.
 - Missing evidence must stay visible as a gap instead of being filled by the model.
-- `writeReadiness.status: "ready"` is deck/artifact readiness only. It is never narrative approval.
-- Meaning changes update canonical narrative first, then readiness/approval or explicit override, then artifacts.
+- Workflow permission gates should be removed. Users decide whether to continue; Revela reports diagnostics, risks, missing information, and technical validity.
+- Hard blockers are limited to technical artifact validity, data-safety/integrity protections, and executable preconditions such as missing files or ambiguous paths.
+- Meaning changes update canonical narrative first; artifact or deck-plan alignment gaps should be reported as diagnostics, not approvals or workflow blockers.
 - Pure artifact polish may stay artifact-level: layout, typography, spacing, crop, visual hierarchy, export mechanics, deck contract fixes, and similar non-meaning changes.
 
 ## Current Command Surface
@@ -63,8 +64,8 @@ Compatibility behavior:
 - `/revela enable` and `/revela disable` are public session controls for Revela prompt/context injection.
 - Revela starts enabled by default; `/revela disable` pauses prompt/context injection for the current session.
 - Explicit workflow commands auto-enable Revela and choose the correct prompt mode even when Revela is disabled.
-- State safety gates and write-after QA should remain active for controlled files/artifacts even when prompt injection is disabled.
-- Blocking write-after QA and state-gate failures should be surfaced both in tool output and as concise user-visible notices.
+- State safety checks and write-after QA should remain active for controlled files/artifacts even when prompt injection is disabled.
+- Blocking write-after QA and data-safety failures should be surfaced both in tool output and as concise user-visible notices.
 - `/revela make --deck --desc "..."` is not implemented. Do not document it as supported until it exists.
 
 ## Workflow Principles
@@ -83,7 +84,7 @@ Compatibility behavior:
 
 Implemented 0.17 theme: **Markdown Narrative Vault**.
 
-`revela-narrative/` is the visible, editable canonical narrative source when present. `compileNarrativeVault` compiles Markdown nodes deterministically into `NarrativeStateV1`; Story, Research, Make, Review, readiness, hashing, approval checks, and artifact coverage continue to consume that stable internal interface.
+`revela-narrative/` is the visible, editable canonical narrative source when present. `compileNarrativeVault` compiles Markdown nodes deterministically into `NarrativeStateV1`; Story, Research, Make, Review, hashing, diagnostics, and artifact coverage continue to consume that stable internal interface.
 
 Initial vault shape:
 
@@ -158,11 +159,11 @@ Structured helper role:
 - Display localization may translate selected-claim cards, but must preserve claim ids, relation endpoints, source facts, quotes, findings paths, URLs, numbers, and canonical evidence boundaries.
 - Do not write artifacts from Story mode.
 
-`make --<target>` means render artifacts from canonical narrative state.
+`make --<target>` means render artifacts from canonical narrative state and, for decks, the current `deck-plan/` projection when present.
 
 - Supported targets are `--deck` and `--brief`.
-- Check story readiness, approval state, stale approval, and explicit render override before rendering.
-- Deck rendering compiles slide specs from narrative claims/evidence and then runs deck/artifact gates plus HTML contract protections.
+- Report narrative, evidence, deck-plan, and artifact alignment diagnostics before rendering, but do not treat missing approvals, stale approvals, unconfirmed plans, research gaps, or cached state incompleteness as workflow blockers; these approval concepts are migration targets to remove.
+- Deck rendering uses canonical narrative plus `deck-plan/` projection and then runs technical artifact checks such as HTML contract protections.
 - Brief rendering compiles from canonical narrative state and graph-backed claim/evidence relationships, not from a deck summary.
 
 `review` means post-artifact reading, inspection, commenting, and asset-assisted editing.
@@ -252,7 +253,7 @@ Do not use `[[supports:claim-a]]`; Obsidian treats that as a page id instead of 
 - ~~Workspace graph projection: extend the narrative vault graph output to include deck-plan projection nodes and artifact relations without adding them to `NarrativeStateV1`. `compileNarrativeVault` should keep canonical narrative state limited to audience, decision, thesis, claims, evidence, objections, risks, research gaps, and claim relations, while `graph.nodes`/`graph.relations` can include `deck-plan` and `deck-plan-slide` nodes with render-layer relation types such as `uses_claim`, `uses_evidence`, `addresses_risk`, `answers_objection`, and `mentions_gap`. Deck-plan changes must not affect narrative hash or narrative approval.~~
 - ~~Deck-plan reader contract: `readDeckPlan` reads `deck-plan/index.md` and `deck-plan/slides/*.md` without regenerating or writing state. It returns chapter map, slide files, slide indexes, narrative links, broken/unknown links, missing claim/evidence coverage, stale `narrativeHash` diagnostics, and HTML identity guidance. Diagnostics are advisory warnings unless they are artifact validity errors handled by HTML/Artifact QA.~~
 - ~~Gate simplification contract: remove deck-plan approval as a required workflow gate. `confirmDeckPlan` should become deprecated compatibility behavior or a no-op/provenance helper, and `writeReadiness`/review should not block solely because the plan is missing, unconfirmed, stale, or has incomplete links. These conditions should be explicit diagnostics/warnings so the user can decide whether to continue. Artifact QA hard errors remain blocking because they represent invalid generated files, not workflow approval.~~
-- ~~Compiler contract: demote deterministic slide-list generation from `compileDeckPlan`; expose approved narrative claims, evidence bindings, objections, risks, research gaps, source trace, unsupported scope, caveats, and deck-plan requirements so the LLM can group claims into an executive deck plan without expanding every central claim into a fixed slide bundle.~~
+- ~~Compiler contract: demote deterministic slide-list generation from `compileDeckPlan`; expose canonical narrative claims, evidence bindings, objections, risks, research gaps, source trace, unsupported scope, caveats, and deck-plan requirements so the LLM can group claims into an executive deck plan without expanding every central claim into a fixed slide bundle.~~
 - ~~Anti-filler contract: chapter divider or chapter TOC slides are allowed as structural wayfinding, but they do not count toward claim substance. Do not pad weak chapters with placeholder pages, repeated thesis pages, generic implication pages, or bridge slides that do not carry a distinct claim, evidence item, boundary, risk, or decision action. If a central claim cannot support a full chapter, stop at plan review and require one of: merge with another claim, run research, narrow the claim, or explicitly accept a shorter chapter.~~
 - ~~Evidence trace contract: visible source notes are not enough. Evidence-sensitive claim chapters should preserve canonical evidence ids, quote/snippet, source path or URL when known, location when known, support scope, unsupported scope, caveat, and strength. Generic source labels such as "public research" or "company statements" should remain a gap unless backed by canonical evidence bindings.~~
 - ~~Executive-facing boundary contract: evidence boundaries and research gaps must shape the recommendation, caveat note, speaker notes, appendix, or Review/Insight context; do not leak internal diagnostic labels such as `Evidence gap:`, `Unsupported scope:`, `Caveat:`, `Missing Data`, or raw internal-data checklists into normal executive slide body copy.~~
@@ -261,16 +262,22 @@ Do not use `[[supports:claim-a]]`; Obsidian treats that as a page id instead of 
 - ~~Plan quality: add checks such as `claim_chapters_present`, `claim_chapters_min_three_slides`, `claim_chapter_evidence_visible`, `claim_chapter_not_padded_by_filler`, and `claim_chapter_boundary_visible`. If a claim cannot support a three-slide chapter, stop at plan review with a merge/research/scope-narrowing/shorter-chapter decision instead of creating sparse filler.~~
 - ~~Artifact quality: generated HTML must pass browser QA before Review/Export. Treat systematic `scrollbar/page_scroll` failures, even when the deck looks visually complete, as make-deck quality regressions. Regression coverage should include fixed-canvas fit, no page-level scrollbars, and no artifact generation that hides overflow problems behind attractive layouts.~~
 - ~~Tests: update `tests/narrative-state.test.ts` to assert central-claim chapters, minimum three slides per claim chapter, TOC/chapter alignment, visible evidence gaps when support is missing, and preserved `content.data.visualIntent` plus `visuals[]`. Add regression coverage for anti-filler plan quality, deck-render skill chapter-by-chapter prompt rules, and artifact QA failures such as all-slide `scrollbar/page_scroll`.~~
+- File-native workflow contract: remove `DECKS.json` as a product state center. New workflow authority should come from files: `revela-narrative/` for meaning, `deck-plan/` for render planning, `decks/*.html` for artifacts, `researches/` for findings, and `assets/` for media. Do not preserve `activeDeck`, cached `slides[]`, `requiredInputs`, `writeReadiness`, `planReview`, or approval fields as workflow authority.
+- Gate removal contract: remove narrative approval, stale approval, deck-plan confirmation, write readiness, required-input, research-complete, and cached-slide completeness gates. These states may be reported as diagnostics while they exist, but they must not block `init`, `research`, `story`, `make`, `review`, or `export` when the user chooses to proceed.
+- Hard-blocker boundary: retain blockers only for technical artifact validity, data-safety/integrity protections, and executable preconditions. Examples: missing/ambiguous file path, invalid HTML contract, invalid slide identity or DOM order, canvas/overflow/export failure, malformed vault frontmatter, invalid JSON/Markdown writes, or filesystem errors.
+- File-native command behavior: `review` and `export` should be path-based or discover `decks/*.html` from the filesystem; `make --deck` should resolve output path from user input, `deck-plan/index.md`, or a deterministic default; `story` should compile `revela-narrative/` plus `deck-plan/` graph projection without `DECKS.json`.
+- Tool cleanup: audit and remove or replace `upsertDeck`, `upsertSlides`, `confirmDeckPlan`, `approveNarrative`, `requiredInputs`, `writeReadiness`, `planReview`, `slidePlanConfirmed`, `narrativeApprovals`, active-deck lookup, render-target lookup, and `DECKS.json` creation/read/write paths. If temporary tool metadata is still needed, move it to file-native runtime/cache storage outside the workflow model.
+- Test cleanup: delete blocker tests for missing approval, stale approval, unconfirmed deck plan, missing required inputs, unread research, missing cached slides, or `DECKS.json.slides[]` count mismatch. Add no-`DECKS.json` happy paths for `init`, `research`, `story`, `make`, `review`, and `export`, plus diagnostics-do-not-block tests and retained technical-blocker tests.
 
 ### 0.17.3 Coverage-Driven Remake Decisions
 
 - Add coverage-driven make/review/remake decisions using artifact coverage and narrative hash staleness.
 - Make artifact coverage status influence whether `/revela make --deck`, `/revela review --deck`, or remake guidance is the next safest action.
-- Keep coverage diagnostics explicit: current/stale/partial/missing artifact coverage, missing claim ids, affected claim ids, stale reasons, and next actions.
+- Keep coverage diagnostics explicit: current/stale/partial/missing artifact coverage, missing claim ids, affected claim ids, stale reasons, and next actions. Coverage should guide user decisions, not become a workflow permission gate.
 
 ### 0.17.4 Command Surface And Positioning Cleanup
 
-- Decide `/revela make --deck --desc "..."` behavior, either explicitly unsupported or implemented as intent seeding that does not bypass grounding/readiness/approval.
+- Decide `/revela make --deck --desc "..."` behavior, either explicitly unsupported or implemented as intent seeding that does not bypass grounding diagnostics.
 - Clean up product positioning and docs so decks are consistently described as render targets from trusted narrative state, not the durable source of truth.
 
 ### 0.17.5 Review Prep Extensions
@@ -280,7 +287,7 @@ Do not use `[[supports:claim-a]]`; Obsidian treats that as a page id instead of 
 
 ## Tool And State Rules
 
-- Do not patch `DECKS.json` directly. Use `revela-decks` actions or internal state helpers.
+- `DECKS.json` is no longer target product state. Do not add new workflow authority there; remove or replace existing reads/writes during the file-native migration.
 - Do not require generated deck HTML to match cached `DECKS.json.slides[]` length during chapter-by-chapter authoring; partial artifacts are allowed when written slide identities are valid. The render execution plan should come from `deck-plan/` projection Markdown when present, not from cached `DECKS.json.slides[]`.
 - `deck-plan/` is render-layer projection state. It may link to canonical narrative nodes for coverage and traceability, but it must not be compiled into `NarrativeStateV1` or affect narrative approval hashes.
 - Do not patch generated cache files as source. Edit `revela-narrative/**/*.md` for narrative meaning and regenerate compiled projections.

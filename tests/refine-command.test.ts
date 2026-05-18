@@ -203,7 +203,7 @@ describe("openRefineDeck", () => {
     expect(result.openedBrowser).toBe(false)
   })
 
-  it("opens the active render target instead of requiring a single fallback deck", () => {
+  it("opens an explicit deck path even when multiple deck files exist", () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "active.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Active</h2></section></body></html>", "utf-8")
     writeFileSync(join(root, "decks", "other.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Other</h2></section></body></html>", "utf-8")
@@ -222,7 +222,7 @@ describe("openRefineDeck", () => {
     }])
     writeDecksState(root, state)
 
-    const result = openRefineDeck("", {
+    const result = openRefineDeck("decks/active.html", {
       client: { session: { prompt: async () => undefined } },
       sessionID: "session-1",
       workspaceRoot: root,
@@ -230,7 +230,7 @@ describe("openRefineDeck", () => {
     })
 
     expect(result.deck.file).toBe("decks/active.html")
-    expect(result.deck.source).toBe("render-target")
+    expect(result.deck.source).toBe("file-path")
   })
 
   it("refuses to open the active deck when slide identity does not match DECKS.json", () => {

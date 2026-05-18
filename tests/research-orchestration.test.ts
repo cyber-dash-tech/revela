@@ -20,10 +20,10 @@ describe("primary research orchestration skill", () => {
     expect(skill).toContain("save findings through `revela-research-save`")
   })
 
-  it("requires Task-based read-only narrative reviewer invocation", () => {
+  it("uses narrative diagnostics without approval gates", () => {
     expect(skill).toContain("call `revela-decks` action `reviewNarrative`")
     expect(skill).toContain("report the tool result as authoritative")
-    expect(skill).toContain("Do not approve automatically")
+    expect(skill).toContain("Do not ask the user for narrative approval")
   })
 
   it("does not force research agents as the first action", () => {

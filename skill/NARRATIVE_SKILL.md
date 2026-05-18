@@ -8,7 +8,7 @@ compatibility: opencode
 
 You help the user turn source materials, research, data, and intent into trusted, traceable, presentation-ready decision artifacts.
 
-Decks are important, but they are render targets. When `revela-narrative/` exists, the durable editable source of truth is the Markdown narrative vault. Internally Revela compiles that vault into canonical narrative state: audience, decision, thesis, claims, evidence boundaries, objections, risks, research gaps, approval provenance, and artifact coverage.
+Decks are important, but they are render targets. When `revela-narrative/` exists, the durable editable source of truth is the Markdown narrative vault. Internally Revela compiles that vault into canonical narrative state: audience, decision, thesis, claims, evidence boundaries, objections, risks, research gaps, diagnostics, and artifact coverage.
 
 Default mode is narrative-first. Do not generate HTML slides, choose layouts, fetch design CSS/components, or ask for slide count unless the user explicitly enters `/revela make --deck` or asks for design work.
 
@@ -18,8 +18,8 @@ Use the same phase semantics whether the user invokes a slash command or asks in
 
 - `Init` discovers local workspace materials, captures intent, initializes or refreshes workspace state, and creates conservative narrative state only from explicit user statements or source traces.
 - `Research` runs closed loops to fill open story gaps, bind supported findings into canonical evidence, narrow overbroad claims/relations, and reduce caveats without crossing evidence boundaries.
-- `Story` opens the read-only story workspace UI for inspecting claim flow, evidence strength, unsupported scope, caveats, objections, risks, research gaps, approval state, and affected artifacts.
-- `Make` renders an artifact from approved or explicitly overridden narrative state. Supported 0.15 targets are deck and executive brief.
+- `Story` opens the read-only story workspace UI for inspecting claim flow, evidence strength, unsupported scope, caveats, objections, risks, research gaps, diagnostics, and affected artifacts.
+- `Make` renders an artifact from canonical narrative state and current diagnostics. Supported targets are deck and executive brief.
 - `Review` is the post-artifact workspace for reading, insight, and targeted commenting. Pure visual polish may patch artifacts; meaning changes must update narrative first and then remake the artifact.
 
 Public command surface:
@@ -39,7 +39,7 @@ Deprecated compatibility aliases such as `/revela review`, `/revela narrative`, 
 
 ## Workspace State
 
-Use `DECKS.json` as Revela's compatibility workspace-state and render-state file. Do not write or patch it directly. Use `revela-narrative/**/*.md` as the primary authoring path for narrative meaning; compile the vault to refresh graph/cache and the `DECKS.json.narrative` mirror.
+Use `revela-narrative/**/*.md` as the primary authoring path for narrative meaning. `DECKS.json` is legacy/cache state during the file-native migration; do not create or update it as workflow authority.
 
 Use `revela-decks` for state operations:
 
@@ -55,12 +55,12 @@ Use `revela-decks` for state operations:
 - `deriveResearchGaps`, `upsertResearchGaps`, `updateResearchGap`, and `closeResearchGap` are compatibility helpers; prefer `updateVaultResearchGap` for canonical gap lifecycle updates
 - `attachResearchFindings` to attach saved findings to research state
 - `applyEvidenceCandidates` is compatibility-only; prefer `upsertVaultEvidence` with explicit source trace for canonical support
-- `approveNarrative` only when the user explicitly approves or requests an override
-- `compileDeckPlan`, `upsertDeck`, `upsertSlides`, and `review` only inside make-deck or artifact-readiness workflows
+- `compileDeckPlan` and `readDeckPlan` inside make-deck workflows
+- `upsertDeck`, `upsertSlides`, `approveNarrative`, `confirmDeckPlan`, and `review` are legacy/compatibility helpers; do not use them as workflow gates
 
-Never treat `writeReadiness.status`, old review snapshots, existing `decks/*.html`, workspace scans, extraction cache paths, or saved research actions as narrative approval or proof by themselves.
+Never treat `writeReadiness.status`, old review snapshots, existing `decks/*.html`, workspace scans, extraction cache paths, approval fields, or saved research actions as workflow permission or proof by themselves.
 
-When a tool returns `vaultDiagnostics` or `diagnosticReport`, report blockers before narrative readiness or artifact work. Each diagnostic already includes file/node context, severity, suggested fix, and next action. Do not hide missing evidence, incomplete source trace, broken links, stale approvals, or unresolved research gaps by inventing content.
+When a tool returns `vaultDiagnostics` or `diagnosticReport`, report diagnostics before artifact work. Each diagnostic already includes file/node context, severity, suggested fix, and next action. Do not hide missing evidence, incomplete source trace, broken links, stale artifacts, or unresolved research gaps by inventing content.
 
 ## Init Rules
 
@@ -75,7 +75,7 @@ During init:
 - write `## Relations` sections with plain node-id wikilinks such as `- supports: [[claim-example]]`, `- depends_on: [[evidence-example]]`, `- answers: [[claim-example]]`, or `- constrains: [[claim-example]]` when the relation is explicit; do not use typed wikilinks or hand-written relation ids; compile and fix diagnostics after editing Markdown
 - ask the smallest missing intent questions after local evidence has been considered
 - do not require slide count, design choice, layout choice, output path, or visual style unless the user explicitly asks to make an artifact immediately
-- when exporting a vault, say that approvals, render targets, reviews, artifact coverage, actions, deck specs, and source material records remain in `DECKS.json`
+- when exporting a vault, say that any legacy render targets, reviews, artifact coverage, actions, deck specs, and source material records in `DECKS.json` are cache/provenance only
 
 ## Research Rules
 
@@ -108,27 +108,27 @@ Use this report shape:
 - blockers first, with issue type, claim text when available, and suggested next action
 - warnings second, as residual risks
 - research gaps and unattached findings as next work
-- approval state last, clearly distinguishing `ready_for_approval`, `approved`, stale approval, and render override
+- artifact/deck-plan alignment diagnostics last, without approval-gate language
 
 If evidence is missing, say what is missing and what should happen next. Do not invent quotes, sources, page locations, URLs, caveats, or research findings.
 
-If the narrative is ready for approval, ask the user whether to approve or revise it. Do not approve automatically.
+Do not ask the user for narrative approval. If narrative, deck-plan, or artifact alignment is uncertain, report the diagnostic and let the user decide whether to continue or revise.
 
 ## Make Rules
 
 For `/revela make --deck` deck handoff:
 
 - switch to deck-render mode through the command workflow
-- check narrative readiness and current approval before compiling deck specs
-- stop before deck planning when `vaultDiagnostics.blockers` exist; report the Markdown file/node/code and suggested next action
+- report narrative and evidence diagnostics before compiling deck-plan requirements
+- report `vaultDiagnostics` with Markdown file/node/code and suggested next action; only malformed or unsafe files are hard blockers
 - use `compileDeckPlan` as the canonical narrative-to-deck planning path
-- run the deck/artifact gate with `revela-decks review` before writing HTML
-- fetch design layouts/components only after narrative handoff is valid
-- keep the HTML deck contract valid: one `<section class="slide">` per slide, canonical 1-based `data-slide-index`, and matching `DECKS.json` slide specs
+- run artifact diagnostics when useful before writing HTML
+- fetch design layouts/components before HTML writing
+- keep the HTML deck contract valid: one `<section class="slide">` per slide, canonical 1-based `data-slide-index`, unique indexes, increasing DOM order, and valid canvas
 
 For `/revela make --brief`, render the executive brief from canonical narrative state and graph-backed claim/evidence relationships, not from a deck summary.
 
-If story readiness, approval, evidence, or artifact blockers remain, report the blocker and suggest `/revela story`, `/revela research`, or a targeted user answer. Do not bypass with invented state.
+If narrative, evidence, deck-plan, or artifact diagnostics remain, report them and suggest `/revela story`, `/revela research`, or a targeted user answer. Do not bypass with invented state; only technical/safety/executable failures are hard blockers.
 
 ## Review Rules
 
@@ -136,7 +136,7 @@ Use `/revela review --deck` for post-artifact reading, insight, and commenting.
 
 - Reading should explain source, support strength, caveat, unsupported scope, narrative purpose, related risks/objections, research gaps, and artifact coverage.
 - Pure artifact polish may stay artifact-level: layout, typography, spacing, crop, visual hierarchy, export mechanics, and deck contract fixes.
-- Meaning-changing edits must update canonical narrative first, then run story readiness/approval or explicit override, then remake affected artifacts.
+- Meaning-changing edits must update canonical narrative first, then report alignment diagnostics before remaking affected artifacts.
 - `/revela edit` and `/revela inspect` have been removed from the public surface; use `/revela review --deck`.
 
 ## Design Surface
@@ -148,7 +148,7 @@ Do not inject design CSS, layout catalogs, component indexes, chart rules, or de
 ## Boundaries
 
 - Do not write or overwrite `decks/*.html` in narrative mode.
-- Do not call `revela-decks review` in story mode; that is the deck/artifact gate.
+- Do not call `revela-decks review` in story mode; it is legacy deck/artifact diagnostics.
 - Do not apply evidence candidates, bind evidence, or rewrite slide text unless the user explicitly asks or the active workflow requires it with clear support.
 - Do not store secrets, credentials, tokens, or sensitive personal information.
 - Do not infer long-term user preferences from one-off tasks.

@@ -140,7 +140,7 @@ describe("parsePptxArgs", () => {
 })
 
 describe("resolvePptxDeck", () => {
-  it("uses DECKS.json active deck outputPath first", () => {
+  it("ignores DECKS.json active deck and requires explicit path when multiple HTML files exist", () => {
     const tempRoot = tempWorkspace("revela-pptx-command-test-")
 
     try {
@@ -167,7 +167,8 @@ describe("resolvePptxDeck", () => {
         },
       }))
 
-      expect(resolvePptxDeck(tempRoot)).toMatchObject({ file: "decks/state.html", source: "render-target" })
+      expect(() => resolvePptxDeck(tempRoot)).toThrow("multiple deck HTML files")
+      expect(resolvePptxDeck(tempRoot, "decks/state.html")).toMatchObject({ file: "decks/state.html", source: "file-path" })
     } finally {
       rmSync(tempRoot, { recursive: true, force: true })
     }
@@ -206,7 +207,7 @@ describe("buildPptxNotesPrompt", () => {
     const prompt = buildPptxNotesPrompt({
       file: "decks/demo.html",
       absoluteFile: "/workspace/decks/demo.html",
-      source: "fallback",
+      source: "discovered",
     })
 
     expect(prompt).toContain("revela-pptx")

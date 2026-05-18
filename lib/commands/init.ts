@@ -86,7 +86,7 @@ Memory rules:
 - Only write user preferences if the user explicitly stated that Revela should remember them.
 - Do not infer personal preferences from one-off requests.
 - Do not store secrets, credentials, API keys, tokens, account details, or sensitive personal information.
-- Do not mark narrative approval, render override, or writeReadiness as ready during init.
+- Do not create or update approval, render override, or writeReadiness workflow state during init.
 - Treat this workspace as a single deck project. If the user wants another deck, guide them to create another workspace/folder rather than adding a second deck record.
 - If new evidence conflicts with existing memory, preserve both briefly and add an Open Question instead of silently overwriting.
 
