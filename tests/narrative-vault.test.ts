@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { mkdirSync, readFileSync, writeFileSync } from "fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 import { readDecksState, writeDecksState } from "../lib/decks-state"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
@@ -328,7 +328,7 @@ Evidence:
     })
   })
 
-  it("tool action initializes a vault, cache, and hydrated DECKS runtime state for new workspaces", async () => {
+  it("tool action initializes a vault and cache without creating DECKS.json for new workspaces", async () => {
     const root = tempWorkspace("revela-vault-tool-bootstrap-")
 
     const result = await executeDecksTool({
@@ -339,8 +339,7 @@ Evidence:
         thesis: { statement: "Record findings early and leave gaps visible.", confidence: "medium" },
       },
     }, root)
-    const written = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
-    const hydrated = readDecksState(root)
+    const compiled = compileNarrativeVault(root)
 
     expect(result.ok).toBe(true)
     expect(result.created).toBe(true)
@@ -349,8 +348,8 @@ Evidence:
     expect(result.authoringContract.forbiddenCompatibilityActions).toContain("upsertResearchGaps")
     expect(result.authoringContract.idConvention.avoid).toContain("claim:belief-change-purpose")
     expect(result.nextActions).toContain("Treat workspace source material records as candidates until explicit evidence trace is written.")
-    expect(written.narrative).toBeUndefined()
-    expect(hydrated.narrative?.audience.primary).toBe("Product leadership")
+    expect(existsSync(join(root, "DECKS.json"))).toBe(false)
+    expect(compiled.narrative?.audience.primary).toBe("Product leadership")
     expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("Product leadership")
   })
 
@@ -414,7 +413,6 @@ Evidence:
     const qa = await executeDecksTool({ action: "markdownQa", markdownQaScope: "full", markdownQaStrictness: "readiness" }, root)
     const compiled = await executeDecksTool({ action: "compileNarrativeVault" }, root)
     const inventory = await executeDecksTool({ action: "narrativeInventory" }, root)
-    const persisted = JSON.parse(readFileSync(join(root, "DECKS.json"), "utf-8"))
 
     expect(qa.markdownQa.blockers).toEqual([])
     expect(inventory.narrativeInventory.relationCoverage.danglingEdges).toEqual([])
@@ -424,7 +422,7 @@ Evidence:
     expect(compiled.result.narrative.claims).toContainEqual(expect.objectContaining({ id: "claim-market-demand", evidenceStatus: "missing", unsupportedScope: "External demand validation is missing." }))
     expect(compiled.result.narrative.researchGaps).toContainEqual(expect.objectContaining({ id: "gap-market-demand", targetId: "claim-market-demand", status: "open" }))
     expect(compiled.diagnosticReport.warnings).toContainEqual(expect.objectContaining({ code: "claim_missing_evidence", nodeId: "claim-market-demand" }))
-    expect(persisted.narrative).toBeUndefined()
+    expect(existsSync(join(root, "DECKS.json"))).toBe(false)
   })
 
   it("persists approvals outside the DECKS narrative mirror in vault workspaces", async () => {

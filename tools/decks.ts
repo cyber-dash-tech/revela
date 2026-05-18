@@ -1,10 +1,12 @@
 import { tool } from "@opencode-ai/plugin"
 import {
+  createEmptyDecksState,
   createDeckSpec,
   confirmDeckPlan,
   DECKS_STATE_FILE,
+  hasDecksState,
   normalizeWorkspaceDeckState,
-  readOrCreateDecksState,
+  readDecksState,
   reviewDeckState,
   upsertDeck,
   upsertSlides,
@@ -349,7 +351,14 @@ export default tool({
   async execute(args, context) {
     try {
       const workspaceRoot = context.directory ?? process.cwd()
-      let state = normalizeWorkspaceDeckState(readOrCreateDecksState(workspaceRoot), workspaceRoot)
+      const loadState = () => hasDecksState(workspaceRoot) ? readDecksState(workspaceRoot) : createEmptyDecksState()
+      let state = normalizeWorkspaceDeckState(loadState(), workspaceRoot)
+      const persistState = (next: DecksState) => {
+        state = normalizeWorkspaceDeckState(next, workspaceRoot)
+        if (hasDecksState(workspaceRoot)) writeDecksState(workspaceRoot, state)
+        return hasDecksState(workspaceRoot)
+      }
+      const mirrorOptions = (extra: Record<string, unknown> = {}) => hasDecksState(workspaceRoot) ? { state, ...extra } : extra
       const defaultSlug = workspaceDeckSlug(workspaceRoot)
 
       if (args.action === "init") {
@@ -369,8 +378,8 @@ export default tool({
             nodeIds: discovered.map((material) => `source:${material.path}`),
           })
         }
-        writeDecksState(workspaceRoot, state)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, ingest, state }, null, 2)
+        const persisted = persistState(state)
+        return JSON.stringify({ ok: true, path: persisted ? DECKS_STATE_FILE : undefined, persisted, ingest, state }, null, 2)
       }
 
       if (args.action === "read") {
@@ -405,7 +414,7 @@ export default tool({
       }
 
       if (args.action === "compileNarrativeVault") {
-        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
+        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, mirrorOptions())
         const { result, diagnosticReport } = compiled
         const markdownQa = hasNarrativeVault(workspaceRoot) ? runNarrativeMarkdownQa(workspaceRoot) : undefined
         const narrativeInventory = hasNarrativeVault(workspaceRoot) ? buildNarrativeVaultInventory(workspaceRoot) : undefined
@@ -416,7 +425,7 @@ export default tool({
         if (hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "revela-narrative/ already exists. Edit Markdown nodes directly or move the existing vault before exporting." })
         const narrative = state.narrative ?? normalizeNarrativeState(state)
         const result = exportNarrativeStateToVault(workspaceRoot, narrative)
-        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state, fallbackApprovals: narrative.approvals })
+        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, mirrorOptions({ fallbackApprovals: narrative.approvals }))
         return JSON.stringify({
           ok: compiled.result.ok,
           path: "revela-narrative",
@@ -436,7 +445,7 @@ export default tool({
 
       if (args.action === "initNarrativeVault") {
         if (hasNarrativeVault(workspaceRoot)) {
-          const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
+          const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, mirrorOptions())
           return JSON.stringify({ ok: true, path: "revela-narrative", created: false, files: [], diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract(), nextActions: ["Inspect narrativeInventory before authoring; reuse existing ids and relation targets.", "Maintain Markdown nodes directly when useful, then run compileNarrativeVault. Use structured vault helpers only when they reduce schema risk."], narrative: compiled.result.narrative }, null, 2)
         }
         const result = initNarrativeVault(workspaceRoot, {
@@ -446,7 +455,7 @@ export default tool({
           decision: args.narrative?.decision as any,
           thesis: args.narrative?.thesis as any,
         })
-        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
+        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, mirrorOptions())
         return JSON.stringify({ ok: compiled.result.ok, path: result.path, created: result.created, files: result.files, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract(), nextActions: ["Inspect narrativeInventory before adding claims, evidence, relations, or research gaps; reuse existing ids where possible.", "Maintain Markdown nodes directly when useful. Use structured vault helpers for evidence binding or when they reduce schema risk.", "Treat workspace source material records as candidates until explicit evidence trace is written."], narrative: compiled.result.narrative }, null, 2)
       }
 
@@ -455,7 +464,7 @@ export default tool({
         if (!args.evidence) return JSON.stringify({ ok: false, error: "evidence is required for upsertVaultEvidence" })
         const mutation = upsertVaultEvidenceNode(workspaceRoot, args.evidence as any)
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
-        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
+        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, mirrorOptions())
         return JSON.stringify({ ok: compiled.result.ok, path: mutation.file, mutation, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrative: compiled.result.narrative }, null, 2)
       }
 
@@ -496,7 +505,7 @@ export default tool({
             notes: gap.notes,
           })
           : undefined
-        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
+        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, mirrorOptions())
         return JSON.stringify({
           ok: compiled.result.ok,
           path: mutation.file,
@@ -522,7 +531,7 @@ export default tool({
           notes: args.gapNotes,
         })
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation, recovery: researchGapHelperRecovery("updateVaultResearchGap", mutation.missingFields), narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract() }, null, 2)
-        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
+        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, mirrorOptions())
         return JSON.stringify({ ok: compiled.result.ok, path: mutation.file, mutation, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrative: compiled.result.narrative }, null, 2)
       }
 
@@ -545,7 +554,7 @@ export default tool({
           if (!mutation.ok) return JSON.stringify({ ok: false, mutation, recovery: researchGapHelperRecovery("upsertVaultResearchGap", mutation.missingFields), narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract() }, null, 2)
           mutations.push(mutation)
         }
-        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
+        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, mirrorOptions())
         return JSON.stringify({ ok: compiled.result.ok, path: mutations[0]?.file, mutation: mutations[0], mutations, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, authoringContract: narrativeVaultAuthoringContract(), narrative: compiled.result.narrative }, null, 2)
       }
 
@@ -561,7 +570,7 @@ export default tool({
           rationale: relation.rationale,
         })
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation, recovery: relationHelperRecovery("upsertVaultRelation", mutation.missingFields), narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract() }, null, 2)
-        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
+        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, mirrorOptions())
         return JSON.stringify({ ok: compiled.result.ok, path: mutation.file, mutation, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract(), narrative: compiled.result.narrative }, null, 2)
       }
 
@@ -571,7 +580,7 @@ export default tool({
         if (!relationId) return JSON.stringify({ ok: false, error: "relationId or relation.id is required for removeVaultRelation", recovery: relationHelperRecovery("removeVaultRelation"), narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract() }, null, 2)
         const mutation = removeVaultRelation(workspaceRoot, relationId)
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation, recovery: relationHelperRecovery("removeVaultRelation", mutation.missingFields), narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract() }, null, 2)
-        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
+        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, mirrorOptions())
         return JSON.stringify({ ok: compiled.result.ok, path: mutation.file, mutation, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrativeInventory: buildNarrativeVaultInventory(workspaceRoot), authoringContract: narrativeVaultAuthoringContract(), narrative: compiled.result.narrative }, null, 2)
       }
 
@@ -584,7 +593,7 @@ export default tool({
           : undefined
         const mutation = upsertVaultClaimNode(workspaceRoot, claim)
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
-        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
+        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, mirrorOptions())
         return JSON.stringify({ ok: compiled.result.ok, path: mutation.file, mutation, relationHint, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrative: compiled.result.narrative }, null, 2)
       }
 
@@ -594,7 +603,7 @@ export default tool({
         if (!objection?.id) return JSON.stringify({ ok: false, error: "narrative.objections[0].id is required for upsertVaultObjection" })
         const mutation = upsertVaultObjectionNode(workspaceRoot, objection)
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
-        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
+        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, mirrorOptions())
         return JSON.stringify({ ok: compiled.result.ok, path: mutation.file, mutation, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrative: compiled.result.narrative }, null, 2)
       }
 
@@ -604,7 +613,7 @@ export default tool({
         if (!risk?.id) return JSON.stringify({ ok: false, error: "narrative.risks[0].id is required for upsertVaultRisk" })
         const mutation = upsertVaultRiskNode(workspaceRoot, risk)
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
-        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
+        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, mirrorOptions())
         return JSON.stringify({ ok: compiled.result.ok, path: mutation.file, mutation, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrative: compiled.result.narrative }, null, 2)
       }
 
@@ -612,7 +621,7 @@ export default tool({
         if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "updateVaultCoreNarrative requires revela-narrative/ to exist. Use initNarrativeVault first." })
         const mutation = updateVaultCoreNodes(workspaceRoot, args.narrative as any ?? {})
         if (!mutation.ok) return JSON.stringify({ ok: false, mutation }, null, 2)
-        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, { state })
+        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, mirrorOptions())
         return JSON.stringify({ ok: compiled.result.ok, path: mutation.file, mutation, diagnostics: compiled.result.diagnostics, diagnosticReport: compiled.diagnosticReport, narrative: compiled.result.narrative }, null, 2)
       }
 
@@ -638,16 +647,16 @@ export default tool({
           researchPlan: (args.researchPlan as ResearchAxis[] | undefined) ?? existing?.researchPlan,
         }
         const next = upsertDeck(state, deckInput)
-        writeDecksState(workspaceRoot, next)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, deck: next.activeDeck ? next.decks[next.activeDeck] : undefined }, null, 2)
+        const persisted = persistState(next)
+        return JSON.stringify({ ok: true, path: persisted ? DECKS_STATE_FILE : undefined, persisted, deck: state.activeDeck ? state.decks[state.activeDeck] : undefined }, null, 2)
       }
 
       if (args.action === "upsertSlides") {
         const deckKey = state.activeDeck || defaultSlug
         if (!args.slides) return JSON.stringify({ ok: false, error: "slides are required for upsertSlides" })
         const next = upsertSlides(state, deckKey, args.slides as SlideSpec[])
-        writeDecksState(workspaceRoot, next)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, deck: next.activeDeck ? next.decks[next.activeDeck] : undefined }, null, 2)
+        const persisted = persistState(next)
+        return JSON.stringify({ ok: true, path: persisted ? DECKS_STATE_FILE : undefined, persisted, deck: state.activeDeck ? state.decks[state.activeDeck] : undefined }, null, 2)
       }
 
       if (args.action === "upsertNarrative") {
@@ -680,8 +689,8 @@ export default tool({
           summary: `Reviewed deck readiness: ${reviewed.result.ready ? "ready" : "blocked"}.`,
           nodeIds: [`artifact:${reviewed.state.decks[reviewed.result.slug]?.outputPath ?? reviewed.result.slug}`, ...(snapshot ? [snapshot.id] : [])],
         })
-        writeDecksState(workspaceRoot, reviewed.state)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: reviewed.result }, null, 2)
+        const persisted = persistState(reviewed.state)
+        return JSON.stringify({ ok: true, path: persisted ? DECKS_STATE_FILE : undefined, persisted, result: reviewed.result }, null, 2)
       }
 
       if (args.action === "compileDeckPlan") {
@@ -707,8 +716,8 @@ export default tool({
             nodeIds: [compiled.state.narrative?.id, compiled.state.activeDeck ? `artifact:${compiled.state.decks[compiled.state.activeDeck]?.outputPath ?? compiled.state.activeDeck}` : undefined].filter((item): item is string => Boolean(item)),
           })
         }
-        writeDecksState(workspaceRoot, compiled.state)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, planArtifact, result: compiled.result, deck: compiled.state.activeDeck ? compiled.state.decks[compiled.state.activeDeck] : undefined, narrative: compiled.state.narrative }, null, 2)
+        const persisted = persistState(compiled.state)
+        return JSON.stringify({ ok: true, path: persisted ? DECKS_STATE_FILE : undefined, persisted, planArtifact, result: compiled.result, deck: state.activeDeck ? state.decks[state.activeDeck] : undefined, narrative: state.narrative }, null, 2)
       }
 
       if (args.action === "readDeckPlan") {
@@ -750,14 +759,14 @@ export default tool({
             nodeIds: [confirmed.state.narrative?.id, confirmed.result.slug ? `deck:${confirmed.result.slug}` : undefined].filter((item): item is string => Boolean(item)),
           })
         }
-        writeDecksState(workspaceRoot, confirmed.state)
-        return JSON.stringify({ ok: confirmed.result.confirmed, path: DECKS_STATE_FILE, result: confirmed.result, planArtifact: read, deck: confirmed.state.activeDeck ? confirmed.state.decks[confirmed.state.activeDeck] : undefined }, null, 2)
+        const persisted = persistState(confirmed.state)
+        return JSON.stringify({ ok: confirmed.result.confirmed, path: persisted ? DECKS_STATE_FILE : undefined, persisted, result: confirmed.result, planArtifact: read, deck: state.activeDeck ? state.decks[state.activeDeck] : undefined }, null, 2)
       }
 
       if (args.action === "backfillClaimRefs") {
         const backfilled = backfillSlideClaimRefsFromCoverage(state)
-        writeDecksState(workspaceRoot, backfilled.state)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: backfilled.result, deck: backfilled.state.activeDeck ? backfilled.state.decks[backfilled.state.activeDeck] : undefined, narrative: backfilled.state.narrative }, null, 2)
+        const persisted = persistState(backfilled.state)
+        return JSON.stringify({ ok: true, path: persisted ? DECKS_STATE_FILE : undefined, persisted, result: backfilled.result, deck: state.activeDeck ? state.decks[state.activeDeck] : undefined, narrative: state.narrative }, null, 2)
       }
 
       if (args.action === "reviewNarrative") {
@@ -765,8 +774,8 @@ export default tool({
         if (qaGate) return JSON.stringify(qaGate, null, 2)
         const reviewed = reviewNarrativeState(state)
         recordNarrativeReviewAction(reviewed.state, reviewed.result)
-        writeDecksState(workspaceRoot, reviewed.state)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: reviewed.result, narrative: reviewed.state.narrative }, null, 2)
+        const persisted = persistState(reviewed.state)
+        return JSON.stringify({ ok: true, path: persisted ? DECKS_STATE_FILE : undefined, persisted, result: reviewed.result, narrative: state.narrative }, null, 2)
       }
 
       if (args.action === "approveNarrative") {
@@ -778,15 +787,15 @@ export default tool({
           note: args.approvalNote,
         })
         recordNarrativeApprovalAction(approved.state, approved.result)
-        writeDecksState(workspaceRoot, approved.state)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: approved.result, narrative: approved.state.narrative }, null, 2)
+        const persisted = persistState(approved.state)
+        return JSON.stringify({ ok: true, path: persisted ? DECKS_STATE_FILE : undefined, persisted, result: approved.result, narrative: state.narrative }, null, 2)
       }
 
       if (args.action === "deriveResearchGaps") {
         if (hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: forbiddenVaultCompatibilityAction("deriveResearchGaps", "deriveResearchTargets for read-only target selection, then upsertVaultResearchGap for canonical gap nodes"), authoringContract: narrativeVaultAuthoringContract() })
         const derived = deriveResearchGapsFromReadiness(state)
-        writeDecksState(workspaceRoot, derived.state)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: derived.result, narrative: derived.state.narrative }, null, 2)
+        const persisted = persistState(derived.state)
+        return JSON.stringify({ ok: true, path: persisted ? DECKS_STATE_FILE : undefined, persisted, result: derived.result, narrative: state.narrative }, null, 2)
       }
 
       if (args.action === "deriveResearchTargets") {
@@ -808,8 +817,8 @@ export default tool({
         if (hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: forbiddenVaultCompatibilityAction("upsertResearchGaps", "upsertVaultResearchGap for new or updated research gap nodes"), authoringContract: narrativeVaultAuthoringContract() })
         if (!args.researchGaps?.length) return JSON.stringify({ ok: false, error: "researchGaps are required for upsertResearchGaps" })
         const upserted = upsertResearchGapsInState(state, args.researchGaps as any[])
-        writeDecksState(workspaceRoot, upserted.state)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: upserted.result, narrative: upserted.state.narrative }, null, 2)
+        const persisted = persistState(upserted.state)
+        return JSON.stringify({ ok: true, path: persisted ? DECKS_STATE_FILE : undefined, persisted, result: upserted.result, narrative: state.narrative }, null, 2)
       }
 
       if (args.action === "updateResearchGap") {
@@ -822,16 +831,16 @@ export default tool({
           evidenceBindingIds: args.evidenceBindingIds,
           notes: args.gapNotes,
         })
-        writeDecksState(workspaceRoot, updated.state)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: updated.result, narrative: updated.state.narrative }, null, 2)
+        const persisted = persistState(updated.state)
+        return JSON.stringify({ ok: true, path: persisted ? DECKS_STATE_FILE : undefined, persisted, result: updated.result, narrative: state.narrative }, null, 2)
       }
 
       if (args.action === "closeResearchGap") {
         if (hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: forbiddenVaultCompatibilityAction("closeResearchGap", "updateVaultResearchGap with gapStatus=closed"), authoringContract: narrativeVaultAuthoringContract() })
         if (!args.gapId?.trim()) return JSON.stringify({ ok: false, error: "gapId is required for closeResearchGap" })
         const closed = closeResearchGapInState(state, args.gapId, args.gapNotes)
-        writeDecksState(workspaceRoot, closed.state)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: closed.result, narrative: closed.state.narrative }, null, 2)
+        const persisted = persistState(closed.state)
+        return JSON.stringify({ ok: true, path: persisted ? DECKS_STATE_FILE : undefined, persisted, result: closed.result, narrative: state.narrative }, null, 2)
       }
 
       if (args.action === "applyEvidenceCandidates") {
@@ -858,8 +867,8 @@ export default tool({
         const preferenceType = args.preferenceType ?? "user"
         const list = state.workspace.preferences[preferenceType]
         if (!list.some((entry) => entry.trim().toLowerCase() === memory.toLowerCase())) list.push(memory)
-        writeDecksState(workspaceRoot, state)
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, preferenceType, memory }, null, 2)
+        const persisted = persistState(state)
+        return JSON.stringify({ ok: true, path: persisted ? DECKS_STATE_FILE : undefined, persisted, preferenceType, memory }, null, 2)
       }
 
       return JSON.stringify({ ok: false, error: `Unsupported action: ${args.action}` })

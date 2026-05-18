@@ -31,9 +31,11 @@ describe("buildInitPrompt", () => {
   it("instructs the agent to scan workspace and initialize narrative state", () => {
     const prompt = buildInitPrompt({ exists: false, workspaceRoot: "/workspace/project" })
     expect(prompt).toContain("Initialize Revela narrative workspace state")
+    expect(prompt).toContain("file-native source inventory")
     expect(prompt).toContain("revela-workspace-scan")
     expect(prompt).toContain("revela-extract-document-materials")
-    expect(prompt).toContain("DECKS.json")
+    expect(prompt).toContain("do not create DECKS.json")
+    expect(prompt).not.toContain("Build or refresh DECKS.json")
     expect(prompt).toContain("primary audience")
     expect(prompt).toContain("belief before/after")
     expect(prompt).toContain("decision/action")
@@ -44,7 +46,7 @@ describe("buildInitPrompt", () => {
     expect(prompt).toContain("Call `revela-workspace-scan` with no `path` and `max_depth: 2`")
     expect(prompt).toContain("Do not require slide count, visual style, design selection, output path, layout choices, or component choices")
     expect(prompt).toContain("Expected tool use during init")
-    expect(prompt).toContain("controlled workspace-state/vault boundaries")
+    expect(prompt).toContain("controlled file-native/vault boundaries")
     expect(prompt).toContain("schema display artifact")
   })
 
@@ -97,7 +99,7 @@ describe("buildInitPrompt", () => {
 
   it("keeps init source trace adoption conservative", () => {
     const prompt = buildInitPrompt({ exists: true })
-    expect(prompt).toContain("record conservative deck specs only from visible information")
+    expect(prompt).toContain("record conservative artifact context in file-native outputs or existing compatibility state only from visible information")
     expect(prompt).toContain("Do not infer hidden evidence")
     expect(prompt).toContain("workspace.sourceMaterials` and ingest task hints are candidate context, not proof")
     expect(prompt).toContain("source trace, quote/snippet, support scope, unsupported scope, caveat, and strength")

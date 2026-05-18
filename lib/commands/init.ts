@@ -8,13 +8,13 @@ export function buildInitPrompt({
   workspaceRoot?: string
 }): string {
   const mode = exists
-    ? `A ${DECKS_STATE_FILE} file already exists. Read it first through the revela-decks tool and update it conservatively.`
-    : `No ${DECKS_STATE_FILE} file exists yet. Initialize the Markdown narrative vault through the revela-decks tool before writing narrative meaning.`
+    ? `A ${DECKS_STATE_FILE} file already exists as legacy/cache state. Read it first through the revela-decks tool and update it conservatively only for compatibility metadata.`
+    : `No ${DECKS_STATE_FILE} file exists yet. Keep this workspace file-native: initialize the Markdown narrative vault before writing narrative meaning and do not create ${DECKS_STATE_FILE}.`
 
   return `Initialize Revela narrative workspace state.
 
 Goal:
-- Build or refresh ${DECKS_STATE_FILE} and the Markdown narrative vault from local workspace evidence.
+- Initialize or refresh the Markdown narrative vault and file-native source inventory from local workspace evidence.
 - Treat init as repeatable ingest: discover files, register source materials, follow returned ingest task hints, and distill stable narrative meaning.
 - Capture primary audience, belief before/after, decision/action, thesis, central claims, evidence availability, objections, risks, source materials, artifact history, and open questions.
 - Do not treat initialization as permission to write a deck. Do not require slide count, visual style, design selection, output path, layout choices, or component choices unless the user explicitly asks to render.
@@ -33,7 +33,7 @@ Workspace boundary rules:
 - If the current workspace appears too broad, stop and ask the user which workspace subdirectory to initialize instead of scanning outside or deeply across everything.
 
 Expected tool use during init:
-- \`revela-decks init\` and \`revela-decks initNarrativeVault\` are expected controlled workspace-state/vault boundaries. Empty-looking optional fields in tool UI are a schema display artifact, not user-provided evidence.
+- \`revela-decks init\` and \`revela-decks initNarrativeVault\` are expected controlled file-native/vault boundaries. In fresh workspaces they must not create ${DECKS_STATE_FILE}; if legacy state already exists, they may update compatibility metadata conservatively. Empty-looking optional fields in tool UI are a schema display artifact, not user-provided evidence.
 - Treat \`authoringContract\` returned by \`read(summary: true)\`, \`initNarrativeVault\`, or \`narrativeInventory\` as the Markdown authoring guide: valid node types, plain id convention, inline relation syntax, forbidden compatibility actions, and optional helper templates.
 - Treat \`markdownQa\` returned by \`read(summary: true)\`, \`compileNarrativeVault\`, or \`revela-decks markdownQa\` as post-authoring repair feedback that is separate from compiler diagnostics. Fix \`repairCards\` by smallest repair; do not invent missing claims, evidence, source paths, URLs, quotes, or caveats just to clear QA. If \`compileNarrativeVault\` output does not visibly include \`markdownQa\`, call \`revela-decks markdownQa\` before final reporting.
 - Before authoring claims, evidence, relations, objections, risks, or research gaps, inspect \`narrativeInventory\` from \`read(summary: true)\` or call \`revela-decks narrativeInventory\`. Reuse existing ids and relation targets. Do not invent evidence ids, claim ids, or relation targets before checking inventory unless you are intentionally creating the missing node in Markdown.
@@ -59,7 +59,7 @@ Required workflow:
 5. For selected relevant tasks, read directly when \`suggestedAction: "read_directly"\`; call \`revela-extract-document-materials\` first when \`suggestedAction: "extract_then_read"\`. Do not extract every document by default.
 6. Before writing narrative meaning, inspect \`narrativeInventory\` from the latest \`read(summary: true)\` result or call \`revela-decks narrativeInventory\`. Then distill stable findings into \`revela-narrative/**/*.md\` using the Markdown authoring guide. Completeness is not a gate: write partial claims, caveats, unsupported scope, and research gaps rather than waiting for a complete story. Use optional helpers such as \`upsertVaultResearchGap\`, \`upsertVaultEvidence\`, or \`bindResearchFindings\` only when they fit the exact update. Preserve frontmatter ids and existing section headings when editing Markdown. Write nodes first; add inline \`## Relations\` edges afterward only when explicit.
 7. After Markdown changes, rely on the vault write hook or call \`revela-decks markdownQa\`, then \`revela-decks compileNarrativeVault\`; keep \`markdownQa.repairCards\` separate from compiler blockers and fix both before treating the narrative as usable. If no explicit \`markdownQa\` result is visible after compile, call \`revela-decks markdownQa\` as a manual fallback. Do not use \`upsertNarrative\`.
-8. If explicit deck/artifact information exists, record conservative deck specs only from visible information. Do not infer hidden evidence from generated artifacts.
+8. If explicit deck/artifact information exists, record conservative artifact context in file-native outputs or existing compatibility state only from visible information. Do not infer hidden evidence from generated artifacts.
 9. Report initialized/updated/migrated state plus counts and paths for added, changed, newer-than-vault, unchanged, \`ingest.ingestCandidates\`, and \`ingest.suggestedTasks\`. Always include \`Markdown QA: clean\` or \`Markdown QA blockers:\` in the final report. If Markdown QA blockers remain, do not say the workspace initialized cleanly; say the vault was initialized but Markdown repairs remain.
 
 Evidence boundary:
@@ -82,7 +82,7 @@ Narrative questions to ask only when missing:
 - What objections, risks, assumptions, or caveats could break the argument?
 
 Memory rules:
-- Only write facts supported by workspace files or explicit user statements into ${DECKS_STATE_FILE} workspace state, source materials, narrative compatibility fields, deck memory, and open questions.
+- Only write facts supported by workspace files or explicit user statements into file-native narrative/source files or, when ${DECKS_STATE_FILE} already exists, conservative compatibility metadata such as source materials, deck memory, and open questions.
 - Only write user preferences if the user explicitly stated that Revela should remember them.
 - Do not infer personal preferences from one-off requests.
 - Do not store secrets, credentials, API keys, tokens, account details, or sensitive personal information.
