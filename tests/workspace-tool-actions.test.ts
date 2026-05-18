@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
-import { mkdirSync, writeFileSync } from "fs"
+import { existsSync, mkdirSync, writeFileSync } from "fs"
 import { join } from "path"
-import { confirmDeckPlan, createEmptyDecksState, readDecksState, upsertDeck, upsertSlides, writeDecksState } from "../lib/decks-state"
+import { DECKS_STATE_FILE, confirmDeckPlan, createEmptyDecksState, readDecksState, upsertDeck, upsertSlides, writeDecksState } from "../lib/decks-state"
 import { currentReviewInputHash } from "../lib/workspace-state/review-snapshots"
 import researchSaveTool from "../tools/research-save"
 import workspaceScanTool from "../tools/workspace-scan"
@@ -116,10 +116,11 @@ describe("workspace tool action provenance", () => {
       action: "init",
       sourceMaterials: [{ path: "sources/a.pdf", type: "pdf", status: "discovered" }],
     }, root)
-    const state = readDecksState(root)
 
     expect(result.ok).toBe(true)
-    expect(state.actions).toContainEqual(expect.objectContaining({
+    expect(result.persisted).toBe(false)
+    expect(existsSync(join(root, DECKS_STATE_FILE))).toBe(false)
+    expect(result.state.actions).toContainEqual(expect.objectContaining({
       type: "source.discovered",
       actor: "revela-decks",
       outputs: expect.objectContaining({ paths: ["sources/a.pdf"] }),
@@ -164,7 +165,7 @@ describe("workspace tool action provenance", () => {
   it("classifies added, changed, newer-than-vault, and unchanged sources during refresh", async () => {
     const root = tempRoot()
     await executeDecksTool({ action: "initNarrativeVault" }, root)
-    const state = readDecksState(root)
+    const state = createEmptyDecksState()
     state.workspace.sourceMaterials = [
       { path: "same.pdf", type: "pdf", fingerprint: "same", lastModified: "2000-01-01T00:00:00.000Z", status: "discovered" },
       { path: "changed.pdf", type: "pdf", fingerprint: "old", lastModified: "2000-01-01T00:00:00.000Z", status: "extracted", extraction: { manifestPath: "old.json", textPath: "old.txt", cacheDir: "old" } },
