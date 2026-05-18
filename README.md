@@ -30,17 +30,17 @@ Revela includes built-in deck designs:
 ### [summit](designs/summit/preview.html)
 
 <p align="center">
-  <img src="assets/img/summit-01.png" alt="Summit design preview 1" width="32%" />
-  <img src="assets/img/summit-02.png" alt="Summit design preview 2" width="32%" />
-  <img src="assets/img/summit-03.png" alt="Summit design preview 3" width="32%" />
+  <img src="assets/img/summit-01.jpg" alt="Summit design preview 1" width="32%" />
+  <img src="assets/img/summit-02.jpg" alt="Summit design preview 2" width="32%" />
+  <img src="assets/img/summit-03.jpg" alt="Summit design preview 3" width="32%" />
 </p>
 
 ### [monet](designs/monet/preview.html)
 
 <p align="center">
-  <img src="assets/img/monet-01.png" alt="Monet design preview 1" width="32%" />
-  <img src="assets/img/monet-02.png" alt="Monet design preview 2" width="32%" />
-  <img src="assets/img/monet-03.png" alt="Monet design preview 3" width="32%" />
+  <img src="assets/img/monet-01.jpg" alt="Monet design preview 1" width="32%" />
+  <img src="assets/img/monet-02.jpg" alt="Monet design preview 2" width="32%" />
+  <img src="assets/img/monet-03.jpg" alt="Monet design preview 3" width="32%" />
 </p>
 
 `starter` is the clean default presentation style.
