@@ -2,11 +2,15 @@
 
 **English** | [中文](README.zh-CN.md)
 
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-546%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="560" />
 </p>
 
-Revela is an [OpenCode](https://opencode.ai) plugin for turning workspace sources, research, evidence, and user intent into trusted narrative artifacts. Its first render target is HTML slide decks.
+Revela is an [OpenCode](https://opencode.ai) plugin that turns local sources and research into a traceable narrative graph, then renders that graph into briefs and presentation decks.
+
+The narrative graph records the core elements needed to generate a brief or deck: audience, decision, claims, evidence, sources, risks, objections, and open gaps.
 
 ## Install
 

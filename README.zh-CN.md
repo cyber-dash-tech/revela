@@ -2,11 +2,15 @@
 
 [English](README.md) | **中文**
 
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-546%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="560" />
 </p>
 
-Revela 是一个 [OpenCode](https://opencode.ai) 插件，用来把工作区来源材料、调研、证据和用户意图转成可信的叙事型沟通 artifact。它的第一个 render target 是 HTML slide deck。
+Revela 是一个 [OpenCode](https://opencode.ai) 插件，用来把本地材料和调研结果转成可追踪的叙事图谱，再基于这个图谱生成 brief 和 presentation deck。
+
+叙事图谱用 graph 方式记录生成 brief 或 deck 所需的关键要素：受众、决策目标、论点、论据、资料来源、风险、潜在质疑和待补齐的信息。
 
 ## 安装
 
