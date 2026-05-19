@@ -1,14 +1,12 @@
 import { tool } from "@opencode-ai/plugin"
-import { hasDecksState, readDecksState } from "../lib/decks-state"
-import { buildNarrativeMap } from "../lib/narrative-state/map"
 import { validateNarrativeDisplayModel, type NarrativeDisplayModel, type NarrativeViewLanguage } from "../lib/narrative-state/display"
-import { writeNarrativeMapHtml } from "../lib/commands/narrative"
+import { loadStoryMap, writeNarrativeMapHtml } from "../lib/commands/narrative"
 import { openUrl } from "../lib/edit/open"
 
 export default tool({
   description:
     "Render Revela's read-only narrative claim-flow UI from the current deterministic narrative map plus an optional localized display model. " +
-    "This tool validates display IDs against DECKS.json, opens a local HTML view, and never mutates workspace state.",
+    "This tool validates display IDs against the file-native narrative vault, opens a local HTML view, and never mutates workspace state.",
   args: {
     language: tool.schema.string().describe("UI language request from /revela story or /revela narrative. May be any language tag or language name, such as en, zh-CN, fr, de, Korean, Arabic, or Portuguese-BR."),
     narrativeHash: tool.schema.string().optional().describe("Narrative hash from the prompt projection. Used to detect stale display prompts."),
@@ -79,11 +77,10 @@ export default tool({
   async execute(args, context) {
     const workspaceRoot = context.directory ?? process.cwd()
     try {
-      if (!hasDecksState(workspaceRoot)) {
-        return JSON.stringify({ ok: false, error: "No DECKS.json found. Run /revela init first." })
-      }
       const language = args.language as NarrativeViewLanguage
-      const map = buildNarrativeMap(readDecksState(workspaceRoot))
+      const loaded = loadStoryMap(workspaceRoot)
+      if (!loaded.ok) return JSON.stringify({ ok: false, error: loaded.error, diagnostics: loaded.diagnosticsReport, diagnosticsMarkdown: loaded.diagnosticsMarkdown })
+      const map = loaded.map
       const stalePrompt = Boolean(args.narrativeHash && args.narrativeHash !== map.snapshot.narrativeHash)
       const display = validateNarrativeDisplayModel(map, args.displayModel as NarrativeDisplayModel | undefined, language)
       const htmlPath = writeNarrativeMapHtml(map, display)
@@ -92,8 +89,9 @@ export default tool({
       return JSON.stringify({ ok: true, url, path: htmlPath, narrativeHash: map.snapshot.narrativeHash, stalePrompt, fallback: false }, null, 2)
     } catch (e: any) {
       try {
-        const language = (args.language ?? "en") as NarrativeViewLanguage
-        const map = buildNarrativeMap(readDecksState(workspaceRoot))
+        const loaded = loadStoryMap(workspaceRoot)
+        if (!loaded.ok) return JSON.stringify({ ok: false, fallback: false, error: e.message || String(e), fallbackError: loaded.error, diagnostics: loaded.diagnosticsReport, diagnosticsMarkdown: loaded.diagnosticsMarkdown })
+        const map = loaded.map
         const htmlPath = writeNarrativeMapHtml(map)
         const url = `file://${htmlPath}`
         openUrl(url)

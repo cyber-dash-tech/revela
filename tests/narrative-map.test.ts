@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test"
-import { existsSync, readFileSync, rmSync } from "fs"
-import { readDecksState, writeDecksState } from "../lib/decks-state"
-import { buildNarrativeViewPrompt, handleNarrative, parseNarrativeArgs, parseStoryArgs } from "../lib/commands/narrative"
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs"
+import { join } from "path"
+import { DECKS_STATE_FILE } from "../lib/decks-state"
+import { buildNarrativeViewPrompt, handleNarrative, loadStoryMap, parseNarrativeArgs, parseStoryArgs } from "../lib/commands/narrative"
 import { validateNarrativeDisplayModel } from "../lib/narrative-state/display"
 import { buildNarrativeMap, formatNarrativeMap } from "../lib/narrative-state/map"
 import { renderNarrativeMapHtml } from "../lib/narrative-state/map-html"
@@ -87,11 +88,12 @@ describe("narrative map", () => {
     const workspaceRoot = tempWorkspace("revela-narrative-no-deck-")
     const messages: string[] = []
     try {
-      writeDecksState(workspaceRoot, state)
+      writeStoryVault(workspaceRoot)
       await handleNarrative({ workspaceRoot }, async (message) => { messages.push(message) })
       expect(messages.join("\n")).toContain("Narrative Snapshot")
       expect(messages.join("\n")).toContain("No render targets recorded")
       expect(messages.join("\n")).not.toContain("Narrative map failed")
+      expect(existsSync(join(workspaceRoot, DECKS_STATE_FILE))).toBe(false)
     } finally {
       rmSync(workspaceRoot, { recursive: true, force: true })
     }
@@ -420,7 +422,7 @@ describe("narrative map", () => {
   it("builds an LLM display-model prompt that preserves deterministic IDs", () => {
     const workspaceRoot = tempWorkspace("revela-narrative-map-prompt-")
     try {
-      writeDecksState(workspaceRoot, narrativeMapState())
+      writeStoryVault(workspaceRoot)
 
       const prompt = buildNarrativeViewPrompt({ workspaceRoot, language: "fr" })
 
@@ -467,7 +469,7 @@ describe("narrative map", () => {
       expect(prompt).toContain("autonomy-is-architectural")
       expect(prompt).toContain("自主化是架构问题")
       expect(prompt).toContain("claim:supported")
-      expect(prompt).toContain("relation:supported-partial")
+      expect(prompt).toContain("rel-claim-supported-supports-claim-partial")
       expect(prompt).toContain("Operations study")
       expect(prompt).toContain("ROI may be too uncertain.")
       expect(prompt).toContain("Supplier readiness may lag.")
@@ -483,7 +485,7 @@ describe("narrative map", () => {
     expect(buildNarrativeMap(state).snapshot.approval).toBe("stale")
   })
 
-  it("shows /revela init guidance when DECKS.json is missing", async () => {
+  it("shows /revela init guidance when the narrative vault is missing", async () => {
     const workspaceRoot = tempWorkspace("revela-narrative-map-missing-")
     const messages: string[] = []
     try {
@@ -493,19 +495,52 @@ describe("narrative map", () => {
     }
 
     expect(messages.join("\n")).toContain("/revela init")
+    expect(messages.join("\n")).toContain("revela-narrative/")
   })
 
-  it("does not mutate DECKS.json while rendering the command", async () => {
+  it("renders Story from a vault-only workspace without creating DECKS.json", async () => {
     const workspaceRoot = tempWorkspace("revela-narrative-map-readonly-")
     const messages: string[] = []
     try {
-      writeDecksState(workspaceRoot, narrativeMapState())
-      const before = JSON.stringify(readDecksState(workspaceRoot))
+      writeStoryVault(workspaceRoot)
 
       await handleNarrative({ workspaceRoot }, async (text) => { messages.push(text) })
 
       expect(messages.join("\n")).toContain("Narrative Snapshot")
-      expect(JSON.stringify(readDecksState(workspaceRoot))).toBe(before)
+      expect(messages.join("\n")).toContain("Phased pilot approval is the safer path.")
+      expect(existsSync(join(workspaceRoot, DECKS_STATE_FILE))).toBe(false)
+    } finally {
+      rmSync(workspaceRoot, { recursive: true, force: true })
+    }
+  })
+
+  it("builds the Story prompt from a vault-only workspace", () => {
+    const workspaceRoot = tempWorkspace("revela-narrative-map-vault-prompt-")
+    try {
+      writeStoryVault(workspaceRoot)
+
+      const prompt = buildNarrativeViewPrompt({ workspaceRoot, language: "fr" })
+
+      expect(prompt).toContain("revela-narrative-view")
+      expect(prompt).toContain("claim:supported")
+      expect(prompt).toContain("Operations study")
+      expect(prompt).not.toContain("No `DECKS.json` found")
+      expect(existsSync(join(workspaceRoot, DECKS_STATE_FILE))).toBe(false)
+    } finally {
+      rmSync(workspaceRoot, { recursive: true, force: true })
+    }
+  })
+
+  it("loads the Story map from a vault-only workspace", () => {
+    const workspaceRoot = tempWorkspace("revela-narrative-map-load-vault-")
+    try {
+      writeStoryVault(workspaceRoot)
+
+      const loaded = loadStoryMap(workspaceRoot)
+
+      expect(loaded.ok).toBe(true)
+      if (loaded.ok) expect(loaded.map.claimFlow.map((claim) => claim.id)).toContain("claim:supported")
+      expect(existsSync(join(workspaceRoot, DECKS_STATE_FILE))).toBe(false)
     } finally {
       rmSync(workspaceRoot, { recursive: true, force: true })
     }
@@ -516,8 +551,7 @@ describe("narrative map", () => {
     const messages: string[] = []
     const opened: string[] = []
     try {
-      writeDecksState(workspaceRoot, narrativeMapState())
-      const before = JSON.stringify(readDecksState(workspaceRoot))
+      writeStoryVault(workspaceRoot)
 
       await handleNarrative({ workspaceRoot, openBrowser: true, openUrl: (url) => { opened.push(url) } }, async (text) => { messages.push(text) })
 
@@ -527,9 +561,26 @@ describe("narrative map", () => {
       expect(existsSync(htmlPath)).toBe(true)
       expect(readFileSync(htmlPath, "utf-8")).toContain("Read-only claim flow board")
       expect(messages.join("\n")).toContain("Opened read-only narrative workspace")
-      expect(JSON.stringify(readDecksState(workspaceRoot))).toBe(before)
+      expect(existsSync(join(workspaceRoot, DECKS_STATE_FILE))).toBe(false)
     } finally {
       rmSync(workspaceRoot, { recursive: true, force: true })
     }
   })
 })
+
+function writeStoryVault(root: string): void {
+  const vault = join(root, "revela-narrative")
+  mkdirSync(join(vault, "claims"), { recursive: true })
+  mkdirSync(join(vault, "evidence"), { recursive: true })
+  mkdirSync(join(vault, "objections"), { recursive: true })
+  mkdirSync(join(vault, "risks"), { recursive: true })
+  writeFileSync(join(vault, "index.md"), "---\ntype: index\nid: narrative:story-demo\nstatus: ready_for_approval\n---\n", "utf-8")
+  writeFileSync(join(vault, "audience.md"), "---\ntype: audience\nprimary: Board\nbeliefBefore: AI operations feel speculative.\nbeliefAfter: A staged pilot feels bounded.\n---\n", "utf-8")
+  writeFileSync(join(vault, "decision.md"), "---\ntype: decision\naction: Approve the phased pilot.\ndecisionType: approve\n---\n", "utf-8")
+  writeFileSync(join(vault, "thesis.md"), "---\ntype: thesis\nid: thesis:pilot\nconfidence: medium\n---\nA phased pilot captures upside while bounding execution risk.\n", "utf-8")
+  writeFileSync(join(vault, "claims", "supported.md"), "---\ntype: claim\nid: claim:supported\nkind: recommendation\nimportance: central\nevidenceRequired: true\nsupportedScope: Pilot scope only.\n---\nPhased pilot approval is the safer path.\n\n## Caveats\n\n- Only covers pilot scope.\n\n## Relations\n\n- supports: [[claim:partial]] - Line evidence supports the recommendation.\n", "utf-8")
+  writeFileSync(join(vault, "claims", "partial.md"), "---\ntype: claim\nid: claim:partial\nkind: evidence\nimportance: supporting\nevidenceRequired: false\n---\nCurrent line data supports initial automation gains.\n", "utf-8")
+  writeFileSync(join(vault, "evidence", "supported.md"), "---\ntype: evidence\nid: evidence:supported:ops\nsource: Operations study\nfindingsFile: researches/map-demo/ops.md\nquote: Pilot scope fits current operating constraints.\nlocation: section 2\nsupportScope: Pilot scope only.\nunsupportedScope: Does not prove full rollout.\ncaveat: Pilot-only evidence.\nstrength: strong\n---\n\n## Relations\n\n- supports: [[claim:supported]]\n", "utf-8")
+  writeFileSync(join(vault, "objections", "roi.md"), "---\ntype: objection\nid: objection:roi\nclaimId: claim:supported\npriority: high\nresponse: Stage gates bound ROI uncertainty.\n---\nROI may be too uncertain.\n", "utf-8")
+  writeFileSync(join(vault, "risks", "supplier.md"), "---\ntype: risk\nid: risk:supplier\nclaimId: claim:supported\nseverity: medium\nmitigation: Use a supplier readiness checkpoint.\n---\nSupplier readiness may lag.\n", "utf-8")
+}

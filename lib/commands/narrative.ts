@@ -2,11 +2,10 @@ import { mkdirSync, writeFileSync } from "fs"
 import { tmpdir } from "os"
 import { join } from "path"
 import { openUrl as defaultOpenUrl } from "../edit/open"
-import { hasDecksState, readDecksState } from "../decks-state"
+import { createEmptyDecksState } from "../decks-state"
 import { buildNarrativeMap, formatNarrativeMap } from "../narrative-state/map"
 import { renderNarrativeMapHtmlWithDisplay } from "../narrative-state/map-html"
 import { emptyDisplayModel, type NarrativeViewLanguage, type ValidatedNarrativeDisplayModel } from "../narrative-state/display"
-import type { NarrativeApproval } from "../narrative-state/types"
 import { compileNarrativeVault, formatVaultDiagnosticMarkdown, formatVaultDiagnosticReport, hasNarrativeVault } from "../narrative-vault"
 
 export interface NarrativeArgs {
@@ -17,6 +16,10 @@ export interface NarrativeArgs {
 export interface StoryArgs {
   language: NarrativeViewLanguage
 }
+
+export type StoryMapLoadResult =
+  | { ok: true; map: ReturnType<typeof buildNarrativeMap>; diagnosticsMarkdown: string; diagnosticsReport: ReturnType<typeof formatVaultDiagnosticReport> }
+  | { ok: false; error: string; diagnosticsMarkdown: string; diagnosticsReport?: ReturnType<typeof formatVaultDiagnosticReport> }
 
 export type ParseNarrativeArgsResult = { ok: true; args: NarrativeArgs } | { ok: false; error: string }
 export type ParseStoryArgsResult = { ok: true; args: StoryArgs } | { ok: false; error: string }
@@ -77,14 +80,14 @@ export async function handleNarrative(
   send: (text: string) => Promise<void>,
 ): Promise<void> {
   try {
-    if (!hasDecksState(options.workspaceRoot)) {
-      await send("No `DECKS.json` found. Run `/revela init` first to initialize the narrative workspace.")
+    const loaded = loadStoryMap(options.workspaceRoot)
+    if (!loaded.ok) {
+      await send([loaded.error, loaded.diagnosticsMarkdown].filter(Boolean).join("\n\n"))
       return
     }
 
-    const state = readDecksState(options.workspaceRoot)
-    const map = buildNarrativeMap(state)
-    const diagnosticsMarkdown = vaultDiagnosticsMarkdown(options.workspaceRoot, state.narrative?.approvals ?? [])
+    const map = loaded.map
+    const diagnosticsMarkdown = loaded.diagnosticsMarkdown
     const markdown = [diagnosticsMarkdown, formatNarrativeMap(map)].filter(Boolean).join("\n\n")
 
     if (options.openBrowser) {
@@ -105,22 +108,40 @@ export async function handleNarrative(
   }
 }
 
-function vaultDiagnosticsMarkdown(workspaceRoot: string, fallbackApprovals: NarrativeApproval[]): string {
-  if (!hasNarrativeVault(workspaceRoot)) return ""
-  const result = compileNarrativeVault(workspaceRoot, { fallbackApprovals })
-  return formatVaultDiagnosticMarkdown(formatVaultDiagnosticReport(result.diagnostics))
+export function loadStoryMap(workspaceRoot: string): StoryMapLoadResult {
+  if (!hasNarrativeVault(workspaceRoot)) {
+    return {
+      ok: false,
+      error: "No `revela-narrative/` vault found. Run `/revela init` first to initialize the narrative workspace.",
+      diagnosticsMarkdown: "",
+    }
+  }
+
+  const result = compileNarrativeVault(workspaceRoot)
+  const diagnosticsReport = formatVaultDiagnosticReport(result.diagnostics)
+  const diagnosticsMarkdown = formatVaultDiagnosticMarkdown(diagnosticsReport)
+  if (!result.narrative) {
+    return {
+      ok: false,
+      error: "The `revela-narrative/` vault could not be compiled into a narrative map.",
+      diagnosticsMarkdown,
+      diagnosticsReport,
+    }
+  }
+
+  const state = createEmptyDecksState()
+  state.narrative = result.narrative
+  return { ok: true, map: buildNarrativeMap(state), diagnosticsMarkdown, diagnosticsReport }
 }
 
 export function buildNarrativeViewPrompt(options: { workspaceRoot: string; language: NarrativeViewLanguage }): string {
-  if (!hasDecksState(options.workspaceRoot)) {
-    return "No `DECKS.json` found. Tell the user to run `/revela init` before opening the narrative view. Do not call any tool."
+  const loaded = loadStoryMap(options.workspaceRoot)
+  if (!loaded.ok) {
+    return `${loaded.error}\n\n${loaded.diagnosticsMarkdown}\n\nDo not call any tool.`
   }
 
-  const state = readDecksState(options.workspaceRoot)
-  const map = buildNarrativeMap(state)
-  const vaultDiagnostics = hasNarrativeVault(options.workspaceRoot)
-    ? formatVaultDiagnosticReport(compileNarrativeVault(options.workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] }).diagnostics)
-    : undefined
+  const map = loaded.map
+  const vaultDiagnostics = loaded.diagnosticsReport
   const projection = {
     narrativeHash: map.snapshot.narrativeHash,
     language: options.language,
@@ -161,7 +182,7 @@ Target language request: ${options.language}
 You must call the \`revela-narrative-view\` tool exactly once.
 
 Hard rules:
-- Do not mutate DECKS.json, deck HTML, evidence, claims, relations, approvals, or artifacts.
+- Do not mutate narrative files, deck HTML, evidence, claims, relations, approvals, or artifacts.
 - Do not invent new claims, evidence, relations, slide coverage, source paths, findings files, quotes, or caveats.
 - Preserve every claimId exactly.
 - Preserve every relation endpoint exactly: fromClaimId, toClaimId, relation.
