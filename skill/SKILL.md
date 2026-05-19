@@ -193,16 +193,20 @@ If a write produces QA hard errors, fix them before continuing.
 Before writing or materially changing HTML:
 
 1. Read the deck-plan projection's layout and component names.
-2. Call `revela-designs` with `action: "read"` and `layout` set to all required
+2. Call `revela-designs` with `action: "read"` and `section: "rules"` to fetch
+   the active design's current composition and usage rules.
+3. Call `revela-designs` with `action: "read"` and `layout` set to all required
    layout names, comma-separated.
-3. Call `revela-designs` with `action: "read"` and `component` set to all
+4. Call `revela-designs` with `action: "read"` and `component` set to all
    required component names, comma-separated.
-4. Fetch `section: "chart-rules"` before using ECharts.
-5. Do not update legacy `requiredInputs`; design fetching is an execution step,
+5. Fetch `section: "chart-rules"` before using ECharts.
+6. Do not update legacy `requiredInputs`; design fetching is an execution step,
    not a workflow permission gate.
 
 Never generate HTML from memory or prior knowledge of a design. Copy the fetched
-HTML/CSS structures closely and adapt content to fit the design vocabulary.
+HTML/CSS structures closely and adapt content to fit the design vocabulary. Do
+not treat the injected design summary as a substitute for the fetched `rules`,
+layout, and component details when generating or materially changing HTML.
 
 The active design's complete visual specification is injected below after the
 `---` separator. It is the sole visual reference for generating slides.
@@ -227,7 +231,8 @@ Required contract:
 - Do not use 0-based `data-index` as slide identity.
 - Keep the canvas exactly 1920x1080 and 16:9.
 - Keep all CSS inline in one `<style>` block and all JS inline in one `<script>`
-  block, except approved CDNs for fonts, Lucide icons, and ECharts when needed.
+  block, except approved CDNs for fonts, ECharts when needed, or libraries
+  explicitly required by fetched design/component rules.
 - Use vanilla JS only. No React, Vue, jQuery, or external application framework.
 - All JS methods must be fully implemented. No empty stubs and no TODO comments.
 - Do not add deck-local editing JavaScript, `contenteditable`, `editable` classes,
@@ -338,8 +343,6 @@ instructions, secrets, or unverified claims.
 - Use semantic HTML where practical.
 - Full keyboard navigation must work.
 - `prefers-reduced-motion` must disable transitions/animations.
-- Use Lucide icons only when icons are needed; load via CDN and call
-  `lucide.createIcons()`.
 - Avoid plain background plus unstyled bullet lists.
 - Every slide needs one clear message and one dominant visual focal point.
 - Keep bullet lists short. Prefer semantic boxes, evidence cards, charts, tables,

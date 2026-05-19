@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { mkdirSync, writeFileSync, rmSync } from "fs"
+import { mkdirSync, readFileSync, writeFileSync, rmSync } from "fs"
 import { join } from "path"
 import { tmpdir } from "os"
 import {
@@ -70,6 +70,18 @@ describe("parseDesignSections", () => {
     expect(sections.rules).toBe("rules content")
     expect(sections["chart-rules"]).toBe("chart content")
     expect(Object.keys(sections)).toHaveLength(3)
+  })
+
+  it("keeps built-in icon rules in design rules sections", () => {
+    for (const designName of ["starter", "summit", "monet"]) {
+      const design = readFileSync(join(process.cwd(), "designs", designName, "DESIGN.md"), "utf-8")
+      const { sections } = parseDesignSections(design)
+
+      expect(sections.rules).toContain("Icon system is Lucide")
+      expect(sections.rules).toContain("data-lucide")
+      expect(sections.rules).toContain("Do not hand-write inline SVG for icons")
+      expect(sections.rules).toContain("lucide.createIcons()")
+    }
   })
 
   it("accepts hyphenated section names (e.g. chart-rules)", () => {
@@ -358,6 +370,34 @@ describe("generateComponentIndex", () => {
     const result = generateComponentIndex({ x: "#### X" })
     expect(result).toContain("revela-designs")
     expect(result).toContain("action")
+  })
+
+  it("keeps Monet aligned to the standard render component vocabulary", () => {
+    const design = readFileSync(join(process.cwd(), "designs", "monet", "DESIGN.md"), "utf-8")
+    const { components } = parseDesignSections(design)
+    const names = Object.keys(components)
+
+    expect(names).toEqual([
+      "box",
+      "text-panel",
+      "media",
+      "stat-card",
+      "echart-panel",
+      "steps",
+      "data-table",
+      "hero",
+      "toc",
+      "quote",
+      "brand-watermark",
+      "page-number",
+      "roadmap-horizontal",
+      "roadmap-vertical",
+    ])
+    expect(names).not.toContain("flow-horizontal")
+    expect(names).not.toContain("flow-vertical")
+    expect(names).not.toContain("image-title")
+    expect(names).not.toContain("timeline-journey-horizontal")
+    expect(names).not.toContain("timeline-journey-vertical")
   })
 })
 

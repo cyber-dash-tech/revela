@@ -443,6 +443,7 @@ These rules are mandatory for Summit.
 - **Text panels are not decorative rule panels.** Do not add a default left border, vertical accent bar, yellow/gold line, or inline rule to `text-panel`. Use typography, spacing, boxes, stats, quotes, or layout-level dividers for emphasis.
 - **Titles are Title Case.** Do not set `text-transform:uppercase` on `h1`, `h2`, `h3`, or `h4` titles. Uppercase is reserved for eyebrows, captions, metadata labels, short codes, and date/code-like markers.
 - **Components are transparent by default.** Component primitives should not bring their own paper/background fill. Let `.page`, layout containers, or explicit modifier variants provide background color when needed.
+- **Icon system is Lucide.** For ordinary UI, semantic, status, category, process, and navigation icons, use Lucide (`data-lucide`). Do not hand-write inline SVG for icons. SVG is allowed only for intentional decorative motifs, illustrations, or design-specific artwork. If any `data-lucide` icon is present, load Lucide via CDN and call `lucide.createIcons()` after `SlidePresentation`.
 
 ### Common Mistakes
 

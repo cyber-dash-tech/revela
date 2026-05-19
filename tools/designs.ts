@@ -25,7 +25,7 @@ export default tool({
     "Use action 'activate' to switch to a different design (requires name). " +
     "Use action 'install' to add a new design from a URL, local path, or github:user/repo shorthand (requires source). " +
     "Use action 'remove' to uninstall a design (requires name). " +
-    "Use action 'read' to fetch on-demand design content: pass layout (comma-separated names) to get full HTML/CSS for specific layouts, pass component (comma-separated names) to get full CSS/HTML for specific components, or section ('chart-rules' | 'foundation' | 'layouts' | 'components') to get an entire section. Pass neither to get the Component Index table. " +
+    "Use action 'read' to fetch on-demand design content: pass layout (comma-separated names) to get full HTML/CSS for specific layouts, pass component (comma-separated names) to get full CSS/HTML for specific components, or section ('rules' | 'chart-rules' | 'foundation' | 'layouts' | 'components') to get an entire section. Pass neither to get the Component Index table. " +
     "After activating a new design, the system prompt is automatically rebuilt.",
   args: {
     action: tool.schema

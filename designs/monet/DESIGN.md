@@ -480,6 +480,7 @@ These rules are mandatory for Monet.
 - **Sparse slides depend on image weight.** If content is light, the photo or page framing must hold the composition.
 - **No glass cards, neon KPI styling, or startup-product chrome.** Monet is editorial and print-adjacent.
 - **Visual hierarchy is strict:** eyebrow -> heading -> body -> caption.
+- **Icon system is Lucide.** For ordinary UI, semantic, status, category, process, and navigation icons, use Lucide (`data-lucide`). Do not hand-write inline SVG for icons. SVG is allowed only for intentional decorative motifs, illustrations, or design-specific artwork. If any `data-lucide` icon is present, load Lucide via CDN and call `lucide.createIcons()` after `SlidePresentation`.
 
 ### Common Mistakes
 
@@ -823,6 +824,31 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 
 Use these components when a page needs repeatable editorial modules inside a larger layout. Components define the block itself, not the page grid around it.
 
+<!-- @component:box:start -->
+#### Box
+
+Card/group primitive for one idea, case, evidence item, metric, objection, risk, or action. Put `text-panel`, `media`, `echart-panel`, `data-table`, `stat-card`, or `quote` inside a box when they support the same idea.
+
+```html
+<div class="box">
+  <div class="text-panel text-panel--plain">
+    <div class="text-panel-body">
+      <p class="eyebrow">Evidence</p>
+      <h3>One clear idea</h3>
+      <p>Short supporting copy or source-bound explanation.</p>
+    </div>
+  </div>
+</div>
+```
+
+```css
+.box { height: 100%; min-height: 0; padding: 28px; border: 1px solid var(--line); background: rgba(255,255,255,0.46); display: flex; flex-direction: column; gap: 18px; overflow: hidden; }
+.box--quiet { background: transparent; }
+.box--mist { background: rgba(240,244,247,0.72); }
+.box--dark { background: #0d1a24; --text-primary:#f0f4f7; --text-secondary:rgba(240,244,247,0.72); --text-muted:rgba(240,244,247,0.55); --line:rgba(240,244,247,0.16); }
+```
+<!-- @component:box:end -->
+
 
 
 <!-- @component:text-panel:start -->
@@ -937,6 +963,35 @@ Rules:
 - **`editorial-list` inside `--dark`.** Add `style="--accent-earth:rgba(240,244,247,0.72)"` on the `<ul>` wrapper so the bullet squares read against the dark background.
 <!-- @component:text-panel:end -->
 
+<!-- @component:media:start -->
+#### Media
+
+Normal image, screenshot, diagram, logo, or portrait component. Keep important visual information understandable. Do not use `media` for full-bleed covers/dividers/closings; use `hero` for those.
+
+```html
+<figure class="media">
+  <div class="media-frame">
+    <img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=1200&auto=format&fit=crop" alt="Atmospheric water garden detail">
+  </div>
+  <figcaption class="media-caption source-note">Optional source or field note</figcaption>
+</figure>
+```
+
+```css
+.media { height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+.media-frame { position: relative; overflow: hidden; background: transparent; width: 100%; flex: 1; min-height: 0; }
+.media-frame img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.media--contain .media-frame img { object-fit: contain; }
+.media-caption { margin-top: 0; font-size: 11px; line-height: 1.45; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+.media-caption.source, .media-caption.source-note { font-family: "Times New Roman", Times, serif; font-size: 11px; line-height: 1.35; letter-spacing: 0; text-transform: none; }
+```
+
+Rules:
+- Use `media` for screenshots, charts exported as images, diagrams, logos, portraits, and evidence visuals that must stay readable.
+- Use `object-fit: contain` through `media--contain` for screenshots, diagrams, and logos when cropping would remove information.
+- Put `media` inside a `box` when the visual and text support one semantic idea.
+<!-- @component:media:end -->
+
 <!-- @component:stat-card:start -->
 #### Stat Card
 
@@ -1010,7 +1065,7 @@ Rules:
 - **Do not over-explain.** If the description starts to become paragraph-length, switch to `text-panel` or pair the stat card with a narrative component in the neighboring slot.
 <!-- @component:stat-card:end -->
 
-<!-- @component:editorial-image-top:start -->
+<!-- @compat:editorial-image-top:start -->
 #### Editorial Image Top
 
 Image-first editorial module: image on top, text below. Best for highlight grids, product/material stories, and any module where the picture should lead before the reader enters the copy.
@@ -1094,9 +1149,9 @@ Rules:
 - **Image aspect ratio.** Aim for 16:9 or 3:2 crops for the image block. Portrait crops create tall image zones that push text down and unbalance the composition.
 - **Kicker icon size.** Keep Lucide SVG icons at 16–20px. Larger icons shift visual weight from the image to the label zone.
 - **`editorial-list` font-size.** Override to `font-size:13px;gap:10px` inline when used inside a very narrow copy zone — the base `editorial-list` is `17px/gap:14px`, which may be too large for tight columns.
-<!-- @component:editorial-image-top:end -->
+<!-- @compat:editorial-image-top:end -->
 
-<!-- @component:editorial-text-top:start -->
+<!-- @compat:editorial-text-top:start -->
 #### Editorial Text Top
 
 Text-first editorial module: text on top, image below. Best for narrative snippets, report-style explanations, or blocks where the image serves as evidence rather than the primary hook.
@@ -1160,9 +1215,9 @@ Rules:
 - **Same height/stretch rule as `editorial-image-top`.** Do not set fixed heights; let parent grid stretch control the column.
 - **When used as a center spine in `highlight-cols`,** this is the one component that may legitimately be taller than its neighbors. That density imbalance is intentional — do not try to equalize it with padding or extra content in the outer columns.
 - **`editorial-list` font-size.** Override to `font-size:13px;gap:10px` inline when used inside a very narrow copy zone — the base `editorial-list` is `17px/gap:14px`, which may be too large for tight columns.
-<!-- @component:editorial-text-top:end -->
+<!-- @compat:editorial-text-top:end -->
 
-<!-- @component:editorial-text-left:start -->
+<!-- @compat:editorial-text-left:start -->
 #### Editorial Text Left
 
 Horizontal editorial module: a full-width title band on top, with text on the left and a visual slot on the right below. Best for compact feature rows or any slot where a wide-but-short frame suits a side-by-side composition with a clear heading above.
@@ -1274,7 +1329,7 @@ Rules:
 - **`echart-container` in visual slot.** Set `width:100%;height:100%` on the container and call `echarts.init()` after `SlidePresentation` is instantiated. The `position:relative;overflow:hidden` on `.editorial-text-left-visual` contains the canvas correctly.
 - **`image-title` in visual slot.** The component is self-contained and fills `width:100%;height:100%` automatically. Use `image-title--right` modifier with a bottom-heavy overlay and right-biased blur mask for the most common editorial orientation.
 - **Dark background.** Override CSS variables on `.editorial-text-left` to cascade into both the copy and visual zones: `--text-primary`, `--text-secondary`, `--text-muted`, `--line`, `--line-strong` — all set to white-family values.
-<!-- @component:editorial-text-left:end -->
+<!-- @compat:editorial-text-left:end -->
 
 <!-- @component:echart-panel:start -->
 #### EChart Panel
@@ -1357,7 +1412,11 @@ Rules:
 - **Chart sizing for `narrative-hero-left-dark`.** The left 7.8fr column is wide. A donut or candlestick chart works best centered with some breathing room. Add `padding: 24px 32px` to `.echart-container` to prevent the chart from touching the column edges.
 <!-- @component:echart-panel:end -->
 
-<!-- @component:flow-horizontal:start -->
+<!-- @component:steps:start -->
+#### Steps
+
+Monet step and phase sequences use the flow-horizontal and flow-vertical implementations. Use `.flow-horizontal` for left-to-right process stages and `.flow-vertical` for top-to-bottom phases.
+
 #### Flow Horizontal
 
 Horizontal step or phase sequence. Use for process stages, numbered definitions, or parallel concepts that should be read left to right. Suitable for 2–5 items.
@@ -1487,9 +1546,9 @@ Rules:
 - **Step copy length directly affects column balance.** One step with a long paragraph will push its column taller than the others and break the horizontal rhythm. Trim all steps to roughly equal length (2–4 lines each).
 - **Number card design.** Each `.flow-number` uses two overlapping squares: a white `::before` base square (with border) and a blue `::after` top square (`--accent-earth`) rotated by `--fn-rot`. Set `data-n="01"` on the element (the `::after` reads it via `content: attr(data-n)`). Vary `--fn-rot` per item (e.g. `-9deg`, `7deg`, `-6deg`, `10deg`) for a hand-placed impression.
 - **Horizontal rule connector.** The `::before` pseudo-element on `.flow-horizontal` draws a full-width line at `top: 18px` (vertical centre of the 36px number box). `.flow-number` sits above it via `z-index: 1`; its `::before` background is set to `var(--bg-page)` to mask the line behind the white square. On dark backgrounds, override `.flow-horizontal .flow-number::before { background: <dark-bg-color>; }` and set `.flow-horizontal::before { background: rgba(240,244,247,0.15); }`.
-<!-- @component:flow-horizontal:end -->
+<!-- flow-horizontal implementation ends -->
 
-<!-- @component:flow-vertical:start -->
+<!-- flow-vertical implementation starts -->
 #### Flow Vertical
 
 Vertical step or timeline sequence. Use for chronological phases, execution stages, or progress narratives that should be read top to bottom. Suitable for 2–6 items.
@@ -1587,7 +1646,7 @@ Rules:
 - **Number card design (same as flow-horizontal).** Use `data-n="01"` and `style="--fn-rot:-8deg;"` on each `.flow-number`. Vary the rotation angle per item.
 - **Dark text overrides.** Flow-number `::before` border: `rgba(240,244,247,0.3)`; `::after` background: a darker accent or `rgba(41,128,175,0.85)`. h4: `color:#f0f4f7`; p: `color:rgba(240,244,247,0.7)`. Also override the connecting line: `background:rgba(240,244,247,0.2)`.
 - **Column height constraint.** `flow-vertical` expands naturally with content. In a two-column layout, ensure the opposing column (`text-panel` or `echart-panel`) has enough content to avoid a large height mismatch.
-<!-- @component:flow-vertical:end -->
+<!-- @component:steps:end -->
 
 <!-- @component:data-table:start -->
 #### Data Table
@@ -1781,7 +1840,11 @@ Rules:
 
 
 
-<!-- @component:image-title:start -->
+<!-- @component:hero:start -->
+#### Hero
+
+Monet hero slides use the image-title implementation for full-bleed cover, closing, atmospheric section divider, or strong visual statement slides.
+
 #### Image Title
 
 Self-contained full-canvas component: a dominant photograph with a directional blur layer, a gradient overlay, and a foreground text stack — all composited inside one element. Use for cover slides, closing slides, atmospheric section dividers, or any full-bleed spread where a single image should dominate the entire canvas.
@@ -1945,7 +2008,7 @@ Rules:
 - **`--right` closing variant.** Mirror the blur mask: use `mask-image:linear-gradient(to right, transparent 0%, transparent 20%, black 100%)`. The right side stays blurred (text zone); the left side of the image stays sharp.
 - **`--center` variant.** Use a radial or symmetric overlay: `radial-gradient(ellipse at center, rgba(5,5,5,0.72) 0%, rgba(5,5,5,0.20) 100%)` or a flat `rgba(5,5,5,0.55)`. Center blur mask: `mask-image:radial-gradient(ellipse at center, black 0%, transparent 80%)`.
 - **Subtitle width on `--right`.** `.image-title-subtitle` inherits `max-width:480px` which is set for left-aligned text. On `--right`, override to match the `.image-title-body` width: `style="max-width:520px;margin-left:auto;"`.
-<!-- @component:image-title:end -->
+<!-- @component:hero:end -->
 
 <!-- @component:toc:start -->
 #### TOC Panel
@@ -2368,7 +2431,11 @@ Omit `--light` only on slides with a white/light background.
 
 <!-- @component:page-number:end -->
 
-<!-- @component:timeline-journey-horizontal:start -->
+<!-- @component:roadmap-horizontal:start -->
+#### Roadmap Horizontal
+
+Monet horizontal roadmaps use the timeline-journey-horizontal implementation.
+
 #### Timeline Journey Horizontal
 
 A horizontal milestone timeline with a central axis line. Nodes sit on the axis; a dashed vertical stem leads to a tip node, with date, title, and description text alongside. Alternate nodes above and below the axis for rhythm. Suitable for 4–8 milestones across a chronological arc, transformation story, or multi-year programme recap.
@@ -2534,9 +2601,13 @@ Rules:
 - **Adjust stem length**: Change `--tjh-stem-h` to lengthen or shorten the dashed connector.
 - **Dark background overrides**: Set `--line-strong: rgba(240,244,247,0.25)` on `.tjh`, override `.tjh-axis { background }`, set `.tjh-title { color: #f0f4f7 }`, `.tjh-text { color: rgba(240,244,247,0.7) }`. The `--tjh-item-color` accent colours work on dark backgrounds without change.
 - **Fewer nodes**: For 4–5 nodes, widen `--tjh-col` by using a smaller denominator (e.g. `calc(100% / 5)`), and space `left` values accordingly.
-<!-- @component:timeline-journey-horizontal:end -->
+<!-- @component:roadmap-horizontal:end -->
 
-<!-- @component:timeline-journey-vertical:start -->
+<!-- @component:roadmap-vertical:start -->
+#### Roadmap Vertical
+
+Monet vertical roadmaps use the timeline-journey-vertical implementation.
+
 #### Timeline Journey Vertical
 
 A vertical milestone timeline with a central axis line. Nodes sit on the axis; a horizontal dashed stem leads to a tip dot, with date, title, and description text alongside. Alternate nodes left and right of the axis for rhythm. Suitable for 3–8 milestones across a chronological arc, transformation story, or multi-year programme recap.
@@ -2731,6 +2802,6 @@ Rules:
 - **Dark background overrides**: set on the `.tjv` wrapper — `--line-strong: rgba(240,244,247,0.25)` (axis + stem), `.tjv-title { color: #f0f4f7 }`, `.tjv-text { color: rgba(240,244,247,0.7) }`. The `--tjv-item-color` accent colours work on dark backgrounds without change.
 - **Fewer nodes (3–4)**: increase spacing — use `top` values like `15%, 35%, 55%, 75%` to prevent the timeline from clustering at the top.
 - **More nodes (6–8)**: keep `.tjv-text` to 1-2 lines and increase vertical spacing between nodes if needed. Treat `17px` as the default body size; only use a smaller local override in exceptional dense layouts.
-<!-- @component:timeline-journey-vertical:end -->
+<!-- @component:roadmap-vertical:end -->
 
 <!-- @design:components:end -->

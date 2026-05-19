@@ -202,6 +202,7 @@ function buildDesignLayer(designName: string): string {
       "",
       "| Section | Fetch with |",
       "|---|---|",
+      "| Design composition and usage rules | `section: \"rules\"` |",
       "| Layout HTML/CSS details | `layout: \"<name>\"` (see Layout Index above) |",
       "| Component CSS/HTML details | `component: \"<name>\"` (see Component Index above) |",
       "| Data Visualization (ECharts) | `section: \"chart-rules\"` |",

@@ -62,6 +62,8 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("Active design: starter")
     expect(prompt).toContain("AI Presentation Generator")
     expect(prompt).toContain("On-Demand Design Sections")
+    expect(prompt).toContain("section: \"rules\"")
+    expect(prompt).toContain("Design composition and usage rules")
     expect(prompt).toContain("Layout Index")
     expect(prompt).toContain("| Table of Contents | Always |")
     expect(prompt).toContain("Never skip Cover, Table of Contents, Background, or Closing")
@@ -83,6 +85,7 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("Slide indexes must be unique and strictly increase")
     expect(prompt).toContain("Do not render internal evidence diagnostics as executive-facing body copy")
     expect(prompt).toContain("Missing Data")
+    expect(prompt).not.toContain("Default to Lucide")
   })
 
   it("excludes full domain guidance from deck-render mode", () => {
