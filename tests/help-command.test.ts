@@ -27,6 +27,7 @@ describe("help command", () => {
     expect(help).toContain("Status: disabled - run `/revela enable` or any workflow command")
     expect(help).toContain("Workflow commands still auto-enable Revela")
     expect(help).toContain("/revela init")
+    expect(help).toContain("ask key questions, and recommend next steps")
     expect(help).toContain("/revela research")
     expect(help).toContain("/revela story")
     expect(help).toContain("/revela make --deck")

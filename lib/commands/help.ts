@@ -27,7 +27,7 @@ export async function handleHelp(
     `Run \`/revela enable\` to load Revela context without starting a workflow, or run \`/revela disable\` to pause it. Workflow commands still auto-enable Revela.\n\n` +
     `---\n\n` +
     `**Workflow**\n\n` +
-    `1. \`init\` — discover workspace sources and capture intent\n` +
+    `1. \`init\` — discover sources, refresh the graph, ask key questions, and recommend next steps\n` +
     `2. \`research\` — close evidence gaps and bind support\n` +
     `3. \`story\` — inspect audience, thesis, claims, evidence, risks, and diagnostics\n` +
     `4. \`make\` — generate deck or brief from canonical story state\n` +
@@ -38,7 +38,7 @@ export async function handleHelp(
     `\`/revela\`                                      — show REVELA help\n` +
     `\`/revela enable\`                               — enable Revela prompt/context without starting a workflow\n` +
     `\`/revela disable\`                              — disable Revela prompt/context for this session\n` +
-    `\`/revela init\`                                 — initialize or refresh workspace story state\n` +
+    `\`/revela init\`                                 — start Revela: discover sources, refresh story state, ask key questions, and recommend next steps\n` +
     `\`/revela research\`                             — research, bind evidence, and reduce story gaps\n` +
     `\`/revela story [-l language]\`                   — open the read-only story workspace UI\n` +
     `\`/revela make --deck\`                          — make a deck from story state and deck-plan/\n` +

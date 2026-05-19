@@ -30,7 +30,7 @@ import {
 describe("buildInitPrompt", () => {
   it("instructs the agent to scan workspace and initialize narrative state", () => {
     const prompt = buildInitPrompt({ exists: false, workspaceRoot: "/workspace/project" })
-    expect(prompt).toContain("Initialize Revela narrative workspace state")
+    expect(prompt).toContain("Start Revela on the current workspace")
     expect(prompt).toContain("file-native source inventory")
     expect(prompt).toContain("revela-workspace-scan")
     expect(prompt).toContain("revela-extract-document-materials")
@@ -48,6 +48,21 @@ describe("buildInitPrompt", () => {
     expect(prompt).toContain("Expected tool use during init")
     expect(prompt).toContain("controlled file-native/vault boundaries")
     expect(prompt).toContain("schema display artifact")
+  })
+
+  it("requires init to finish with questions, gaps, and next steps", () => {
+    const prompt = buildInitPrompt({ exists: false })
+    expect(prompt).toContain("guided completion report")
+    expect(prompt).toContain("Init Completion Report")
+    expect(prompt).toContain("Do not end with only a technical success message")
+    expect(prompt).toContain("question tool (AskQuestion)")
+    expect(prompt).toContain("explicitly state that no clarification is needed now")
+    expect(prompt).toContain("Always surface open gaps")
+    expect(prompt).toContain("recommended next commands")
+    expect(prompt).toContain("/revela research")
+    expect(prompt).toContain("/revela story")
+    expect(prompt).toContain("/revela make --deck")
+    expect(prompt).toContain("Do not ask for slide count, design choice, layout choice, visual style, output path, PDF/PPTX export, or component preferences during init")
   })
 
   it("keeps init search bounded to the current workspace", () => {

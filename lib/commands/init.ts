@@ -11,12 +11,13 @@ export function buildInitPrompt({
     ? `A ${DECKS_STATE_FILE} file already exists as legacy/cache state. Read it first through the revela-decks tool and update it conservatively only for compatibility metadata.`
     : `No ${DECKS_STATE_FILE} file exists yet. Keep this workspace file-native: initialize the Markdown narrative vault before writing narrative meaning and do not create ${DECKS_STATE_FILE}.`
 
-  return `Initialize Revela narrative workspace state.
+  return `Start Revela on the current workspace.
 
 Goal:
 - Initialize or refresh the Markdown narrative vault and file-native source inventory from local workspace evidence.
 - Treat init as repeatable ingest: discover files, register source materials, follow returned ingest task hints, and distill stable narrative meaning.
 - Capture primary audience, belief before/after, decision/action, thesis, central claims, evidence availability, objections, risks, source materials, artifact history, and open questions.
+- End init with a guided completion report: what local discovery found, what the narrative graph currently contains, what gaps remain, what user clarification is needed, and which command should run next.
 - Do not treat initialization as permission to write a deck. Do not require slide count, visual style, design selection, output path, layout choices, or component choices unless the user explicitly asks to render.
 - Treat central claims as chapter-ready claims, not evidence fragments: a central claim should be able to support framing/context, proof/evidence, decision implication, and explicit boundary/gap/risk material. If local material only supports a narrow fact, record it as supporting evidence or a supporting claim instead of promoting it to central importance.
 
@@ -60,7 +61,7 @@ Required workflow:
 6. Before writing narrative meaning, inspect \`narrativeInventory\` from the latest \`read(summary: true)\` result or call \`revela-decks narrativeInventory\`. Then distill stable findings into \`revela-narrative/**/*.md\` using the Markdown authoring guide. Completeness is not a gate: write partial claims, caveats, unsupported scope, and research gaps rather than waiting for a complete story. Use optional helpers such as \`upsertVaultResearchGap\`, \`upsertVaultEvidence\`, or \`bindResearchFindings\` only when they fit the exact update. Preserve frontmatter ids and existing section headings when editing Markdown. Write nodes first; add inline \`## Relations\` edges afterward only when explicit.
 7. After Markdown changes, rely on the vault write hook or call \`revela-decks markdownQa\`, then \`revela-decks compileNarrativeVault\`; keep \`markdownQa.repairCards\` separate from compiler blockers and fix both before treating the narrative as usable. If no explicit \`markdownQa\` result is visible after compile, call \`revela-decks markdownQa\` as a manual fallback. Do not use \`upsertNarrative\`.
 8. If explicit deck/artifact information exists, record conservative artifact context in file-native outputs or existing compatibility state only from visible information. Do not infer hidden evidence from generated artifacts.
-9. Report initialized/updated/migrated state plus counts and paths for added, changed, newer-than-vault, unchanged, \`ingest.ingestCandidates\`, and \`ingest.suggestedTasks\`. Always include \`Markdown QA: clean\` or \`Markdown QA blockers:\` in the final report. If Markdown QA blockers remain, do not say the workspace initialized cleanly; say the vault was initialized but Markdown repairs remain.
+9. Complete an Init Completion Report before ending. Do not end with only a technical success message. Include local discovery counts and paths for added, changed, newer-than-vault, unchanged, \`ingest.ingestCandidates\`, and \`ingest.suggestedTasks\`; a narrative graph summary; open evidence/research gaps; any Markdown QA status; user clarification questions; and recommended next commands. Always include \`Markdown QA: clean\` or \`Markdown QA blockers:\` in the final report. If Markdown QA blockers remain, do not say the workspace initialized cleanly; say the vault was initialized but Markdown repairs remain.
 
 Evidence boundary:
 - \`workspace.sourceMaterials\` and ingest task hints are candidate context, not proof.
@@ -80,6 +81,13 @@ Narrative questions to ask only when missing:
 - Which central claims support the thesis?
 - Which sources or findings support those claims?
 - What objections, risks, assumptions, or caveats could break the argument?
+
+Init completion rules:
+- Before ending \`/revela init\`, either use the question tool (AskQuestion) for at least one useful clarification or explicitly state that no clarification is needed now.
+- Ask only narrative-startup questions during init: audience, decision/action, scope, source priority, missing internal data, or whether external research is allowed for public evidence gaps.
+- Do not ask for slide count, design choice, layout choice, visual style, output path, PDF/PPTX export, or component preferences during init.
+- Always surface open gaps. Classify them as evidence gaps, research gaps, internal-data-needed, source-quality limits, or user-intent questions when possible.
+- Always recommend the next command: \`/revela research\` when evidence gaps need support, \`/revela story\` when the graph is ready to inspect, and \`/revela make --deck\` only when the user is ready to render from the current story.
 
 Memory rules:
 - Only write facts supported by workspace files or explicit user statements into file-native narrative/source files or, when ${DECKS_STATE_FILE} already exists, conservative compatibility metadata such as source materials, deck memory, and open questions.

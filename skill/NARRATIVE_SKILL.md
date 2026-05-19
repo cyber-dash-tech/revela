@@ -16,7 +16,7 @@ Default mode is narrative-first. Do not generate HTML slides, choose layouts, fe
 
 Use the same phase semantics whether the user invokes a slash command or asks in normal chat:
 
-- `Init` discovers local workspace materials, captures intent, initializes or refreshes workspace state, and creates conservative narrative state only from explicit user statements or source traces.
+- `Init` starts Revela on the current workspace: discover local materials, capture missing intent, refresh the narrative graph, surface gaps, and recommend the next command.
 - `Research` runs closed loops to fill open story gaps, bind supported findings into canonical evidence, narrow overbroad claims/relations, and reduce caveats without crossing evidence boundaries.
 - `Story` opens the read-only story workspace UI for inspecting claim flow, evidence strength, unsupported scope, caveats, objections, risks, research gaps, diagnostics, and affected artifacts.
 - `Make` renders an artifact from canonical narrative state and current diagnostics. Supported targets are deck and executive brief.
@@ -74,6 +74,9 @@ During init:
 - derive claims, evidence bindings, caveats, unsupported scope, source paths, quotes/snippets, pages, sheets, or slide references only when explicit support exists; distill ingested files by writing Markdown nodes under `revela-narrative/` even when the narrative is incomplete, and represent missing information as research gaps or caveats
 - write `## Relations` sections with plain node-id wikilinks such as `- supports: [[claim-example]]`, `- depends_on: [[evidence-example]]`, `- answers: [[claim-example]]`, or `- constrains: [[claim-example]]` when the relation is explicit; do not use typed wikilinks or hand-written relation ids; compile and fix diagnostics after editing Markdown
 - ask the smallest missing intent questions after local evidence has been considered
+- before ending `/revela init`, either use the question tool (AskQuestion) for a useful clarification or explicitly state that no clarification is needed now
+- always report local discovery status, narrative graph status, open evidence/research gaps, Markdown QA status, and recommended next commands
+- recommend `/revela research` when gaps need evidence, `/revela story` when the graph is ready to inspect, and `/revela make --deck` only when the user is ready to render
 - do not require slide count, design choice, layout choice, output path, or visual style unless the user explicitly asks to make an artifact immediately
 - when exporting a vault, say that any legacy render targets, reviews, artifact coverage, actions, deck specs, and source material records in `DECKS.json` are cache/provenance only
 
