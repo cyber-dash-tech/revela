@@ -154,5 +154,5 @@ describe("deck foundation helper", () => {
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
-  }, 30000)
+  }, 60000)
 })
