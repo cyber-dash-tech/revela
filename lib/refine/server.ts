@@ -2,8 +2,10 @@ import { randomBytes } from "crypto"
 import { existsSync, readFileSync, statSync } from "fs"
 import { fileURLToPath } from "url"
 import { dirname, extname, isAbsolute, relative, resolve, sep } from "path"
+import { ctx } from "../ctx"
 import type { EditableDeck } from "../edit/resolve-deck"
 import { buildEditPrompt, type EditCommentPayload } from "../edit/prompt"
+import { buildPrompt } from "../prompt-builder"
 import type { InspectionElementSnapshot } from "../inspection-context/match"
 import { buildInspectionPrompt } from "../inspect/prompt"
 import { projectWorkspaceElement } from "../inspect/request"
@@ -714,6 +716,9 @@ async function handleComment(req: Request, session: EditSession): Promise<Respon
   const comment = typeof body.comment === "string" ? body.comment.trim() : ""
   const elements = Array.isArray(body.elements) ? body.elements : []
   if (!comment && comments.length === 0) return jsonResponse({ ok: false, error: "Comment is required" }, 400)
+
+  ctx.enabled = true
+  buildPrompt({ mode: "deck-render" })
 
   const prompt = buildEditPrompt({
     ...body,

@@ -444,6 +444,8 @@ These rules are mandatory for Summit.
 - **Titles are Title Case.** Do not set `text-transform:uppercase` on `h1`, `h2`, `h3`, or `h4` titles. Uppercase is reserved for eyebrows, captions, metadata labels, short codes, and date/code-like markers.
 - **Components are transparent by default.** Component primitives should not bring their own paper/background fill. Let `.page`, layout containers, or explicit modifier variants provide background color when needed.
 - **Icon system is Lucide.** For ordinary UI, semantic, status, category, process, and navigation icons, use Lucide (`data-lucide`). Do not hand-write inline SVG for icons. SVG is allowed only for intentional decorative motifs, illustrations, or design-specific artwork. If any `data-lucide` icon is present, load Lucide via CDN and call `lucide.createIcons()` after `SlidePresentation`.
+- **Chart system is ECharts.** Data charts default to ECharts inside `echart-panel`. Do not use hand-written SVG, div/CSS shapes, canvas mocks, or static faux charts as data-chart substitutes. SVG remains acceptable for decorative motifs, diagrams, or illustrations, not data charts. Before creating or changing a chart, fetch the `echart-panel` component and `section: "chart-rules"`; if chart rules or runtime are unavailable, report the gap instead of inventing a fake chart fallback.
+- **Start from foundation.** New deck HTML starts from `@design:foundation`. Do not recreate foundation CSS, JavaScript, or the HTML skeleton from memory. Prefer a foundation helper when available; otherwise fetch `section: "foundation"` before writing a new deck shell. Existing deck edits preserve the current foundation unless the user asks for foundation repair or QA reports a foundation contract problem.
 
 ### Common Mistakes
 
@@ -2608,3 +2610,30 @@ Rules:
 <!-- @component:roadmap-vertical:end -->
 
 <!-- @design:components:end -->
+
+<!-- @design:chart-rules:start -->
+
+### Data Visualization (ECharts)
+
+- Chart system is ECharts. Data charts should use `echarts.init()` with an `echart-panel` container, not hand-written SVG, div/CSS shapes, canvas mocks, or static faux charts.
+- Summit charts should feel editorial and report-like: calm typography, limited series count, restrained labels, and no dashboard chrome, glow, or excessive gridlines.
+- Use `--accent-earth`, `--accent-olive`, and `--accent-gold` for primary/supporting series. Use `--accent-danger` only for negative indicators. Derive colors from CSS variables with `getComputedStyle(document.documentElement)` instead of hard-coding unrelated palettes.
+- Keep chart containers inside `echart-panel` so QA can measure stable geometry. `.echart-container` must have stable sizing through explicit width/height or flex sizing with `min-height: 0`.
+- Give every chart a unique id. Initialise with `echarts.init()` after `SlidePresentation` is instantiated, and call `chart.resize()` on window resize.
+- Set `backgroundColor: "transparent"` in chart options. Set text, axis, legend, grid, and tooltip colors explicitly; ECharts canvas text does not inherit CSS reliably.
+- Always include a short chart caption or source note when data is shown.
+- Do not use fake chart fallback when ECharts runtime or chart rules are missing. Report the missing runtime/rules or use an approved local/runtime dependency.
+
+Recommended ECharts defaults:
+
+```javascript
+const styles = getComputedStyle(document.documentElement);
+const chartText = styles.getPropertyValue('--text-secondary').trim();
+const chartMuted = styles.getPropertyValue('--text-muted').trim();
+const chartLine = styles.getPropertyValue('--line').trim();
+const primary = styles.getPropertyValue('--accent-earth').trim();
+const secondary = styles.getPropertyValue('--accent-olive').trim();
+const highlight = styles.getPropertyValue('--accent-gold').trim();
+```
+
+<!-- @design:chart-rules:end -->

@@ -84,6 +84,34 @@ describe("parseDesignSections", () => {
     }
   })
 
+  it("keeps built-in chart and foundation rules in design-owned sections", () => {
+    for (const designName of ["starter", "summit", "monet"]) {
+      const design = readFileSync(join(process.cwd(), "designs", designName, "DESIGN.md"), "utf-8")
+      const { sections } = parseDesignSections(design)
+
+      expect(sections.rules).toContain("Chart system is ECharts")
+      expect(sections.rules).toContain("echart-panel")
+      expect(sections.rules).toContain("hand-written SVG")
+      expect(sections.rules).toContain('section: "chart-rules"')
+      expect(sections.rules).toContain("Start from foundation")
+      expect(sections.rules).toContain("@design:foundation")
+      expect(sections.rules).toContain('section: "foundation"')
+
+      expect(sections["chart-rules"]).toContain("Chart system is ECharts")
+      expect(sections["chart-rules"]).toContain("echarts.init()")
+      expect(sections["chart-rules"]).toContain("backgroundColor")
+      expect(sections["chart-rules"]).toContain("chart.resize()")
+      expect(sections["chart-rules"]).toContain("fake chart fallback")
+    }
+  })
+
+  it("keeps design-specific icon and chart defaults out of the generic deck skill", () => {
+    const skill = readFileSync(join(process.cwd(), "skill", "SKILL.md"), "utf-8")
+
+    expect(skill).not.toContain("Icon system is Lucide")
+    expect(skill).not.toContain("Chart system is ECharts")
+  })
+
   it("accepts hyphenated section names (e.g. chart-rules)", () => {
     const body = wrapSection("chart-rules", "ECharts config")
     const { sections } = parseDesignSections(body)

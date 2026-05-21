@@ -79,6 +79,9 @@ Instructions:
 - Pure artifact polish such as layout, spacing, typography, alignment, color, image crop, animation, export fidelity, runtime JavaScript fixes, or deck HTML contract fixes may remain an artifact-level edit.
 - If the request mixes content meaning and visual polish, treat it as narrative-impacting unless the user clarifies otherwise.
 - Preserve the existing deck structure, active design language, typography, spacing system, animations, and slide count unless the comment explicitly asks otherwise.
+- Before patching ${"`decks/*.html`"}, call ${"`revela-designs`"} with ${"`action: \"read\"`"} and ${"`section: \"rules\"`"} to fetch the active design rules for this edit pass.
+- If the edit changes layout, component structure, typography scale, visual hierarchy, chart usage, icon usage, media treatment, or design-system classes, fetch the relevant ${"`revela-designs`"} layout/component details before editing. Fetch ${"`section: \"chart-rules\"`"} before changing or adding ECharts.
+- Follow the fetched design rules and vocabulary exactly. Do not invent layout classes, component names, CSS variables, icon systems, or visual effects from model memory or the existing deck alone.
 - If an asset/drop payload is present, this is an asset placement request. Use only the saved local asset path from the asset payload in deck HTML. Prefer asset.deckPath when present because it is relative to the target HTML file; otherwise use asset.path.
 - Do not write remote imageUrl, thumbnailUrl, source page URLs, or ${"`/__revela_asset`"} proxy URLs into deck HTML.
 - Logo assets should remain small, clear, and brand-like; do not use logos as decorative backgrounds.

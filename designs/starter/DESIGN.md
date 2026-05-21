@@ -234,6 +234,8 @@ new SlidePresentation();
 - **Reusable class vocabulary.** New classes must be documented in this DESIGN.md. Avoid many one-off selectors in generated decks.
 - **SVG is exceptional.** Use decorative SVG only when the user explicitly asks for an illustration/icon-like visual or when design authoring requires a motif.
 - **Icon system is Lucide.** For ordinary UI, semantic, status, category, process, and navigation icons, use Lucide (`data-lucide`). Do not hand-write inline SVG for icons. SVG is allowed only for intentional decorative motifs, illustrations, or design-specific artwork. If any `data-lucide` icon is present, load Lucide via CDN and call `lucide.createIcons()` after `SlidePresentation`.
+- **Chart system is ECharts.** Data charts default to ECharts inside `echart-panel`. Do not use hand-written SVG, div/CSS shapes, canvas mocks, or static faux charts as data-chart substitutes. SVG remains acceptable for decorative motifs, diagrams, or illustrations, not data charts. Before creating or changing a chart, fetch the `echart-panel` component and `section: "chart-rules"`; if chart rules or runtime are unavailable, report the gap instead of inventing a fake chart fallback.
+- **Start from foundation.** New deck HTML starts from `@design:foundation`. Do not recreate foundation CSS, JavaScript, or the HTML skeleton from memory. Prefer a foundation helper when available; otherwise fetch `section: "foundation"` before writing a new deck shell. Existing deck edits preserve the current foundation unless the user asks for foundation repair or QA reports a foundation contract problem.
 - **Images for photographic references.** Use image treatment rules rather than fake SVG when the reference is photographic, UI, webpage, or product imagery.
 - **Content pages need a stable title block.** Except cover, TOC, closing, section divider, and full-bleed hero slides, every normal content slide should include a visible title block from the upper-left safe area. It should contain a compact chapter/section label plus a slide title written as the page's claim or takeaway.
 - **Do not hide the page title inside a card.** Body components may have their own headings, but the slide-level title block should remain separate and easy to scan unless the chosen layout explicitly defines a compact side-title variant.
@@ -881,11 +883,14 @@ Rules:
 
 ### Data Visualization (ECharts)
 
-- Use neutral chart styling by default: clean axes, limited series count, and restrained labels.
-- Use `--accent-primary` for the main series and `--accent-secondary` for supporting series.
-- Avoid dashboard chrome, glowing charts, and excessive gridlines.
+- Chart system is ECharts. Data charts should use `echarts.init()` with an `echart-panel` container, not hand-written SVG, div/CSS shapes, canvas mocks, or static faux charts.
+- Use neutral chart styling by default: clean axes, limited series count, restrained labels, and transparent backgrounds.
+- Use `--accent-primary` for the main series and `--accent-secondary` for supporting series. Derive colors from CSS variables with `getComputedStyle(document.documentElement)` instead of hard-coding unrelated palettes.
+- Keep chart containers inside `echart-panel` so QA can measure stable geometry. `.echart-container` must have stable sizing through explicit width/height or flex sizing with `min-height: 0`.
+- Give every chart a unique id. Initialise with `echarts.init()` after `SlidePresentation` is instantiated, and call `chart.resize()` on window resize.
+- Set `backgroundColor: "transparent"` in chart options. Set text, axis, legend, grid, and tooltip colors explicitly; ECharts canvas text does not inherit CSS reliably.
 - Always include a short chart caption or source note when data is shown.
-- Keep chart containers inside `echart-panel` so QA can measure stable geometry.
+- Do not use fake chart fallback when ECharts runtime or chart rules are missing. Report the missing runtime/rules or use an approved local/runtime dependency.
 
 Recommended ECharts defaults:
 
