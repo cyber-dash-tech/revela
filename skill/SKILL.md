@@ -64,8 +64,13 @@ handoff exactly:
 5. Use `readDeckPlan` to inspect the current `deck-plan/` projection before
    artifact review or HTML generation. Diagnostics are advisory unless they are
    artifact validity errors handled by QA.
-6. Fetch the required design layouts/components with `revela-designs read`.
-7. Write HTML when the user proceeds and the deck contract can be satisfied.
+6. For a new deck HTML file, call `revela-deck-foundation` to create the
+   active-design foundation shell. The helper is file-native and must not create
+   narrative slide content, choose layouts/components, or read/write `DECKS.json`.
+7. Fetch the required design rules, layouts, and components with
+   `revela-designs read`.
+8. Patch slides between the foundation shell's `revela-slides` markers when the
+   user proceeds and the deck contract can be satisfied.
 
 Before any HTML generation, call `revela-decks` action `readDeckPlan` and follow
 the current `deck-plan/`: Source Authority, deck parameters, Chapter Writing
@@ -164,7 +169,8 @@ one broad `write`, `edit`, or `apply_patch` call.
 
 For decks with 5 or more slides:
 
-- First create a stable HTML shell plus structural slides and the first chapter.
+- First call `revela-deck-foundation` for new files, then patch structural
+  slides and the first chapter between the `revela-slides` markers.
 - Then fill or revise exactly one chapter range at a time.
 - Do not mix multiple central-claim chapters in the same write.
 - Chapter divider or chapter TOC slides are allowed as structural wayfinding and
@@ -193,14 +199,17 @@ If a write produces QA hard errors, fix them before continuing.
 Before writing or materially changing HTML:
 
 1. Read the deck-plan projection's layout and component names.
-2. Call `revela-designs` with `action: "read"` and `section: "rules"` to fetch
+2. For a new deck HTML file, call `revela-deck-foundation` before adding slide
+   content. Use `mode: "repair"` only for explicit foundation repair or QA
+   foundation contract fixes, not normal Review Comment edits.
+3. Call `revela-designs` with `action: "read"` and `section: "rules"` to fetch
    the active design's current composition and usage rules.
-3. Call `revela-designs` with `action: "read"` and `layout` set to all required
+4. Call `revela-designs` with `action: "read"` and `layout` set to all required
    layout names, comma-separated.
-4. Call `revela-designs` with `action: "read"` and `component` set to all
+5. Call `revela-designs` with `action: "read"` and `component` set to all
    required component names, comma-separated.
-5. Fetch `section: "chart-rules"` before using ECharts.
-6. Do not update legacy `requiredInputs`; design fetching is an execution step,
+6. Fetch `section: "chart-rules"` before using ECharts.
+7. Do not update legacy `requiredInputs`; design fetching is an execution step,
    not a workflow permission gate.
 
 Never generate HTML from memory or prior knowledge of a design. Copy the fetched

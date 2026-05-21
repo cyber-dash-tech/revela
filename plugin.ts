@@ -81,6 +81,7 @@ import decksTool from "./tools/decks"
 import designsAuthorTool from "./tools/designs-author"
 import designsTool from "./tools/designs"
 import domainsTool from "./tools/domains"
+import deckFoundationTool from "./tools/deck-foundation"
 import mediaBatchSaveTool from "./tools/media-batch-save"
 import mediaSaveTool from "./tools/media-save"
 import researchImagesListTool from "./tools/research-images-list"
@@ -586,6 +587,7 @@ const server: Plugin = (async (pluginCtx) => {
     tool: {
       "revela-decks": decksTool,
       "revela-designs": designsTool,
+      "revela-deck-foundation": deckFoundationTool,
       "revela-designs-author": designsAuthorTool,
       "revela-domains": domainsTool,
       "revela-media-batch-save": mediaBatchSaveTool,

@@ -79,6 +79,7 @@ function scanAssetRefs(htmlFilePath: string): LayoutIssue[] {
     const ref = raw.trim()
     if (!ref || ref.startsWith("data:") || ref.startsWith("#") || ref.startsWith("mailto:") || ref.startsWith("tel:")) continue
     if (/^https?:\/\//i.test(ref) || ref.startsWith("//")) {
+      if (isAllowedRemoteRuntimeRef(ref)) continue
       issues.push({ type: "asset", sub: "remote_url", severity: "error", detail: `Deck HTML references remote asset URL \`${ref}\`. Save network images to workspace assets and reference the local file instead.` })
       continue
     }
@@ -94,6 +95,17 @@ function scanAssetRefs(htmlFilePath: string): LayoutIssue[] {
     }
   }
   return issues
+}
+
+function isAllowedRemoteRuntimeRef(ref: string): boolean {
+  try {
+    const url = new URL(ref.startsWith("//") ? `https:${ref}` : ref)
+    if (url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com") return true
+    if (url.hostname === "cdn.jsdelivr.net" && url.pathname.startsWith("/npm/echarts@")) return true
+  } catch {
+    return false
+  }
+  return false
 }
 
 function looksLikeImageRef(ref: string): boolean {

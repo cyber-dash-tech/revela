@@ -181,6 +181,11 @@ describe("revela-narrative-reviewer subagent prompt", () => {
 })
 
 describe("revela subagent registration", () => {
+  it("registers the file-native deck foundation tool", () => {
+    expect(plugin).toContain('import deckFoundationTool from "./tools/deck-foundation"')
+    expect(plugin).toContain('"revela-deck-foundation": deckFoundationTool')
+  })
+
   it("registers research agent without access to revela-decks", () => {
     expect(plugin).toContain('opencodeConfig.agent["revela-research"]')
     expect(plugin).toContain('tools: {')
