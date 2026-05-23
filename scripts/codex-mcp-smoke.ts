@@ -3,8 +3,10 @@ import { join } from "path"
 
 const mode = process.argv.includes("--raw") ? "raw" : "framed"
 const debug = process.argv.includes("--debug")
-const serverPath = process.argv.slice(2).find((arg) => !arg.startsWith("--")) || join(import.meta.dir, "..", "plugins", "revela", "mcp", "revela-server.ts")
-const child = spawn("bun", [serverPath], {
+const positional = process.argv.slice(2).filter((arg) => !arg.startsWith("--"))
+const serverPath = positional[0] || join(import.meta.dir, "..", "plugins", "revela", "mcp", "revela-server.ts")
+const serverArgs = positional.slice(1)
+const child = spawn("bun", [serverPath, ...serverArgs], {
   env: debug ? { ...process.env, REVELA_MCP_DEBUG: "1" } : process.env,
   stdio: ["pipe", "pipe", "pipe"],
 })

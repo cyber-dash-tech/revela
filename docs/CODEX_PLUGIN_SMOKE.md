@@ -2,7 +2,22 @@
 
 ## Purpose
 
-Use this checklist to verify that the local Revela Codex plugin can run a file-native Revela workflow from Codex, not only install successfully.
+Use this checklist to verify that the Revela CLI/MCP runtime and optional local Codex plugin can run a file-native Revela workflow from Codex.
+
+## CLI/MCP First
+
+From the Revela repository root:
+
+```bash
+bun bin/revela.ts doctor
+bun scripts/codex-mcp-smoke.ts bin/revela.ts mcp
+bun scripts/codex-mcp-smoke.ts bin/revela.ts mcp --raw
+```
+
+Expected:
+
+- `doctor` returns JSON with `ok: true`.
+- Both MCP smokes return `initialize` and `tools/list` responses containing `revela_doctor`.
 
 ## Install Or Refresh
 
@@ -20,14 +35,14 @@ Verify local state:
 ```bash
 codex plugin list
 codex mcp list
-bun scripts/codex-mcp-smoke.ts
+bun scripts/codex-mcp-smoke.ts bin/revela.ts mcp
 ```
 
 Expected:
 
 - `revela@revela-local` is installed and enabled.
 - MCP server `revela` is enabled.
-- The local MCP smoke prints an `initialize` response and a `tools/list` response containing `revela_doctor`.
+- The local MCP smoke through `bin/revela.ts mcp` prints an `initialize` response and a `tools/list` response containing `revela_doctor`.
 
 ## Normal Smoke Flow
 
@@ -54,9 +69,9 @@ Run the smoke in a separate workspace, not the Revela source repository.
 
 - MCP tools should be available through normal Codex tool discovery in a new thread after plugin reinstall.
 - If tools are not discoverable, check `codex mcp list`, reinstall the plugin, and start another new thread.
-- If Codex reports `MCP startup incomplete (failed: revela)`, run `codex mcp get revela` and confirm the args use the `bun --eval` launcher, not a machine-specific absolute path or a literal `${PLUGIN_ROOT}` placeholder.
-- The launcher locates the MCP server from the current source checkout, the `revela-local` marketplace source in `~/.codex/config.toml`, or the installed Codex plugin cache.
-- If Codex reports a 30-second MCP startup timeout but `bun scripts/codex-mcp-smoke.ts` passes, try one new Codex session with `-c 'mcp_servers.revela.startup_timeout_sec=60'` and inspect `~/.codex/log/codex-tui.log` for the `revela` startup lines.
+- If Codex reports `MCP startup incomplete (failed: revela)`, run `codex mcp get revela` and confirm the plugin wrapper resolves the repo `bin/revela.ts` entry rather than a machine-specific stale server path or a literal `${PLUGIN_ROOT}` placeholder.
+- The plugin wrapper locates the CLI from the current source checkout, the `revela-local` marketplace source in `~/.codex/config.toml`, or the installed Codex plugin cache when available.
+- If Codex reports a 30-second MCP startup timeout but `bun scripts/codex-mcp-smoke.ts bin/revela.ts mcp` passes, try one new Codex session with `-c 'mcp_servers.revela.startup_timeout_sec=60'` and inspect `~/.codex/log/codex-tui.log` for the `revela` startup lines.
 - Direct JSON-RPC invocation of `plugins/revela/mcp/revela-server.ts` is a developer fallback only.
 - Browser-based QA and export may require user-approved command escalation in sandboxed Codex sessions.
 - Standalone smoke decks may warn that they are not the active legacy deck target; this is non-blocking when the requested artifact passes hard QA.
@@ -67,7 +82,7 @@ Run the smoke in a separate workspace, not the Revela source repository.
 If normal Codex MCP discovery fails, a developer can call the MCP server directly:
 
 ```bash
-bun scripts/codex-mcp-smoke.ts
+bun scripts/codex-mcp-smoke.ts bin/revela.ts mcp
 ```
 
 For a single tool call without the Codex client:

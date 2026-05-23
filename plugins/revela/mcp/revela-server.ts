@@ -1,4 +1,5 @@
 import { resolveRevelaRuntime } from "./runtime-resolver"
+import { appendFileSync } from "fs"
 
 type JsonRpcRequest = {
   jsonrpc?: string
@@ -19,6 +20,8 @@ type RuntimeModule = {
   designList(): any
   designRead(input?: any): any
 }
+
+type MessageMode = "framed" | "raw"
 
 const tools = [
   {
@@ -97,6 +100,9 @@ const tools = [
 
 let runtimePromise: Promise<RuntimeModule> | undefined
 const debugEnabled = process.env.REVELA_MCP_DEBUG === "1"
+const bootLogEnabled = process.env.REVELA_MCP_BOOT_LOG === "1"
+const bootLogPath = "/tmp/revela-mcp-boot.log"
+let activeResponseMode: MessageMode = "framed"
 
 async function runtime(): Promise<RuntimeModule> {
   runtimePromise ??= import(runtimeUrl()) as Promise<RuntimeModule>
@@ -118,7 +124,9 @@ async function handle(req: JsonRpcRequest): Promise<any | undefined> {
 
   try {
     debug("request", { id: req.id, method: req.method })
+    bootLog("request", { id: req.id, method: req.method })
     if (req.method === "initialize") {
+      bootLog("initialize-received", { id: req.id, protocolVersion: req.params?.protocolVersion })
       return result(req.id, {
         protocolVersion: req.params?.protocolVersion || "2024-11-05",
         capabilities: { tools: {} },
@@ -189,39 +197,63 @@ function arrayProp(description: string) {
   return { type: "array", items: { type: "string" }, description }
 }
 
-function writeMessage(message: any): void {
+function writeMessage(message: any, mode: MessageMode = activeResponseMode): void {
+  activeResponseMode = mode
   const body = JSON.stringify(message)
   debug("response", {
     id: message?.id,
+    mode,
     result: message?.result ? Object.keys(message.result) : undefined,
     error: message?.error?.message,
   })
+  bootLog("response-written", {
+    id: message?.id,
+    mode,
+    result: message?.result ? Object.keys(message.result) : undefined,
+    error: message?.error?.message,
+    bytes: Buffer.byteLength(body, "utf8"),
+  })
+  if (mode === "raw") {
+    process.stdout.write(`${body}\n`)
+    return
+  }
   process.stdout.write(`Content-Length: ${Buffer.byteLength(body, "utf8")}\r\n\r\n${body}`)
 }
 
 async function main(): Promise<void> {
   debug("startup", { script: import.meta.path })
+  bootLog("server-loaded", { script: import.meta.path, cwd: process.cwd() })
   const reader = Bun.stdin.stream().getReader()
+  bootLog("stdin-reader-started", {})
   let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array()
 
   while (true) {
     const { value, done } = await reader.read()
-    if (done) break
+    if (done) {
+      bootLog("stdin-done", { bufferedBytes: buffer.byteLength })
+      break
+    }
     buffer = concatBytes(buffer, value)
     const parsed = parseMessages(buffer)
-    if (parsed.messages.length > 0) debug("parse", { mode: parsed.mode, messages: parsed.messages.length })
+    const responseMode = parsed.mode || activeResponseMode
+    activeResponseMode = responseMode
+    if (parsed.messages.length > 0) {
+      debug("parse", { mode: parsed.mode, messages: parsed.messages.length })
+      bootLog("messages-parsed", { mode: parsed.mode, messages: parsed.messages.length, remainingBytes: parsed.remaining.byteLength })
+    }
     buffer = parsed.remaining
     for (const message of parsed.messages) {
       const response = await handle(message)
-      if (response) writeMessage(response)
+      if (response) writeMessage(response, responseMode)
     }
   }
 
   const trimmed = decode(buffer).trim()
   if (trimmed) {
+    bootLog("line-buffer-parse", { chars: trimmed.length })
     for (const message of parseLineMessages(trimmed)) {
       const response = await handle(message)
-      if (response) writeMessage(response)
+      if (response) writeMessage(response, "raw")
     }
   }
 }
@@ -355,6 +387,16 @@ function debug(event: string, data: Record<string, unknown>): void {
   process.stderr.write(`[revela-mcp] ${event} ${JSON.stringify(data)}\n`)
 }
 
+function bootLog(event: string, data: Record<string, unknown>): void {
+  if (!bootLogEnabled) return
+  try {
+    appendFileSync(bootLogPath, `${new Date().toISOString()} ${event} ${JSON.stringify(data)}\n`, "utf8")
+  } catch {
+    // Diagnostics must never interfere with the MCP stdio protocol.
+  }
+}
+
 main().catch((e) => {
+  bootLog("top-level-error", { error: e instanceof Error ? e.stack || e.message : String(e) })
   writeMessage(error(null, -32000, e instanceof Error ? e.message : String(e)))
 })

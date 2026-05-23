@@ -1,0 +1,88 @@
+#!/usr/bin/env bun
+
+type CommandResult = unknown | Promise<unknown>
+
+const [argvCommand, ...args] = process.argv.slice(2)
+const command = process.env.REVELA_CLI_COMMAND || argvCommand
+
+if (!command || command === "help" || command === "--help" || command === "-h") {
+  printHelp()
+  process.exit(0)
+}
+
+if (command === "mcp") {
+  await import("../plugins/revela/mcp/revela-server")
+}
+else {
+  const runtime = await import("../lib/runtime/index")
+  const options = parseArgs(args)
+
+  try {
+    let result: CommandResult
+    if (command === "doctor") result = runtime.doctor(options)
+    else if (command === "compile") result = runtime.compileNarrative(options)
+    else if (command === "markdown-qa") result = runtime.markdownQa(options)
+    else if (command === "deck-plan") result = runtime.readDeckPlan(options)
+    else if (command === "deck-foundation") result = runtime.createDeckFoundation(required(options, ["outputPath", "title", "language"]))
+    else if (command === "qa") result = runtime.runDeckQa(required(options, ["file"]))
+    else if (command === "export-pdf") result = runtime.exportPdf(required(options, ["file"]))
+    else if (command === "export-pptx") result = runtime.exportPptx(required(options, ["file"]))
+    else if (command === "design-list") result = runtime.designList()
+    else if (command === "design-read") result = runtime.designRead(options)
+    else {
+      throw new Error(`Unknown command: ${command}`)
+    }
+
+    process.stdout.write(`${JSON.stringify(await result, null, 2)}\n`)
+  } catch (e) {
+    process.stderr.write(`${e instanceof Error ? e.message : String(e)}\n`)
+    process.exit(1)
+  }
+}
+
+function parseArgs(values: string[]): Record<string, any> {
+  const result: Record<string, any> = {}
+  for (let i = 0; i < values.length; i++) {
+    const arg = values[i]
+    if (!arg.startsWith("--")) throw new Error(`Unexpected argument: ${arg}`)
+    const key = arg.slice(2)
+    const next = values[i + 1]
+    if (next === undefined || next.startsWith("--")) {
+      result[key] = true
+      continue
+    }
+    result[key] = parseValue(next)
+    i++
+  }
+  return result
+}
+
+function parseValue(value: string): unknown {
+  if (value === "true") return true
+  if (value === "false") return false
+  return value
+}
+
+function required(input: Record<string, any>, keys: string[]): Record<string, any> {
+  const missing = keys.filter((key) => input[key] === undefined || input[key] === "")
+  if (missing.length > 0) throw new Error(`Missing required option(s): ${missing.map((key) => `--${key}`).join(", ")}`)
+  return input
+}
+
+function printHelp(): void {
+  process.stdout.write(`Revela CLI
+
+Usage:
+  revela mcp
+  revela doctor [--workspaceRoot <path>]
+  revela compile [--workspaceRoot <path>]
+  revela markdown-qa [--workspaceRoot <path>] [--scope touched|affected|full] [--strictness authoring|readiness|render]
+  revela deck-plan [--workspaceRoot <path>]
+  revela deck-foundation --outputPath <path> --title <title> --language <tag> [--workspaceRoot <path>] [--designName <name>] [--mode create|repair] [--overwrite true]
+  revela qa --file <path> [--workspaceRoot <path>]
+  revela export-pdf --file <path> [--workspaceRoot <path>]
+  revela export-pptx --file <path> [--workspaceRoot <path>]
+  revela design-list
+  revela design-read [--name <design>]
+`)
+}

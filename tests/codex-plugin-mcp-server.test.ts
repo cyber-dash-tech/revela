@@ -82,6 +82,7 @@ describe("Codex plugin MCP server", () => {
     child.kill()
 
     expect(text.stdout).toContain("\"serverInfo\"")
+    expect(text.stdout).not.toStartWith("Content-Length:")
   })
 
   it("responds to concatenated raw JSON initialize and tools/list messages", async () => {
@@ -97,6 +98,7 @@ describe("Codex plugin MCP server", () => {
 
     expect(text.stdout).toContain("\"serverInfo\"")
     expect(text.stdout).toContain("revela_doctor")
+    expect(text.stdout).not.toStartWith("Content-Length:")
   })
 
   it("responds when launched from an installed-cache-shaped path", async () => {
