@@ -1003,8 +1003,8 @@ export function renderEditorShell(token: string): string {
         if (status === 'updated') return 'Deck file updated';
         if (status === 'stale') return 'Still waiting for deck file update';
         if (status === 'failed') return 'Failed to send';
-        if (status === 'sending') return 'Sending to OpenCode...';
-        return '⏳ Sent to OpenCode';
+        if (status === 'sending') return 'Sending to Review agent...';
+        return 'Sent to Review agent';
       }
 
       function targetFromPointer(event) {

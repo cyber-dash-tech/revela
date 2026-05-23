@@ -34,6 +34,7 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("revela_bind_research_findings")
     expect(text.stdout).toContain("revela_story_read")
     expect(text.stdout).toContain("revela_review_deck_read")
+    expect(text.stdout).toContain("revela_review_deck_open")
   })
 
   it("parses framed initialize requests using byte Content-Length", async () => {
@@ -265,6 +266,32 @@ source = "${repoRoot}"
     expect(text.stdout).toContain("Artifact QA: passed")
     expect(text.stdout).toContain("No revela-narrative/")
     expect(text.stdout).toContain("inspectionContext")
+  }, 60000)
+
+  it("opens a Codex-backed Review deck server from the MCP process", async () => {
+    seedBuiltinDesigns()
+    const root = tempWorkspace("revela-mcp-review-open-")
+    writeReviewDeck(root, "decks/review.html")
+    const child = spawn("bun", [serverPath], { stdio: ["pipe", "pipe", "pipe"] })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "revela_review_deck_open", arguments: { workspaceRoot: root, file: "decks/review.html", openBrowser: false } },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":2") && item.stdout.includes("codex-exec"), 60000)
+    child.kill()
+
+    expect(text.stdout).toContain("\\\"ok\\\": true")
+    expect(text.stdout).toContain("\\\"bridge\\\": \\\"codex-exec\\\"")
+    expect(text.stdout).toContain("\\\"mode\\\": \\\"edit\\\"")
+    expect(text.stdout).toContain("/refine?token=")
+    expect(text.stdout).not.toContain("\\\"reviewRead\\\"")
   }, 60000)
 })
 

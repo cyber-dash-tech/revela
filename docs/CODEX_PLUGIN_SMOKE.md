@@ -17,7 +17,8 @@ bun scripts/codex-mcp-smoke.ts bin/revela.ts mcp --raw
 Expected:
 
 - `doctor` returns JSON with `ok: true`.
-- Both MCP smokes return `initialize` and `tools/list` responses containing `revela_doctor`, `revela_story_read`, and `revela_review_deck_read`.
+- Both MCP smokes return `initialize` and `tools/list` responses containing `revela_doctor`, `revela_story_read`, `revela_review_deck_read`, and `revela_review_deck_open`.
+- `revela review-read --file <deck.html>` is available for CLI-level Review diagnostics after a deck exists.
 
 ## Install Or Refresh
 
@@ -42,7 +43,7 @@ Expected:
 
 - `revela@revela-local` is installed and enabled.
 - MCP server `revela` is enabled.
-- The local MCP smoke through `bin/revela.ts mcp` prints an `initialize` response and a `tools/list` response containing `revela_doctor`, `revela_story_read`, and `revela_review_deck_read`.
+- The local MCP smoke through `bin/revela.ts mcp` prints an `initialize` response and a `tools/list` response containing `revela_doctor`, `revela_story_read`, `revela_review_deck_read`, and `revela_review_deck_open`.
 
 ## Normal Smoke Flow
 
@@ -56,8 +57,9 @@ Run the smoke in a separate workspace, not the Revela source repository.
 6. Add a minimal valid slide set.
 7. Ask Codex to call `revela_run_deck_qa`.
 8. Ask Codex to call `revela_story_read` with `format: "markdown"`.
-9. Ask Codex to call `revela_review_deck_read` for the smoke deck with `format: "markdown"`.
-10. Repair hard QA errors and rerun QA.
+9. Ask Codex to review the smoke deck; confirm it calls `revela_review_deck_open` by default and returns a local `/refine?token=...` URL.
+10. Ask Codex to diagnose the smoke deck; confirm it calls `revela_review_deck_read` with `format: "markdown"`.
+11. Repair hard QA errors and rerun QA.
 
 ## Expected Result
 
@@ -67,7 +69,8 @@ Run the smoke in a separate workspace, not the Revela source repository.
 - Deck foundation creates a valid active-design shell.
 - Artifact QA passes with `hardErrorCount: 0`.
 - Story reading returns a deterministic map or Markdown view from `revela-narrative/`.
-- Review deck reading returns artifact QA, deck-plan/narrative diagnostics, and skipped legacy inspection context when no compatibility state exists.
+- Review deck open returns a local Review URL hosted by the MCP process with the `codex-exec` Insight and Apply Fix bridge.
+- Review deck reading returns artifact QA, deck-plan/narrative diagnostics, and skipped legacy inspection context when diagnostics are explicitly requested.
 
 ## Known Smoke Notes
 

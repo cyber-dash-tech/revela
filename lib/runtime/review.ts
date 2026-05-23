@@ -8,12 +8,20 @@ import { readDeckPlanArtifact } from "../narrative-state/deck-plan-artifact"
 import { compileNarrativeVault } from "../narrative-vault/compile"
 import { formatVaultDiagnosticMarkdown, formatVaultDiagnosticReport } from "../narrative-vault/diagnostic-report"
 import { formatArtifactQAReport, runArtifactQA } from "../qa/artifact"
+import { openRefineDeck } from "../refine/open"
+import { createCodexExecReviewPromptBridge } from "../refine/prompt-bridge"
 import { workspaceRelative } from "../workspace-state/rendered-artifacts"
 
 export interface ReviewDeckReadInput {
   workspaceRoot?: string
   file: string
   format?: "json" | "markdown"
+}
+
+export interface ReviewDeckOpenInput extends ReviewDeckReadInput {
+  bridge?: "codex-exec"
+  openBrowser?: boolean
+  openUrl?: (url: string) => void
 }
 
 export interface ReviewDeckInspectionContextResult {
@@ -74,6 +82,58 @@ export async function reviewDeckRead(input: ReviewDeckReadInput): Promise<any> {
     artifactCoverage: inspectionContext.context?.artifactCoverage ?? [],
     evidenceTrace: inspectionContext.context?.slides.flatMap((slide) => slide.evidence) ?? narrative.evidenceTrace,
     markdown,
+  }
+}
+
+export async function reviewDeckOpen(input: ReviewDeckOpenInput): Promise<any> {
+  const workspaceRoot = root(input.workspaceRoot)
+  const requestedFile = input.file?.trim()
+  if (!requestedFile) {
+    return {
+      ok: false,
+      file: "",
+      error: "Missing required file.",
+      diagnostics: [{ severity: "error", code: "missing_file", message: "Provide a workspace-relative or absolute deck HTML file." }],
+    }
+  }
+
+  try {
+    const opened = openRefineDeck(requestedFile, {
+      workspaceRoot,
+      mode: "edit",
+      openBrowser: input.openBrowser,
+      openUrl: input.openUrl,
+      sessionID: `codex-review:${requestedFile}`,
+      promptBridge: createCodexExecReviewPromptBridge(),
+    })
+    return {
+      ok: true,
+      file: opened.deck.file,
+      deck: {
+        slug: opened.deck.slug,
+        file: opened.deck.file,
+        source: opened.deck.source,
+      },
+      bridge: input.bridge ?? "codex-exec",
+      url: opened.url,
+      token: new URL(opened.url).searchParams.get("token"),
+      mode: opened.mode,
+      openedBrowser: opened.openedBrowser,
+      reusedSession: opened.reusedSession,
+      liveSession: opened.liveSession,
+      source: opened.source,
+      stateNote: opened.stateNote,
+      preflightChanged: opened.preflightChanged,
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    return {
+      ok: false,
+      file: requestedFile,
+      bridge: input.bridge ?? "codex-exec",
+      error: message,
+      diagnostics: [{ severity: "error", code: "review_open_failed", message }],
+    }
   }
 }
 

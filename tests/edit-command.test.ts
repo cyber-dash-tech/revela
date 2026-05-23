@@ -123,6 +123,20 @@ describe("buildEditPrompt", () => {
     expect(prompt).not.toContain("Do not run QA after the edit")
   })
 
+  it("can suppress automatic artifact QA instructions for Review UI Apply Fix", () => {
+    const prompt = buildEditPrompt({
+      deck: "sales-kickoff",
+      file: "decks/sales-kickoff.html",
+      comment: "Align the title.",
+      suppressAutomaticArtifactQa: true,
+    })
+
+    expect(prompt).toContain("Do not run artifact QA after this edit")
+    expect(prompt).toContain("The Review UI will refresh from the deck file version change")
+    expect(prompt).not.toContain("Artifact QA runs automatically after deck writes/patches/edits")
+    expect(prompt).not.toContain("Refine opens automatically only after hard errors pass")
+  })
+
   it("supports multiple comments with multiple selected elements", () => {
     const prompt = buildEditPrompt({
       deck: "sales-kickoff",

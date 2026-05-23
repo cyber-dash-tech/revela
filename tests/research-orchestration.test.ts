@@ -10,6 +10,7 @@ const codexResearchSkill = readFileSync(join(import.meta.dir, "..", "plugins", "
 const codexStorySkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-story", "SKILL.md"), "utf-8")
 const codexReviewDeckSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-review-deck", "SKILL.md"), "utf-8")
 const codexCapabilityMatrix = readFileSync(join(import.meta.dir, "..", "docs", "CODEX_PLUGIN_CAPABILITY_MATRIX.md"), "utf-8")
+const codexProductPlan = readFileSync(join(import.meta.dir, "..", "docs", "CODEX_PLUGIN_PRODUCT_PLAN.md"), "utf-8")
 const plugin = readFileSync(join(import.meta.dir, "..", "plugin.ts"), "utf-8")
 
 describe("primary research orchestration skill", () => {
@@ -147,8 +148,12 @@ describe("Codex revela-story skill", () => {
 })
 
 describe("Codex revela-review-deck skill", () => {
-  it("uses the tool-backed Review deck reader and remains read-only by default", () => {
-    expect(codexReviewDeckSkill).toContain("Call `revela_review_deck_read` first")
+  it("opens the Review UI by default and keeps diagnostics explicit", () => {
+    expect(codexReviewDeckSkill).toContain("For a plain request like `review decks/foo.html`, call `revela_review_deck_open`")
+    expect(codexReviewDeckSkill).toContain("Use `revela_review_deck_read`, normally with `format: \"markdown\"`, only when the user explicitly asks")
+    expect(codexReviewDeckSkill).toContain("Do not call `revela_run_deck_qa`, `revela_compile_narrative`, or `revela_read_deck_plan` separately for a normal Review UI open")
+    expect(codexReviewDeckSkill).toContain("revela_review_deck_open")
+    expect(codexReviewDeckSkill).toContain("Codex `codex-exec` bridge for Insight and Comment/Apply Fix")
     expect(codexReviewDeckSkill).toContain("format: \"markdown\"")
     expect(codexReviewDeckSkill).toContain("artifact QA, deck-plan diagnostics, narrative/vault diagnostics, artifact coverage, and evidence trace")
     expect(codexReviewDeckSkill).toContain("is read-only")
@@ -156,10 +161,22 @@ describe("Codex revela-review-deck skill", () => {
   })
 
   it("marks Codex Review deck reading as tool-backed in the capability matrix", () => {
-    expect(codexCapabilityMatrix).toContain("| Review deck reading |")
-    expect(codexCapabilityMatrix).toContain("`revela_review_deck_read` aggregate read tool")
+    expect(codexCapabilityMatrix).toContain("| Review deck UI and diagnostics |")
+    expect(codexCapabilityMatrix).toContain("`revela_review_deck_open` Codex Insight and Apply Fix bridge by default")
+    expect(codexCapabilityMatrix).toContain("`revela_review_deck_read` aggregate diagnostics tool")
     expect(codexCapabilityMatrix).toContain("Tool-backed MVP")
-    expect(codexCapabilityMatrix).toContain("full Review UI parity deferred")
+  })
+
+  it("keeps the product plan honest about Review read versus Review UI", () => {
+    expect(codexProductPlan).toContain("Review deck read")
+    expect(codexProductPlan).toContain("revela review-read --file <deck.html>")
+    expect(codexProductPlan).toContain("revela_review_deck_read")
+    expect(codexProductPlan).toContain("`pending` bridge")
+    expect(codexProductPlan).toContain("`codex-exec` / Codex SDK bridge")
+    expect(codexProductPlan).toContain("codex exec --json --ephemeral -C <workspace>")
+    expect(codexProductPlan).toContain("`codex-app-server` bridge")
+    expect(codexProductPlan).toContain("Comment/Apply Fix may patch artifacts for pure visual edits")
+    expect(codexProductPlan).toContain("OpenCode `client.session.prompt`")
   })
 })
 

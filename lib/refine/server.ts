@@ -9,10 +9,13 @@ import { buildPrompt } from "../prompt-builder"
 import type { InspectionElementSnapshot } from "../inspection-context/match"
 import { buildInspectionPrompt } from "../inspect/prompt"
 import { projectWorkspaceElement } from "../inspect/request"
-import { createInspectRequest, failInspectRequest, getInspectRequest } from "../inspect/requests"
+import { completeInspectRequest, createInspectRequest, failInspectRequest, getInspectRequest } from "../inspect/requests"
 import { saveMediaAsset } from "../media/save"
 import { searchRemoteImages, type ImageCandidate } from "../media/search"
 import type { MediaAssetRecord, MediaPurpose } from "../media/types"
+import { completeCommentRequest, createCommentRequest, failCommentRequest, getCommentRequest } from "./comment-requests"
+import { createOpenCodeReviewPromptBridge, type ReviewPromptBridge } from "./prompt-bridge"
+import { suppressReviewApplyFixArtifactQa } from "./qa-suppression"
 import { annotateVisualEditTargets, applyVisualTargetChanges, type VisualEditTarget } from "./visual-targets"
 
 const TOKEN_BYTES = 24
@@ -27,8 +30,9 @@ interface EditAsset {
 
 interface EditSession {
   token: string
-  client: any
-  sessionID: string
+  client?: any
+  sessionID?: string
+  promptBridge: ReviewPromptBridge
   deck: string
   file: string
   absoluteFile: string
@@ -47,7 +51,14 @@ export type RefineMode = "edit" | "inspect"
 
 export interface RefineServerHandle {
   baseUrl: string
-  getOrCreateSession(input: { client: any; sessionID: string; workspaceRoot: string; deck: EditableDeck; mode?: RefineMode }): EditServerSessionResult
+  getOrCreateSession(input: {
+    client?: any
+    sessionID?: string
+    workspaceRoot: string
+    deck: EditableDeck
+    mode?: RefineMode
+    promptBridge?: ReviewPromptBridge
+  }): EditServerSessionResult
 }
 
 export interface EditServerSessionResult {
@@ -80,6 +91,7 @@ export function startRefineServer(): RefineServerHandle {
       if (existing) {
         existing.session.client = input.client
         existing.session.sessionID = input.sessionID
+        existing.session.promptBridge = input.promptBridge ?? createOpenCodeReviewPromptBridge(input.client, input.sessionID ?? "")
         existing.session.deck = input.deck.slug
         existing.session.file = input.deck.file
         existing.session.workspaceRoot = resolve(input.workspaceRoot)
@@ -97,6 +109,7 @@ export function startRefineServer(): RefineServerHandle {
         token,
         client: input.client,
         sessionID: input.sessionID,
+        promptBridge: input.promptBridge ?? createOpenCodeReviewPromptBridge(input.client, input.sessionID ?? ""),
         deck: input.deck.slug,
         file: input.deck.file,
         absoluteFile: input.deck.absoluteFile,
@@ -180,6 +193,12 @@ async function handleRequest(req: Request): Promise<Response> {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
     return handleComment(req, session.value)
+  }
+
+  if (url.pathname === "/api/comment-result" && req.method === "GET") {
+    const session = validateSession(url.searchParams.get("token"))
+    if (!session.ok) return session.response
+    return handleCommentResult(url.searchParams.get("requestId"), session.value)
   }
 
   if (url.pathname === "/api/inspect" && req.method === "POST") {
@@ -727,19 +746,51 @@ async function handleComment(req: Request, session: EditSession): Promise<Respon
     comment,
     elements,
     comments,
+    suppressAutomaticArtifactQa: true,
   })
   const deckVersion = readDeckVersion(session).version
+  const requestId = typeof (body as any).requestId === "string" && (body as any).requestId.trim()
+    ? (body as any).requestId.trim()
+    : randomBytes(10).toString("base64url")
+  createCommentRequest({ requestId, deckVersion })
+  suppressReviewApplyFixArtifactQa({
+    workspaceRoot: session.workspaceRoot,
+    file: session.file,
+    sessionID: session.sessionID,
+  })
 
-  await session.client.session.prompt({
-    path: { id: session.sessionID },
-    body: {
-      parts: [{ type: "text", text: prompt }],
-    },
+  void session.promptBridge.send({
+    action: "comment",
+    prompt,
+    workspaceRoot: session.workspaceRoot,
+    file: session.file,
+    requestId,
+  }).then((result) => {
+    if (result.ok) {
+      completeCommentRequest(requestId)
+    } else {
+      failCommentRequest(requestId, result.error)
+    }
+  }).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error)
+    failCommentRequest(requestId, message)
   })
 
   session.lastActiveAt = Date.now()
   scheduleIdleStop()
-  return jsonResponse({ ok: true, deckVersion })
+  return jsonResponse({ ok: true, requestId, commentRequestId: requestId, deckVersion, status: "pending" })
+}
+
+function handleCommentResult(requestId: string | null, session: EditSession): Response {
+  if (!requestId) return jsonResponse({ ok: false, error: "Missing requestId" }, 400)
+  const request = getCommentRequest(requestId)
+  if (!request) return jsonResponse({ ok: false, requestId, error: "Comment request not found" }, 404)
+  session.lastActiveAt = Date.now()
+  scheduleIdleStop()
+  if (request.status === "failed" || request.status === "expired") {
+    return jsonResponse({ ok: true, requestId, status: request.status, deckVersion: request.deckVersion, error: request.error || "Review agent failed" })
+  }
+  return jsonResponse({ ok: true, requestId, status: request.status, deckVersion: request.deckVersion })
 }
 
 async function handleInspect(req: Request, session: EditSession): Promise<Response> {
@@ -766,22 +817,29 @@ async function handleInspect(req: Request, session: EditSession): Promise<Respon
     session.lastActiveAt = Date.now()
     scheduleIdleStop()
 
-    void session.client.session.prompt({
-      path: { id: session.sessionID },
-      body: {
-        parts: [{
-          type: "text",
-          text: buildInspectionPrompt({
-            requestId,
-            file: session.file,
-            language,
-            comment,
-            projection: staleReason
-              ? { ...projection, stale: { stale: true, reason: staleReason } } as any
-              : projection,
-          }),
-        }],
-      },
+    const prompt = buildInspectionPrompt({
+      requestId,
+      file: session.file,
+      language,
+      comment,
+      delivery: session.promptBridge.kind === "codex-exec" ? "json" : "tool",
+      projection: staleReason
+        ? { ...projection, stale: { stale: true, reason: staleReason } } as any
+        : projection,
+    })
+
+    void session.promptBridge.send({
+      action: "inspect",
+      prompt,
+      workspaceRoot: session.workspaceRoot,
+      file: session.file,
+      requestId,
+    }).then((result) => {
+      if (result.ok && result.result) {
+        completeInspectRequest(requestId, result.result)
+      } else if (!result.ok) {
+        failInspectRequest(requestId, result.error)
+      }
     }).catch((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error)
       failInspectRequest(requestId, message)
@@ -2038,14 +2096,14 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           });
           const body = await res.json().catch(() => ({}));
           if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to send comment');
-          updatePendingCommentStatus(commentId, 'sent', { baseDeckVersion: body.deckVersion || state.deckVersion });
+          updatePendingCommentStatus(commentId, 'sent', { baseDeckVersion: body.deckVersion || state.deckVersion, requestId: body.commentRequestId || body.requestId || '' });
           if (pendingCommentStatus(commentId) !== 'updated') setStatus('Comment sent. Waiting for deck update...');
-          state.sendingEdit = false;
-          updateSendState();
+          if (body.commentRequestId || body.requestId) pollCommentResult(commentId, body.commentRequestId || body.requestId);
         } catch (error) {
           updatePendingCommentStatus(commentId, 'failed');
-          state.sendingEdit = false;
           reportError(error);
+        } finally {
+          state.sendingEdit = false;
           updateSendState();
         }
       }
@@ -2398,8 +2456,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           });
           const body = await res.json().catch(() => ({}));
           if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to send asset placement');
-          updatePendingCommentStatus(commentId, 'sent', { baseDeckVersion: body.deckVersion || state.deckVersion });
+          updatePendingCommentStatus(commentId, 'sent', { baseDeckVersion: body.deckVersion || state.deckVersion, requestId: body.commentRequestId || body.requestId || '' });
           if (pendingCommentStatus(commentId) !== 'updated') setStatus('Asset placement sent. Waiting for deck update...');
+          if (body.commentRequestId || body.requestId) pollCommentResult(commentId, body.commentRequestId || body.requestId);
         } catch (error) {
           updatePendingCommentStatus(commentId, 'failed');
           reportError(error);
@@ -2483,6 +2542,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           createdAt: Date.now(),
           baseDeckVersion: state.deckVersion,
           updatedVersion: null,
+          requestId: '',
         });
         renderCommentThread();
         return id;
@@ -2531,6 +2591,34 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         return state.pendingComments.find((comment) => comment.id === id)?.status || '';
       }
 
+      async function pollCommentResult(commentId, requestId) {
+        if (!requestId) return;
+        for (let attempt = 0; attempt < 140; attempt++) {
+          await delay(1000);
+          if (pendingCommentStatus(commentId) === 'updated') return;
+          try {
+            const res = await fetch('/api/comment-result?token=' + encodeURIComponent(token) + '&requestId=' + encodeURIComponent(requestId), { cache: 'no-store' });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok || !body.ok) throw new Error(body.error || 'Comment result failed');
+            if (body.status === 'failed' || body.status === 'expired') {
+              updatePendingCommentStatus(commentId, 'failed');
+              setStatus(body.error || 'Review agent failed to apply the comment.');
+              return;
+            }
+            if (body.status === 'completed') {
+              return;
+            }
+          } catch (error) {
+            reportError(error);
+            return;
+          }
+        }
+        if (pendingCommentStatus(commentId) !== 'updated') {
+          updatePendingCommentStatus(commentId, 'failed');
+          setStatus('Review agent timed out before applying the comment.');
+        }
+      }
+
       function renderCommentThread() {
         els.commentThread.textContent = '';
         state.pendingComments.forEach((comment) => {
@@ -2555,8 +2643,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         if (status === 'updated') return 'Deck file updated';
         if (status === 'stale') return 'Still waiting for deck file update';
         if (status === 'failed') return 'Failed to send';
-        if (status === 'sending') return 'Sending to OpenCode...';
-        return '⏳ Sent to OpenCode';
+        if (status === 'sending') return 'Sending to Review agent...';
+        return 'Sent to Review agent';
       }
 
       function targetFromPointer(event) {
@@ -2735,7 +2823,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           }
           if (body.status === 'failed' || body.status === 'expired') throw new Error(body.error || 'Insight failed');
         }
-        throw new Error('Insight timed out while waiting for OpenCode result');
+        throw new Error('Insight timed out while waiting for Review agent result');
       }
 
       function collectReferenceSnapshot() {

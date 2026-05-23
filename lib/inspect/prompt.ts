@@ -6,9 +6,11 @@ export function buildInspectionPrompt(input: {
   projection: InspectionPromptProjection
   language?: string
   comment?: string
+  delivery?: "tool" | "json"
 }): string {
   const language = normalizeInspectLanguage(input.language)
   const comment = typeof input.comment === "string" && input.comment.trim() ? input.comment.trim() : ""
+  const delivery = input.delivery ?? "tool"
   return `A user selected slide content in Revela Evidence Inspector. The selection may contain one referenced element, a whole slide, or multiple referenced elements selected with Cmd/Ctrl-click.
 
 Target file: ${input.file}
@@ -20,7 +22,9 @@ Use the structured projection below to produce the final inspector cards. This i
 
 Language boundary: the selected display language affects only human-readable card copy. Preserve all claim ids, canonical claim ids, evidence binding ids, source paths, findings files, URLs, numbers, quoted/source facts, caveats, artifact ids, and coverage statuses exactly as grounded in the projection. If the display language is Auto, use projection.deck.language when available; otherwise follow the user's/browser context or default to English.
 
-Return the result only by calling the \`revela-inspection-result\` tool with this request id. Do not answer in chat.
+${delivery === "json"
+    ? "Return only a single JSON object that matches the final inspector result schema. Do not wrap it in Markdown. Do not call tools. Do not edit files."
+    : "Return the result only by calling the `revela-inspection-result` tool with this request id. Do not answer in chat."}
 
 Required card model:
 - User inspect comment: if present, answer it through the Purpose and Source cards first. If it asks about trust, provenance, evidence, factuality, or where a number came from, prioritize Source. If it asks why something is on the slide or what it is doing, prioritize Purpose.

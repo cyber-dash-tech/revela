@@ -1,0 +1,21 @@
+{
+  "topic": "revela",
+  "updatedAt": "2026-05-23T16:13:36.330Z",
+  "assets": [
+    {
+      "id": "simple-icons-claude",
+      "type": "image",
+      "purpose": "logo",
+      "brief": "Saved from simple-icons for Review asset placement.",
+      "status": "success",
+      "path": "assets/revela/media/simple-icons-claude.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/claude.svg",
+      "alt": "claude logo",
+      "provider": "simple-icons",
+      "sourcePageUrl": "https://simpleicons.org/?q=claude",
+      "license": "See Simple Icons source license",
+      "attribution": "Simple Icons",
+      "savedAt": "2026-05-23T16:13:36.330Z"
+    }
+  ]
+}

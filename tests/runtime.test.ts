@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test"
+import { spawnSync } from "child_process"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 import { createDeckFoundation, deckFoundationMarkers } from "../lib/deck-html/foundation"
@@ -6,7 +7,8 @@ import { DECKS_STATE_FILE } from "../lib/decks-state"
 import { seedBuiltinDesigns } from "../lib/design/designs"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
-import { bindResearchFindings, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets, reviewDeckRead, storyRead } from "../lib/runtime"
+import { bindResearchFindings, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead } from "../lib/runtime"
+import { stopRefineServer } from "../lib/refine/server"
 import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("runtime facade", () => {
@@ -212,6 +214,81 @@ sources:
     expect(existsSync(join(root, DECKS_STATE_FILE))).toBe(false)
     expect(existsSync(join(root, "decks"))).toBe(false)
   })
+
+  it("exposes Review deck read through the CLI without creating state", () => {
+    const root = tempWorkspace("revela-runtime-review-cli-missing-")
+    const cli = join(import.meta.dir, "..", "bin", "revela.ts")
+
+    const proc = spawnSync("bun", [cli, "review-read", "--workspaceRoot", root, "--file", "decks/missing.html"], {
+      encoding: "utf-8",
+    })
+
+    expect(proc.status).toBe(0)
+    const result = JSON.parse(proc.stdout)
+    expect(result).toMatchObject({
+      ok: false,
+      file: "decks/missing.html",
+    })
+    expect(result.error).toContain("Deck HTML file not found")
+    expect(existsSync(join(root, DECKS_STATE_FILE))).toBe(false)
+    expect(existsSync(join(root, "decks"))).toBe(false)
+  })
+
+  it("opens a Codex-backed Review server by default without creating compatibility state", async () => {
+    seedBuiltinDesigns()
+    const root = tempWorkspace("revela-runtime-review-open-default-")
+    writeMinimalDeck(root, "decks/review.html")
+    const openedUrls: string[] = []
+
+    try {
+      const result = await reviewDeckOpen({
+        workspaceRoot: root,
+        file: "decks/review.html",
+        openUrl: (url) => openedUrls.push(url),
+      })
+
+      expect(result).toMatchObject({
+        ok: true,
+        file: "decks/review.html",
+        bridge: "codex-exec",
+        mode: "edit",
+        openedBrowser: true,
+      })
+      expect(result.url).toContain("/refine?token=")
+      expect(openedUrls).toEqual([result.url])
+      expect(result.token).toBeString()
+      expect(result.deck).toMatchObject({ file: "decks/review.html", source: "file-path" })
+      expect(result).not.toHaveProperty("reviewRead")
+      expect(existsSync(join(root, DECKS_STATE_FILE))).toBe(false)
+    } finally {
+      stopRefineServer()
+    }
+  }, 60000)
+
+  it("returns a Codex-backed Review URL when browser opening is disabled", async () => {
+    seedBuiltinDesigns()
+    const root = tempWorkspace("revela-runtime-review-open-")
+    writeMinimalDeck(root, "decks/review.html")
+
+    try {
+      const result = await reviewDeckOpen({ workspaceRoot: root, file: "decks/review.html", openBrowser: false })
+
+      expect(result).toMatchObject({
+        ok: true,
+        file: "decks/review.html",
+        bridge: "codex-exec",
+        mode: "edit",
+        openedBrowser: false,
+      })
+      expect(result.url).toContain("/refine?token=")
+      expect(result.token).toBeString()
+      expect(result.deck).toMatchObject({ file: "decks/review.html", source: "file-path" })
+      expect(result).not.toHaveProperty("reviewRead")
+      expect(existsSync(join(root, DECKS_STATE_FILE))).toBe(false)
+    } finally {
+      stopRefineServer()
+    }
+  }, 60000)
 })
 
 function writeMinimalVault(root: string): void {

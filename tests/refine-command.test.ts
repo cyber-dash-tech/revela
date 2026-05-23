@@ -6,13 +6,18 @@ import { clearInspectRequestsForTests, getInspectRequest } from "../lib/inspect/
 import { handleEdit } from "../lib/commands/edit"
 import { handleInspect } from "../lib/commands/inspect"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
+import { clearCommentRequestsForTests } from "../lib/refine/comment-requests"
 import { ensureRefineDeckOpenForChange, openRefineDeck } from "../lib/refine/open"
+import { createCodexExecReviewPromptBridge } from "../lib/refine/prompt-bridge"
+import { clearReviewApplyFixArtifactQaSuppressionsForTests, shouldSuppressReviewApplyFixArtifactQa } from "../lib/refine/qa-suppression"
 import { renderRefineShell, stopRefineServer } from "../lib/refine/server"
 import { mockFetchWith, readJsonFile, tempWorkspace } from "./helpers/tool-helpers"
 
 const roots: string[] = []
 
 afterEach(() => {
+  clearCommentRequestsForTests()
+  clearReviewApplyFixArtifactQaSuppressionsForTests()
   clearInspectRequestsForTests()
   stopRefineServer()
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
@@ -131,6 +136,13 @@ describe("renderRefineShell", () => {
     expect(html).toContain("Getting insight...")
     expect(html).toContain("Searching...")
     expect(html).toContain("Sending...")
+    expect(html).toContain("finally")
+    expect(html).toContain("state.sendingEdit = false")
+    expect(html).toContain("/api/comment-result")
+    expect(html).toContain("Sent to Review agent")
+    expect(html).toContain("Sending to Review agent...")
+    expect(html).not.toContain("Sending to OpenCode...")
+    expect(html).not.toContain("Sent to OpenCode")
     expect(html).toContain("class=\"spinner\"")
     expect(html).toContain("skeleton-card")
     expect(html).toContain("/api/comment")
@@ -465,6 +477,325 @@ describe("refine HTTP inspect lifecycle", () => {
     })
     expect(getInspectRequest(data.requestId)?.status).toBe("pending")
   })
+
+  it("completes inspection results through the codex-exec bridge", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><div class="page"><h1>Launch</h1></div></div></section>', "utf-8")
+    const slug = workspaceDeckSlug(root)
+    let state = createEmptyDecksState()
+    state = upsertDeck(state, {
+      slug,
+      goal: "Approve launch",
+      audience: "Executive team",
+      outputPath: "decks/demo.html",
+    })
+    state.narrative = {
+      version: 1,
+      id: "narrative:demo",
+      status: "approved",
+      audience: { primary: "Executive team", beliefBefore: "Unsure", beliefAfter: "Ready to approve" },
+      decision: { action: "Approve launch" },
+      claims: [],
+      evidenceBindings: [],
+      objections: [],
+      risks: [],
+      approvals: [],
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    }
+    state = upsertSlides(state, slug, [{
+      index: 1,
+      title: "Launch",
+      purpose: "Introduce launch decision",
+      narrativeRole: "context",
+      layout: "title",
+      components: ["title"],
+      content: { headline: "Launch" },
+      evidence: [],
+      status: "ready",
+    }])
+    state.renderTargets = [{
+      id: "target:html_deck:decks/demo.html",
+      type: "html_deck",
+      outputPath: "decks/demo.html",
+      sourceNodeIds: ["narrative:demo"],
+      artifactVersion: computeNarrativeHash(state.narrative!),
+      contractStatus: "valid",
+      data: { narrativeHash: computeNarrativeHash(state.narrative!) },
+    }]
+    writeDecksState(root, state)
+    let promptText = ""
+    const promptBridge = createCodexExecReviewPromptBridge({
+      runner: async ({ prompt }) => {
+        promptText = prompt
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify({
+            version: 1,
+            status: "success",
+            selectedText: "Launch",
+            matchConfidence: "high",
+            cards: {
+              purpose: {
+                status: "clear",
+                role: "cover",
+                rationale: "Launch is the selected slide title.",
+                whyItMatters: "It anchors the slide.",
+              },
+              source: {
+                status: "not_needed",
+                sources: [],
+                warnings: [],
+                gaps: [],
+                caveats: [],
+                rationale: "This selected title is structural text.",
+              },
+            },
+          }),
+          stderr: "",
+        }
+      },
+    })
+    const opened = openRefineDeck("", {
+      workspaceRoot: root,
+      openBrowser: false,
+      promptBridge,
+    })
+    const inspectUrl = new URL(opened.url)
+    inspectUrl.pathname = "/api/inspect"
+
+    const response = await fetch(inspectUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ snapshot: { slideIndex: 1, text: "Launch", tagName: "H1", classList: [] } }),
+    })
+    const data = await response.json() as any
+    expect(response.status).toBe(200)
+    expect(data).toMatchObject({ ok: true, status: "pending" })
+    const resultUrl = new URL(opened.url)
+    resultUrl.pathname = "/api/inspect-result"
+    resultUrl.searchParams.set("requestId", data.requestId)
+    const completed = await waitForJson(resultUrl, (item) => item.status === "completed")
+
+    expect(promptText).toContain("Return only a single JSON object")
+    expect(completed).toMatchObject({
+      ok: true,
+      status: "completed",
+      result: {
+        status: "success",
+        cards: { purpose: { status: "clear" }, source: { status: "not_needed" } },
+      },
+    })
+    expect(getInspectRequest(data.requestId)?.status).toBe("completed")
+  })
+
+  it("sends Apply Fix comments through the Codex Review bridge", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
+    let captured: any
+    const promptBridge = {
+      kind: "codex-exec" as const,
+      async send(input: any) {
+        captured = input
+        return { ok: true as const, status: "completed" as const, raw: "patched" }
+      },
+    }
+    const opened = openRefineDeck("", {
+      workspaceRoot: root,
+      openBrowser: false,
+      promptBridge,
+    })
+    const commentUrl = new URL(opened.url)
+    commentUrl.pathname = "/api/comment"
+
+    const response = await fetch(commentUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        comment: "Make the title smaller.",
+        elements: [{ slideIndex: 1, tagName: "H1", text: "Launch" }],
+      }),
+    })
+    const data = await response.json() as any
+
+    expect(response.status).toBe(200)
+    expect(data).toMatchObject({ ok: true, status: "pending" })
+    expect(data.commentRequestId).toBeTruthy()
+    expect(captured).toMatchObject({
+      action: "comment",
+      workspaceRoot: root,
+      file: "decks/demo.html",
+    })
+    expect(captured.prompt).toContain("Target file: decks/demo.html")
+    expect(captured.prompt).toContain("Make the title smaller.")
+    expect(captured.prompt).toContain("Do not run artifact QA after this edit")
+    expect(captured.prompt).not.toContain("Artifact QA runs automatically after deck writes/patches/edits")
+  })
+
+  it("registers Apply Fix artifact QA suppression for the current OpenCode session", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
+    const client = {
+      session: {
+        async prompt() {
+          return undefined
+        },
+      },
+    }
+    const opened = openRefineDeck("", {
+      client,
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openBrowser: false,
+    })
+    const commentUrl = new URL(opened.url)
+    commentUrl.pathname = "/api/comment"
+
+    const response = await fetch(commentUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        comment: "Make the title smaller.",
+        elements: [{ slideIndex: 1, tagName: "H1", text: "Launch" }],
+      }),
+    })
+    const data = await response.json() as any
+
+    expect(response.status).toBe(200)
+    expect(data).toMatchObject({ ok: true, status: "pending" })
+    expect(shouldSuppressReviewApplyFixArtifactQa({
+      workspaceRoot: root,
+      file: "decks/demo.html",
+      sessionID: "session-1",
+    })).toBe(true)
+    expect(shouldSuppressReviewApplyFixArtifactQa({
+      workspaceRoot: root,
+      file: "decks/other.html",
+      sessionID: "session-1",
+    })).toBe(false)
+    expect(shouldSuppressReviewApplyFixArtifactQa({
+      workspaceRoot: root,
+      file: "decks/demo.html",
+      sessionID: "session-2",
+    })).toBe(false)
+  })
+
+  it("accepts Apply Fix comments before a delayed Review bridge completes", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
+    let resolveBridge: ((value: { ok: true; status: "completed"; raw: string }) => void) | undefined
+    const promptBridge = {
+      kind: "codex-exec" as const,
+      async send() {
+        return await new Promise<{ ok: true; status: "completed"; raw: string }>((resolve) => {
+          resolveBridge = resolve
+        })
+      },
+    }
+    const opened = openRefineDeck("", {
+      workspaceRoot: root,
+      openBrowser: false,
+      promptBridge,
+    })
+    const commentUrl = new URL(opened.url)
+    commentUrl.pathname = "/api/comment"
+
+    const response = await withTimeout(fetch(commentUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        comment: "Make the title smaller.",
+        elements: [{ slideIndex: 1, tagName: "H1", text: "Launch" }],
+      }),
+    }), 100)
+    const data = await response.json() as any
+
+    expect(response.status).toBe(200)
+    expect(data).toMatchObject({ ok: true, status: "pending" })
+    expect(data.commentRequestId).toBeTruthy()
+
+    const resultUrl = new URL(opened.url)
+    resultUrl.pathname = "/api/comment-result"
+    resultUrl.searchParams.set("requestId", data.commentRequestId)
+    const pending = await fetch(resultUrl).then((item) => item.json()) as any
+    expect(pending).toMatchObject({ ok: true, status: "pending" })
+
+    resolveBridge?.({ ok: true, status: "completed", raw: "patched" })
+    const completed = await waitForJson(resultUrl, (item) => item.status === "completed")
+    expect(completed).toMatchObject({ ok: true, status: "completed" })
+  })
+
+  it("reports failed background Apply Fix bridge results", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
+    const promptBridge = {
+      kind: "codex-exec" as const,
+      async send() {
+        return { ok: false as const, status: "failed" as const, error: "codex exec failed" }
+      },
+    }
+    const opened = openRefineDeck("", {
+      workspaceRoot: root,
+      openBrowser: false,
+      promptBridge,
+    })
+    const commentUrl = new URL(opened.url)
+    commentUrl.pathname = "/api/comment"
+
+    const response = await fetch(commentUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        comment: "Make the title smaller.",
+        elements: [{ slideIndex: 1, tagName: "H1", text: "Launch" }],
+      }),
+    })
+    const data = await response.json() as any
+    expect(response.status).toBe(200)
+    expect(data).toMatchObject({ ok: true, status: "pending" })
+
+    const resultUrl = new URL(opened.url)
+    resultUrl.pathname = "/api/comment-result"
+    resultUrl.searchParams.set("requestId", data.commentRequestId)
+    const failed = await waitForJson(resultUrl, (item) => item.status === "failed")
+    expect(failed).toMatchObject({ ok: true, status: "failed", error: "codex exec failed" })
+  })
+
+  it("accepts asset placement comments through the same pending Comment lifecycle", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
+    let captured: any
+    const promptBridge = {
+      kind: "codex-exec" as const,
+      async send(input: any) {
+        captured = input
+        return { ok: true as const, status: "completed" as const, raw: "patched" }
+      },
+    }
+    const opened = openRefineDeck("", {
+      workspaceRoot: root,
+      openBrowser: false,
+      promptBridge,
+    })
+    const commentUrl = new URL(opened.url)
+    commentUrl.pathname = "/api/comment"
+
+    const response = await fetch(commentUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        comment: "Place workspace asset assets/demo/logo.png on slide 1 as a logo; add it near the drop point.",
+        elements: [{ slideIndex: 1, tagName: "SECTION", text: "Launch" }],
+        asset: { id: "logo", path: "assets/demo/logo.png", purpose: "logo" },
+        drop: { slideIndex: 1, targetMode: "insert", x: 12, y: 24 },
+      }),
+    })
+    const data = await response.json() as any
+
+    expect(response.status).toBe(200)
+    expect(data).toMatchObject({ ok: true, status: "pending" })
+    expect(data.commentRequestId).toBeTruthy()
+    expect(captured.prompt).toContain("assets/demo/logo.png")
+  })
 })
 
 describe("refine asset APIs", () => {
@@ -736,4 +1067,16 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   } finally {
     if (timer) clearTimeout(timer)
   }
+}
+
+async function waitForJson(url: URL, predicate: (item: any) => boolean): Promise<any> {
+  const started = Date.now()
+  let last: any
+  while (Date.now() - started < 1000) {
+    const response = await fetch(url)
+    last = await response.json()
+    if (predicate(last)) return last
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  throw new Error(`Timed out waiting for JSON predicate: ${JSON.stringify(last)}`)
 }

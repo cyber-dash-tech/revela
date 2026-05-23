@@ -25,6 +25,7 @@ else {
     else if (command === "deck-plan") result = runtime.readDeckPlan(options)
     else if (command === "deck-foundation") result = runtime.createDeckFoundation(required(options, ["outputPath", "title", "language"]))
     else if (command === "qa") result = runtime.runDeckQa(required(options, ["file"]))
+    else if (command === "review-read") result = runtime.reviewDeckRead(required(options, ["file"]))
     else if (command === "export-pdf") result = runtime.exportPdf(required(options, ["file"]))
     else if (command === "export-pptx") result = runtime.exportPptx(required(options, ["file"]))
     else if (command === "design-list") result = runtime.designList()
@@ -80,6 +81,7 @@ Usage:
   revela deck-plan [--workspaceRoot <path>]
   revela deck-foundation --outputPath <path> --title <title> --language <tag> [--workspaceRoot <path>] [--designName <name>] [--mode create|repair] [--overwrite true]
   revela qa --file <path> [--workspaceRoot <path>]
+  revela review-read --file <path> [--workspaceRoot <path>] [--format json|markdown]
   revela export-pdf --file <path> [--workspaceRoot <path>]
   revela export-pptx --file <path> [--workspaceRoot <path>]
   revela design-list

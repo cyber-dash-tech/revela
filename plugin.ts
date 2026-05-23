@@ -11,7 +11,7 @@
  * 5. experimental.chat.system.transform: inject three-layer prompt when enabled
  * 6. chat.message: intercept @-referenced / pasted binary files → extract text → replace FilePart with TextPart
  * 7. tool.execute.before: intercept read on DOCX/PPTX/XLSX → preRead()
- * 8. tool.execute.after: intercept read on PDF/images → postRead(); run static compliance after deck writes/patches/edits
+ * 8. tool.execute.after: intercept read on PDF/images → postRead(); run static compliance after deck writes/patches/edits unless Review Apply Fix suppresses it
  */
 
 import type { Plugin } from "@opencode-ai/plugin"
@@ -47,6 +47,7 @@ import { buildPptxNotesPrompt, handlePptx, parsePptxArgs, resolvePptxDeck } from
 import { handleRefine } from "./lib/commands/refine"
 import { formatArtifactQAReport, runArtifactQA } from "./lib/qa/artifact"
 import { ensureRefineDeckOpenForChange } from "./lib/refine/open"
+import { shouldSuppressReviewApplyFixArtifactQa } from "./lib/refine/qa-suppression"
 import { handleDesignsPreview } from "./lib/commands/designs-preview"
 import {
   parseDesignsNewArgs,
@@ -148,6 +149,7 @@ const server: Plugin = (async (pluginCtx) => {
 
   async function runPostWriteArtifactQA(filePath: string, output: any, sessionID = ""): Promise<boolean> {
     if (!isDeckHtmlPath(filePath)) return true
+    if (shouldSuppressReviewApplyFixArtifactQa({ workspaceRoot, file: filePath, sessionID })) return false
 
     try {
       let vocabulary
@@ -787,7 +789,7 @@ Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSl
     // PDF: extract text, remove base64. Images: jimp compress.
     //
     // Also reports writes/patches blocked by the DECKS.json state gate and
-    // runs artifact QA before opening Refine after successful deck changes.
+    // runs artifact QA before opening Refine after successful deck changes, except Review Apply Fix comments.
     "tool.execute.after": async (input, output) => {
       // ── Post-read processing ───────────────────────────────────────────
       if (input.tool === "read") {

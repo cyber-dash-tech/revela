@@ -26,6 +26,7 @@ export interface EditCommentPayload extends EditSelectedElementPayload {
   comments?: EditCommentDraftPayload[]
   asset?: Record<string, unknown>
   drop?: Record<string, unknown>
+  suppressAutomaticArtifactQa?: boolean
 }
 
 export function buildEditPrompt(payload: EditCommentPayload): string {
@@ -59,6 +60,10 @@ export function buildEditPrompt(payload: EditCommentPayload): string {
     asset: payload.asset,
     drop: payload.drop,
   }
+  const qaInstruction = payload.suppressAutomaticArtifactQa
+    ? `- Do not run artifact QA after this edit and do not keep editing just to satisfy post-write QA. The Review UI will refresh from the deck file version change; QA can be run later through an explicit Review, QA, or export workflow.`
+    : `- Artifact QA runs automatically after deck writes/patches/edits. It checks deck HTML contract, design component compliance, exact 1920x1080 slide geometry, scrollbars, element overflow, text clipping, and claim/evidence content-density warnings.
+- If the tool result reports hard QA errors, fix them with the smallest targeted patch and let the post-write QA run again. Refine opens automatically only after hard errors pass; warnings such as thin claim/evidence substance do not block opening.`
 
   return `The user left a visual edit comment on a Revela slide deck.
 
@@ -95,7 +100,6 @@ Instructions:
 - For targeted artifact-level edits, patch ${"`decks/*.html`"} directly. Do not call ${"`revela-decks`"} action ${"`review`"} as a precondition, and do not let ${"`writeReadiness`"}, ${"`planReview`"}, or ${"`slide_plan_unconfirmed`"} block the patch.
 - Do not patch or write ${"`DECKS.json`"} directly. If state must change, use the ${"`revela-decks`"} tool.
 - Apply the edit to ${payload.file} with the smallest targeted HTML patch that satisfies the comment.
-- Artifact QA runs automatically after deck writes/patches/edits. It checks deck HTML contract, design component compliance, exact 1920x1080 slide geometry, scrollbars, element overflow, text clipping, and claim/evidence content-density warnings.
-- If the tool result reports hard QA errors, fix them with the smallest targeted patch and let the post-write QA run again. Refine opens automatically only after hard errors pass; warnings such as thin claim/evidence substance do not block opening.
+${qaInstruction}
 - If the comment is ambiguous, ask one concise clarification question instead of guessing.`
 }

@@ -21,6 +21,7 @@ type RuntimeModule = {
   designRead(input?: any): any
   storyRead(input?: any): any
   reviewDeckRead(input: any): Promise<any>
+  reviewDeckOpen(input: any): Promise<any>
   researchTargets(input?: any): any
   researchSave(input: any): any
   evaluateResearchFindings(input: any): any
@@ -117,6 +118,16 @@ const tools = [
       workspaceRoot: stringProp("Optional workspace root."),
       file: requiredStringProp("Workspace-relative or absolute HTML deck path."),
       format: enumProp(["json", "markdown"], "Return JSON only, or include a Markdown review summary."),
+    }, ["file"]),
+  },
+  {
+    name: "revela_review_deck_open",
+    description: "Open a local Codex-backed Review UI for a Revela HTML deck from the current MCP server process.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      file: requiredStringProp("Workspace-relative or absolute HTML deck path."),
+      bridge: enumProp(["codex-exec"], "Prompt bridge for browser Insight and Comment interactions."),
+      openBrowser: booleanProp("Whether the tool should open the browser itself. Defaults to true when omitted."),
     }, ["file"]),
   },
   {
@@ -220,6 +231,7 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_design_read") return r.designRead(args)
   if (name === "revela_story_read") return r.storyRead(args)
   if (name === "revela_review_deck_read") return r.reviewDeckRead(args)
+  if (name === "revela_review_deck_open") return r.reviewDeckOpen(args)
   if (name === "revela_research_targets") return r.researchTargets(args)
   if (name === "revela_research_save") return r.researchSave(args)
   if (name === "revela_evaluate_research_findings") return r.evaluateResearchFindings(args)

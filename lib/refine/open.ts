@@ -8,6 +8,7 @@ import { ensureEditableDeckState } from "../edit/deck-state"
 import { openUrl } from "../edit/open"
 import { resolveEditableDeck, type EditableDeck } from "../edit/resolve-deck"
 import { buildPrompt } from "../prompt-builder"
+import type { ReviewPromptBridge } from "./prompt-bridge"
 import { startRefineServer, type RefineMode } from "./server"
 
 export interface OpenRefineDeckResult {
@@ -27,12 +28,13 @@ export interface EnsureRefineDeckOpenResult extends OpenRefineDeckResult {
 }
 
 export interface OpenRefineDeckOptions {
-  client: any
-  sessionID: string
+  client?: any
+  sessionID?: string
   workspaceRoot: string
   mode?: RefineMode
   openBrowser?: boolean
   openUrl?: (url: string) => void
+  promptBridge?: ReviewPromptBridge
 }
 
 export function openRefineDeck(target: string, options: OpenRefineDeckOptions): OpenRefineDeckResult {
@@ -70,6 +72,7 @@ function openRefineDeckInternal(
     workspaceRoot: options.workspaceRoot,
     deck,
     mode,
+    promptBridge: options.promptBridge,
   })
   const url = `${refineServer.baseUrl}/refine?token=${encodeURIComponent(session.token)}`
   const shouldOpen = options.openBrowser !== false && !(behavior.skipLiveSession && session.live)
