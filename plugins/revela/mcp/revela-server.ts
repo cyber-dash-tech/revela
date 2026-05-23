@@ -19,6 +19,10 @@ type RuntimeModule = {
   exportPptx(input: any): Promise<any>
   designList(): any
   designRead(input?: any): any
+  researchTargets(input?: any): any
+  researchSave(input: any): any
+  evaluateResearchFindings(input: any): any
+  bindResearchFindings(input: any): any
 }
 
 type MessageMode = "framed" | "raw"
@@ -96,6 +100,39 @@ const tools = [
     description: "Read Revela design instructions for the active or requested design.",
     inputSchema: objectSchema({ name: stringProp("Optional design name.") }),
   },
+  {
+    name: "revela_research_targets",
+    description: "Derive current Revela research targets from canonical narrative state, saved findings, and evidence gaps.",
+    inputSchema: objectSchema({ workspaceRoot: stringProp("Optional workspace root.") }),
+  },
+  {
+    name: "revela_research_save",
+    description: "Save research findings under researches/{topic}/{filename}.md and evaluate binding readiness when workspace state exists.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      topic: requiredStringProp("Research topic key."),
+      filename: requiredStringProp("Findings filename without extension."),
+      content: requiredStringProp("Structured Markdown findings content."),
+      sources: arrayProp("Source URLs or workspace files for YAML frontmatter."),
+    }, ["topic", "filename", "content"]),
+  },
+  {
+    name: "revela_evaluate_research_findings",
+    description: "Evaluate whether a saved researches/**/*.md findings file is safely bindable as canonical evidence.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      findingsFile: requiredStringProp("Workspace-relative researches/**/*.md findings file."),
+    }, ["findingsFile"]),
+  },
+  {
+    name: "revela_bind_research_findings",
+    description: "Bind a safely evaluated findings file into canonical revela-narrative/evidence/*.md evidence.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      findingsFile: requiredStringProp("Workspace-relative researches/**/*.md findings file."),
+      evidenceId: stringProp("Optional canonical evidence node id override."),
+    }, ["findingsFile"]),
+  },
 ]
 
 let runtimePromise: Promise<RuntimeModule> | undefined
@@ -162,6 +199,10 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_export_pptx") return r.exportPptx(args)
   if (name === "revela_design_list") return r.designList()
   if (name === "revela_design_read") return r.designRead(args)
+  if (name === "revela_research_targets") return r.researchTargets(args)
+  if (name === "revela_research_save") return r.researchSave(args)
+  if (name === "revela_evaluate_research_findings") return r.evaluateResearchFindings(args)
+  if (name === "revela_bind_research_findings") return r.bindResearchFindings(args)
   throw new Error(`Unknown tool: ${name}`)
 }
 

@@ -34,30 +34,12 @@ import {
 import { compileDeckPlanFromNarrative } from "../lib/narrative-state/render-plan"
 import { DECK_PLAN_ARTIFACT_PATH, readDeckPlanArtifact } from "../lib/narrative-state/deck-plan-artifact"
 import { backfillSlideClaimRefsFromCoverage } from "../lib/narrative-state/coverage"
-import { closeResearchGapInState, deriveResearchGapsFromReadiness, deriveResearchTargets, updateResearchGapInState, upsertResearchGapsInState } from "../lib/narrative-state/research-gaps"
-import { evaluateResearchFindingsBinding } from "../lib/narrative-state/research-binding-eval"
-import { computeNarrativeHash, stableEvidenceId } from "../lib/narrative-state/hash"
+import { closeResearchGapInState, deriveResearchGapsFromReadiness, updateResearchGapInState, upsertResearchGapsInState } from "../lib/narrative-state/research-gaps"
+import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { normalizeNarrativeState } from "../lib/narrative-state/normalize"
 import { buildNarrativeVaultInventory, compileNarrativeVault, exportNarrativeStateToVault, formatVaultDiagnosticReport, getNarrativeVaultMigrationHint, hasNarrativeVault, initNarrativeVault, narrativeVaultAuthoringContract, narrativeVaultTimestampMs, removeVaultRelation, runNarrativeMarkdownQa, updateVaultCoreNodes, updateVaultResearchGapNode, upsertVaultClaimNode, upsertVaultEvidenceNode, upsertVaultObjectionNode, upsertVaultRelation, upsertVaultRiskNode, VAULT_MIGRATION_PRESERVED_IN_DECKS_JSON } from "../lib/narrative-vault"
 import { compileCacheMirrorNarrativeVault } from "../lib/narrative-vault/compile-mirror"
-
-function missingBindableEvidenceFields(input: Record<string, unknown>): string[] {
-  const missing: string[] = []
-  for (const key of ["id", "claimId", "source", "quote", "supportScope", "unsupportedScope", "caveat", "strength"] as const) {
-    if (!String(input[key] ?? "").trim()) missing.push(key)
-  }
-  if (!String(input.sourcePath ?? "").trim() && !String(input.url ?? "").trim() && !String(input.findingsFile ?? "").trim()) missing.push("sourcePath|url|findingsFile")
-  return missing
-}
-
-function exactResearchGapForBinding(state: DecksState, findingsFile: string, claimId: string) {
-  const gaps = state.narrative?.researchGaps ?? []
-  const exact = gaps.filter((gap) => gap.targetType === "claim" && gap.targetId === claimId && gap.findingsFile === findingsFile)
-  if (exact.length === 1) return exact[0]
-  if (exact.length > 1) return undefined
-  const byClaim = gaps.filter((gap) => gap.targetType === "claim" && gap.targetId === claimId && !gap.findingsFile)
-  return byClaim.length === 1 ? byClaim[0] : undefined
-}
+import { bindResearchFindings as bindResearchFindingsRuntime, evaluateResearchFindings as evaluateResearchFindingsRuntime, researchTargets as researchTargetsRuntime } from "../lib/runtime/research"
 
 function forbiddenVaultCompatibilityAction(action: string, replacement: string): string {
   return `${action} is a JSON-era compatibility action and is blocked in vault workspaces. Use ${replacement}, or patch the existing Markdown node only for a small read-before-edit repair.`
@@ -469,54 +451,11 @@ export default tool({
       }
 
       if (args.action === "bindResearchFindings") {
-        if (!hasNarrativeVault(workspaceRoot)) return JSON.stringify({ ok: false, error: "bindResearchFindings requires revela-narrative/ to exist. Use initNarrativeVault first, then evaluateResearchFindings." })
-        if (!args.findingsFile?.trim()) return JSON.stringify({ ok: false, error: "findingsFile is required for bindResearchFindings" })
-        const bindingEval = evaluateResearchFindingsBinding(state, workspaceRoot, args.findingsFile)
-        if (bindingEval.status !== "bindable" || !bindingEval.claimId || !bindingEval.recommendedEvidenceDraft) {
-          return JSON.stringify({ ok: false, skipped: true, reason: "findings are not safely bindable", bindingEval }, null, 2)
-        }
-        const draft = bindingEval.recommendedEvidenceDraft
-        const evidence = {
-          id: args.evidence?.id?.trim() || stableEvidenceId(bindingEval.claimId, `${bindingEval.findingsFile}:${draft.quote ?? ""}`),
-          claimId: bindingEval.claimId,
-          source: draft.source,
-          sourcePath: draft.sourcePath,
-          findingsFile: draft.findingsFile ?? bindingEval.findingsFile,
-          quote: draft.quote,
-          location: draft.location,
-          url: draft.url,
-          caveat: draft.caveat,
-          supportScope: draft.supportScope,
-          unsupportedScope: draft.unsupportedScope,
-          strength: draft.strength,
-        }
-        const missing = missingBindableEvidenceFields(evidence)
-        if (missing.length > 0) return JSON.stringify({ ok: false, skipped: true, reason: "recommended evidence draft is incomplete", missingFields: missing, bindingEval }, null, 2)
-
-        const mutation = upsertVaultEvidenceNode(workspaceRoot, evidence as any)
-        if (!mutation.ok) return JSON.stringify({ ok: false, mutation, bindingEval }, null, 2)
-        const gap = exactResearchGapForBinding(state, bindingEval.findingsFile, bindingEval.claimId)
-        const gapMutation = gap
-          ? updateVaultResearchGapNode(workspaceRoot, {
-            id: gap.id,
-            status: "evidence_bound",
-            findingsFile: bindingEval.findingsFile,
-            evidenceBindingIds: [...new Set([...(gap.evidenceBindingIds ?? []), evidence.id])],
-            notes: gap.notes,
-          })
-          : undefined
-        const compiled = compileCacheMirrorNarrativeVault(workspaceRoot, mirrorOptions())
-        return JSON.stringify({
-          ok: compiled.result.ok,
-          path: mutation.file,
-          bindingEval,
-          mutation,
-          gapMutation: gapMutation ?? { ok: true, skipped: true, reason: "no exact single research gap matched this findings file and claim" },
-          evidence,
-          diagnostics: compiled.result.diagnostics,
-          diagnosticReport: compiled.diagnosticReport,
-          narrative: compiled.result.narrative,
-        }, null, 2)
+        return JSON.stringify(bindResearchFindingsRuntime({
+          workspaceRoot,
+          findingsFile: args.findingsFile ?? "",
+          evidenceId: args.evidence?.id,
+        }), null, 2)
       }
 
       if (args.action === "updateVaultResearchGap") {
@@ -799,18 +738,11 @@ export default tool({
       }
 
       if (args.action === "deriveResearchTargets") {
-        const result = deriveResearchTargets(state, { workspaceRoot })
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result }, null, 2)
+        return JSON.stringify(researchTargetsRuntime({ workspaceRoot }), null, 2)
       }
 
       if (args.action === "evaluateResearchFindings") {
-        if (!args.findingsFile?.trim()) return JSON.stringify({ ok: false, error: "findingsFile is required for evaluateResearchFindings" })
-        const bindingEval = evaluateResearchFindingsBinding(state, workspaceRoot, args.findingsFile)
-        const targets = deriveResearchTargets(state, { workspaceRoot })
-        const vaultDiagnostics = hasNarrativeVault(workspaceRoot)
-          ? formatVaultDiagnosticReport(compileNarrativeVault(workspaceRoot, { fallbackApprovals: state.narrative?.approvals ?? [] }).diagnostics)
-          : undefined
-        return JSON.stringify({ ok: true, path: DECKS_STATE_FILE, result: { bindingEval, selected: targets.selected, vaultDiagnostics } }, null, 2)
+        return JSON.stringify(evaluateResearchFindingsRuntime({ workspaceRoot, findingsFile: args.findingsFile ?? "" }), null, 2)
       }
 
       if (args.action === "upsertResearchGaps") {

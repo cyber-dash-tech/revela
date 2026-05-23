@@ -1,46 +1,5 @@
 import { tool } from "@opencode-ai/plugin"
-import { mkdirSync, writeFileSync } from "fs"
-import { join } from "path"
-import { hasDecksState, readDecksState, writeDecksState } from "../lib/decks-state"
-import { evaluateResearchFindingsBinding } from "../lib/narrative-state/research-binding-eval"
-import { recordWorkspaceAction } from "../lib/workspace-state/actions"
-
-/**
- * Format today's date as YYYY-MM-DD
- */
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-/**
- * Sanitize a key: lowercase, alphanumeric + hyphens only.
- */
-function keyify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-}
-
-/**
- * Build YAML frontmatter string.
- */
-function buildFrontmatter(topic: string, axis: string, sources: string[]): string {
-  const lines = [
-    "---",
-    `topic: ${topic}`,
-    `axis: ${axis}`,
-    `date: ${today()}`,
-  ]
-  if (sources.length > 0) {
-    lines.push("sources:")
-    for (const s of sources) {
-      lines.push(`  - "${s.replace(/"/g, '\\"')}"`)
-    }
-  }
-  lines.push("---")
-  return lines.join("\n")
-}
+import { researchSave } from "../lib/runtime/research"
 
 export default tool({
   description:
@@ -77,36 +36,13 @@ export default tool({
   },
   async execute(args, context) {
     try {
-      const topicKey = keyify(args.topic || "research")
-      const fileKey = keyify(args.filename || "findings")
-      const workspaceDir = context.directory ?? process.cwd()
-      const topicDir = join(workspaceDir, "researches", topicKey)
-
-      mkdirSync(topicDir, { recursive: true })
-
-      const frontmatter = buildFrontmatter(args.topic, fileKey, args.sources ?? [])
-      const fileContent = `${frontmatter}\n\n${args.content ?? ""}\n`
-      const filePath = join(topicDir, `${fileKey}.md`)
-      const relPath = `researches/${topicKey}/${fileKey}.md`
-
-      writeFileSync(filePath, fileContent, "utf-8")
-
-      if (hasDecksState(workspaceDir)) {
-        const state = readDecksState(workspaceDir)
-        recordWorkspaceAction(state, {
-          type: "research.findings_saved",
-          actor: "revela-research-save",
-          inputs: { topic: topicKey, axis: fileKey, sourceCount: args.sources?.length ?? 0 },
-          outputs: { path: relPath, sources: args.sources ?? [] },
-          summary: `Saved research findings for ${topicKey}/${fileKey}.`,
-          nodeIds: [`finding:${relPath}`],
-        })
-        const bindingEval = evaluateResearchFindingsBinding(state, workspaceDir, relPath)
-        writeDecksState(workspaceDir, state)
-        return JSON.stringify({ ok: true, path: relPath, bindingEval })
-      }
-
-      return JSON.stringify({ ok: true, path: relPath })
+      return JSON.stringify(researchSave({
+        topic: args.topic,
+        filename: args.filename,
+        content: args.content,
+        sources: args.sources,
+        workspaceRoot: context.directory ?? process.cwd(),
+      }))
     } catch (e: any) {
       return JSON.stringify({ error: e.message || String(e) })
     }

@@ -4,7 +4,7 @@
 | --- | --- | --- | --- |
 | Help / product guidance | `/revela` and prompt injection | Plugin manifest, default prompts, skills | MVP |
 | Init workspace | `/revela init`, OpenCode tools | `revela-init` skill + MCP QA/compile tools | MVP |
-| Research workflow | `/revela research`, research subagent, research-save tool | `revela-research` skill + saved findings files + MCP compile/QA | Partial MVP |
+| Research workflow | `/revela research`, research subagent, research-save tool | `revela-research` skill + MCP targets/save/evaluate/bind tools + compile/QA | Tool-backed MVP |
 | Story reading | `/revela story`, local HTML story UI | `revela-story` skill + compile narrative + optional file output later | MVP diagnostics first |
 | Deck planning | `/revela make --deck`, deck-render prompt | `revela-make-deck` skill + read deck plan + create foundation | MVP |
 | Deck foundation | `revela-deck-foundation` OpenCode tool | `revela_create_deck_foundation` MCP tool | MVP |
@@ -15,9 +15,8 @@
 | Review deck UI | `/revela review --deck`, local refine server | `revela-review-deck` skill + artifact QA; full UI deferred | Deferred |
 | OpenCode prompt transform | `experimental.chat.system.transform` | Not applicable; skills provide guidance | Not ported |
 | OpenCode read/write hooks | `tool.execute.before/after` | Codex plugin hooks where supported | Partial |
-| OpenCode subagents | `revela-research`, `revela-narrative-reviewer` | Skills first; Codex subagent packaging later | Deferred |
+| OpenCode subagents | `revela-research`, `revela-narrative-reviewer` | Skills and tool-backed workflows first; Codex subagent packaging later | Deferred |
 
 ## Compatibility Rule
 
 Codex support must be additive. If a capability is shared, implement it behind a platform-neutral runtime wrapper and keep the OpenCode surface calling the existing code path until tests justify refactoring.
-

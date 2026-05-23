@@ -12,6 +12,7 @@ import { assertExportQAPassed } from "../qa/export-gate"
 import { formatArtifactQAReport, runArtifactQA } from "../qa/artifact"
 import { extractDesignClasses } from "../design/designs"
 import { recordRenderedArtifact, workspaceRelative } from "../workspace-state/rendered-artifacts"
+export { bindResearchFindings, evaluateResearchFindings, researchSave, researchTargets } from "./research"
 
 export interface RuntimeWorkspaceInput {
   workspaceRoot?: string

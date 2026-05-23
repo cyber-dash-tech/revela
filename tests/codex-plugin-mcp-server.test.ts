@@ -26,6 +26,10 @@ describe("Codex plugin MCP server", () => {
 
     expect(text.stdout).toContain("\"serverInfo\"")
     expect(text.stdout).toContain("revela_doctor")
+    expect(text.stdout).toContain("revela_research_targets")
+    expect(text.stdout).toContain("revela_research_save")
+    expect(text.stdout).toContain("revela_evaluate_research_findings")
+    expect(text.stdout).toContain("revela_bind_research_findings")
   })
 
   it("parses framed initialize requests using byte Content-Length", async () => {
@@ -180,6 +184,37 @@ source = "${repoRoot}"
     expect(text.stderr).toContain("[revela-mcp] request")
     expect(text.stderr).toContain("\"method\":\"initialize\"")
   })
+
+  it("calls research target and findings evaluation tools", async () => {
+    const root = tempWorkspace("revela-mcp-research-")
+    writeResearchVault(root)
+    mkdirSync(join(root, "researches", "pilot"), { recursive: true })
+    writeFileSync(join(root, "researches", "pilot", "ops.md"), "- claimId: claim-pilot\n- Source: https://example.com/ops\n", "utf-8")
+    const child = spawn("bun", [serverPath], { stdio: ["pipe", "pipe", "pipe"] })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "revela_research_targets", arguments: { workspaceRoot: root } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "revela_evaluate_research_findings", arguments: { workspaceRoot: root, findingsFile: "researches/pilot/ops.md" } },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":3") && item.stdout.includes("needs_fields"))
+    child.kill()
+
+    expect(text.stdout).toContain("research_gap")
+    expect(text.stdout).toContain("claim-pilot")
+    expect(text.stdout).toContain("needs_fields")
+  })
 })
 
 function frame(message: unknown): string {
@@ -215,4 +250,16 @@ function collectOutput(child: ReturnType<typeof spawn>) {
       })
     },
   }
+}
+
+function writeResearchVault(root: string): void {
+  const vault = join(root, "revela-narrative")
+  mkdirSync(join(vault, "claims"), { recursive: true })
+  mkdirSync(join(vault, "research-gaps"), { recursive: true })
+  writeFileSync(join(vault, "index.md"), "---\ntype: index\nid: narrative:mcp-research\nstatus: needs_research\n---\n", "utf-8")
+  writeFileSync(join(vault, "audience.md"), "---\ntype: audience\nprimary: Executive committee\nbeliefBefore: Needs proof.\nbeliefAfter: Trusts a bounded pilot.\n---\n", "utf-8")
+  writeFileSync(join(vault, "decision.md"), "---\ntype: decision\naction: Approve pilot.\ndecisionType: approve\n---\n", "utf-8")
+  writeFileSync(join(vault, "thesis.md"), "---\ntype: thesis\nid: thesis:mcp-research\nconfidence: medium\n---\nA bounded pilot is the recommended next step.\n", "utf-8")
+  writeFileSync(join(vault, "claims", "pilot.md"), "---\ntype: claim\nid: claim-pilot\nkind: recommendation\nimportance: central\nevidenceRequired: true\n---\nApprove a bounded pilot.\n", "utf-8")
+  writeFileSync(join(vault, "research-gaps", "pilot.md"), "---\ntype: research-gap\nid: gap-pilot-evidence\ntargetType: claim\ntargetId: claim-pilot\nquestion: What evidence supports the pilot decision?\nstatus: open\npriority: high\n---\nWhat evidence supports the pilot decision?\n\n## Relations\n\n- depends_on: [[claim-pilot]]\n", "utf-8")
 }

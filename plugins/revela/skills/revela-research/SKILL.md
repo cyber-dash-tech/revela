@@ -16,13 +16,13 @@ Use this skill when the user asks to research, close evidence gaps, evaluate sav
 
 ## Workflow
 
-1. Call `revela_compile_narrative` and `revela_markdown_qa`.
-2. Inspect central claims, weak evidence, objections, risks, and open research gaps.
-3. Prefer existing saved findings before external research.
-4. When a finding is bindable, create or update `revela-narrative/evidence/*.md` with explicit source trace and a `## Relations` line such as `- supports: [[claim-id]]`.
-5. If a finding is incomplete, report missing fields instead of inventing them.
-6. Use web research only when the user allowed or requested external research and the gap is publicly researchable.
-7. After narrative edits, call `revela_markdown_qa` and `revela_compile_narrative`.
+1. Call `revela_research_targets` to derive target order, selected target, saved findings diagnostics, and evidence gaps.
+2. For existing saved findings, call `revela_evaluate_research_findings` before deciding whether they can support a claim.
+3. Use external research only when the user allowed or requested it and the gap is publicly researchable.
+4. After external research, call `revela_research_save` with structured Markdown findings and explicit source list.
+5. Bind only when `bindingEval.status === "bindable"` by calling `revela_bind_research_findings`; do not hand-author evidence Markdown for bindable saved findings.
+6. If a finding is incomplete, report missing fields instead of inventing them.
+7. After binding or any narrative edit, call `revela_markdown_qa` and `revela_compile_narrative`.
 8. Report evidence bound, unbound findings, remaining caveats, and the next smallest story action.
 
 ## Binding Criteria
@@ -36,4 +36,3 @@ Bind only when the supported claim exists and the evidence includes:
 - caveat
 - strength
 - explicit supported claim context
-

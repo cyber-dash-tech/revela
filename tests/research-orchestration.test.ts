@@ -6,6 +6,8 @@ import { NARRATIVE_REVIEWER_PROMPT, NARRATIVE_REVIEWER_SIGNATURE } from "../lib/
 import { buildResearchPrompt } from "../lib/commands/research"
 
 const skill = readFileSync(join(import.meta.dir, "..", "skill", "NARRATIVE_SKILL.md"), "utf-8")
+const codexResearchSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-research", "SKILL.md"), "utf-8")
+const codexCapabilityMatrix = readFileSync(join(import.meta.dir, "..", "docs", "CODEX_PLUGIN_CAPABILITY_MATRIX.md"), "utf-8")
 const plugin = readFileSync(join(import.meta.dir, "..", "plugin.ts"), "utf-8")
 
 describe("primary research orchestration skill", () => {
@@ -105,6 +107,23 @@ describe("revela research command prompt", () => {
     expect(prompt).toContain("`Next smallest story action`")
     expect(prompt).toContain("which explicit fields were present: `source`, `quoteOrSnippet`, `supportScope`, `unsupportedScope`, `caveat`, `strength`")
     expect(prompt).toContain("list every inspected but unbound findings file with structured failure reasons")
+  })
+})
+
+describe("Codex revela-research skill", () => {
+  it("uses tool-backed research before manual evidence authoring", () => {
+    expect(codexResearchSkill).toContain("Call `revela_research_targets`")
+    expect(codexResearchSkill).toContain("call `revela_evaluate_research_findings`")
+    expect(codexResearchSkill).toContain("call `revela_research_save`")
+    expect(codexResearchSkill).toContain("calling `revela_bind_research_findings`")
+    expect(codexResearchSkill).toContain("do not hand-author evidence Markdown for bindable saved findings")
+  })
+
+  it("marks Codex research as tool-backed in the capability matrix", () => {
+    expect(codexCapabilityMatrix).toContain("| Research workflow |")
+    expect(codexCapabilityMatrix).toContain("MCP targets/save/evaluate/bind tools")
+    expect(codexCapabilityMatrix).toContain("Tool-backed MVP")
+    expect(codexCapabilityMatrix).toContain("Codex subagent packaging later")
   })
 })
 
