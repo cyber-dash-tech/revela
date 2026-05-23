@@ -10,14 +10,15 @@ Use this skill when the user asks to review, inspect, diagnose, or refine a gene
 ## Workflow
 
 1. Resolve the target `decks/*.html` file from the user request or unambiguous workspace state.
-2. Call `revela_read_deck_plan` if `deck-plan/` exists.
-3. Call `revela_run_deck_qa` on the HTML artifact.
-4. Compile the narrative with `revela_compile_narrative` when assessing source/evidence alignment.
+2. Call `revela_review_deck_read` first, normally with `format: "markdown"`.
+3. Use the returned artifact QA, deck-plan diagnostics, narrative/vault diagnostics, artifact coverage, and evidence trace as the deterministic Review reading packet.
+4. Call `revela_run_deck_qa` separately only for focused low-level artifact QA, after a repair, or when the aggregate tool output needs deeper QA detail.
 5. Separate technical blockers from narrative/evidence diagnostics.
-6. Pure visual/layout/export fixes may patch artifacts directly. Meaning changes must update `revela-narrative/` first.
+6. Pure visual/layout/export fixes may patch artifacts directly when the user asks for a change. Meaning changes must update `revela-narrative/` first.
 
 ## QA Notes
 
+- `revela_review_deck_read` is read-only: it must not mutate deck HTML, `revela-narrative/`, `deck-plan/`, assets, or compatibility state.
 - `revela_run_deck_qa` may need browser-launch permission in Codex sandboxed sessions.
 - Repair hard QA errors before treating a deck as review-ready.
 - Text clipping should usually be fixed with typography and spacing changes, not by deleting evidence or changing claim meaning.

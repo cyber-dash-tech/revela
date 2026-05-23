@@ -2,6 +2,8 @@ import { describe, expect, it } from "bun:test"
 import { spawn } from "child_process"
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
+import { createDeckFoundation, deckFoundationMarkers } from "../lib/deck-html/foundation"
+import { seedBuiltinDesigns } from "../lib/design/designs"
 import { tempWorkspace } from "./helpers/tool-helpers"
 
 const serverPath = join(import.meta.dir, "..", "plugins", "revela", "mcp", "revela-server.ts")
@@ -31,6 +33,7 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("revela_evaluate_research_findings")
     expect(text.stdout).toContain("revela_bind_research_findings")
     expect(text.stdout).toContain("revela_story_read")
+    expect(text.stdout).toContain("revela_review_deck_read")
   })
 
   it("parses framed initialize requests using byte Content-Length", async () => {
@@ -239,6 +242,30 @@ source = "${repoRoot}"
     expect(text.stdout).toContain("diagnosticsMarkdown")
     expect(text.stdout).toContain("gap-pilot-evidence")
   })
+
+  it("calls the Review deck read tool with Markdown output", async () => {
+    seedBuiltinDesigns()
+    const root = tempWorkspace("revela-mcp-review-")
+    writeReviewDeck(root, "decks/review.html")
+    const child = spawn("bun", [serverPath], { stdio: ["pipe", "pipe", "pipe"] })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "revela_review_deck_read", arguments: { workspaceRoot: root, file: "decks/review.html", format: "markdown" } },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":2") && item.stdout.includes("Review Deck Read"), 60000)
+    child.kill()
+
+    expect(text.stdout).toContain("Artifact QA: passed")
+    expect(text.stdout).toContain("No revela-narrative/")
+    expect(text.stdout).toContain("inspectionContext")
+  }, 60000)
 })
 
 function frame(message: unknown): string {
@@ -257,12 +284,12 @@ function collectOutput(child: ReturnType<typeof spawn>) {
   })
 
   return {
-    until(predicate: (text: { stdout: string; stderr: string }) => boolean): Promise<{ stdout: string; stderr: string }> {
+    until(predicate: (text: { stdout: string; stderr: string }) => boolean, timeoutMs = 3000): Promise<{ stdout: string; stderr: string }> {
       return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
           child.kill()
           reject(new Error(`Timed out waiting for MCP output. stdout=${stdout} stderr=${stderr}`))
-        }, 3000)
+        }, timeoutMs)
         const interval = setInterval(() => {
           const text = { stdout, stderr }
           if (predicate(text)) {
@@ -274,6 +301,30 @@ function collectOutput(child: ReturnType<typeof spawn>) {
       })
     },
   }
+}
+
+function writeReviewDeck(root: string, outputPath: string): void {
+  createDeckFoundation({
+    workspaceRoot: root,
+    outputPath,
+    title: "Review MCP Smoke",
+    language: "en",
+    designName: "starter",
+  })
+  const htmlPath = join(root, outputPath)
+  const markers = deckFoundationMarkers()
+  const html = readFileSync(htmlPath, "utf-8")
+  const slide = `
+    <section class="slide" slide-qa="false" data-slide-index="1">
+        <div class="slide-canvas">
+            <div class="page">
+                <div class="eyebrow">Review</div>
+                <h2>MCP review smoke</h2>
+                <p>This slide validates the review read aggregate tool.</p>
+            </div>
+        </div>
+    </section>`
+  writeFileSync(htmlPath, html.replace(`${markers.start}\n    ${markers.end}`, `${markers.start}${slide}\n    ${markers.end}`), "utf-8")
 }
 
 function writeResearchVault(root: string): void {

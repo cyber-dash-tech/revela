@@ -12,7 +12,7 @@
 | PDF export | `/revela export --deck pdf`, `revela-pdf` tool | `revela_export_pdf` MCP tool | MVP |
 | PPTX export | `/revela export --deck pptx`, `revela-pptx` tool | `revela_export_pptx` MCP tool | MVP |
 | Design list/read | `/revela design`, `revela-designs` tool | `revela_design_list`, `revela_design_read` MCP tools | MVP |
-| Review deck UI | `/revela review --deck`, local refine server | `revela-review-deck` skill + artifact QA; full UI deferred | Deferred |
+| Review deck reading | `/revela review --deck`, local refine server | `revela-review-deck` skill + `revela_review_deck_read` aggregate read tool; full Review UI parity deferred | Tool-backed MVP |
 | OpenCode prompt transform | `experimental.chat.system.transform` | Not applicable; skills provide guidance | Not ported |
 | OpenCode read/write hooks | `tool.execute.before/after` | Codex plugin hooks where supported | Partial |
 | OpenCode subagents | `revela-research`, `revela-narrative-reviewer` | Skills and tool-backed workflows first; Codex subagent packaging later | Deferred |

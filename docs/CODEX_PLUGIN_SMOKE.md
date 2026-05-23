@@ -17,7 +17,7 @@ bun scripts/codex-mcp-smoke.ts bin/revela.ts mcp --raw
 Expected:
 
 - `doctor` returns JSON with `ok: true`.
-- Both MCP smokes return `initialize` and `tools/list` responses containing `revela_doctor`.
+- Both MCP smokes return `initialize` and `tools/list` responses containing `revela_doctor`, `revela_story_read`, and `revela_review_deck_read`.
 
 ## Install Or Refresh
 
@@ -42,7 +42,7 @@ Expected:
 
 - `revela@revela-local` is installed and enabled.
 - MCP server `revela` is enabled.
-- The local MCP smoke through `bin/revela.ts mcp` prints an `initialize` response and a `tools/list` response containing `revela_doctor`.
+- The local MCP smoke through `bin/revela.ts mcp` prints an `initialize` response and a `tools/list` response containing `revela_doctor`, `revela_story_read`, and `revela_review_deck_read`.
 
 ## Normal Smoke Flow
 
@@ -55,7 +55,9 @@ Run the smoke in a separate workspace, not the Revela source repository.
 5. Ask Codex to call `revela_create_deck_foundation` for a smoke deck.
 6. Add a minimal valid slide set.
 7. Ask Codex to call `revela_run_deck_qa`.
-8. Repair hard QA errors and rerun QA.
+8. Ask Codex to call `revela_story_read` with `format: "markdown"`.
+9. Ask Codex to call `revela_review_deck_read` for the smoke deck with `format: "markdown"`.
+10. Repair hard QA errors and rerun QA.
 
 ## Expected Result
 
@@ -64,6 +66,8 @@ Run the smoke in a separate workspace, not the Revela source repository.
 - Deck-plan read returns slide projections and diagnostics.
 - Deck foundation creates a valid active-design shell.
 - Artifact QA passes with `hardErrorCount: 0`.
+- Story reading returns a deterministic map or Markdown view from `revela-narrative/`.
+- Review deck reading returns artifact QA, deck-plan/narrative diagnostics, and skipped legacy inspection context when no compatibility state exists.
 
 ## Known Smoke Notes
 

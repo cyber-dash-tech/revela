@@ -13,6 +13,7 @@ import { formatArtifactQAReport, runArtifactQA } from "../qa/artifact"
 import { extractDesignClasses } from "../design/designs"
 import { recordRenderedArtifact, workspaceRelative } from "../workspace-state/rendered-artifacts"
 export { bindResearchFindings, evaluateResearchFindings, researchSave, researchTargets } from "./research"
+export { reviewDeckRead } from "./review"
 export { storyRead } from "./story"
 
 export interface RuntimeWorkspaceInput {

@@ -1,10 +1,12 @@
 import { describe, expect, it } from "bun:test"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
+import { createDeckFoundation, deckFoundationMarkers } from "../lib/deck-html/foundation"
 import { DECKS_STATE_FILE } from "../lib/decks-state"
+import { seedBuiltinDesigns } from "../lib/design/designs"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
-import { bindResearchFindings, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets, storyRead } from "../lib/runtime"
+import { bindResearchFindings, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets, reviewDeckRead, storyRead } from "../lib/runtime"
 import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("runtime facade", () => {
@@ -154,6 +156,62 @@ sources:
     expect(evidence).toContain("- supports: [[claim-pilot]]")
     expect(bound.diagnostics).toBeArray()
   })
+
+  it("reads deck review diagnostics for a file-native deck without creating compatibility state", async () => {
+    seedBuiltinDesigns()
+    const root = tempWorkspace("revela-runtime-review-read-")
+    writeMinimalVault(root)
+    const compiled = compileNarrativeVault(root)
+    writeDeckPlan(root, computeNarrativeHash(compiled.narrative!))
+    writeMinimalDeck(root, "decks/review.html")
+
+    const result = await reviewDeckRead({ workspaceRoot: root, file: "decks/review.html", format: "markdown" })
+
+    expect(result.ok).toBe(true)
+    expect(result.file).toBe("decks/review.html")
+    expect(result.artifactQa.summary).toMatchObject({ passed: true, errors: 0 })
+    expect(result.deckPlan.ok).toBe(true)
+    expect(result.narrative.skipped).toBe(false)
+    expect(result.narrative.summary.summary).toContain("Narrative vault diagnostics")
+    expect(result.inspectionContext).toMatchObject({ ok: false, skipped: true })
+    expect(result.inspectionContext.reason).toContain(`No ${DECKS_STATE_FILE} exists`)
+    expect(result.markdown).toContain("Review Deck Read")
+    expect(result.markdown).toContain("Artifact QA: passed")
+    expect(result.evidenceTrace).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "evidence-pilot", claimId: "claim-pilot" }),
+    ]))
+    expect(existsSync(join(root, DECKS_STATE_FILE))).toBe(false)
+  }, 60000)
+
+  it("reads artifact QA when no narrative vault exists", async () => {
+    seedBuiltinDesigns()
+    const root = tempWorkspace("revela-runtime-review-no-vault-")
+    writeMinimalDeck(root, "decks/no-vault.html")
+
+    const result = await reviewDeckRead({ workspaceRoot: root, file: "decks/no-vault.html", format: "markdown" })
+
+    expect(result.ok).toBe(true)
+    expect(result.artifactQa.summary.passed).toBe(true)
+    expect(result.narrative).toMatchObject({
+      ok: false,
+      skipped: true,
+      reason: "No revela-narrative/ vault exists; narrative diagnostics skipped.",
+    })
+    expect(result.markdown).toContain("Narrative: No revela-narrative/ vault exists")
+    expect(existsSync(join(root, DECKS_STATE_FILE))).toBe(false)
+  }, 60000)
+
+  it("returns a read-only error for a missing review deck file", async () => {
+    const root = tempWorkspace("revela-runtime-review-missing-")
+
+    const result = await reviewDeckRead({ workspaceRoot: root, file: "decks/missing.html", format: "markdown" })
+
+    expect(result.ok).toBe(false)
+    expect(result.error).toContain("Deck HTML file not found")
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: "file_not_found" }))
+    expect(existsSync(join(root, DECKS_STATE_FILE))).toBe(false)
+    expect(existsSync(join(root, "decks"))).toBe(false)
+  })
 })
 
 function writeMinimalVault(root: string): void {
@@ -229,4 +287,28 @@ outputPath: decks/runtime-demo.html
 
 - Use positive 1-based slide indexes.
 `, "utf-8")
+}
+
+function writeMinimalDeck(root: string, outputPath: string): void {
+  createDeckFoundation({
+    workspaceRoot: root,
+    outputPath,
+    title: "Review Smoke",
+    language: "en",
+    designName: "starter",
+  })
+  const htmlPath = join(root, outputPath)
+  const markers = deckFoundationMarkers()
+  const html = readFileSync(htmlPath, "utf-8")
+  const slide = `
+    <section class="slide" slide-qa="false" data-slide-index="1">
+        <div class="slide-canvas">
+            <div class="page">
+                <div class="eyebrow">Review</div>
+                <h2>Bounded pilot</h2>
+                <p>This minimal slide gives Review deck QA a valid canvas and slide identity.</p>
+            </div>
+        </div>
+    </section>`
+  writeFileSync(htmlPath, html.replace(`${markers.start}\n    ${markers.end}`, `${markers.start}${slide}\n    ${markers.end}`), "utf-8")
 }

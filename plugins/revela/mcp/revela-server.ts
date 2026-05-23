@@ -20,6 +20,7 @@ type RuntimeModule = {
   designList(): any
   designRead(input?: any): any
   storyRead(input?: any): any
+  reviewDeckRead(input: any): Promise<any>
   researchTargets(input?: any): any
   researchSave(input: any): any
   evaluateResearchFindings(input: any): any
@@ -108,6 +109,15 @@ const tools = [
       workspaceRoot: stringProp("Optional workspace root."),
       format: enumProp(["map", "markdown"], "Return only the map, or include a formatted Markdown reading view."),
     }),
+  },
+  {
+    name: "revela_review_deck_read",
+    description: "Read-only aggregate Review diagnostics for a Revela HTML deck: artifact QA, deck-plan diagnostics, narrative/vault diagnostics, artifact coverage, and available evidence trace.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      file: requiredStringProp("Workspace-relative or absolute HTML deck path."),
+      format: enumProp(["json", "markdown"], "Return JSON only, or include a Markdown review summary."),
+    }, ["file"]),
   },
   {
     name: "revela_research_targets",
@@ -209,6 +219,7 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_design_list") return r.designList()
   if (name === "revela_design_read") return r.designRead(args)
   if (name === "revela_story_read") return r.storyRead(args)
+  if (name === "revela_review_deck_read") return r.reviewDeckRead(args)
   if (name === "revela_research_targets") return r.researchTargets(args)
   if (name === "revela_research_save") return r.researchSave(args)
   if (name === "revela_evaluate_research_findings") return r.evaluateResearchFindings(args)
