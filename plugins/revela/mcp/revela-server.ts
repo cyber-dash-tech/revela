@@ -19,6 +19,7 @@ type RuntimeModule = {
   exportPptx(input: any): Promise<any>
   designList(): any
   designRead(input?: any): any
+  storyRead(input?: any): any
   researchTargets(input?: any): any
   researchSave(input: any): any
   evaluateResearchFindings(input: any): any
@@ -99,6 +100,14 @@ const tools = [
     name: "revela_design_read",
     description: "Read Revela design instructions for the active or requested design.",
     inputSchema: objectSchema({ name: stringProp("Optional design name.") }),
+  },
+  {
+    name: "revela_story_read",
+    description: "Read a deterministic Revela Story map and optional Markdown view from the canonical narrative vault without mutating files.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      format: enumProp(["map", "markdown"], "Return only the map, or include a formatted Markdown reading view."),
+    }),
   },
   {
     name: "revela_research_targets",
@@ -199,6 +208,7 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_export_pptx") return r.exportPptx(args)
   if (name === "revela_design_list") return r.designList()
   if (name === "revela_design_read") return r.designRead(args)
+  if (name === "revela_story_read") return r.storyRead(args)
   if (name === "revela_research_targets") return r.researchTargets(args)
   if (name === "revela_research_save") return r.researchSave(args)
   if (name === "revela_evaluate_research_findings") return r.evaluateResearchFindings(args)

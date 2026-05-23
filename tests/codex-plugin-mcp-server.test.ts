@@ -30,6 +30,7 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("revela_research_save")
     expect(text.stdout).toContain("revela_evaluate_research_findings")
     expect(text.stdout).toContain("revela_bind_research_findings")
+    expect(text.stdout).toContain("revela_story_read")
   })
 
   it("parses framed initialize requests using byte Content-Length", async () => {
@@ -214,6 +215,29 @@ source = "${repoRoot}"
     expect(text.stdout).toContain("research_gap")
     expect(text.stdout).toContain("claim-pilot")
     expect(text.stdout).toContain("needs_fields")
+  })
+
+  it("calls the Story read tool with Markdown output", async () => {
+    const root = tempWorkspace("revela-mcp-story-")
+    writeResearchVault(root)
+    const child = spawn("bun", [serverPath], { stdio: ["pipe", "pipe", "pipe"] })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "revela_story_read", arguments: { workspaceRoot: root, format: "markdown" } },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":2") && item.stdout.includes("Narrative Snapshot"))
+    child.kill()
+
+    expect(text.stdout).toContain("claim-pilot")
+    expect(text.stdout).toContain("diagnosticsMarkdown")
+    expect(text.stdout).toContain("gap-pilot-evidence")
   })
 })
 

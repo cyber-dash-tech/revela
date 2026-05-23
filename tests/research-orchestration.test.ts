@@ -7,6 +7,7 @@ import { buildResearchPrompt } from "../lib/commands/research"
 
 const skill = readFileSync(join(import.meta.dir, "..", "skill", "NARRATIVE_SKILL.md"), "utf-8")
 const codexResearchSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-research", "SKILL.md"), "utf-8")
+const codexStorySkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-story", "SKILL.md"), "utf-8")
 const codexCapabilityMatrix = readFileSync(join(import.meta.dir, "..", "docs", "CODEX_PLUGIN_CAPABILITY_MATRIX.md"), "utf-8")
 const plugin = readFileSync(join(import.meta.dir, "..", "plugin.ts"), "utf-8")
 
@@ -124,6 +125,23 @@ describe("Codex revela-research skill", () => {
     expect(codexCapabilityMatrix).toContain("MCP targets/save/evaluate/bind tools")
     expect(codexCapabilityMatrix).toContain("Tool-backed MVP")
     expect(codexCapabilityMatrix).toContain("Codex subagent packaging later")
+  })
+})
+
+describe("Codex revela-story skill", () => {
+  it("uses the tool-backed Story reader and remains read-only", () => {
+    expect(codexStorySkill).toContain("Call `revela_story_read` first")
+    expect(codexStorySkill).toContain("format: \"markdown\"")
+    expect(codexStorySkill).toContain("Do not write claims, evidence, research gaps, deck HTML, deck-plan files, assets, or artifacts from Story mode")
+    expect(codexStorySkill).toContain("source trace")
+    expect(codexStorySkill).toContain("unsupported scope")
+  })
+
+  it("marks Codex Story reading as tool-backed in the capability matrix", () => {
+    expect(codexCapabilityMatrix).toContain("| Story reading |")
+    expect(codexCapabilityMatrix).toContain("`revela_story_read` deterministic map/Markdown tool")
+    expect(codexCapabilityMatrix).toContain("Tool-backed MVP")
+    expect(codexCapabilityMatrix).toContain("HTML/local UI parity remains OpenCode surface")
   })
 })
 

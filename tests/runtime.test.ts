@@ -1,9 +1,10 @@
 import { describe, expect, it } from "bun:test"
-import { mkdirSync, readFileSync, writeFileSync } from "fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
+import { DECKS_STATE_FILE } from "../lib/decks-state"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
-import { bindResearchFindings, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets } from "../lib/runtime"
+import { bindResearchFindings, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets, storyRead } from "../lib/runtime"
 import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("runtime facade", () => {
@@ -33,6 +34,52 @@ describe("runtime facade", () => {
     expect(result.ok).toBe(true)
     expect(result.warnings).not.toContain("Deck plan narrativeHash does not match current narrative state.")
     expect(result.projection?.diagnostics.some((item) => item.code === "stale_narrative_hash")).toBe(false)
+  })
+
+  it("reads a vault-only Story map without creating compatibility state", () => {
+    const root = tempWorkspace("revela-runtime-story-read-")
+    writeMinimalVault(root)
+
+    const result = storyRead({ workspaceRoot: root })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error("expected Story read to succeed")
+    expect(result.narrativeHash).toBe(result.map.snapshot.narrativeHash)
+    expect(result.map.claimFlow.map((claim) => claim.id)).toContain("claim-pilot")
+    expect(result.map.claimFlow[0].evidence[0]).toMatchObject({
+      source: "Proposal",
+      unsupportedScope: "Does not prove external market demand.",
+      caveat: "Intent evidence only.",
+    })
+    expect(result.map.researchGaps.map((gap) => gap.id)).toContain("gap-pilot-market")
+    expect(result.diagnostics.ok).toBe(true)
+    expect(existsSync(join(root, DECKS_STATE_FILE))).toBe(false)
+    expect(existsSync(join(root, "decks"))).toBe(false)
+  })
+
+  it("can include a stable Markdown Story view", () => {
+    const root = tempWorkspace("revela-runtime-story-markdown-")
+    writeMinimalVault(root)
+
+    const result = storyRead({ workspaceRoot: root, format: "markdown" })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error("expected Story read to succeed")
+    expect(result.markdown).toContain("## Narrative Snapshot")
+    expect(result.markdown).toContain("Proposal | strength: partial")
+    expect(result.markdown).toContain("unsupported scope: Does not prove external market demand.")
+    expect(result.markdown).toContain("What external evidence supports market demand?")
+  })
+
+  it("returns init guidance when Story reading has no vault", () => {
+    const root = tempWorkspace("revela-runtime-story-missing-")
+
+    const result = storyRead({ workspaceRoot: root, format: "markdown" })
+
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error("expected Story read to fail")
+    expect(result.error).toContain("revela-narrative/")
+    expect(result.guidance).toContain("/revela init")
   })
 
   it("derives research targets from vault gaps and missing evidence", () => {
@@ -113,12 +160,14 @@ function writeMinimalVault(root: string): void {
   const vault = join(root, "revela-narrative")
   mkdirSync(join(vault, "claims"), { recursive: true })
   mkdirSync(join(vault, "evidence"), { recursive: true })
+  mkdirSync(join(vault, "research-gaps"), { recursive: true })
   writeFileSync(join(vault, "index.md"), "---\ntype: index\nid: narrative:runtime-demo\nstatus: draft\n---\n", "utf-8")
   writeFileSync(join(vault, "audience.md"), "---\ntype: audience\nprimary: Executive committee\nbeliefBefore: Needs proof.\nbeliefAfter: Trusts a bounded pilot.\n---\n", "utf-8")
   writeFileSync(join(vault, "decision.md"), "---\ntype: decision\naction: Approve pilot.\ndecisionType: approve\n---\n", "utf-8")
   writeFileSync(join(vault, "thesis.md"), "---\ntype: thesis\nid: thesis:runtime-demo\nconfidence: medium\n---\nA bounded pilot is the recommended next step.\n", "utf-8")
   writeFileSync(join(vault, "claims", "pilot.md"), "---\ntype: claim\nid: claim-pilot\nkind: recommendation\nimportance: central\nevidenceRequired: true\n---\nApprove a bounded pilot.\n", "utf-8")
   writeFileSync(join(vault, "evidence", "pilot.md"), "---\ntype: evidence\nid: evidence-pilot\nsource: Proposal\nsourcePath: proposal.md\nquote: Pilot approval is requested.\nsupportScope: Supports the internal pilot request.\nunsupportedScope: Does not prove external market demand.\ncaveat: Intent evidence only.\nstrength: partial\n---\n\n## Relations\n\n- supports: [[claim-pilot]] - Proposal states the pilot request.\n", "utf-8")
+  writeFileSync(join(vault, "research-gaps", "market.md"), "---\ntype: research-gap\nid: gap-pilot-market\ntargetType: claim\ntargetId: claim-pilot\nquestion: What external evidence supports market demand?\nstatus: open\npriority: medium\n---\nWhat external evidence supports market demand?\n\n## Relations\n\n- depends_on: [[claim-pilot]]\n", "utf-8")
 }
 
 function writeResearchVault(root: string): void {

@@ -5,7 +5,7 @@
 | Help / product guidance | `/revela` and prompt injection | Plugin manifest, default prompts, skills | MVP |
 | Init workspace | `/revela init`, OpenCode tools | `revela-init` skill + MCP QA/compile tools | MVP |
 | Research workflow | `/revela research`, research subagent, research-save tool | `revela-research` skill + MCP targets/save/evaluate/bind tools + compile/QA | Tool-backed MVP |
-| Story reading | `/revela story`, local HTML story UI | `revela-story` skill + compile narrative + optional file output later | MVP diagnostics first |
+| Story reading | `/revela story`, local HTML story UI | `revela-story` skill + `revela_story_read` deterministic map/Markdown tool; HTML/local UI parity remains OpenCode surface | Tool-backed MVP |
 | Deck planning | `/revela make --deck`, deck-render prompt | `revela-make-deck` skill + read deck plan + create foundation | MVP |
 | Deck foundation | `revela-deck-foundation` OpenCode tool | `revela_create_deck_foundation` MCP tool | MVP |
 | Artifact QA | post-write hook and `revela-qa` tool | `revela_run_deck_qa` MCP tool + hook reminders | MVP |
