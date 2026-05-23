@@ -1,0 +1,21 @@
+{
+  "name": "revela-local",
+  "interface": {
+    "displayName": "Revela Local"
+  },
+  "plugins": [
+    {
+      "name": "revela",
+      "source": {
+        "source": "local",
+        "path": "./plugins/revela"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
+

@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun ${PLUGIN_ROOT}/hooks/revela_guard.ts",
+            "statusMessage": "Checking Revela controlled files"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun ${PLUGIN_ROOT}/hooks/revela_post_write_notice.ts",
+            "statusMessage": "Checking Revela QA reminders"
+          }
+        ]
+      }
+    ]
+  }
+}
