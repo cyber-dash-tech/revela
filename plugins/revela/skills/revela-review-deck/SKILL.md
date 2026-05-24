@@ -19,6 +19,15 @@ Use this skill when the user asks to review, inspect, diagnose, or refine a gene
 8. Separate technical blockers from narrative/evidence diagnostics.
 9. Pure visual/layout/export fixes may patch artifacts directly when the user asks for a change. Meaning changes must update `revela-narrative/` first.
 
+## Generated Visual Assets
+
+- For Review Comment or Apply Fix requests such as adding an image, replacing a cover visual, creating a concept illustration, making a media block visual, or turning a slide idea into a flow/framework diagram, Codex may use the `imagegen` skill.
+- Prefer `imagegen` for flow diagrams, framework diagrams, process visuals, system relationship maps, journey maps, before/after schematics, conceptual illustrations, abstract heroes, chapter dividers, background textures, non-evidence metaphor visuals, and visual drafts.
+- Do not use generated images for source evidence, factual screenshots, real people, real places, real products, logos, data charts, tables, or visuals that need verifiable factual accuracy. Use workspace/source assets instead, or report the missing asset.
+- If the visual needs exact editable text, precise data, axes, code, tables, or strict structure, patch the deck with HTML/CSS, ECharts, or `data-table` instead of `imagegen`.
+- Generated images are artifact-level visual patches only. Do not add them to evidence, source materials, narrative support, or factual trace.
+- If a generated image is referenced by deck HTML, move or copy the final asset into the workspace, preferably under `assets/<topic>/media/` or the project's existing asset directory. Deck HTML must reference a workspace-relative local path, never Codex's default generated-image path.
+
 ## QA Notes
 
 - `revela_review_deck_read` is read-only: it must not mutate deck HTML, `revela-narrative/`, `deck-plan/`, assets, or compatibility state.

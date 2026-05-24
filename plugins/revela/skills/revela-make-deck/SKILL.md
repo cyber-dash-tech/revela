@@ -28,6 +28,15 @@ Use this skill when the user asks to make, generate, or update a Revela deck.
 10. Generate chapter by chapter. Keep the HTML valid after each write.
 11. After every HTML write, call `revela_run_deck_qa` and repair hard errors before review or export.
 
+## Generated Visual Assets
+
+- Codex may use the `imagegen` skill for deck-level visual assets when a slide's visual intent calls for an image or diagram and no suitable workspace/source asset exists.
+- Prefer `imagegen` for flow diagrams, framework diagrams, process visuals, system relationship maps, journey maps, before/after schematics, conceptual illustrations, abstract heroes, chapter dividers, background textures, non-evidence metaphor visuals, and visual drafts.
+- Do not use generated images for source evidence, factual screenshots, real people, real places, real products, logos, data charts, tables, or visuals that need verifiable factual accuracy.
+- If the visual needs exact editable text, precise data, axes, code, tables, or strict structure, build it with HTML/CSS, ECharts, or `data-table` instead of `imagegen`.
+- Generated images are artifact-level visuals only. Do not treat them as evidence, source materials, quote support, or factual proof.
+- If a generated image is referenced by deck HTML, move or copy the final asset into the workspace, preferably under `assets/<topic>/media/` or the project's existing asset directory. Deck HTML must reference a workspace-relative local path, never Codex's default generated-image path.
+
 ## QA Repair Loop
 
 - `revela_run_deck_qa` launches a browser. In sandboxed Codex sessions, this may require user-approved command escalation.
