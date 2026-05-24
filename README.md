@@ -2,19 +2,21 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-546%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-609%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="560" />
 </p>
 
-Revela is an [OpenCode](https://opencode.ai) plugin that turns local sources and research into a traceable narrative graph, then renders that graph into briefs and presentation decks.
+Revela works from [OpenCode](https://opencode.ai) and Codex to turn source materials, research, data, and intent into trusted, traceable, presentation-ready decision artifacts.
 
-The narrative graph records the core elements needed to generate a brief or deck: audience, decision, claims, evidence, sources, risks, objections, and open gaps.
+Its narrative workspace records the core elements needed to generate a brief or deck: audience, decision, claims, evidence, sources, risks, objections, and open gaps.
 
 ## Install
 
-Add Revela to your `opencode.json`:
+### OpenCode
+
+Install Revela through `opencode.json` with the npm package `@cyber-dash-tech/revela`:
 
 ```json
 {
@@ -26,6 +28,17 @@ Add Revela to your `opencode.json`:
 Restart OpenCode.
 
 To install globally, add the same entry to `~/.config/opencode/opencode.json`.
+
+### Codex
+
+Install Revela through the Codex Git marketplace:
+
+```bash
+codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref main
+codex plugin add revela@revela
+```
+
+Use a release tag instead of `main` when you want a pinned install.
 
 ## Built-In Designs
 
@@ -63,52 +76,13 @@ Domains add topic-specific narrative guidance, such as consulting, product, or i
 /revela domain
 ```
 
-## Quick Start: Make An HTML Deck
+## Quick Start
 
-1. Initialize the narrative workspace from your local source materials.
+Start with the local source materials and intent that should ground the communication. Revela identifies the audience, decision, claims, evidence, risks, objections, and gaps that shape the narrative.
 
-```text
-/revela init
-```
+When evidence is missing, use research to gather findings and bind only the supported parts back to the narrative. Before rendering, read the Story view to inspect the claim flow, evidence support, caveats, and open gaps.
 
-2. Research missing evidence and bind useful findings to claims.
-
-```text
-/revela research
-```
-
-Skip this step if your local materials already provide enough support.
-
-3. Inspect the claim flow before rendering.
-
-```text
-/revela story
-```
-
-Use this to check the audience, decision, claims, evidence, gaps, risks, and objections.
-
-4. Generate the HTML deck.
-
-```text
-/revela make --deck
-```
-
-Revela writes the deck under `decks/` and uses the current narrative, deck plan, and active design.
-
-5. Review or revise the deck.
-
-```text
-/revela review --deck
-```
-
-See [Review A Deck](#review-a-deck) for Insight and Comment.
-
-6. Export if needed.
-
-```text
-/revela export --deck pdf decks/example.html
-/revela export --deck pptx decks/example.html
-```
+Make a deck or brief from the canonical narrative when the story is ready to present. Review the artifact with Insight to understand support and traceability, use Comment for targeted changes, and export to PDF or PPTX when you need a shareable file.
 
 ## Review A Deck
 
