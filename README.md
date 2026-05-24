@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-609%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-611%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="560" />
@@ -34,13 +34,13 @@ To install globally, add the same entry to `~/.config/opencode/opencode.json`.
 Install Revela through the Codex Git marketplace:
 
 ```bash
-codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref main
+codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.17.8
 codex plugin add revela@revela
 ```
 
 Install from the full repository ref. Do not use a sparse checkout limited to `plugins/revela`; the Codex plugin resolves the shared runtime, built-in designs, and domains from the repository snapshot.
 
-Use a release tag instead of `main` when you want a pinned install.
+Start a new Codex thread after installing so Codex loads the Revela skills, MCP tools, and hooks.
 
 ## Built-In Designs
 
@@ -84,11 +84,61 @@ In Codex, ask Revela to list or switch domains; the active domain guides narrati
 
 ## Quick Start
 
-Start with the local source materials and intent that should ground the communication. Revela identifies the audience, decision, claims, evidence, risks, objections, and gaps that shape the narrative.
+Use these prompts in Codex from the workspace that contains your source materials.
 
-When evidence is missing, use research to gather findings and bind only the supported parts back to the narrative. Before rendering, read the Story view to inspect the claim flow, evidence support, caveats, and open gaps.
+1. Choose the narrative domain before authoring so Revela frames the audience, decision, risks, and objections for your context.
 
-Make a deck or brief from the canonical narrative when the story is ready to present. Review the artifact with Insight to understand support and traceability, use Comment for targeted changes, and export to PDF or PPTX when you need a shareable file.
+```text
+Use Revela to list available domains, switch to the consulting domain, and use that framing for the narrative workflow.
+```
+
+2. Choose the deck design before rendering so generated artifacts use the intended visual language.
+
+```text
+Use Revela to list available designs, switch to the summit design, and use it for the next deck.
+```
+
+3. Initialize the narrative from local materials. Init grounds the narrative in the workspace and surfaces gaps; it does not replace the research step.
+
+```text
+Use Revela to initialize this workspace. Read the local materials, identify the audience, decision, thesis, claims, existing evidence, risks, objections, and gaps, then create or update the narrative vault.
+```
+
+4. Research the gaps and bind only source-supported evidence into the narrative.
+
+```text
+Use Revela research to inspect the current narrative gaps, derive research targets, gather or evaluate findings, save research under researches/, and bind only source-supported evidence back into the narrative vault.
+```
+
+5. Read Story before rendering to inspect the claim flow, evidence support, caveats, unsupported scope, and open gaps.
+
+```text
+Use Revela Story to show the current claim flow, evidence support, caveats, unsupported scope, and open gaps.
+```
+
+6. Make an HTML deck from the canonical narrative and deck plan.
+
+```text
+Use Revela to make a deck from the current narrative. Create or update the deck plan, generate an HTML deck under decks/, run deck QA, and repair hard QA errors.
+```
+
+7. Review the generated deck for traceability, diagnostics, and targeted edits.
+
+```text
+Use Revela to review the generated deck. Open the Review UI for the HTML deck and also summarize diagnostics.
+```
+
+8. Export a PDF after deck QA passes.
+
+```text
+Use Revela to export the deck to PDF.
+```
+
+9. Export an editable PPTX after deck QA passes.
+
+```text
+Use Revela to export the deck to PPTX.
+```
 
 ## Review A Deck
 

@@ -51,19 +51,61 @@ Expected:
 
 Run the smoke in a separate workspace, not the Revela source repository.
 
-1. Ask Codex to use Revela to initialize the workspace.
-2. Confirm Codex can call `revela_doctor`.
-3. Ask Codex to list/read the active domain, then switch to `general` with `revela_domain_activate`.
-4. Ask Codex to run `revela_markdown_qa` and `revela_compile_narrative`.
-5. Ask Codex to create or read `deck-plan/`.
-6. Ask Codex to list/read designs, then switch to `summit` or `starter` with `revela_design_activate`.
-7. Ask Codex to call `revela_create_deck_foundation` for a smoke deck.
-8. Add a minimal valid slide set.
-9. Ask Codex to call `revela_run_deck_qa`.
-10. Ask Codex to call `revela_story_read` with `format: "markdown"`.
-11. Ask Codex to review the smoke deck; confirm it calls `revela_review_deck_open` by default and returns a local `/refine?token=...` URL.
-12. Ask Codex to diagnose the smoke deck; confirm it calls `revela_review_deck_read` with `format: "markdown"`.
-13. Repair hard QA errors and rerun QA.
+1. Choose the narrative domain before authoring.
+
+```text
+Use Revela to list available domains, switch to the general domain, and use that framing for the narrative workflow.
+```
+
+2. Choose the deck design before rendering.
+
+```text
+Use Revela to list available designs, switch to the starter design, and use it for the next deck.
+```
+
+3. Initialize the narrative from local materials.
+
+```text
+Use Revela to initialize this workspace. Read the local materials, identify the audience, decision, thesis, claims, existing evidence, risks, objections, and gaps, then create or update the narrative vault.
+```
+
+4. Research the gaps and bind only source-supported evidence.
+
+```text
+Use Revela research to inspect the current narrative gaps, derive research targets, gather or evaluate findings, save research under researches/, and bind only source-supported evidence back into the narrative vault.
+```
+
+5. Read Story before rendering.
+
+```text
+Use Revela Story to show the current claim flow, evidence support, caveats, unsupported scope, and open gaps.
+```
+
+6. Make an HTML deck and repair hard QA errors.
+
+```text
+Use Revela to make a deck from the current narrative. Create or update the deck plan, generate an HTML deck under decks/, run deck QA, and repair hard QA errors.
+```
+
+7. Review the generated deck.
+
+```text
+Use Revela to review the generated deck. Open the Review UI for the HTML deck and also summarize diagnostics.
+```
+
+8. Export PDF.
+
+```text
+Use Revela to export the deck to PDF.
+```
+
+9. Export PPTX.
+
+```text
+Use Revela to export the deck to PPTX.
+```
+
+During the smoke, confirm Codex uses the corresponding MCP tools: `revela_doctor`, `revela_domain_activate`, `revela_design_activate`, `revela_markdown_qa`, `revela_compile_narrative`, `revela_research_targets`, `revela_research_save`, `revela_evaluate_research_findings`, `revela_bind_research_findings`, `revela_story_read`, `revela_read_deck_plan`, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_review_deck_open`, `revela_review_deck_read`, `revela_export_pdf`, and `revela_export_pptx`.
 
 ## Expected Result
 

@@ -2,7 +2,7 @@
 
 [English](README.md) | **中文**
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-609%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-611%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="560" />
@@ -34,13 +34,13 @@ Revela 可在 [OpenCode](https://opencode.ai) 和 Codex 中使用，把来源材
 通过 Codex Git marketplace 安装 Revela：
 
 ```bash
-codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref main
+codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.17.8
 codex plugin add revela@revela
 ```
 
 请从完整仓库 ref 安装。不要使用仅包含 `plugins/revela` 的 sparse checkout；Codex plugin 会从仓库快照中解析 shared runtime、内置 designs 和 domains。
 
-如果需要固定版本，把 `main` 换成 release tag。
+安装后开启一个新的 Codex thread，让 Codex 加载 Revela 的 skills、MCP tools 和 hooks。
 
 ## 内置设计
 
@@ -84,11 +84,61 @@ Domain 提供特定场景的叙事 guidance，例如 consulting、product 或 in
 
 ## Quick Start
 
-从本地来源材料和沟通意图开始，让 Revela 识别受众、决策目标、论点、论据、风险、潜在质疑和信息缺口。
+在包含来源材料的 workspace 中打开 Codex，然后按下面步骤逐条发送 prompt。
 
-证据不足时，用 research 补充 findings，并只把被来源明确支持的部分绑定回 narrative。渲染前先阅读 Story view，检查 claim flow、证据支撑、caveat 和 open gap。
+1. 先选择 domain，让 Revela 按你的沟通场景 framing 受众、决策、风险和潜在质疑。
 
-当 story 已经适合呈现时，从 canonical narrative 生成 deck 或 brief。之后用 Insight 理解 artifact 的支撑关系和可追踪性，用 Comment 做定向修改，需要分享文件时再导出为 PDF 或 PPTX。
+```text
+用 Revela 列出可用 domains，切换到 consulting domain，并把这个 framing 用在后续 narrative workflow 中。
+```
+
+2. 再选择 design，让后续生成的 deck 使用指定视觉风格。
+
+```text
+用 Revela 列出可用 designs，切换到 summit design，并把它用于下一次 deck 生成。
+```
+
+3. 从本地材料初始化 narrative。Init 负责基于 workspace 做 grounding 并暴露 gap；它不替代 research 步骤。
+
+```text
+用 Revela 初始化这个 workspace。读取本地材料，识别受众、决策目标、thesis、claims、已有 evidence、risks、objections 和 gaps，然后创建或更新 narrative vault。
+```
+
+4. 针对 gap 做 research，并且只把来源明确支持的 evidence 绑定回 narrative。
+
+```text
+用 Revela research 检查当前 narrative gaps，生成 research targets，收集或评估 findings，把 research 保存到 researches/，并且只把有来源支撑的 evidence 绑定回 narrative vault。
+```
+
+5. 生成 deck 前先读 Story，检查 claim flow、证据支撑、caveats、unsupported scope 和 open gaps。
+
+```text
+用 Revela Story 展示当前 claim flow、evidence support、caveats、unsupported scope 和 open gaps。
+```
+
+6. 从 canonical narrative 和 deck plan 生成 HTML deck。
+
+```text
+用 Revela 基于当前 narrative 制作 deck。创建或更新 deck plan，在 decks/ 下生成 HTML deck，运行 deck QA，并修复 hard QA errors。
+```
+
+7. Review 生成后的 deck，检查 traceability、diagnostics，并做定向修改。
+
+```text
+用 Revela review 生成好的 deck。打开这个 HTML deck 的 Review UI，并总结 diagnostics。
+```
+
+8. QA 通过后导出 PDF。
+
+```text
+用 Revela 把 deck 导出为 PDF。
+```
+
+9. QA 通过后导出可编辑 PPTX。
+
+```text
+用 Revela 把 deck 导出为 PPTX。
+```
 
 ## Review Deck
 
