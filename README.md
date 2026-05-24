@@ -116,25 +116,31 @@ Use Revela research to inspect the current narrative gaps, derive research targe
 Use Revela Story to show the current claim flow, evidence support, caveats, unsupported scope, and open gaps.
 ```
 
-6. Make an HTML deck from the canonical narrative and deck plan.
+6. Create or update the deck plan before generating HTML so slide order, chapter structure, evidence trace, caveats, and visual intent are explicit.
 
 ```text
-Use Revela to make a deck from the current narrative. Create or update the deck plan, generate an HTML deck under decks/, run deck QA, and repair hard QA errors.
+Use Revela to create or update the deck plan before generating HTML. Read the current narrative, inspect any existing deck-plan/, define the slide order, chapter structure, evidence trace, caveats, and visual intent, then report the plan diagnostics.
 ```
 
-7. Review the generated deck for traceability, diagnostics, and targeted edits.
+7. Make an HTML deck from the current deck plan and canonical narrative.
+
+```text
+Use Revela to make a deck from the current deck plan and narrative. Generate an HTML deck under decks/, run deck QA, and repair hard QA errors before review or export.
+```
+
+8. Review the generated deck for traceability, diagnostics, and targeted edits.
 
 ```text
 Use Revela to review the generated deck. Open the Review UI for the HTML deck and also summarize diagnostics.
 ```
 
-8. Export a PDF after deck QA passes.
+9. Export a PDF after deck QA passes.
 
 ```text
 Use Revela to export the deck to PDF.
 ```
 
-9. Export an editable PPTX after deck QA passes.
+10. Export an editable PPTX after deck QA passes.
 
 ```text
 Use Revela to export the deck to PPTX.

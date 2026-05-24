@@ -116,25 +116,31 @@ Domain 提供特定场景的叙事 guidance，例如 consulting、product 或 in
 用 Revela Story 展示当前 claim flow、evidence support、caveats、unsupported scope 和 open gaps。
 ```
 
-6. 从 canonical narrative 和 deck plan 生成 HTML deck。
+6. 先创建或更新 deck plan，明确 slide 顺序、章节结构、evidence trace、caveats 和 visual intent，再生成 HTML。
 
 ```text
-用 Revela 基于当前 narrative 制作 deck。创建或更新 deck plan，在 decks/ 下生成 HTML deck，运行 deck QA，并修复 hard QA errors。
+用 Revela 在生成 HTML 前创建或更新 deck plan。读取当前 narrative，检查已有 deck-plan/，定义 slide 顺序、章节结构、evidence trace、caveats 和 visual intent，然后报告 plan diagnostics。
 ```
 
-7. Review 生成后的 deck，检查 traceability、diagnostics，并做定向修改。
+7. 基于当前 deck plan 和 canonical narrative 生成 HTML deck。
+
+```text
+用 Revela 基于当前 deck plan 和 narrative 制作 deck。在 decks/ 下生成 HTML deck，运行 deck QA，并在 review 或 export 前修复 hard QA errors。
+```
+
+8. Review 生成后的 deck，检查 traceability、diagnostics，并做定向修改。
 
 ```text
 用 Revela review 生成好的 deck。打开这个 HTML deck 的 Review UI，并总结 diagnostics。
 ```
 
-8. QA 通过后导出 PDF。
+9. QA 通过后导出 PDF。
 
 ```text
 用 Revela 把 deck 导出为 PDF。
 ```
 
-9. QA 通过后导出可编辑 PPTX。
+10. QA 通过后导出可编辑 PPTX。
 
 ```text
 用 Revela 把 deck 导出为 PPTX。
