@@ -112,7 +112,7 @@ describe("Codex plugin MCP server", () => {
 
   it("responds when launched from an installed-cache-shaped path", async () => {
     const cacheRoot = tempWorkspace("revela-plugin-cache-")
-    const pluginRoot = join(cacheRoot, "plugins", "cache", "revela-local", "revela", "0.1.0")
+    const pluginRoot = join(cacheRoot, "plugins", "cache", "revela", "revela", "0.1.0")
     mkdirSync(pluginRoot, { recursive: true })
     cpSync(join(repoRoot, "plugins", "revela", "mcp"), join(pluginRoot, "mcp"), { recursive: true })
 
@@ -137,7 +137,7 @@ describe("Codex plugin MCP server", () => {
   it("launches from the plugin .mcp.json without relying on the current working directory", async () => {
     const home = tempWorkspace("revela-mcp-config-home-")
     mkdirSync(join(home, ".codex"), { recursive: true })
-    writeFileSync(join(home, ".codex", "config.toml"), `[marketplaces.revela-local]
+    writeFileSync(join(home, ".codex", "config.toml"), `[marketplaces.revela]
 last_updated = "2026-05-23T00:00:00Z"
 source_type = "local"
 source = "${repoRoot}"

@@ -26,7 +26,7 @@ From the Revela repository root:
 
 ```bash
 codex plugin marketplace add .
-codex plugin add revela@revela-local
+codex plugin add revela@revela
 ```
 
 Start a new Codex thread after reinstalling. Codex loads plugin skills, MCP config, and hooks at thread startup.
@@ -41,7 +41,7 @@ bun scripts/codex-mcp-smoke.ts bin/revela.ts mcp
 
 Expected:
 
-- `revela@revela-local` is installed and enabled.
+- `revela@revela` is installed and enabled.
 - MCP server `revela` is enabled.
 - The local MCP smoke through `bin/revela.ts mcp` prints an `initialize` response and a `tools/list` response containing `revela_doctor`, `revela_story_read`, `revela_review_deck_read`, and `revela_review_deck_open`.
 
@@ -77,7 +77,7 @@ Run the smoke in a separate workspace, not the Revela source repository.
 - MCP tools should be available through normal Codex tool discovery in a new thread after plugin reinstall.
 - If tools are not discoverable, check `codex mcp list`, reinstall the plugin, and start another new thread.
 - If Codex reports `MCP startup incomplete (failed: revela)`, run `codex mcp get revela` and confirm the plugin wrapper resolves the repo `bin/revela.ts` entry rather than a machine-specific stale server path or a literal `${PLUGIN_ROOT}` placeholder.
-- The plugin wrapper locates the CLI from the current source checkout, the `revela-local` marketplace source in `~/.codex/config.toml`, or the installed Codex plugin cache when available.
+- The plugin wrapper locates the CLI from the current source checkout, the `revela` marketplace source in `~/.codex/config.toml`, the legacy `revela-local` marketplace source, or the installed Codex plugin cache when available.
 - If Codex reports a 30-second MCP startup timeout but `bun scripts/codex-mcp-smoke.ts bin/revela.ts mcp` passes, try one new Codex session with `-c 'mcp_servers.revela.startup_timeout_sec=60'` and inspect `~/.codex/log/codex-tui.log` for the `revela` startup lines.
 - Direct JSON-RPC invocation of `plugins/revela/mcp/revela-server.ts` is a developer fallback only.
 - Browser-based QA and export may require user-approved command escalation in sandboxed Codex sessions.

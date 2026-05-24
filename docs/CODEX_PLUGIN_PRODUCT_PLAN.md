@@ -41,7 +41,7 @@ Codex support is built as small adapter modules around existing Revela capabilit
 3. Repo-local marketplace
    - Purpose: make local development installation repeatable.
    - Main surface: `.agents/plugins/marketplace.json`.
-   - Enables: `codex plugin marketplace add .` and `codex plugin add revela@revela-local`.
+   - Enables: `codex plugin marketplace add .` and `codex plugin add revela@revela`.
    - Does not own: public marketplace distribution, npm publishing, or version release flow.
 
 4. Workflow skills
@@ -155,7 +155,7 @@ For plugin packaging, add the repo marketplace to Codex:
 
 ```bash
 codex plugin marketplace add .
-codex plugin add revela@revela-local
+codex plugin add revela@revela
 ```
 
 Start a new Codex thread after installation so Codex loads the plugin skills, MCP config, and hooks.

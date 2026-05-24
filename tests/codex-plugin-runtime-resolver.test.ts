@@ -47,6 +47,26 @@ describe("Codex plugin runtime resolver", () => {
     const root = fakeRepo("revela-resolver-marketplace-")
     const home = tempWorkspace("revela-resolver-home-")
     mkdirSync(join(home, ".codex"), { recursive: true })
+    writeFileSync(join(home, ".codex", "config.toml"), `[marketplaces.revela]
+last_updated = "2026-05-23T00:00:00Z"
+source_type = "local"
+source = "${root}"
+`, "utf-8")
+    const pluginRoot = join(home, ".codex", "plugins", "cache", "revela", "revela", "0.1.0")
+
+    const resolved = resolveRevelaRuntime({ pluginRoot, env: {}, homeDir: home })
+
+    expect(resolved).toMatchObject({
+      ok: true,
+      repoRoot: root,
+      source: "codex-marketplace",
+    })
+  })
+
+  it("keeps resolving legacy revela-local installed cache plugins", () => {
+    const root = fakeRepo("revela-resolver-legacy-marketplace-")
+    const home = tempWorkspace("revela-resolver-legacy-home-")
+    mkdirSync(join(home, ".codex"), { recursive: true })
     writeFileSync(join(home, ".codex", "config.toml"), `[marketplaces.revela-local]
 last_updated = "2026-05-23T00:00:00Z"
 source_type = "local"

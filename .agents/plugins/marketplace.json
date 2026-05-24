@@ -1,7 +1,7 @@
 {
-  "name": "revela-local",
+  "name": "revela",
   "interface": {
-    "displayName": "Revela Local"
+    "displayName": "Revela"
   },
   "plugins": [
     {
@@ -18,4 +18,3 @@
     }
   ]
 }
-
