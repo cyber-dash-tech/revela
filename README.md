@@ -34,7 +34,7 @@ To install globally, add the same entry to `~/.config/opencode/opencode.json`.
 Requirements:
 
 - The Codex CLI must be installed and the `codex` command must be available in your shell.
-- Your environment must be able to run `npx`; Revela uses `npx -y @cyber-dash-tech/revela@0.17.11 mcp` to start the MCP server.
+- Your environment must be able to run `npx`; Revela uses `npx -y @cyber-dash-tech/revela@0.17.12 mcp` to start the MCP server.
 - For interactive Review actions, `codex exec` must also work because the Review UI uses it for Insight and Comment/Apply Fix requests.
 
 Optional preflight:
@@ -48,11 +48,11 @@ npx --version
 Install Revela through the Codex Git marketplace:
 
 ```bash
-codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.17.11
+codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.17.12
 codex plugin add revela@revela
 ```
 
-The Git marketplace install provides the Codex plugin shell, skills, hooks, and MCP configuration. When Codex starts the Revela MCP server for the first time, it runs `npx -y @cyber-dash-tech/revela@0.17.11 mcp` so npm can fetch the published package and its dependencies.
+The Git marketplace install provides the Codex plugin shell, skills, hooks, and MCP configuration. When Codex starts the Revela MCP server for the first time, it runs `npx -y @cyber-dash-tech/revela@0.17.12 mcp` so npm can fetch the published package and its dependencies.
 
 You do not need to run `bun install` inside the Codex marketplace clone.
 

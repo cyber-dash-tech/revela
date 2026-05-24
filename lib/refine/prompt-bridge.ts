@@ -34,6 +34,7 @@ export type CodexExecRunner = (input: {
   workspaceRoot: string
   timeoutMs: number
   sandboxMode: "read-only" | "workspace-write"
+  skipGitRepoCheck: boolean
 }) => Promise<CodexExecRunResult>
 
 export function createOpenCodeReviewPromptBridge(client: any, sessionID: string): ReviewPromptBridge {
@@ -74,6 +75,7 @@ export function createCodexExecReviewPromptBridge(options: {
         workspaceRoot: input.workspaceRoot,
         timeoutMs: input.timeoutMs ?? timeoutMs,
         sandboxMode,
+        skipGitRepoCheck: true,
       })
       const raw = [output.stdout, output.stderr].filter(Boolean).join("\n")
       if (output.exitCode !== 0) {
@@ -113,9 +115,13 @@ async function runCodexExec(input: {
   workspaceRoot: string
   timeoutMs: number
   sandboxMode: "read-only" | "workspace-write"
+  skipGitRepoCheck: boolean
 }): Promise<CodexExecRunResult> {
   return new Promise((resolve) => {
-    const child = spawn("codex", ["exec", "--json", "--ephemeral", "--sandbox", input.sandboxMode, "-C", input.workspaceRoot, input.prompt], {
+    const args = ["exec", "--json", "--ephemeral"]
+    if (input.skipGitRepoCheck) args.push("--skip-git-repo-check")
+    args.push("--sandbox", input.sandboxMode, "-C", input.workspaceRoot, input.prompt)
+    const child = spawn("codex", args, {
       stdio: ["ignore", "pipe", "pipe"],
     })
     let stdout = ""

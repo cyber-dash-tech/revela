@@ -120,6 +120,28 @@ describe("Codex exec Review prompt bridge", () => {
     })
   })
 
+  it("passes through the non-Git workspace safety bypass to codex exec runners", async () => {
+    let captured: { skipGitRepoCheck?: boolean; sandboxMode: string } | undefined
+    const bridge = createCodexExecReviewPromptBridge({
+      runner: async (input) => {
+        captured = input
+        return { exitCode: 0, stdout: "patched deck", stderr: "" }
+      },
+    })
+
+    await bridge.send({
+      action: "comment",
+      prompt: "Change this deck.",
+      workspaceRoot: "/tmp/plain-deck-folder",
+      file: "decks/demo.html",
+    })
+
+    expect(captured).toMatchObject({
+      skipGitRepoCheck: true,
+      sandboxMode: "workspace-write",
+    })
+  })
+
   it("runs Insight prompts through read-only codex exec", async () => {
     let captured: { action: string; sandboxMode: string } | undefined
     const bridge = createCodexExecReviewPromptBridge({
