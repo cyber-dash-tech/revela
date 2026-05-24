@@ -29,6 +29,8 @@ codex plugin marketplace add .
 codex plugin add revela@revela
 ```
 
+For Git marketplace installs, use the full repository ref. Do not install with `--sparse plugins/revela`; the Codex plugin resolves the shared runtime, built-in designs, and domains from the repository snapshot.
+
 Start a new Codex thread after reinstalling. Codex loads plugin skills, MCP config, and hooks at thread startup.
 
 Verify local state:

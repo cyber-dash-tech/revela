@@ -38,6 +38,8 @@ codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref mai
 codex plugin add revela@revela
 ```
 
+请从完整仓库 ref 安装。不要使用仅包含 `plugins/revela` 的 sparse checkout；Codex plugin 会从仓库快照中解析 shared runtime、内置 designs 和 domains。
+
 如果需要固定版本，把 `main` 换成 release tag。
 
 ## 内置设计

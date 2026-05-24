@@ -38,6 +38,8 @@ codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref mai
 codex plugin add revela@revela
 ```
 
+Install from the full repository ref. Do not use a sparse checkout limited to `plugins/revela`; the Codex plugin resolves the shared runtime, built-in designs, and domains from the repository snapshot.
+
 Use a release tag instead of `main` when you want a pinned install.
 
 ## Built-In Designs
