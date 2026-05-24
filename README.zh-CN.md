@@ -89,61 +89,61 @@ Domain 提供特定场景的叙事 guidance，例如 consulting、product 或 in
 1. 先选择 domain，让 Revela 按你的沟通场景 framing 受众、决策、风险和潜在质疑。
 
 ```text
-用 Revela 列出可用 domains，切换到 consulting domain，并把这个 framing 用在后续 narrative workflow 中。
+revela，use consulting as domain.
 ```
 
 2. 再选择 design，让后续生成的 deck 使用指定视觉风格。
 
 ```text
-用 Revela 列出可用 designs，切换到 summit design，并把它用于下一次 deck 生成。
+revela，use summit as design.
 ```
 
 3. 从本地材料初始化 narrative。Init 负责基于 workspace 做 grounding 并暴露 gap；它不替代 research 步骤。
 
 ```text
-用 Revela 初始化这个 workspace。读取本地材料，识别受众、决策目标、thesis、claims、已有 evidence、risks、objections 和 gaps，然后创建或更新 narrative vault。
+revela，帮我 init 这个 workspace，先读本地材料。
 ```
 
 4. 针对 gap 做 research，并且只把来源明确支持的 evidence 绑定回 narrative。
 
 ```text
-用 Revela research 检查当前 narrative gaps，生成 research targets，收集或评估 findings，把 research 保存到 researches/，并且只把有来源支撑的 evidence 绑定回 narrative vault。
+revela，research 当前 gaps，只绑定 source-supported evidence。
 ```
 
 5. 生成 deck 前先读 Story，检查 claim flow、证据支撑、caveats、unsupported scope 和 open gaps。
 
 ```text
-用 Revela Story 展示当前 claim flow、evidence support、caveats、unsupported scope 和 open gaps。
+revela，先给我看 Story，再 make deck。
 ```
 
 6. 先创建或更新 deck plan，明确 slide 顺序、章节结构、evidence trace、caveats 和 visual intent，再生成 HTML。
 
 ```text
-用 Revela 在生成 HTML 前创建或更新 deck plan。读取当前 narrative，检查已有 deck-plan/，定义 slide 顺序、章节结构、evidence trace、caveats 和 visual intent，然后报告 plan diagnostics。
+revela，生成 HTML 前先 create or update deck plan。
 ```
 
 7. 基于当前 deck plan 和 canonical narrative 生成 HTML deck。
 
 ```text
-用 Revela 基于当前 deck plan 和 narrative 制作 deck。在 decks/ 下生成 HTML deck，运行 deck QA，并在 review 或 export 前修复 hard QA errors。
+revela，基于当前 deck plan 和 narrative make deck。
 ```
 
 8. Review 生成后的 deck，检查 traceability、diagnostics，并做定向修改。
 
 ```text
-用 Revela review 生成好的 deck。打开这个 HTML deck 的 Review UI，并总结 diagnostics。
+revela，review 生成好的 deck。
 ```
 
 9. QA 通过后导出 PDF。
 
 ```text
-用 Revela 把 deck 导出为 PDF。
+revela，把 deck export 成 PDF。
 ```
 
 10. QA 通过后导出可编辑 PPTX。
 
 ```text
-用 Revela 把 deck 导出为 PPTX。
+revela，把 deck export 成 PPTX。
 ```
 
 ## Review Deck

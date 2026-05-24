@@ -89,61 +89,61 @@ Use these prompts in Codex from the workspace that contains your source material
 1. Choose the narrative domain before authoring so Revela frames the audience, decision, risks, and objections for your context.
 
 ```text
-Use Revela to list available domains, switch to the consulting domain, and use that framing for the narrative workflow.
+revela, use consulting as the domain.
 ```
 
 2. Choose the deck design before rendering so generated artifacts use the intended visual language.
 
 ```text
-Use Revela to list available designs, switch to the summit design, and use it for the next deck.
+revela, use summit as the design.
 ```
 
 3. Initialize the narrative from local materials. Init grounds the narrative in the workspace and surfaces gaps; it does not replace the research step.
 
 ```text
-Use Revela to initialize this workspace. Read the local materials, identify the audience, decision, thesis, claims, existing evidence, risks, objections, and gaps, then create or update the narrative vault.
+revela, help me init this workspace from the local materials.
 ```
 
 4. Research the gaps and bind only source-supported evidence into the narrative.
 
 ```text
-Use Revela research to inspect the current narrative gaps, derive research targets, gather or evaluate findings, save research under researches/, and bind only source-supported evidence back into the narrative vault.
+revela, research the current gaps and bind only source-supported evidence.
 ```
 
 5. Read Story before rendering to inspect the claim flow, evidence support, caveats, unsupported scope, and open gaps.
 
 ```text
-Use Revela Story to show the current claim flow, evidence support, caveats, unsupported scope, and open gaps.
+revela, show me the Story before we make the deck.
 ```
 
 6. Create or update the deck plan before generating HTML so slide order, chapter structure, evidence trace, caveats, and visual intent are explicit.
 
 ```text
-Use Revela to create or update the deck plan before generating HTML. Read the current narrative, inspect any existing deck-plan/, define the slide order, chapter structure, evidence trace, caveats, and visual intent, then report the plan diagnostics.
+revela, create or update the deck plan before generating HTML.
 ```
 
 7. Make an HTML deck from the current deck plan and canonical narrative.
 
 ```text
-Use Revela to make a deck from the current deck plan and narrative. Generate an HTML deck under decks/, run deck QA, and repair hard QA errors before review or export.
+revela, make the deck from the current deck plan and narrative.
 ```
 
 8. Review the generated deck for traceability, diagnostics, and targeted edits.
 
 ```text
-Use Revela to review the generated deck. Open the Review UI for the HTML deck and also summarize diagnostics.
+revela, review the generated deck.
 ```
 
 9. Export a PDF after deck QA passes.
 
 ```text
-Use Revela to export the deck to PDF.
+revela, export the deck to PDF.
 ```
 
 10. Export an editable PPTX after deck QA passes.
 
 ```text
-Use Revela to export the deck to PPTX.
+revela, export the deck to PPTX.
 ```
 
 ## Review A Deck
