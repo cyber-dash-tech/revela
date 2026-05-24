@@ -29,9 +29,11 @@ export interface CodexExecRunResult {
 }
 
 export type CodexExecRunner = (input: {
+  action: ReviewPromptAction
   prompt: string
   workspaceRoot: string
   timeoutMs: number
+  sandboxMode: "read-only" | "workspace-write"
 }) => Promise<CodexExecRunResult>
 
 export function createOpenCodeReviewPromptBridge(client: any, sessionID: string): ReviewPromptBridge {
@@ -65,10 +67,13 @@ export function createCodexExecReviewPromptBridge(options: {
   return {
     kind: "codex-exec",
     async send(input) {
+      const sandboxMode = input.action === "comment" ? "workspace-write" : "read-only"
       const output = await runner({
+        action: input.action,
         prompt: input.prompt,
         workspaceRoot: input.workspaceRoot,
         timeoutMs: input.timeoutMs ?? timeoutMs,
+        sandboxMode,
       })
       const raw = [output.stdout, output.stderr].filter(Boolean).join("\n")
       if (output.exitCode !== 0) {
@@ -76,6 +81,14 @@ export function createCodexExecReviewPromptBridge(options: {
           ok: false,
           status: "failed",
           error: `codex exec failed with exit code ${output.exitCode ?? "unknown"}.`,
+          raw,
+        }
+      }
+      if (input.action === "comment" && isCodexWriteBlocked(raw)) {
+        return {
+          ok: false,
+          status: "failed",
+          error: "codex exec could not write the deck because its sandbox blocked file changes.",
           raw,
         }
       }
@@ -95,12 +108,14 @@ export function createCodexExecReviewPromptBridge(options: {
 }
 
 async function runCodexExec(input: {
+  action: ReviewPromptAction
   prompt: string
   workspaceRoot: string
   timeoutMs: number
+  sandboxMode: "read-only" | "workspace-write"
 }): Promise<CodexExecRunResult> {
   return new Promise((resolve) => {
-    const child = spawn("codex", ["exec", "--json", "--ephemeral", "-C", input.workspaceRoot, input.prompt], {
+    const child = spawn("codex", ["exec", "--json", "--ephemeral", "--sandbox", input.sandboxMode, "-C", input.workspaceRoot, input.prompt], {
       stdio: ["ignore", "pipe", "pipe"],
     })
     let stdout = ""
@@ -128,6 +143,15 @@ async function runCodexExec(input: {
       resolve({ exitCode: code, stdout, stderr })
     })
   })
+}
+
+function isCodexWriteBlocked(raw: string): boolean {
+  const text = raw.toLowerCase()
+  return (
+    (text.includes("patch rejected") && text.includes("read-only sandbox")) ||
+    text.includes("writing is blocked by read-only sandbox") ||
+    text.includes("blocked by read-only sandbox")
+  )
 }
 
 function extractInspectionResult(stdout: string): InspectionResult | undefined {

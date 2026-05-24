@@ -90,8 +90,8 @@ describe("Codex exec Review prompt bridge", () => {
     })
   })
 
-  it("runs Comment prompts through codex exec without requiring inspection JSON", async () => {
-    let captured: { prompt: string; workspaceRoot: string; timeoutMs: number } | undefined
+  it("runs Comment prompts through writable codex exec without requiring inspection JSON", async () => {
+    let captured: { action: string; prompt: string; workspaceRoot: string; timeoutMs: number; sandboxMode: string } | undefined
     const bridge = createCodexExecReviewPromptBridge({
       runner: async (input) => {
         captured = input
@@ -112,9 +112,61 @@ describe("Codex exec Review prompt bridge", () => {
       raw: "patched deck",
     })
     expect(captured).toMatchObject({
+      action: "comment",
       prompt: "Change this deck.",
       workspaceRoot: "/tmp/revela",
       timeoutMs: 120_000,
+      sandboxMode: "workspace-write",
+    })
+  })
+
+  it("runs Insight prompts through read-only codex exec", async () => {
+    let captured: { action: string; sandboxMode: string } | undefined
+    const bridge = createCodexExecReviewPromptBridge({
+      runner: async (input) => {
+        captured = input
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify({ type: "final", content: resultJson() }),
+          stderr: "",
+        }
+      },
+    })
+
+    const result = await bridge.send({
+      action: "inspect",
+      prompt: "Inspect this selection.",
+      workspaceRoot: "/tmp/revela",
+      file: "decks/demo.html",
+    })
+
+    expect(result.ok).toBe(true)
+    expect(captured).toMatchObject({
+      action: "inspect",
+      sandboxMode: "read-only",
+    })
+  })
+
+  it("fails Comment prompts when codex exec exits zero but the sandbox blocked writes", async () => {
+    const bridge = createCodexExecReviewPromptBridge({
+      runner: async () => ({
+        exitCode: 0,
+        stdout: "ERROR codex_core::tools::router: error=patch rejected: writing is blocked by read-only sandbox; rejected by user approval settings",
+        stderr: "",
+      }),
+    })
+
+    const result = await bridge.send({
+      action: "comment",
+      prompt: "Change this deck.",
+      workspaceRoot: "/tmp/revela",
+      file: "decks/demo.html",
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: "failed",
+      error: "codex exec could not write the deck because its sandbox blocked file changes.",
     })
   })
 

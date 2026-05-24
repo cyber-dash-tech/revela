@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-615%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-617%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="560" />
@@ -31,14 +31,28 @@ To install globally, add the same entry to `~/.config/opencode/opencode.json`.
 
 ### Codex
 
+Requirements:
+
+- The Codex CLI must be installed and the `codex` command must be available in your shell.
+- Your environment must be able to run `npx`; Revela uses `npx -y @cyber-dash-tech/revela@0.17.11 mcp` to start the MCP server.
+- For interactive Review actions, `codex exec` must also work because the Review UI uses it for Insight and Comment/Apply Fix requests.
+
+Optional preflight:
+
+```bash
+codex --version
+codex exec --help
+npx --version
+```
+
 Install Revela through the Codex Git marketplace:
 
 ```bash
-codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.17.10
+codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.17.11
 codex plugin add revela@revela
 ```
 
-The Git marketplace install provides the Codex plugin shell, skills, hooks, and MCP configuration. When Codex starts the Revela MCP server for the first time, it runs `npx -y @cyber-dash-tech/revela@0.17.10 mcp` so npm can fetch the published package and its dependencies.
+The Git marketplace install provides the Codex plugin shell, skills, hooks, and MCP configuration. When Codex starts the Revela MCP server for the first time, it runs `npx -y @cyber-dash-tech/revela@0.17.11 mcp` so npm can fetch the published package and its dependencies.
 
 You do not need to run `bun install` inside the Codex marketplace clone.
 

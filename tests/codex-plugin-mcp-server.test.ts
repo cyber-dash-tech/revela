@@ -144,7 +144,7 @@ describe("Codex plugin MCP server", () => {
 
     expect(server).toEqual({
       command: "npx",
-      args: ["-y", "@cyber-dash-tech/revela@0.17.10", "mcp"],
+      args: ["-y", "@cyber-dash-tech/revela@0.17.11", "mcp"],
     })
   })
 
