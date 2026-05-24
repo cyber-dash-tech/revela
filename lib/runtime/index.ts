@@ -7,14 +7,10 @@ import { computeNarrativeHash } from "../narrative-state/hash"
 import { compileNarrativeVault } from "../narrative-vault/compile"
 import { runNarrativeMarkdownQa, type MarkdownQaOptions } from "../narrative-vault/markdown-qa"
 import { readDeckPlanArtifact } from "../narrative-state/deck-plan-artifact"
-import { exportToPdf } from "../pdf/export"
-import { exportToPptx } from "../pptx/export"
-import { assertExportQAPassed } from "../qa/export-gate"
-import { formatArtifactQAReport, runArtifactQA } from "../qa/artifact"
 import { extractDesignClasses } from "../design/designs"
 import { recordRenderedArtifact, workspaceRelative } from "../workspace-state/rendered-artifacts"
+import type { ReviewDeckOpenInput, ReviewDeckReadInput } from "./review"
 export { bindResearchFindings, evaluateResearchFindings, researchSave, researchTargets } from "./research"
-export { reviewDeckOpen, reviewDeckRead } from "./review"
 export { storyRead } from "./story"
 
 export interface RuntimeWorkspaceInput {
@@ -91,6 +87,7 @@ export function createDeckFoundation(input: RuntimeDeckFoundationInput) {
 }
 
 export async function runDeckQa(input: RuntimeFileInput) {
+  const { formatArtifactQAReport, runArtifactQA } = await import("../qa/artifact")
   const workspaceRoot = root(input.workspaceRoot)
   const filePath = resolve(workspaceRoot, input.file)
   let vocabulary
@@ -113,6 +110,8 @@ export async function runDeckQa(input: RuntimeFileInput) {
 }
 
 export async function exportPdf(input: RuntimeFileInput) {
+  const { exportToPdf } = await import("../pdf/export")
+  const { assertExportQAPassed } = await import("../qa/export-gate")
   const workspaceRoot = root(input.workspaceRoot)
   const filePath = resolve(workspaceRoot, input.file)
   await assertExportQAPassed(filePath, { workspaceRoot })
@@ -127,6 +126,8 @@ export async function exportPdf(input: RuntimeFileInput) {
 }
 
 export async function exportPptx(input: RuntimeFileInput & { speakerNotes?: Array<string | null | undefined> }) {
+  const { exportToPptx } = await import("../pptx/export")
+  const { assertExportQAPassed } = await import("../qa/export-gate")
   const workspaceRoot = root(input.workspaceRoot)
   const filePath = resolve(workspaceRoot, input.file)
   await assertExportQAPassed(filePath, { workspaceRoot })
@@ -138,6 +139,16 @@ export async function exportPptx(input: RuntimeFileInput & { speakerNotes?: Arra
     actor: "revela-codex-mcp",
   })
   return { ok: true, ...result }
+}
+
+export async function reviewDeckRead(input: ReviewDeckReadInput) {
+  const review = await import("./review")
+  return review.reviewDeckRead(input)
+}
+
+export async function reviewDeckOpen(input: ReviewDeckOpenInput) {
+  const review = await import("./review")
+  return review.reviewDeckOpen(input)
 }
 
 export function designList() {

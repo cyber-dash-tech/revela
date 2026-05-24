@@ -1,11 +1,8 @@
 {
   "mcpServers": {
     "revela": {
-      "command": "bun",
-      "args": [
-        "--eval",
-        "const fs = await import('fs');\nconst path = await import('path');\nconst { pathToFileURL } = await import('url');\nconst candidates = [];\nconst home = process.env.HOME || '';\nconst marketplaceNames = ['revela', 'revela-local'];\ncandidates.push(path.resolve(process.cwd(), 'bin/revela.ts'));\nconst configPath = path.join(home, '.codex', 'config.toml');\nif (fs.existsSync(configPath)) {\n  const text = fs.readFileSync(configPath, 'utf-8');\n  const sections = text.split(/\\n(?=\\s*\\[)/);\n  for (const marketplaceName of marketplaceNames) {\n    const section = sections.find((item) => item.trimStart().startsWith(`[marketplaces.${marketplaceName}]`));\n    const match = section?.match(/^\\s*source\\s*=\\s*\"([^\"]+)\"/m);\n    if (match && !/^[a-z][a-z0-9+.-]*:\\/\\//i.test(match[1])) candidates.push(path.join(match[1], 'bin/revela.ts'));\n  }\n}\nfor (const marketplaceName of marketplaceNames) {\n  candidates.push(path.join(home, '.codex', '.tmp', 'marketplaces', marketplaceName, 'bin/revela.ts'));\n}\nfor (const marketplaceName of marketplaceNames) {\n  const cacheRoot = path.join(home, '.codex', 'plugins', 'cache', marketplaceName, 'revela');\n  if (fs.existsSync(cacheRoot)) {\n    for (const version of fs.readdirSync(cacheRoot).sort().reverse()) candidates.push(path.join(cacheRoot, version, 'bin/revela.ts'));\n  }\n}\nconst cli = candidates.find((candidate) => fs.existsSync(candidate));\nif (!cli) {\n  console.error(`Could not locate Revela CLI. Checked: ${candidates.join(', ')}`);\n  process.exit(1);\n}\nprocess.env.REVELA_CLI_COMMAND = 'mcp';\nawait import(pathToFileURL(cli).href);"
-      ]
+      "command": "npx",
+      "args": ["-y", "@cyber-dash-tech/revela@0.17.10", "mcp"]
     }
   }
 }

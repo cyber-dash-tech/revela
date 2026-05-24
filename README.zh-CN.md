@@ -34,11 +34,13 @@ Revela 可在 [OpenCode](https://opencode.ai) 和 Codex 中使用，把来源材
 通过 Codex Git marketplace 安装 Revela：
 
 ```bash
-codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.17.9
+codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.17.10
 codex plugin add revela@revela
 ```
 
-请从完整仓库 ref 安装。不要使用仅包含 `plugins/revela` 的 sparse checkout；Codex plugin 会从仓库快照中解析 shared runtime、内置 designs 和 domains。
+Git marketplace 安装的是 Codex plugin 壳、skills、hooks 和 MCP 配置。Codex 第一次启动 Revela MCP server 时，会运行 `npx -y @cyber-dash-tech/revela@0.17.10 mcp`，由 npm 获取已发布 package 及其 dependencies。
+
+不需要在 Codex marketplace clone 里运行 `bun install`。
 
 安装后开启一个新的 Codex thread，让 Codex 加载 Revela 的 skills、MCP tools 和 hooks。
 

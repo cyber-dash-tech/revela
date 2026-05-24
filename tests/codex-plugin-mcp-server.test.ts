@@ -138,82 +138,25 @@ describe("Codex plugin MCP server", () => {
     expect(text.stderr).toBe("")
   })
 
-  it("launches from the plugin .mcp.json without relying on the current working directory", async () => {
-    const home = tempWorkspace("revela-mcp-config-home-")
-    mkdirSync(join(home, ".codex"), { recursive: true })
-    writeFileSync(join(home, ".codex", "config.toml"), `[marketplaces.revela]
-last_updated = "2026-05-23T00:00:00Z"
-source_type = "local"
-source = "${repoRoot}"
-`, "utf-8")
-
+  it("uses the published npm package as the Codex MCP launcher", () => {
     const config = JSON.parse(readFileSync(join(repoRoot, "plugins", "revela", ".mcp.json"), "utf-8"))
     const server = config.mcpServers.revela
-    const child = spawn(server.command, server.args, {
-      cwd: home,
-      env: { ...process.env, HOME: home },
-      stdio: ["pipe", "pipe", "pipe"],
+
+    expect(server).toEqual({
+      command: "npx",
+      args: ["-y", "@cyber-dash-tech/revela@0.17.10", "mcp"],
     })
-    const output = collectOutput(child)
-
-    child.stdin.write(frame({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "config-test" } },
-    }))
-    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
-    child.stdin.write(frame({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }))
-
-    const text = await output.until((item) => item.stdout.includes("\"id\":2") && item.stdout.includes("revela_doctor"))
-    child.kill()
-
-    expect(text.stdout).toContain("\"serverInfo\"")
-    expect(text.stdout).toContain("revela_doctor")
   })
 
-  it("launches from the plugin .mcp.json when the marketplace source is a git URL", async () => {
-    const home = tempWorkspace("revela-mcp-config-git-home-")
-    const clone = join(home, ".codex", ".tmp", "marketplaces", "revela")
-    mkdirSync(join(home, ".codex"), { recursive: true })
-    mkdirSync(join(clone, "bin"), { recursive: true })
-    writeFileSync(join(home, ".codex", "config.toml"), `[marketplaces.revela]
-last_updated = "2026-05-24T00:00:00Z"
-source_type = "git"
-source = "https://github.com/cyber-dash-tech/revela.git"
-ref = "v0.17.9"
-`, "utf-8")
-    writeFileSync(join(clone, "bin", "revela.ts"), `
-function send(id, result) {
-  const body = JSON.stringify({ jsonrpc: "2.0", id, result })
-  process.stdout.write(\`Content-Length: \${Buffer.byteLength(body)}\\r\\n\\r\\n\${body}\`)
-}
-process.stdin.on("data", (data) => {
-  const text = data.toString()
-  if (text.includes('"method":"initialize"')) send(1, { serverInfo: { name: "fake-revela" } })
-  if (text.includes('"method":"tools/list"')) send(2, { tools: [{ name: "fake_tool" }] })
-})
-`, "utf-8")
-
+  it("does not keep the legacy Codex marketplace clone resolver in .mcp.json", () => {
     const config = JSON.parse(readFileSync(join(repoRoot, "plugins", "revela", ".mcp.json"), "utf-8"))
     const server = config.mcpServers.revela
-    const child = spawn(server.command, server.args, {
-      cwd: home,
-      env: { ...process.env, HOME: home },
-      stdio: ["pipe", "pipe", "pipe"],
-    })
-    const output = collectOutput(child)
+    const configText = JSON.stringify(server)
 
-    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
-    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
-    child.stdin.write(frame({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }))
-
-    const text = await output.until((item) => item.stdout.includes("\"id\":2") && item.stdout.includes("fake_tool"))
-    child.kill()
-
-    expect(text.stdout).toContain("fake-revela")
-    expect(text.stdout).toContain("fake_tool")
-    expect(text.stderr).toBe("")
+    expect(configText).not.toContain("--eval")
+    expect(configText).not.toContain("bin/revela.ts")
+    expect(configText).not.toContain(".codex")
+    expect(configText).not.toContain("marketplaces")
   })
 
   it("emits opt-in debug logs to stderr without polluting stdout framing", async () => {

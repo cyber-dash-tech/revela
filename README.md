@@ -34,11 +34,13 @@ To install globally, add the same entry to `~/.config/opencode/opencode.json`.
 Install Revela through the Codex Git marketplace:
 
 ```bash
-codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.17.9
+codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.17.10
 codex plugin add revela@revela
 ```
 
-Install from the full repository ref. Do not use a sparse checkout limited to `plugins/revela`; the Codex plugin resolves the shared runtime, built-in designs, and domains from the repository snapshot.
+The Git marketplace install provides the Codex plugin shell, skills, hooks, and MCP configuration. When Codex starts the Revela MCP server for the first time, it runs `npx -y @cyber-dash-tech/revela@0.17.10 mcp` so npm can fetch the published package and its dependencies.
+
+You do not need to run `bun install` inside the Codex marketplace clone.
 
 Start a new Codex thread after installing so Codex loads the Revela skills, MCP tools, and hooks.
 
