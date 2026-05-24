@@ -234,6 +234,44 @@ sources:
     expect(existsSync(join(root, "decks"))).toBe(false)
   })
 
+  it("exposes design and domain controls through the CLI with isolated config", () => {
+    const home = tempWorkspace("revela-runtime-cli-home-")
+    const cli = join(import.meta.dir, "..", "bin", "revela.ts")
+    const env = { ...process.env, HOME: home }
+
+    const designUse = spawnSync("bun", [cli, "design-use", "--name", "starter"], {
+      encoding: "utf-8",
+      env,
+    })
+    const designList = spawnSync("bun", [cli, "design-list"], {
+      encoding: "utf-8",
+      env,
+    })
+    const domainRead = spawnSync("bun", [cli, "domain-read", "--name", "consulting"], {
+      encoding: "utf-8",
+      env,
+    })
+    const domainUse = spawnSync("bun", [cli, "domain-use", "--name", "general"], {
+      encoding: "utf-8",
+      env,
+    })
+    const domainList = spawnSync("bun", [cli, "domain-list"], {
+      encoding: "utf-8",
+      env,
+    })
+
+    expect(designUse.status).toBe(0)
+    expect(JSON.parse(designUse.stdout)).toMatchObject({ ok: true, activeDesign: "starter" })
+    expect(designList.status).toBe(0)
+    expect(JSON.parse(designList.stdout)).toMatchObject({ ok: true, activeDesign: "starter" })
+    expect(domainRead.status).toBe(0)
+    expect(JSON.parse(domainRead.stdout)).toMatchObject({ ok: true, name: "consulting" })
+    expect(domainUse.status).toBe(0)
+    expect(JSON.parse(domainUse.stdout)).toMatchObject({ ok: true, activeDomain: "general" })
+    expect(domainList.status).toBe(0)
+    expect(JSON.parse(domainList.stdout)).toMatchObject({ ok: true, activeDomain: "general" })
+  })
+
   it("opens a Codex-backed Review server by default without creating compatibility state", async () => {
     seedBuiltinDesigns()
     const root = tempWorkspace("revela-runtime-review-open-default-")

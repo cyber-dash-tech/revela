@@ -30,6 +30,10 @@ else {
     else if (command === "export-pptx") result = runtime.exportPptx(required(options, ["file"]))
     else if (command === "design-list") result = runtime.designList()
     else if (command === "design-read") result = runtime.designRead(options)
+    else if (command === "design-use") result = runtime.designActivate(required(options, ["name"]))
+    else if (command === "domain-list") result = runtime.domainList()
+    else if (command === "domain-read") result = runtime.domainRead(options)
+    else if (command === "domain-use") result = runtime.domainActivate(required(options, ["name"]))
     else {
       throw new Error(`Unknown command: ${command}`)
     }
@@ -86,5 +90,9 @@ Usage:
   revela export-pptx --file <path> [--workspaceRoot <path>]
   revela design-list
   revela design-read [--name <design>]
+  revela design-use --name <design>
+  revela domain-list
+  revela domain-read [--name <domain>]
+  revela domain-use --name <domain>
 `)
 }

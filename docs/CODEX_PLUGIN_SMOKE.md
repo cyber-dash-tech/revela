@@ -17,7 +17,7 @@ bun scripts/codex-mcp-smoke.ts bin/revela.ts mcp --raw
 Expected:
 
 - `doctor` returns JSON with `ok: true`.
-- Both MCP smokes return `initialize` and `tools/list` responses containing `revela_doctor`, `revela_story_read`, `revela_review_deck_read`, and `revela_review_deck_open`.
+- Both MCP smokes return `initialize` and `tools/list` responses containing `revela_doctor`, `revela_story_read`, `revela_review_deck_read`, `revela_review_deck_open`, `revela_design_activate`, and `revela_domain_activate`.
 - `revela review-read --file <deck.html>` is available for CLI-level Review diagnostics after a deck exists.
 
 ## Install Or Refresh
@@ -43,7 +43,7 @@ Expected:
 
 - `revela@revela` is installed and enabled.
 - MCP server `revela` is enabled.
-- The local MCP smoke through `bin/revela.ts mcp` prints an `initialize` response and a `tools/list` response containing `revela_doctor`, `revela_story_read`, `revela_review_deck_read`, and `revela_review_deck_open`.
+- The local MCP smoke through `bin/revela.ts mcp` prints an `initialize` response and a `tools/list` response containing `revela_doctor`, `revela_story_read`, `revela_review_deck_read`, `revela_review_deck_open`, `revela_design_activate`, and `revela_domain_activate`.
 
 ## Normal Smoke Flow
 
@@ -51,15 +51,17 @@ Run the smoke in a separate workspace, not the Revela source repository.
 
 1. Ask Codex to use Revela to initialize the workspace.
 2. Confirm Codex can call `revela_doctor`.
-3. Ask Codex to run `revela_markdown_qa` and `revela_compile_narrative`.
-4. Ask Codex to create or read `deck-plan/`.
-5. Ask Codex to call `revela_create_deck_foundation` for a smoke deck.
-6. Add a minimal valid slide set.
-7. Ask Codex to call `revela_run_deck_qa`.
-8. Ask Codex to call `revela_story_read` with `format: "markdown"`.
-9. Ask Codex to review the smoke deck; confirm it calls `revela_review_deck_open` by default and returns a local `/refine?token=...` URL.
-10. Ask Codex to diagnose the smoke deck; confirm it calls `revela_review_deck_read` with `format: "markdown"`.
-11. Repair hard QA errors and rerun QA.
+3. Ask Codex to list/read the active domain, then switch to `general` with `revela_domain_activate`.
+4. Ask Codex to run `revela_markdown_qa` and `revela_compile_narrative`.
+5. Ask Codex to create or read `deck-plan/`.
+6. Ask Codex to list/read designs, then switch to `summit` or `starter` with `revela_design_activate`.
+7. Ask Codex to call `revela_create_deck_foundation` for a smoke deck.
+8. Add a minimal valid slide set.
+9. Ask Codex to call `revela_run_deck_qa`.
+10. Ask Codex to call `revela_story_read` with `format: "markdown"`.
+11. Ask Codex to review the smoke deck; confirm it calls `revela_review_deck_open` by default and returns a local `/refine?token=...` URL.
+12. Ask Codex to diagnose the smoke deck; confirm it calls `revela_review_deck_read` with `format: "markdown"`.
+13. Repair hard QA errors and rerun QA.
 
 ## Expected Result
 
@@ -67,6 +69,8 @@ Run the smoke in a separate workspace, not the Revela source repository.
 - Narrative compile passes or reports explicit vault diagnostics.
 - Deck-plan read returns slide projections and diagnostics.
 - Deck foundation creates a valid active-design shell.
+- Domain list/read/activate works before narrative authoring, and domain guidance is treated as framing rather than evidence.
+- Design list/read/activate works before deck generation, and active design guidance is read before selecting layouts/components.
 - Artifact QA passes with `hardErrorCount: 0`.
 - Story reading returns a deterministic map or Markdown view from `revela-narrative/`.
 - Review deck open returns a local Review URL hosted by the MCP process with the `codex-exec` Insight and Apply Fix bridge.

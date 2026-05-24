@@ -1,7 +1,8 @@
 import { existsSync } from "fs"
 import { resolve } from "path"
-import { activeDesign, getDesignSkillMd, listDesigns, seedBuiltinDesigns } from "../design/designs"
+import { activeDesign, activateDesign, getDesignSkillMd, listDesigns, seedBuiltinDesigns } from "../design/designs"
 import { createDeckFoundation as createDeckFoundationShell } from "../deck-html/foundation"
+import { activeDomain, activateDomain, getDomainSkillMd, listDomains, seedBuiltinDomains } from "../domain/domains"
 import { computeNarrativeHash } from "../narrative-state/hash"
 import { compileNarrativeVault } from "../narrative-vault/compile"
 import { runNarrativeMarkdownQa, type MarkdownQaOptions } from "../narrative-vault/markdown-qa"
@@ -35,6 +36,10 @@ export interface RuntimeDeckFoundationInput extends RuntimeWorkspaceInput {
 
 export interface RuntimeDesignReadInput {
   name?: string
+}
+
+export interface RuntimeNameInput {
+  name: string
 }
 
 export function doctor(input: RuntimeWorkspaceInput = {}) {
@@ -159,6 +164,48 @@ export function designRead(input: RuntimeDesignReadInput = {}) {
   }
 }
 
+export function designActivate(input: RuntimeNameInput) {
+  seedBuiltinDesigns()
+  activateDesign(requiredName(input, "design"))
+  return {
+    ok: true,
+    activeDesign: activeDesign(),
+  }
+}
+
+export function domainList() {
+  seedBuiltinDomains()
+  return {
+    ok: true,
+    activeDomain: activeDomain(),
+    domains: listDomains().map((domain) => ({
+      name: domain.name,
+      description: domain.description,
+      author: domain.author,
+      version: domain.version,
+    })),
+  }
+}
+
+export function domainRead(input: RuntimeDesignReadInput = {}) {
+  seedBuiltinDomains()
+  const name = input.name || activeDomain()
+  return {
+    ok: true,
+    name,
+    markdown: getDomainSkillMd(name),
+  }
+}
+
+export function domainActivate(input: RuntimeNameInput) {
+  seedBuiltinDomains()
+  activateDomain(requiredName(input, "domain"))
+  return {
+    ok: true,
+    activeDomain: activeDomain(),
+  }
+}
+
 function root(workspaceRoot: string | undefined): string {
   return resolve(workspaceRoot || process.cwd())
 }
@@ -169,4 +216,10 @@ function safe<T>(fn: () => T): T | undefined {
   } catch {
     return undefined
   }
+}
+
+function requiredName(input: RuntimeNameInput, label: string): string {
+  const name = input?.name?.trim()
+  if (!name) throw new Error(`${label} name is required`)
+  return name
 }

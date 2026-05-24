@@ -29,7 +29,7 @@ Codex support is built as small adapter modules around existing Revela capabilit
 1. CLI and shared runtime boundary
    - Purpose: provide the stable local contract Codex and other adapters can use without marketplace packaging.
    - Main surfaces: `bin/revela.ts`, `lib/runtime/`.
-   - Enables: JSON-safe commands and `revela mcp` for workspace doctor checks, narrative compile, Markdown QA, deck-plan read, deck foundation creation, artifact QA, Review deck read, PDF/PPTX export, and design reads.
+   - Enables: JSON-safe commands and `revela mcp` for workspace doctor checks, narrative compile, Markdown QA, deck-plan read, deck foundation creation, artifact QA, Review deck read, PDF/PPTX export, design reads/activation, and domain reads/activation.
    - Does not own: duplicated compiler, QA, export, design, or state implementations; it wraps existing implementations.
 
 2. Codex plugin package
@@ -46,14 +46,14 @@ Codex support is built as small adapter modules around existing Revela capabilit
 
 4. Workflow skills
    - Purpose: give Codex workflow guidance that replaces OpenCode prompt injection for Codex sessions.
-   - Main surfaces: `plugins/revela/skills/revela-init`, `revela-research`, `revela-story`, `revela-make-deck`, `revela-review-deck`, `revela-export`, and `revela-design`.
-   - Enables: file-native Init, Research, Story, Make, Review, Export, and Design workflows in Codex.
+   - Main surfaces: `plugins/revela/skills/revela-init`, `revela-research`, `revela-story`, `revela-make-deck`, `revela-review-deck`, `revela-export`, `revela-design`, and `revela-domain`.
+   - Enables: file-native Init, Research, Story, Make, Review, Export, Design, and Domain workflows in Codex.
    - Does not own: hidden workflow state, approval gates, OpenCode slash-command parity, or direct mutation of canonical compiled caches.
 
 5. MCP server
    - Purpose: expose shared runtime functions to Codex as tools over stdio JSON-RPC.
    - Main surfaces: `bin/revela.ts`, `plugins/revela/mcp/revela-server.ts`, `plugins/revela/mcp/runtime-resolver.ts`, `plugins/revela/.mcp.json`.
-   - Enables: Codex tool calls such as `revela_compile_narrative`, `revela_markdown_qa`, `revela_read_deck_plan`, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_review_deck_open`, `revela_review_deck_read`, `revela_export_pdf`, `revela_export_pptx`, `revela_design_list`, and `revela_design_read`.
+   - Enables: Codex tool calls such as `revela_compile_narrative`, `revela_markdown_qa`, `revela_read_deck_plan`, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_review_deck_open`, `revela_review_deck_read`, `revela_export_pdf`, `revela_export_pptx`, `revela_design_list`, `revela_design_read`, `revela_design_activate`, `revela_domain_list`, `revela_domain_read`, and `revela_domain_activate`.
    - Does not own: product workflow policy, broad orchestration, or OpenCode tool replacement. Prefer `revela mcp` as the stable entry; plugin `.mcp.json` is a wrapper for Codex plugin installation.
 
 6. Codex hooks
@@ -86,7 +86,7 @@ Codex support is built as small adapter modules around existing Revela capabilit
    - Add minimal assets and install-surface metadata.
 
 3. Workflow skills
-   - Add `revela-init`, `revela-research`, `revela-story`, `revela-make-deck`, `revela-review-deck`, `revela-export`, and `revela-design`.
+   - Add `revela-init`, `revela-research`, `revela-story`, `revela-make-deck`, `revela-review-deck`, `revela-export`, `revela-design`, and `revela-domain`.
    - Skills must refer to Codex MCP tools and normal file edits, not OpenCode-only slash commands or OpenCode tool names.
 
 4. Shared runtime boundary

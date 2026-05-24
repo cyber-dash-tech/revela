@@ -19,6 +19,10 @@ type RuntimeModule = {
   exportPptx(input: any): Promise<any>
   designList(): any
   designRead(input?: any): any
+  designActivate(input: any): any
+  domainList(): any
+  domainRead(input?: any): any
+  domainActivate(input: any): any
   storyRead(input?: any): any
   reviewDeckRead(input: any): Promise<any>
   reviewDeckOpen(input: any): Promise<any>
@@ -102,6 +106,26 @@ const tools = [
     name: "revela_design_read",
     description: "Read Revela design instructions for the active or requested design.",
     inputSchema: objectSchema({ name: stringProp("Optional design name.") }),
+  },
+  {
+    name: "revela_design_activate",
+    description: "Activate a Revela design for future deck planning and artifact generation.",
+    inputSchema: objectSchema({ name: requiredStringProp("Design name to activate.") }, ["name"]),
+  },
+  {
+    name: "revela_domain_list",
+    description: "List installed Revela narrative domains and the active domain.",
+    inputSchema: objectSchema({}),
+  },
+  {
+    name: "revela_domain_read",
+    description: "Read Revela narrative domain guidance for the active or requested domain.",
+    inputSchema: objectSchema({ name: stringProp("Optional domain name.") }),
+  },
+  {
+    name: "revela_domain_activate",
+    description: "Activate a Revela narrative domain for future narrative authoring guidance.",
+    inputSchema: objectSchema({ name: requiredStringProp("Domain name to activate.") }, ["name"]),
   },
   {
     name: "revela_story_read",
@@ -229,6 +253,10 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_export_pptx") return r.exportPptx(args)
   if (name === "revela_design_list") return r.designList()
   if (name === "revela_design_read") return r.designRead(args)
+  if (name === "revela_design_activate") return r.designActivate(args)
+  if (name === "revela_domain_list") return r.domainList()
+  if (name === "revela_domain_read") return r.domainRead(args)
+  if (name === "revela_domain_activate") return r.domainActivate(args)
   if (name === "revela_story_read") return r.storyRead(args)
   if (name === "revela_review_deck_read") return r.reviewDeckRead(args)
   if (name === "revela_review_deck_open") return r.reviewDeckOpen(args)

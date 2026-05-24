@@ -68,6 +68,8 @@ Revela 内置多个 deck design：
 /revela design --use summit
 ```
 
+在 Codex 中，可以直接让 Revela 列出或切换 design；生成 deck 时会使用 active design。
+
 ## Domains
 
 Domain 提供特定场景的叙事 guidance，例如 consulting、product 或 investor communication。需要让 Revela 按具体沟通场景调整 story framing 时使用。
@@ -75,6 +77,8 @@ Domain 提供特定场景的叙事 guidance，例如 consulting、product 或 in
 ```text
 /revela domain
 ```
+
+在 Codex 中，可以直接让 Revela 列出或切换 domain；active domain 会用于 init、research 和 story 阶段的叙事 framing。
 
 ## Quick Start
 

@@ -20,11 +20,12 @@ Use this skill when the user asks to start Revela, initialize the workspace, ing
 
 1. Inspect the workspace with normal Codex file tools. Stay inside the current workspace root.
 2. Prefer local source materials first: Markdown, text, CSV, PDFs, Office files, existing `researches/`, existing `revela-narrative/`, `deck-plan/`, and `decks/`.
-3. If `revela-narrative/` exists, call `revela_markdown_qa` and `revela_compile_narrative`.
-4. If the narrative vault is missing, create the initial `revela-narrative/` Markdown nodes directly with valid frontmatter and plain wikilink relations.
-5. Evidence nodes must preserve source, quote/snippet, support scope, unsupported scope, caveat, and strength before being treated as support.
-6. After writing narrative Markdown, call `revela_markdown_qa` and `revela_compile_narrative` again.
-7. End with a concise init report: local materials found, narrative graph status, open gaps, Markdown QA status, and next command/action.
+3. Call `revela_domain_list` and `revela_domain_read` for active domain guidance before authoring narrative meaning. Treat domain guidance as framing guidance, never as evidence.
+4. If `revela-narrative/` exists, call `revela_markdown_qa` and `revela_compile_narrative`.
+5. If the narrative vault is missing, create the initial `revela-narrative/` Markdown nodes directly with valid frontmatter and plain wikilink relations.
+6. Evidence nodes must preserve source, quote/snippet, support scope, unsupported scope, caveat, and strength before being treated as support.
+7. After writing narrative Markdown, call `revela_markdown_qa` and `revela_compile_narrative` again.
+8. End with a concise init report: local materials found, active domain, narrative graph status, open gaps, Markdown QA status, and next command/action.
 
 ## Markdown Rules
 
@@ -33,4 +34,3 @@ Use this skill when the user asks to start Revela, initialize the workspace, ing
 - Use `## Relations` with plain node-id wikilinks, such as `- supports: [[claim-recommendation]]`.
 - Do not use typed wikilinks such as `[[claim:claim-recommendation]]`.
 - Do not duplicate stable headings like `## Evidence`, `## Caveats`, `## Relations`, `## Response`, or `## Mitigation`.
-

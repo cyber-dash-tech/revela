@@ -68,6 +68,8 @@ Switch designs with:
 /revela design --use summit
 ```
 
+In Codex, ask Revela to list or switch designs; the plugin uses the active design when making decks.
+
 ## Domains
 
 Domains add topic-specific narrative guidance, such as consulting, product, or investor communication. Use them when you want Revela to adapt story framing to a specific context.
@@ -75,6 +77,8 @@ Domains add topic-specific narrative guidance, such as consulting, product, or i
 ```text
 /revela domain
 ```
+
+In Codex, ask Revela to list or switch domains; the active domain guides narrative framing during init, research, and story work.
 
 ## Quick Start
 

@@ -35,6 +35,10 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("revela_story_read")
     expect(text.stdout).toContain("revela_review_deck_read")
     expect(text.stdout).toContain("revela_review_deck_open")
+    expect(text.stdout).toContain("revela_design_activate")
+    expect(text.stdout).toContain("revela_domain_list")
+    expect(text.stdout).toContain("revela_domain_read")
+    expect(text.stdout).toContain("revela_domain_activate")
   })
 
   it("parses framed initialize requests using byte Content-Length", async () => {
@@ -242,6 +246,57 @@ source = "${repoRoot}"
     expect(text.stdout).toContain("claim-pilot")
     expect(text.stdout).toContain("diagnosticsMarkdown")
     expect(text.stdout).toContain("gap-pilot-evidence")
+  })
+
+  it("calls design and domain list/read/activate tools", async () => {
+    const home = tempWorkspace("revela-mcp-design-domain-home-")
+    const child = spawn("bun", [serverPath], {
+      env: { ...process.env, HOME: home },
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "revela_design_activate", arguments: { name: "starter" } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "revela_design_list", arguments: {} },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "revela_domain_read", arguments: { name: "consulting" } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: { name: "revela_domain_activate", arguments: { name: "general" } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 6,
+      method: "tools/call",
+      params: { name: "revela_domain_list", arguments: {} },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":6") && item.stdout.includes("activeDomain"))
+    child.kill()
+
+    expect(text.stdout).toContain("activeDesign")
+    expect(text.stdout).toContain("starter")
+    expect(text.stdout).toContain("consulting")
+    expect(text.stdout).toContain("activeDomain")
+    expect(text.stdout).toContain("general")
   })
 
   it("calls the Review deck read tool with Markdown output", async () => {
