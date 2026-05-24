@@ -172,6 +172,50 @@ source = "${repoRoot}"
     expect(text.stdout).toContain("revela_doctor")
   })
 
+  it("launches from the plugin .mcp.json when the marketplace source is a git URL", async () => {
+    const home = tempWorkspace("revela-mcp-config-git-home-")
+    const clone = join(home, ".codex", ".tmp", "marketplaces", "revela")
+    mkdirSync(join(home, ".codex"), { recursive: true })
+    mkdirSync(join(clone, "bin"), { recursive: true })
+    writeFileSync(join(home, ".codex", "config.toml"), `[marketplaces.revela]
+last_updated = "2026-05-24T00:00:00Z"
+source_type = "git"
+source = "https://github.com/cyber-dash-tech/revela.git"
+ref = "v0.17.9"
+`, "utf-8")
+    writeFileSync(join(clone, "bin", "revela.ts"), `
+function send(id, result) {
+  const body = JSON.stringify({ jsonrpc: "2.0", id, result })
+  process.stdout.write(\`Content-Length: \${Buffer.byteLength(body)}\\r\\n\\r\\n\${body}\`)
+}
+process.stdin.on("data", (data) => {
+  const text = data.toString()
+  if (text.includes('"method":"initialize"')) send(1, { serverInfo: { name: "fake-revela" } })
+  if (text.includes('"method":"tools/list"')) send(2, { tools: [{ name: "fake_tool" }] })
+})
+`, "utf-8")
+
+    const config = JSON.parse(readFileSync(join(repoRoot, "plugins", "revela", ".mcp.json"), "utf-8"))
+    const server = config.mcpServers.revela
+    const child = spawn(server.command, server.args, {
+      cwd: home,
+      env: { ...process.env, HOME: home },
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":2") && item.stdout.includes("fake_tool"))
+    child.kill()
+
+    expect(text.stdout).toContain("fake-revela")
+    expect(text.stdout).toContain("fake_tool")
+    expect(text.stderr).toBe("")
+  })
+
   it("emits opt-in debug logs to stderr without polluting stdout framing", async () => {
     const child = spawn("bun", [serverPath], {
       env: { ...process.env, REVELA_MCP_DEBUG: "1" },

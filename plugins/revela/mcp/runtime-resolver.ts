@@ -33,13 +33,26 @@ export function resolveRevelaRuntime(options: ResolveRuntimeOptions): ResolveRun
 
   const marketplaceName = marketplaceNameFromPluginRoot(pluginRoot)
   if (marketplaceName) {
-    const source = marketplaceSourceFromCodexConfig(marketplaceName, options.homeDir ?? env.HOME)
+    const homeDir = options.homeDir ?? env.HOME
+    const source = marketplaceSourceFromCodexConfig(marketplaceName, homeDir)
     if (source) {
-      const result = runtimeAt(source, "codex-marketplace", diagnostics)
-      if (result.ok) return result
-      diagnostics.push(`Marketplace ${marketplaceName} source did not contain lib/runtime/index.ts: ${source}`)
+      if (looksLikeLocalPath(source)) {
+        const result = runtimeAt(source, "codex-marketplace", diagnostics)
+        if (result.ok) return result
+        diagnostics.push(`Marketplace ${marketplaceName} local source did not contain lib/runtime/index.ts: ${source}`)
+      } else {
+        diagnostics.push(`Marketplace ${marketplaceName} source is not a local path: ${source}`)
+      }
     } else {
       diagnostics.push(`Marketplace ${marketplaceName} was not found in Codex config.`)
+    }
+    const clone = marketplaceCloneRoot(marketplaceName, homeDir)
+    if (clone) {
+      const result = fullRepoRuntimeAt(clone, "codex-marketplace", diagnostics)
+      if (result.ok) return result
+      diagnostics.push(`Marketplace ${marketplaceName} clone did not contain a complete Revela runtime: ${clone}`)
+    } else {
+      diagnostics.push(`Marketplace ${marketplaceName} clone was not found in Codex temp marketplaces.`)
     }
   } else {
     diagnostics.push(`Could not infer marketplace name from plugin root: ${pluginRoot}`)
@@ -56,6 +69,17 @@ function runtimeAt(root: string, source: ResolveRuntimeResult["source"], diagnos
   const repoRoot = resolve(root)
   const runtimePath = join(repoRoot, "lib", "runtime", "index.ts")
   return existsSync(runtimePath)
+    ? { ok: true, repoRoot, runtimePath, source, diagnostics }
+    : { ok: false, source: "missing", diagnostics }
+}
+
+function fullRepoRuntimeAt(root: string, source: ResolveRuntimeResult["source"], diagnostics: string[]): ResolveRuntimeResult {
+  const repoRoot = resolve(root)
+  const runtimePath = join(repoRoot, "lib", "runtime", "index.ts")
+  const hasRuntime = existsSync(runtimePath)
+  const hasDesigns = existsSync(join(repoRoot, "designs"))
+  const hasDomains = existsSync(join(repoRoot, "domains"))
+  return hasRuntime && hasDesigns && hasDomains
     ? { ok: true, repoRoot, runtimePath, source, diagnostics }
     : { ok: false, source: "missing", diagnostics }
 }
@@ -93,6 +117,16 @@ function marketplaceSourceFromCodexConfig(marketplaceName: string, homeDir: stri
   if (!section) return undefined
   const match = section.match(/^\s*source\s*=\s*"([^"]+)"/m)
   return match?.[1]
+}
+
+function marketplaceCloneRoot(marketplaceName: string, homeDir: string | undefined): string | undefined {
+  if (!homeDir) return undefined
+  const candidate = join(homeDir, ".codex", ".tmp", "marketplaces", marketplaceName)
+  return existsSync(candidate) ? candidate : undefined
+}
+
+function looksLikeLocalPath(source: string): boolean {
+  return !/^[a-z][a-z0-9+.-]*:\/\//i.test(source)
 }
 
 function sectionBody(text: string, sectionName: string): string | undefined {
