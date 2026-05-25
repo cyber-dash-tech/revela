@@ -9,7 +9,7 @@ import { openUrl } from "../edit/open"
 import { resolveEditableDeck, type EditableDeck } from "../edit/resolve-deck"
 import { buildPrompt } from "../prompt-builder"
 import type { ReviewPromptBridge } from "./prompt-bridge"
-import { startRefineServer, type RefineMode } from "./server"
+import { startRefineServer, type RefineMode, type ReviewShellSurface } from "./server"
 
 export interface OpenRefineDeckResult {
   deck: EditableDeck
@@ -35,6 +35,7 @@ export interface OpenRefineDeckOptions {
   openBrowser?: boolean
   openUrl?: (url: string) => void
   promptBridge?: ReviewPromptBridge
+  surface?: ReviewShellSurface
 }
 
 export function openRefineDeck(target: string, options: OpenRefineDeckOptions): OpenRefineDeckResult {
@@ -74,7 +75,8 @@ function openRefineDeckInternal(
     mode,
     promptBridge: options.promptBridge,
   })
-  const url = `${refineServer.baseUrl}/refine?token=${encodeURIComponent(session.token)}`
+  const route = options.surface === "codex" ? "/codex-review" : "/refine"
+  const url = `${refineServer.baseUrl}${route}?token=${encodeURIComponent(session.token)}`
   const shouldOpen = options.openBrowser !== false && !(behavior.skipLiveSession && session.live)
   if (shouldOpen) (options.openUrl ?? openUrl)(url)
 

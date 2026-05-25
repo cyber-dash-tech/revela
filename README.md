@@ -45,6 +45,13 @@ codex exec --help
 npx --version
 ```
 
+If `npx` fails with an npm cache permission error, repair the cache ownership or use a writable cache for local checks:
+
+```bash
+sudo chown -R "$(id -u):$(id -g)" ~/.npm
+npm_config_cache=/tmp/revela-npm-cache bun run smoke:mcp-pack
+```
+
 Install Revela through the Codex Git marketplace:
 
 ```bash
@@ -57,6 +64,8 @@ The Git marketplace install provides the Codex plugin shell, skills, hooks, and 
 You do not need to run `bun install` inside the Codex marketplace clone.
 
 Start a new Codex thread after installing so Codex loads the Revela skills, MCP tools, and hooks.
+
+For release-aligned local validation, run `bun run smoke:mcp-pack`. It packs the current checkout to a temporary npm tarball and starts the MCP server through `npx`, matching the published Codex launcher path without requiring a registry publish.
 
 ## Built-In Designs
 

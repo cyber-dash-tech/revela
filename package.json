@@ -1,6 +1,6 @@
 {
   "name": "@cyber-dash-tech/revela",
-  "version": "0.17.12",
+  "version": "0.17.13",
   "description": "OpenCode plugin for trusted narrative artifacts from local sources, research, and evidence",
   "type": "module",
   "main": "./index.ts",
@@ -53,7 +53,9 @@
   },
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "smoke:mcp": "bun scripts/codex-mcp-smoke.ts",
+    "smoke:mcp-pack": "bun scripts/codex-mcp-pack-smoke.ts"
   },
   "peerDependencies": {
     "@opencode-ai/plugin": "*"

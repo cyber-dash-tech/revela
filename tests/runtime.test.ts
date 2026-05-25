@@ -292,7 +292,7 @@ sources:
         mode: "edit",
         openedBrowser: true,
       })
-      expect(result.url).toContain("/refine?token=")
+      expect(result.url).toContain("/codex-review?token=")
       expect(openedUrls).toEqual([result.url])
       expect(result.token).toBeString()
       expect(result.deck).toMatchObject({ file: "decks/review.html", source: "file-path" })
@@ -318,7 +318,7 @@ sources:
         mode: "edit",
         openedBrowser: false,
       })
-      expect(result.url).toContain("/refine?token=")
+      expect(result.url).toContain("/codex-review?token=")
       expect(result.token).toBeString()
       expect(result.deck).toMatchObject({ file: "decks/review.html", source: "file-path" })
       expect(result).not.toHaveProperty("reviewRead")

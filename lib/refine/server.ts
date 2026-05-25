@@ -9,11 +9,11 @@ import { buildPrompt } from "../prompt-builder"
 import type { InspectionElementSnapshot } from "../inspection-context/match"
 import { buildInspectionPrompt } from "../inspect/prompt"
 import { projectWorkspaceElement } from "../inspect/request"
-import { completeInspectRequest, createInspectRequest, failInspectRequest, getInspectRequest } from "../inspect/requests"
+import { addInspectRequestEvent, completeInspectRequest, createInspectRequest, failInspectRequest, getInspectRequest, subscribeInspectRequestEvents } from "../inspect/requests"
 import { saveMediaAsset } from "../media/save"
 import { searchRemoteImages, type ImageCandidate } from "../media/search"
 import type { MediaAssetRecord, MediaPurpose } from "../media/types"
-import { completeCommentRequest, createCommentRequest, failCommentRequest, getCommentRequest } from "./comment-requests"
+import { addCommentRequestEvent, completeCommentRequest, createCommentRequest, failCommentRequest, getCommentRequest, subscribeCommentRequestEvents } from "./comment-requests"
 import { createOpenCodeReviewPromptBridge, type ReviewPromptBridge } from "./prompt-bridge"
 import { suppressReviewApplyFixArtifactQa } from "./qa-suppression"
 import { annotateVisualEditTargets, applyVisualTargetChanges, type VisualEditTarget } from "./visual-targets"
@@ -48,6 +48,7 @@ interface EditSession {
 }
 
 export type RefineMode = "edit" | "inspect"
+export type ReviewShellSurface = "legacy" | "codex"
 
 export interface RefineServerHandle {
   baseUrl: string
@@ -177,6 +178,12 @@ async function handleRequest(req: Request): Promise<Response> {
     return htmlResponse(renderRefineShell(session.value.token, session.value.defaultMode))
   }
 
+  if (url.pathname === "/codex-review" && req.method === "GET") {
+    const session = validateSession(url.searchParams.get("token"))
+    if (!session.ok) return session.response
+    return htmlResponse(renderCodexReviewShell(session.value.token, session.value.defaultMode))
+  }
+
   if (url.pathname === "/deck" && req.method === "GET") {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
@@ -201,6 +208,12 @@ async function handleRequest(req: Request): Promise<Response> {
     return handleCommentResult(url.searchParams.get("requestId"), session.value)
   }
 
+  if (url.pathname === "/api/comment-events" && req.method === "GET") {
+    const session = validateSession(url.searchParams.get("token"))
+    if (!session.ok) return session.response
+    return handleCommentEvents(url.searchParams.get("requestId"), session.value)
+  }
+
   if (url.pathname === "/api/inspect" && req.method === "POST") {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
@@ -211,6 +224,12 @@ async function handleRequest(req: Request): Promise<Response> {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
     return handleInspectResult(url.searchParams.get("requestId"), session.value)
+  }
+
+  if (url.pathname === "/api/inspect-events" && req.method === "GET") {
+    const session = validateSession(url.searchParams.get("token"))
+    if (!session.ok) return session.response
+    return handleInspectEvents(url.searchParams.get("requestId"), session.value)
   }
 
   if (url.pathname === "/api/deck-version" && req.method === "GET") {
@@ -765,11 +784,12 @@ async function handleComment(req: Request, session: EditSession): Promise<Respon
     workspaceRoot: session.workspaceRoot,
     file: session.file,
     requestId,
+    onEvent: (event) => addCommentRequestEvent(requestId, event),
   }).then((result) => {
     if (result.ok) {
       completeCommentRequest(requestId)
     } else {
-      failCommentRequest(requestId, result.error)
+      failCommentRequest(requestId, result.error, result.raw)
     }
   }).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)
@@ -781,6 +801,88 @@ async function handleComment(req: Request, session: EditSession): Promise<Respon
   return jsonResponse({ ok: true, requestId, commentRequestId: requestId, deckVersion, status: "pending" })
 }
 
+function handleCommentEvents(requestId: string | null, session: EditSession): Response {
+  if (!requestId) return jsonResponse({ ok: false, error: "Missing requestId" }, 400)
+  const request = getCommentRequest(requestId)
+  if (!request) return jsonResponse({ ok: false, requestId, error: "Comment request not found" }, 404)
+  session.lastActiveAt = Date.now()
+  scheduleIdleStop()
+
+  const encoder = new TextEncoder()
+  let unsubscribe = () => {}
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const send = (event: unknown) => {
+        controller.enqueue(encoder.encode(`event: progress\ndata: ${JSON.stringify(event)}\n\n`))
+      }
+      for (const event of request.events) send(event)
+      if (request.status !== "pending") {
+        controller.close()
+        return
+      }
+      unsubscribe = subscribeCommentRequestEvents(requestId, (event) => {
+        send(event)
+        if (event.type === "completed" || event.type === "failed" || event.type === "timeout") {
+          unsubscribe()
+          controller.close()
+        }
+      })
+    },
+    cancel() {
+      unsubscribe()
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-store",
+      connection: "keep-alive",
+    },
+  })
+}
+
+function handleInspectEvents(requestId: string | null, session: EditSession): Response {
+  if (!requestId) return jsonResponse({ ok: false, error: "Missing requestId" }, 400)
+  const request = getInspectRequest(requestId)
+  if (!request) return jsonResponse({ ok: false, requestId, error: "Inspection request not found" }, 404)
+  session.lastActiveAt = Date.now()
+  scheduleIdleStop()
+
+  const encoder = new TextEncoder()
+  let unsubscribe = () => {}
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const send = (event: unknown) => {
+        controller.enqueue(encoder.encode(`event: progress\ndata: ${JSON.stringify(event)}\n\n`))
+      }
+      for (const event of request.events) send(event)
+      if (request.status !== "pending") {
+        controller.close()
+        return
+      }
+      unsubscribe = subscribeInspectRequestEvents(requestId, (event) => {
+        send(event)
+        if (event.type === "completed" || event.type === "failed" || event.type === "timeout") {
+          unsubscribe()
+          controller.close()
+        }
+      })
+    },
+    cancel() {
+      unsubscribe()
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-store",
+      connection: "keep-alive",
+    },
+  })
+}
+
 function handleCommentResult(requestId: string | null, session: EditSession): Response {
   if (!requestId) return jsonResponse({ ok: false, error: "Missing requestId" }, 400)
   const request = getCommentRequest(requestId)
@@ -788,7 +890,14 @@ function handleCommentResult(requestId: string | null, session: EditSession): Re
   session.lastActiveAt = Date.now()
   scheduleIdleStop()
   if (request.status === "failed" || request.status === "expired") {
-    return jsonResponse({ ok: true, requestId, status: request.status, deckVersion: request.deckVersion, error: request.error || "Review agent failed" })
+    return jsonResponse({
+      ok: true,
+      requestId,
+      status: request.status,
+      deckVersion: request.deckVersion,
+      error: request.error || "Review agent failed",
+      raw: request.raw,
+    })
   }
   return jsonResponse({ ok: true, requestId, status: request.status, deckVersion: request.deckVersion })
 }
@@ -834,11 +943,12 @@ async function handleInspect(req: Request, session: EditSession): Promise<Respon
       workspaceRoot: session.workspaceRoot,
       file: session.file,
       requestId,
+      onEvent: (event) => addInspectRequestEvent(requestId, event),
     }).then((result) => {
       if (result.ok && result.result) {
         completeInspectRequest(requestId, result.result)
       } else if (!result.ok) {
-        failInspectRequest(requestId, result.error)
+        failInspectRequest(requestId, result.error, result.raw)
       }
     }).catch((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error)
@@ -860,7 +970,7 @@ function handleInspectResult(requestId: string | null, session: EditSession): Re
   session.lastActiveAt = Date.now()
   scheduleIdleStop()
   if (request.status === "completed") return jsonResponse({ ok: true, requestId, status: request.status, deckVersion: request.deckVersion, result: request.result })
-  if (request.status === "failed" || request.status === "expired") return jsonResponse({ ok: true, requestId, status: request.status, deckVersion: request.deckVersion, error: request.error || "Insight failed" })
+  if (request.status === "failed" || request.status === "expired") return jsonResponse({ ok: true, requestId, status: request.status, deckVersion: request.deckVersion, error: request.error || "Insight failed", raw: request.raw })
   return jsonResponse({ ok: true, requestId, status: request.status, deckVersion: request.deckVersion })
 }
 
@@ -964,9 +1074,16 @@ function jsonResponse(body: unknown, status = 200): Response {
   })
 }
 
-export function renderRefineShell(token: string, defaultMode: RefineMode = "edit"): string {
+export function renderCodexReviewShell(token: string, defaultMode: RefineMode = "edit"): string {
+  return renderRefineShell(token, defaultMode, "codex")
+}
+
+export function renderRefineShell(token: string, defaultMode: RefineMode = "edit", surface: ReviewShellSurface = "legacy"): string {
   const encodedToken = JSON.stringify(token)
   const encodedDefaultMode = JSON.stringify(defaultMode)
+  const encodedSurface = JSON.stringify(surface)
+  const activityLabel = surface === "codex" ? "Codex Activity" : "Activity"
+  const bodyClass = surface === "codex" ? "codex-review" : "legacy-review"
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -1029,6 +1146,19 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .comment-bubble.failed { border-color: #c58f82; background: #f7eae5; }
     .comment-bubble-text { white-space: pre-wrap; overflow-wrap: anywhere; }
     .comment-bubble-state { margin-top: 8px; color: #8a6231; font-size: 12px; font-weight: 800; }
+    .comment-progress { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; color: #5f574d; font-size: 12px; }
+    .comment-progress-line { display: flex; gap: 6px; align-items: flex-start; }
+    .comment-progress-line::before { content: ""; width: 6px; height: 6px; margin-top: 6px; border-radius: 999px; background: #b48b52; flex: 0 0 auto; }
+    .comment-raw { margin-top: 8px; color: #6f473c; font-size: 12px; }
+    .comment-raw summary { cursor: pointer; font-weight: 800; }
+    .comment-raw pre { margin: 6px 0 0; max-height: 160px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: rgba(255,255,255,.55); border: 1px solid rgba(143,70,56,.22); border-radius: 8px; padding: 8px; }
+    .codex-log { margin-top: 8px; color: #4b5563; font-size: 12px; }
+    .codex-log summary { cursor: pointer; font-weight: 900; }
+    .codex-log-list { margin-top: 7px; display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow: auto; }
+    .codex-log-entry { padding: 7px 8px; border: 1px solid rgba(148,163,184,.34); border-radius: 8px; background: rgba(255,255,255,.58); }
+    .codex-log-meta { display: flex; justify-content: space-between; gap: 8px; color: #6b7280; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .codex-log-message { margin-top: 4px; color: #374151; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .codex-log-detail { margin: 5px 0 0; max-height: 120px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: #111827; background: rgba(17,24,39,.05); border-radius: 6px; padding: 6px; }
     .comment-bubble.updated .comment-bubble-state { color: #556b3f; }
     .comment-bubble.stale .comment-bubble-state { color: #8a6231; }
     .comment-bubble.failed .comment-bubble-state { color: #8f4638; }
@@ -1098,7 +1228,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     @media (max-width: 900px) { .app { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; } .resize-handle { display: none; } aside { max-height: 48vh; } .deck-nav { bottom: 10px; } }
   </style>
 </head>
-<body>
+<body class="${bodyClass}">
   <main class="app">
     <section class="preview"><iframe id="deck" src="/deck?token=${encodeURIComponent(token)}"></iframe><div id="hitbox" class="hitbox" aria-label="Deck element selection layer"></div><div id="visualMoveHandle" class="visual-move-handle" aria-hidden="true"></div><div id="visualResizeHandle" class="visual-resize-handle" aria-hidden="true"></div><div id="visualEditToolbar" class="visual-edit-toolbar" aria-live="polite"><span id="visualEditCount">No unsaved visual changes</span><button id="visualUndo" type="button">Undo</button><button id="visualReset" type="button">Reset</button><button id="visualSave" class="save-visual" type="button">Save Changes</button></div><nav class="deck-nav" aria-label="Deck navigation"><button id="deckPrev" type="button" title="Previous slide (ArrowLeft / ArrowUp / PageUp)">Previous</button><div id="deckCounter" class="deck-nav-status" aria-live="polite">-- / --</div><button id="deckNext" type="button" title="Next slide (ArrowRight / ArrowDown / Space / PageDown)">Next</button></nav></section>
     <div id="resizeHandle" class="resize-handle" role="separator" aria-label="Resize editor panel" aria-orientation="vertical" title="Drag to resize editor. Double-click to reset."></div>
@@ -1123,7 +1253,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           </div>
         </div>
         <button id="send" class="primary-action" disabled><svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94L14.7 6.3z"/></svg><span>Apply Fix</span></button>
-        <div class="activity-panel"><div class="label">Activity</div><div id="commentThread" class="comment-thread" aria-live="polite"></div></div>
+        <div class="activity-panel"><div class="label">${activityLabel}</div><div id="commentThread" class="comment-thread" aria-live="polite"></div></div>
       </div>
       <div id="inspectPanel" class="tab-panel">
         <div class="panel">
@@ -1155,6 +1285,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     (() => {
       const token = ${encodedToken};
       const defaultMode = ${encodedDefaultMode};
+      const reviewSurface = ${encodedSurface};
+      const codexReview = reviewSurface === 'codex';
       const COMMENT_STALE_MS = 60000;
       const EDITOR_WIDTH_KEY = 'revela-edit-editor-width';
       const DEFAULT_EDITOR_WIDTH = 376;
@@ -1192,6 +1324,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         mode: defaultMode === 'inspect' ? 'inspect' : 'edit',
         inspecting: false,
         activeInspectRequestId: '',
+        inspectEventLog: [],
         inspectLanguage: 'Auto',
         inspectFallback: null,
         sendingEdit: false,
@@ -1975,12 +2108,19 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         window.setInterval(pollDeckVersion, 2000);
       }
 
+      async function fetchDeckVersion() {
+        const res = await fetch('/api/deck-version?token=' + encodeURIComponent(token), { cache: 'no-store' });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to check deck version');
+        return {
+          body,
+          version: body.version || (String(body.mtimeMs) + ':' + String(body.size)),
+        };
+      }
+
       async function pollDeckVersion() {
         try {
-          const res = await fetch('/api/deck-version?token=' + encodeURIComponent(token), { cache: 'no-store' });
-          const body = await res.json().catch(() => ({}));
-          if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to check deck version');
-          const nextVersion = body.version || (String(body.mtimeMs) + ':' + String(body.size));
+          const { body, version: nextVersion } = await fetchDeckVersion();
           if (!state.deckVersion) {
             state.deckVersion = nextVersion;
             markCommentsUpdatedForVersion(nextVersion);
@@ -1996,6 +2136,28 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           refreshDeckPreview(body.mtimeMs);
         } catch (error) {
           reportError(error);
+        }
+      }
+
+      async function watchDeckVersionAfterComment(commentId) {
+        const comment = state.pendingComments.find((item) => item.id === commentId);
+        const baseDeckVersion = comment?.baseDeckVersion || state.deckVersion;
+        const started = Date.now();
+        while (Date.now() - started < 15000) {
+          if (pendingCommentStatus(commentId) === 'updated' || pendingCommentStatus(commentId) === 'failed') return;
+          await delay(250);
+          try {
+            const { body, version: nextVersion } = await fetchDeckVersion();
+            if (nextVersion && nextVersion !== baseDeckVersion) {
+              state.deckVersion = nextVersion;
+              markCommentsUpdatedForVersion(nextVersion);
+              refreshDeckPreview(body.mtimeMs);
+              return;
+            }
+          } catch (error) {
+            reportError(error);
+            return;
+          }
         }
       }
 
@@ -2098,7 +2260,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to send comment');
           updatePendingCommentStatus(commentId, 'sent', { baseDeckVersion: body.deckVersion || state.deckVersion, requestId: body.commentRequestId || body.requestId || '' });
           if (pendingCommentStatus(commentId) !== 'updated') setStatus('Comment sent. Waiting for deck update...');
-          if (body.commentRequestId || body.requestId) pollCommentResult(commentId, body.commentRequestId || body.requestId);
+          if (body.commentRequestId || body.requestId) watchCommentProgress(commentId, body.commentRequestId || body.requestId);
         } catch (error) {
           updatePendingCommentStatus(commentId, 'failed');
           reportError(error);
@@ -2458,7 +2620,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to send asset placement');
           updatePendingCommentStatus(commentId, 'sent', { baseDeckVersion: body.deckVersion || state.deckVersion, requestId: body.commentRequestId || body.requestId || '' });
           if (pendingCommentStatus(commentId) !== 'updated') setStatus('Asset placement sent. Waiting for deck update...');
-          if (body.commentRequestId || body.requestId) pollCommentResult(commentId, body.commentRequestId || body.requestId);
+          if (body.commentRequestId || body.requestId) watchCommentProgress(commentId, body.commentRequestId || body.requestId);
         } catch (error) {
           updatePendingCommentStatus(commentId, 'failed');
           reportError(error);
@@ -2543,6 +2705,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           baseDeckVersion: state.deckVersion,
           updatedVersion: null,
           requestId: '',
+          progressEvent: null,
+          eventLog: [],
+          failureRaw: '',
         });
         renderCommentThread();
         return id;
@@ -2554,6 +2719,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         if (comment.status === 'updated' && status !== 'failed') return;
         comment.status = status;
         if (updates) Object.assign(comment, updates);
+        if (status === 'updated' || status === 'failed') comment.progressEvent = null;
         renderCommentThread();
       }
 
@@ -2563,6 +2729,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           if ((comment.status === 'sent' || comment.status === 'sending' || comment.status === 'stale') && comment.baseDeckVersion !== version) {
             comment.status = 'updated';
             comment.updatedVersion = version;
+            comment.progressEvent = null;
             changed = true;
           }
         });
@@ -2601,7 +2768,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             const body = await res.json().catch(() => ({}));
             if (!res.ok || !body.ok) throw new Error(body.error || 'Comment result failed');
             if (body.status === 'failed' || body.status === 'expired') {
-              updatePendingCommentStatus(commentId, 'failed');
+              updatePendingCommentStatus(commentId, 'failed', { failureRaw: body.raw || '' });
               setStatus(body.error || 'Review agent failed to apply the comment.');
               return;
             }
@@ -2617,6 +2784,135 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           updatePendingCommentStatus(commentId, 'failed');
           setStatus('Review agent timed out before applying the comment.');
         }
+      }
+
+      function watchCommentProgress(commentId, requestId) {
+        if (!requestId) return;
+        if (!('EventSource' in window)) {
+          pollCommentResult(commentId, requestId);
+          return;
+        }
+        let closed = false;
+        let fallbackStarted = false;
+        const startFallback = () => {
+          if (fallbackStarted) return;
+          fallbackStarted = true;
+          pollCommentResult(commentId, requestId);
+        };
+        let source;
+        try {
+          source = new EventSource('/api/comment-events?token=' + encodeURIComponent(token) + '&requestId=' + encodeURIComponent(requestId));
+        } catch {
+          startFallback();
+          return;
+        }
+        source.addEventListener('progress', (event) => {
+          let payload;
+          try {
+            payload = JSON.parse(event.data || '{}');
+          } catch {
+            return;
+          }
+          recordCommentProgress(commentId, payload);
+          if (payload.type === 'failed' || payload.type === 'timeout') {
+            closed = true;
+            source.close();
+            updatePendingCommentStatus(commentId, 'failed', { failureRaw: payload.detail || '' });
+            setStatus(payload.message || 'Review agent failed to apply the comment.');
+          } else if (payload.type === 'completed') {
+            closed = true;
+            source.close();
+            if (pendingCommentStatus(commentId) !== 'updated') setStatus(payload.message || 'Waiting for deck file update...');
+            watchDeckVersionAfterComment(commentId);
+          } else if (payload.message) {
+            setStatus(payload.message);
+          }
+        });
+        source.onerror = () => {
+          source.close();
+          if (!closed && pendingCommentStatus(commentId) !== 'updated' && pendingCommentStatus(commentId) !== 'failed') {
+            startFallback();
+          }
+        };
+      }
+
+      function recordCommentProgress(commentId, event) {
+        const comment = state.pendingComments.find((item) => item.id === commentId);
+        if (!comment || !event || !event.message) return;
+        if (codexReview) {
+          appendCodexEventLog(comment, event);
+        }
+        if (event.type === 'completed') {
+          comment.progressEvent = null;
+          if (codexReview) renderCommentThread();
+          return;
+        }
+        const nextEvent = {
+          type: event.type || 'codex_event',
+          message: String(event.message).slice(0, 240),
+          detail: typeof event.detail === 'string' ? event.detail.slice(-4096) : '',
+        };
+        const duplicate = comment.progressEvent;
+        if (duplicate && duplicate.type === nextEvent.type && duplicate.message === nextEvent.message && duplicate.detail === nextEvent.detail) return;
+        comment.progressEvent = nextEvent;
+        if (event.type === 'failed' || event.type === 'timeout') comment.failureRaw = typeof event.detail === 'string' ? event.detail.slice(-4096) : '';
+        renderCommentThread();
+      }
+
+      function appendCodexEventLog(target, event) {
+        if (!target.eventLog) target.eventLog = [];
+        const next = {
+          type: event.type || 'codex_event',
+          message: String(event.message || '').slice(0, 500),
+          detail: typeof event.detail === 'string' ? event.detail.slice(-12000) : '',
+          timestamp: typeof event.timestamp === 'number' ? event.timestamp : Date.now(),
+        };
+        const previous = target.eventLog[target.eventLog.length - 1];
+        if (previous && previous.type === next.type && previous.message === next.message && previous.detail === next.detail) return;
+        target.eventLog.push(next);
+        if (target.eventLog.length > 250) target.eventLog.splice(0, target.eventLog.length - 250);
+      }
+
+      function codexLogSummary(log) {
+        const count = Array.isArray(log) ? log.length : 0;
+        return count === 1 ? 'Codex execution log (1 event)' : 'Codex execution log (' + count + ' events)';
+      }
+
+      function renderCodexLog(log) {
+        if (!codexReview || !Array.isArray(log) || !log.length) return null;
+        const details = document.createElement('details');
+        details.className = 'codex-log';
+        const summary = document.createElement('summary');
+        summary.textContent = codexLogSummary(log);
+        const list = document.createElement('div');
+        list.className = 'codex-log-list';
+        log.forEach((item) => {
+          const row = document.createElement('div');
+          row.className = 'codex-log-entry';
+          const meta = document.createElement('div');
+          meta.className = 'codex-log-meta';
+          const type = document.createElement('span');
+          type.textContent = item.type || 'event';
+          const time = document.createElement('span');
+          time.textContent = item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : '';
+          meta.appendChild(type);
+          meta.appendChild(time);
+          const message = document.createElement('div');
+          message.className = 'codex-log-message';
+          message.textContent = item.message || '';
+          row.appendChild(meta);
+          row.appendChild(message);
+          if (item.detail) {
+            const detail = document.createElement('pre');
+            detail.className = 'codex-log-detail';
+            detail.textContent = item.detail;
+            row.appendChild(detail);
+          }
+          list.appendChild(row);
+        });
+        details.appendChild(summary);
+        details.appendChild(list);
+        return details;
       }
 
       function renderCommentThread() {
@@ -2635,6 +2931,28 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
           bubble.appendChild(text);
           bubble.appendChild(status);
+          if (comment.progressEvent) {
+            const progress = document.createElement('div');
+            progress.className = 'comment-progress';
+            const line = document.createElement('div');
+            line.className = 'comment-progress-line';
+            line.textContent = comment.progressEvent.message;
+            progress.appendChild(line);
+            bubble.appendChild(progress);
+          }
+          if (comment.status === 'failed' && comment.failureRaw) {
+            const details = document.createElement('details');
+            details.className = 'comment-raw';
+            const summary = document.createElement('summary');
+            summary.textContent = 'Details';
+            const pre = document.createElement('pre');
+            pre.textContent = comment.failureRaw;
+            details.appendChild(summary);
+            details.appendChild(pre);
+            bubble.appendChild(details);
+          }
+          const codexLog = renderCodexLog(comment.eventLog);
+          if (codexLog) bubble.appendChild(codexLog);
           els.commentThread.appendChild(bubble);
         });
       }
@@ -2767,6 +3085,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         els.inspectCards.innerHTML = '<div class="inspect-loading"><span class="loading-row"><span class="spinner" aria-hidden="true"></span><b>' + escapeHtml(message) + '</b></span><br>Preparing concise Purpose and Source context.</div>'
           + '<div class="skeleton-card"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div>'
           + '<div class="skeleton-card"><div class="skeleton-line short"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div>';
+        renderInspectCodexLog();
       }
 
       function getInspectComment() {
@@ -2783,6 +3102,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         setMode('inspect');
         els.inspectStale.innerHTML = '';
         state.inspectFallback = null;
+        state.inspectEventLog = [];
         renderInspectLoading('Reading selection...');
         try {
           const res = await fetch('/api/inspect?token=' + encodeURIComponent(token), {
@@ -2796,7 +3116,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           state.activeInspectRequestId = body.requestId;
           state.inspectFallback = body.preprocess || null;
           renderInspectLoading('Waiting for Purpose and Source...');
-          await pollInspectResult(body.requestId);
+          await watchInspectProgress(body.requestId);
         } catch (error) {
           if (state.inspectFallback) {
             renderInspectResult(state.inspectFallback, 'Deterministic fallback');
@@ -2824,6 +3144,92 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           if (body.status === 'failed' || body.status === 'expired') throw new Error(body.error || 'Insight failed');
         }
         throw new Error('Insight timed out while waiting for Review agent result');
+      }
+
+      async function fetchInspectResultOnce(requestId) {
+        const res = await fetch('/api/inspect-result?token=' + encodeURIComponent(token) + '&requestId=' + encodeURIComponent(requestId), { cache: 'no-store' });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || !body.ok) throw new Error(body.error || 'Insight result failed');
+        if (body.status === 'completed') {
+          state.deckVersion = body.deckVersion || state.deckVersion;
+          renderInspectResult(body.result, 'Generated');
+          renderInspectCodexLog();
+          return true;
+        }
+        if (body.status === 'failed' || body.status === 'expired') {
+          const error = new Error(body.error || 'Insight failed');
+          error.raw = body.raw || '';
+          throw error;
+        }
+        return false;
+      }
+
+      async function watchInspectProgress(requestId) {
+        if (!requestId) return;
+        if (!codexReview || !('EventSource' in window)) {
+          await pollInspectResult(requestId);
+          renderInspectCodexLog();
+          return;
+        }
+        await new Promise((resolve, reject) => {
+          let settled = false;
+          let source;
+          const finish = (ok, error) => {
+            if (settled) return;
+            settled = true;
+            if (source) source.close();
+            if (ok) resolve();
+            else reject(error);
+          };
+          try {
+            source = new EventSource('/api/inspect-events?token=' + encodeURIComponent(token) + '&requestId=' + encodeURIComponent(requestId));
+          } catch (error) {
+            pollInspectResult(requestId).then(resolve, reject);
+            return;
+          }
+          source.addEventListener('progress', (event) => {
+            let payload;
+            try {
+              payload = JSON.parse(event.data || '{}');
+            } catch {
+              return;
+            }
+            recordInspectProgress(payload);
+            if (payload.type === 'failed' || payload.type === 'timeout') {
+              const error = new Error(payload.message || 'Insight failed');
+              error.raw = payload.detail || '';
+              finish(false, error);
+            } else if (payload.type === 'completed') {
+              fetchInspectResultOnce(requestId).then((ready) => {
+                if (ready) finish(true);
+                else pollInspectResult(requestId).then(() => finish(true), (error) => finish(false, error));
+              }, (error) => finish(false, error));
+            }
+          });
+          source.onerror = () => {
+            if (!settled) {
+              source.close();
+              pollInspectResult(requestId).then(() => finish(true), (error) => finish(false, error));
+            }
+          };
+        });
+      }
+
+      function recordInspectProgress(event) {
+        if (!event || !event.message) return;
+        const inspectLog = { eventLog: state.inspectEventLog };
+        appendCodexEventLog(inspectLog, event);
+        state.inspectEventLog = inspectLog.eventLog;
+        if (event.type !== 'completed') {
+          renderInspectLoading(event.message);
+        } else {
+          renderInspectCodexLog();
+        }
+      }
+
+      function renderInspectCodexLog() {
+        const codexLog = renderCodexLog(state.inspectEventLog);
+        if (codexLog) els.inspectCards.appendChild(codexLog);
       }
 
       function collectReferenceSnapshot() {

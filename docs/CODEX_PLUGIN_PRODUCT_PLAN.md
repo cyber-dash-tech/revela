@@ -129,6 +129,8 @@ The next Review server batch should add a Codex-safe prompt bridge before exposi
 
 Use the `codex-exec` / SDK bridge as the MVP implementation route for interactive Codex Review. It is simpler than the app-server protocol, matches Codex's non-interactive CLI/SDK strengths, and avoids depending on a current interactive session. Insight remains read-only. Comment/Apply Fix may patch artifacts for pure visual edits, while meaning changes must update `revela-narrative/` before artifacts are remade.
 
+Review event-stream reliability remains a follow-up for the `codex-exec` bridge. Raw Codex JSONL events such as `{"type":"turn.started"}` are start/progress signals only, not terminal completion. The `/api/comment-events` and `/api/inspect-events` SSE streams should send heartbeat comments while requests are pending, and the Review server should use an idle timeout appropriate for long-running Codex jobs so quiet streams are not closed by Bun's default idle timeout. Frontend fallback polling must still surface terminal `completed`, `failed`, or `timeout` request states when SSE disconnects. Deck-version updates remain authoritative for preview refresh, but they must not be confused with Codex job completion.
+
 Interactive Review should attempt to open the local Review page by default; test, CI, sandbox, and no-GUI flows may pass `openBrowser: false` and use the returned URL instead.
 
 The current OpenCode Review server depends on an OpenCode `client.session.prompt` callback for Comment and Insight interactions; Codex uses the `codex-exec` bridge instead. Deeper Codex app-server integration remains deferred.

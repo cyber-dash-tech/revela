@@ -45,6 +45,13 @@ codex exec --help
 npx --version
 ```
 
+如果 `npx` 报 npm cache 权限错误，可以修复 cache owner，或在本地检查时使用可写 cache：
+
+```bash
+sudo chown -R "$(id -u):$(id -g)" ~/.npm
+npm_config_cache=/tmp/revela-npm-cache bun run smoke:mcp-pack
+```
+
 通过 Codex Git marketplace 安装 Revela：
 
 ```bash
@@ -57,6 +64,8 @@ Git marketplace 安装的是 Codex plugin 壳、skills、hooks 和 MCP 配置。
 不需要在 Codex marketplace clone 里运行 `bun install`。
 
 安装后开启一个新的 Codex thread，让 Codex 加载 Revela 的 skills、MCP tools 和 hooks。
+
+如果要按发布路径做本地验证，运行 `bun run smoke:mcp-pack`。它会把当前 checkout 打成临时 npm tarball，再通过 `npx` 启动 MCP server，不需要先发布到 registry。
 
 ## 内置设计
 

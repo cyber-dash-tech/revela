@@ -105,6 +105,7 @@ export async function reviewDeckOpen(input: ReviewDeckOpenInput): Promise<any> {
       openUrl: input.openUrl,
       sessionID: `codex-review:${requestedFile}`,
       promptBridge: createCodexExecReviewPromptBridge(),
+      surface: "codex",
     })
     return {
       ok: true,

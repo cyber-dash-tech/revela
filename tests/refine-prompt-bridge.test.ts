@@ -1,4 +1,7 @@
 import { describe, expect, it } from "bun:test"
+import { chmodSync, mkdtempSync, writeFileSync } from "fs"
+import { join } from "path"
+import { tmpdir } from "os"
 import { createCodexExecReviewPromptBridge } from "../lib/refine/prompt-bridge"
 
 function resultJson() {
@@ -209,5 +212,62 @@ describe("Codex exec Review prompt bridge", () => {
       status: "failed",
       error: "codex exec failed with exit code 2.",
     })
+  })
+
+  it("streams sanitized progress events from codex exec JSONL stdout", async () => {
+    const binDir = mkdtempSync(join(tmpdir(), "revela-codex-bin-"))
+    const codex = join(binDir, "codex")
+    writeFileSync(codex, "#!/usr/bin/env bash\nprintf '%s\\n' '{\"type\":\"turn_started\"}' '{\"type\":\"exec_command_begin\"}' '{\"type\":\"turn_completed\"}'\n", "utf-8")
+    chmodSync(codex, 0o755)
+    const previousPath = process.env.PATH
+    process.env.PATH = `${binDir}:${previousPath ?? ""}`
+    const events: string[] = []
+    try {
+      const bridge = createCodexExecReviewPromptBridge({ timeoutMs: 5000 })
+      const result = await bridge.send({
+        action: "comment",
+        prompt: "Change this deck.",
+        workspaceRoot: "/tmp",
+        file: "decks/demo.html",
+        onEvent: (event) => events.push(`${event.type}:${event.message}`),
+      })
+
+      expect(result.ok).toBe(true)
+      expect(events).toContain("started:Starting Codex...")
+      expect(events).toContain("codex_event:Codex is reading the deck...")
+      expect(events).toContain("codex_event:Codex is applying the requested edit...")
+      expect(events).not.toContain("codex_event:Codex completed.")
+      expect(events).toContain("completed:Codex completed.")
+    } finally {
+      process.env.PATH = previousPath
+    }
+  })
+
+  it("streams bounded stderr diagnostics without exposing full output", async () => {
+    const binDir = mkdtempSync(join(tmpdir(), "revela-codex-bin-"))
+    const codex = join(binDir, "codex")
+    writeFileSync(codex, "#!/usr/bin/env bash\nfor i in {1..5000}; do printf x >&2; done\nexit 2\n", "utf-8")
+    chmodSync(codex, 0o755)
+    const previousPath = process.env.PATH
+    process.env.PATH = `${binDir}:${previousPath ?? ""}`
+    const details: string[] = []
+    try {
+      const bridge = createCodexExecReviewPromptBridge({ timeoutMs: 5000 })
+      const result = await bridge.send({
+        action: "comment",
+        prompt: "Change this deck.",
+        workspaceRoot: "/tmp",
+        file: "decks/demo.html",
+        onEvent: (event) => {
+          if (event.type === "stderr" || event.type === "failed") details.push(event.detail ?? "")
+        },
+      })
+
+      expect(result.ok).toBe(false)
+      expect(details.length).toBeGreaterThan(0)
+      expect(Math.max(...details.map((item) => item.length))).toBeLessThanOrEqual(4096)
+    } finally {
+      process.env.PATH = previousPath
+    }
   })
 })

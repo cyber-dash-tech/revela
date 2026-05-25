@@ -10,7 +10,7 @@ import { clearCommentRequestsForTests } from "../lib/refine/comment-requests"
 import { ensureRefineDeckOpenForChange, openRefineDeck } from "../lib/refine/open"
 import { createCodexExecReviewPromptBridge } from "../lib/refine/prompt-bridge"
 import { clearReviewApplyFixArtifactQaSuppressionsForTests, shouldSuppressReviewApplyFixArtifactQa } from "../lib/refine/qa-suppression"
-import { renderRefineShell, stopRefineServer } from "../lib/refine/server"
+import { renderCodexReviewShell, renderRefineShell, stopRefineServer } from "../lib/refine/server"
 import { mockFetchWith, readJsonFile, tempWorkspace } from "./helpers/tool-helpers"
 
 const roots: string[] = []
@@ -139,6 +139,20 @@ describe("renderRefineShell", () => {
     expect(html).toContain("finally")
     expect(html).toContain("state.sendingEdit = false")
     expect(html).toContain("/api/comment-result")
+    expect(html).toContain("EventSource('/api/comment-events")
+    expect(html).not.toContain("Codex Activity")
+    expect(html).toContain("pollCommentResult(commentId, requestId)")
+    expect(html).toContain("if (event.type === 'completed')")
+    expect(html).toContain("watchDeckVersionAfterComment(commentId)")
+    expect(html).toContain("Date.now() - started < 15000")
+    expect(html).toContain("await delay(250)")
+    expect(html).toContain("progressEvent: null")
+    expect(html).toContain("comment.progressEvent = nextEvent")
+    expect(html).toContain("if (status === 'updated' || status === 'failed') comment.progressEvent = null")
+    expect(html).toContain("comment.updatedVersion = version")
+    expect(html).toContain("comment.progressEvent = null")
+    expect(html).toContain("line.textContent = comment.progressEvent.message")
+    expect(html).not.toContain("progressEvents.push")
     expect(html).toContain("Sent to Review agent")
     expect(html).toContain("Sending to Review agent...")
     expect(html).not.toContain("Sending to OpenCode...")
@@ -192,6 +206,17 @@ describe("renderRefineShell", () => {
 
     expect(html).toContain("const defaultMode = \"inspect\"")
     expect(html).toContain("state.mode = mode === 'inspect' ? 'inspect' : 'edit'")
+  })
+
+  it("renders a Codex-specific Review shell with execution logs and Insight SSE", () => {
+    const html = renderCodexReviewShell("test-token")
+
+    expect(html).toContain("Codex Activity")
+    expect(html).toContain("const reviewSurface = \"codex\"")
+    expect(html).toContain("class=\"codex-review\"")
+    expect(html).toContain("/api/inspect-events")
+    expect(html).toContain("Codex execution log")
+    expect(html).toContain("renderCodexLog")
   })
 })
 
@@ -588,6 +613,116 @@ describe("refine HTTP inspect lifecycle", () => {
     expect(getInspectRequest(data.requestId)?.status).toBe("completed")
   })
 
+  it("streams historical and live Insight progress events over SSE", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
+    const slug = workspaceDeckSlug(root)
+    let state = createEmptyDecksState()
+    state = upsertDeck(state, {
+      slug,
+      goal: "Approve launch",
+      audience: "Executive team",
+      outputPath: "decks/demo.html",
+    })
+    state.narrative = {
+      version: 1,
+      id: "narrative:demo",
+      status: "approved",
+      audience: { primary: "Executive team", beliefBefore: "Unsure", beliefAfter: "Ready to approve" },
+      decision: { action: "Approve launch" },
+      claims: [],
+      evidenceBindings: [],
+      objections: [],
+      risks: [],
+      approvals: [],
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    }
+    state = upsertSlides(state, slug, [{
+      index: 1,
+      title: "Launch",
+      purpose: "Introduce launch decision",
+      narrativeRole: "context",
+      layout: "title",
+      components: ["title"],
+      content: { headline: "Launch" },
+      evidence: [],
+      status: "ready",
+    }])
+    writeDecksState(root, state)
+
+    let emit: ((event: any) => void) | undefined
+    let resolveBridge: ((value: {
+      ok: true
+      status: "completed"
+      result: any
+      raw: string
+    }) => void) | undefined
+    const promptBridge = {
+      kind: "codex-exec" as const,
+      async send(input: any) {
+        emit = input.onEvent
+        emit?.({ type: "started", message: "Starting Codex...", timestamp: Date.now() })
+        return await new Promise<{
+          ok: true
+          status: "completed"
+          result: any
+          raw: string
+        }>((resolve) => {
+          resolveBridge = resolve
+        })
+      },
+    }
+    const opened = openRefineDeck("", {
+      workspaceRoot: root,
+      openBrowser: false,
+      promptBridge,
+      surface: "codex",
+    })
+    expect(opened.url).toContain("/codex-review?token=")
+    const inspectUrl = new URL(opened.url)
+    inspectUrl.pathname = "/api/inspect"
+
+    const response = await fetch(inspectUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ snapshot: { slideIndex: 1, text: "Launch", tagName: "H1", classList: [] } }),
+    })
+    const data = await response.json() as any
+
+    const eventsUrl = new URL(opened.url)
+    eventsUrl.pathname = "/api/inspect-events"
+    eventsUrl.searchParams.set("requestId", data.requestId)
+    const eventsResponse = await fetch(eventsUrl)
+    expect(eventsResponse.status).toBe(200)
+    const reader = eventsResponse.body?.getReader()
+    if (!reader) throw new Error("Missing SSE body reader")
+
+    const historical = await readSseEvents(reader, 1)
+    expect(historical[0]).toMatchObject({ type: "started", message: "Starting Codex..." })
+
+    emit?.({ type: "codex_event", message: "Codex is reading the deck...", detail: "{\"type\":\"turn_started\"}", timestamp: Date.now() })
+    const live = await readSseEvents(reader, 1)
+    expect(live[0]).toMatchObject({ type: "codex_event", message: "Codex is reading the deck..." })
+
+    resolveBridge?.({
+      ok: true,
+      status: "completed",
+      result: {
+        version: 1,
+        status: "success",
+        selectedText: "Launch",
+        matchConfidence: "high",
+        cards: {
+          purpose: { status: "clear", role: "cover", rationale: "Launch title.", whyItMatters: "It anchors the slide." },
+          source: { status: "not_needed", sources: [], warnings: [], gaps: [], caveats: [], rationale: "Structural title." },
+        },
+      },
+      raw: "inspected",
+    })
+    const terminal = await readSseEvents(reader, 1)
+    expect(terminal[0]).toMatchObject({ type: "completed", message: "Codex completed the inspection." })
+  })
+
   it("sends Apply Fix comments through the Codex Review bridge", async () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
@@ -730,7 +865,7 @@ describe("refine HTTP inspect lifecycle", () => {
     const promptBridge = {
       kind: "codex-exec" as const,
       async send() {
-        return { ok: false as const, status: "failed" as const, error: "codex exec failed" }
+        return { ok: false as const, status: "failed" as const, error: "codex exec failed", raw: "stderr: workspace is not trusted" }
       },
     }
     const opened = openRefineDeck("", {
@@ -757,7 +892,66 @@ describe("refine HTTP inspect lifecycle", () => {
     resultUrl.pathname = "/api/comment-result"
     resultUrl.searchParams.set("requestId", data.commentRequestId)
     const failed = await waitForJson(resultUrl, (item) => item.status === "failed")
-    expect(failed).toMatchObject({ ok: true, status: "failed", error: "codex exec failed" })
+    expect(failed).toMatchObject({
+      ok: true,
+      status: "failed",
+      error: "codex exec failed",
+      raw: "stderr: workspace is not trusted",
+    })
+  })
+
+  it("streams historical and live Apply Fix progress events over SSE", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
+    let emit: ((event: any) => void) | undefined
+    let resolveBridge: ((value: { ok: true; status: "completed"; raw: string }) => void) | undefined
+    const promptBridge = {
+      kind: "codex-exec" as const,
+      async send(input: any) {
+        emit = input.onEvent
+        emit?.({ type: "started", message: "Starting Codex...", timestamp: Date.now() })
+        return await new Promise<{ ok: true; status: "completed"; raw: string }>((resolve) => {
+          resolveBridge = resolve
+        })
+      },
+    }
+    const opened = openRefineDeck("", {
+      workspaceRoot: root,
+      openBrowser: false,
+      promptBridge,
+    })
+    const commentUrl = new URL(opened.url)
+    commentUrl.pathname = "/api/comment"
+
+    const response = await fetch(commentUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        comment: "Make the title smaller.",
+        elements: [{ slideIndex: 1, tagName: "H1", text: "Launch" }],
+      }),
+    })
+    const data = await response.json() as any
+
+    const eventsUrl = new URL(opened.url)
+    eventsUrl.pathname = "/api/comment-events"
+    eventsUrl.searchParams.set("requestId", data.commentRequestId)
+    const eventsResponse = await fetch(eventsUrl)
+    expect(eventsResponse.status).toBe(200)
+    expect(eventsResponse.headers.get("content-type")).toContain("text/event-stream")
+    const reader = eventsResponse.body?.getReader()
+    if (!reader) throw new Error("Missing SSE body reader")
+
+    const historical = await readSseEvents(reader, 1)
+    expect(historical[0]).toMatchObject({ type: "started", message: "Starting Codex..." })
+
+    emit?.({ type: "codex_event", message: "Codex is applying the requested edit...", timestamp: Date.now() })
+    const live = await readSseEvents(reader, 1)
+    expect(live[0]).toMatchObject({ type: "codex_event", message: "Codex is applying the requested edit..." })
+
+    resolveBridge?.({ ok: true, status: "completed", raw: "patched" })
+    const terminal = await readSseEvents(reader, 1)
+    expect(terminal[0]).toMatchObject({ type: "completed", message: "Codex completed." })
   })
 
   it("accepts asset placement comments through the same pending Comment lifecycle", async () => {
@@ -1079,4 +1273,26 @@ async function waitForJson(url: URL, predicate: (item: any) => boolean): Promise
     await new Promise((resolve) => setTimeout(resolve, 10))
   }
   throw new Error(`Timed out waiting for JSON predicate: ${JSON.stringify(last)}`)
+}
+
+async function readSseEvents(reader: ReadableStreamDefaultReader<Uint8Array>, count: number): Promise<any[]> {
+  const decoder = new TextDecoder()
+  let buffer = ""
+  const events: any[] = []
+  const started = Date.now()
+  while (events.length < count && Date.now() - started < 1000) {
+    const item = await withTimeout(reader.read(), 1000)
+    if (item.done) break
+    buffer += decoder.decode(item.value, { stream: true })
+    let boundary = buffer.indexOf("\n\n")
+    while (boundary >= 0) {
+      const block = buffer.slice(0, boundary)
+      buffer = buffer.slice(boundary + 2)
+      const dataLine = block.split(/\r?\n/).find((line) => line.startsWith("data: "))
+      if (dataLine) events.push(JSON.parse(dataLine.slice("data: ".length)))
+      boundary = buffer.indexOf("\n\n")
+    }
+  }
+  if (events.length < count) throw new Error(`Timed out waiting for ${count} SSE events`)
+  return events
 }
