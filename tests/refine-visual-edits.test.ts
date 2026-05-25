@@ -78,6 +78,30 @@ describe("visual edit targets", () => {
     expect(html).not.toContain("height: 120px")
   })
 
+  it("can resize the same target again after targets are refreshed", () => {
+    const file = deckFile(`<html><body><section class="slide"><p class="body">Paragraph</p></section></body></html>`)
+    let annotated = annotateVisualEditTargets(readFileSync(file, "utf-8"))
+
+    applyVisualTargetChanges({
+      file,
+      deckVersion: version(file),
+      targetDeckVersion: version(file),
+      targets: annotated.targets,
+      changes: [{ type: "resize", editId: "rve-1", kind: "text-width", after: { stylePatch: { width: "300px", "max-width": "300px" } } }],
+    })
+
+    annotated = annotateVisualEditTargets(readFileSync(file, "utf-8"))
+    applyVisualTargetChanges({
+      file,
+      deckVersion: version(file),
+      targetDeckVersion: version(file),
+      targets: annotated.targets,
+      changes: [{ type: "resize", editId: "rve-1", kind: "text-width", after: { stylePatch: { width: "420px", "max-width": "420px" } } }],
+    })
+
+    expect(readFileSync(file, "utf-8")).toContain(`style="width: 420px; max-width: 420px"`)
+  })
+
   it("saves box resize by edit id", () => {
     const file = deckFile(`<html><body><section class="slide"><div class="card" style="padding: 12px">Card</div></section></body></html>`)
     const annotated = annotateVisualEditTargets(readFileSync(file, "utf-8"))

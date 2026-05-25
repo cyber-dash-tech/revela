@@ -493,16 +493,21 @@ function handleDeck(session: EditSession): Response {
   session.assets.clear()
   session.assetKeys.clear()
   session.nextAssetId = 1
-  const sourceHtml = readFileSync(session.absoluteFile, "utf-8")
-  const version = readDeckVersion(session).version
-  const annotated = annotateVisualEditTargets(sourceHtml)
-  session.visualTargets = annotated.targets
-  session.visualTargetDeckVersion = version
+  const annotated = refreshVisualTargets(session)
   return htmlResponse(rewriteLocalAssetRefs(annotated.html, {
     session,
     sourceFile: session.absoluteFile,
     contentType: "html",
   }))
+}
+
+function refreshVisualTargets(session: EditSession): { html: string; version: string } {
+  const sourceHtml = readFileSync(session.absoluteFile, "utf-8")
+  const version = readDeckVersion(session).version
+  const annotated = annotateVisualEditTargets(sourceHtml)
+  session.visualTargets = annotated.targets
+  session.visualTargetDeckVersion = version
+  return { html: annotated.html, version }
 }
 
 function handleAsset(session: EditSession, id: string | null, method: string): Response {
@@ -726,9 +731,10 @@ async function handleVisualChanges(req: Request, session: EditSession): Promise<
       targets: session.visualTargets,
       changes,
     })
+    const refreshed = refreshVisualTargets(session)
     session.lastActiveAt = Date.now()
     scheduleIdleStop()
-    return jsonResponse({ ok: true, deckVersion: result.deckVersion, changeCount: result.changeCount })
+    return jsonResponse({ ok: true, deckVersion: refreshed.version, changeCount: result.changeCount })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return jsonResponse({ ok: false, error: message }, 400)

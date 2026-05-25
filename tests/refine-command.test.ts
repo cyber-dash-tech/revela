@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test"
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs"
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { createEmptyDecksState, upsertDeck, upsertSlides, workspaceDeckSlug, writeDecksState } from "../lib/decks-state"
 import { clearInspectRequestsForTests, getInspectRequest } from "../lib/inspect/requests"
@@ -394,6 +394,53 @@ describe("ensureRefineDeckOpenForChange", () => {
     expect(second.openedBrowser).toBe(false)
     expect(second.skippedReason).toBe("live-session")
     expect(opened).toHaveLength(1)
+  })
+})
+
+describe("refine HTTP visual edit lifecycle", () => {
+  it("refreshes visual targets after saving so the same element can be resized again", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><p class="body">Launch plan</p></section>', "utf-8")
+    const opened = openRefineDeck("", {
+      client: { session: { prompt: async () => undefined } },
+      sessionID: "session-visual-resize",
+      workspaceRoot: root,
+      openBrowser: false,
+    })
+    const deckUrl = new URL(opened.url)
+    deckUrl.pathname = "/deck"
+    const versionUrl = new URL(opened.url)
+    versionUrl.pathname = "/api/deck-version"
+    const saveUrl = new URL(opened.url)
+    saveUrl.pathname = "/api/visual-changes"
+
+    const deckResponse = await fetch(deckUrl)
+    expect(deckResponse.status).toBe(200)
+    expect(await deckResponse.text()).toContain('data-revela-edit-id="rve-1"')
+    const initialVersion = await fetch(versionUrl).then((response) => response.json()) as any
+    expect(initialVersion.ok).toBe(true)
+
+    const first = await fetch(saveUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        deckVersion: initialVersion.version,
+        changes: [{ type: "resize", editId: "rve-1", kind: "text-width", after: { stylePatch: { width: "300px", "max-width": "300px" } } }],
+      }),
+    }).then((response) => response.json()) as any
+    expect(first.ok).toBe(true)
+
+    const second = await fetch(saveUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        deckVersion: first.deckVersion,
+        changes: [{ type: "resize", editId: "rve-1", kind: "text-width", after: { stylePatch: { width: "420px", "max-width": "420px" } } }],
+      }),
+    }).then((response) => response.json()) as any
+
+    expect(second.ok).toBe(true)
+    expect(readFileSync(join(root, "decks", "demo.html"), "utf-8")).toContain('style="width: 420px; max-width: 420px"')
   })
 })
 
