@@ -73,11 +73,67 @@ describe("detectDeckHtml", () => {
 
       const browser = await launchChrome({ allowFileAccess: true })
       try {
-        expect(await detectDeckHtmlWithBrowser(browser, deck)).toMatchObject({ isDeck: true, slideCount: 2 })
+        expect(await detectDeckHtmlWithBrowser(browser, deck)).toMatchObject({
+          isDeck: true,
+          slideCount: 2,
+          reason: "valid deck contract: slide-canvas",
+        })
         expect(await detectDeckHtmlWithBrowser(browser, poster)).toMatchObject({ isDeck: false, slideCount: 0 })
       } finally {
         await browser.close().catch(() => undefined)
       }
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  }, 10000)
+
+  it("accepts slide elements that render as the 1920x1080 canvas", async () => {
+    const root = tempWorkspace("revela-deck-detect-test-")
+    try {
+      const deck = join(root, "deck.html")
+      writeFileSync(deck, `
+        <!doctype html><html><head>
+          <style>
+            body { margin: 0; }
+            .slide { width: 1920px; height: 1080px; }
+          </style>
+        </head><body>
+          <section class="slide" data-slide-index="1"></section>
+        </body></html>
+      `)
+
+      const result = await detectDeckHtml(deck)
+      expect(result).toMatchObject({
+        isDeck: true,
+        slideCount: 1,
+        reason: "valid deck contract: slide-as-canvas",
+      })
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  }, 10000)
+
+  it("rejects slide elements without a canvas marker or 1920x1080 dimensions", async () => {
+    const root = tempWorkspace("revela-deck-detect-test-")
+    try {
+      const deck = join(root, "deck.html")
+      writeFileSync(deck, `
+        <!doctype html><html><head>
+          <style>
+            body { margin: 0; }
+            .slide { width: 1200px; height: 800px; }
+          </style>
+        </head><body>
+          <section class="slide" data-slide-index="1"></section>
+        </body></html>
+      `)
+
+      const result = await detectDeckHtml(deck)
+      expect(result).toMatchObject({
+        isDeck: false,
+        slideCount: 1,
+        reason: ".slide 1 has no .slide-canvas and is not 1920x1080",
+      })
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
@@ -98,6 +154,41 @@ describe("detectDeckHtml", () => {
       const result = await detectDeckHtml(deck)
       expect(result.isDeck).toBe(false)
       expect(result.reason).toContain("duplicate")
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  }, 10000)
+
+  it("rejects missing and non-sequential slide indexes", async () => {
+    const root = tempWorkspace("revela-deck-detect-test-")
+    try {
+      const missingIndexDeck = join(root, "missing-index.html")
+      const nonSequentialDeck = join(root, "non-sequential.html")
+      writeFileSync(missingIndexDeck, `
+        <!doctype html><html><body>
+          <section class="slide"><div class="slide-canvas"></div></section>
+        </body></html>
+      `)
+      writeFileSync(nonSequentialDeck, `
+        <!doctype html><html><body>
+          <section class="slide" data-slide-index="1"><div class="slide-canvas"></div></section>
+          <section class="slide" data-slide-index="3"><div class="slide-canvas"></div></section>
+        </body></html>
+      `)
+
+      const browser = await launchChrome({ allowFileAccess: true })
+      try {
+        expect(await detectDeckHtmlWithBrowser(browser, missingIndexDeck)).toMatchObject({
+          isDeck: false,
+          reason: "slide 1 is missing data-slide-index",
+        })
+        expect(await detectDeckHtmlWithBrowser(browser, nonSequentialDeck)).toMatchObject({
+          isDeck: false,
+          reason: 'slide 2 has data-slide-index "3", expected "2"',
+        })
+      } finally {
+        await browser.close().catch(() => undefined)
+      }
     } finally {
       rmSync(root, { recursive: true, force: true })
     }

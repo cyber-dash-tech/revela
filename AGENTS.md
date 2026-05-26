@@ -2,7 +2,7 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-05-26 for 0.17.15 doctor version reporting hotfix.
+> Last updated: 2026-05-26 for 0.17.17 slide-as-canvas PDF export hotfix.
 
 ## Product Baseline
 
@@ -12,7 +12,7 @@ Product promise:
 
 **Turn source materials, research, data, and user intent into trusted, traceable, presentation-ready decision artifacts.**
 
-Current baseline: `0.17.15 release baseline`.
+Current baseline: `0.17.17 release baseline`.
 
 User-facing workflow:
 
@@ -202,6 +202,7 @@ Structured helper role:
 - The 0.17.13 hotfix improves Codex Review UI bridge reliability: Codex-backed Review opens through `/codex-review`, streams Insight and Apply Fix progress through SSE, preserves execution logs, clears stale inline progress after deck updates, and adds MCP package smoke coverage.
 - The 0.17.14 hotfix refreshes Review UI visual target metadata after direct visual edits, so resizing the same element repeatedly no longer fails stale target validation.
 - The 0.17.15 hotfix reports the running Revela npm package version from `revela doctor` and the Codex MCP `revela_doctor` tool.
+- The 0.17.17 hotfix exports slide-as-canvas decks to PDF by clipping each `.slide` when `.slide-canvas` is absent, while keeping `.slide-canvas` as the canonical deck structure.
 
 ## Wikilink-First Vault Graph
 

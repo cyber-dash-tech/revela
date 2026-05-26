@@ -9,7 +9,7 @@
  *    rewrite the HTML to use file:// local paths — avoids CDN/CORS/headless issues
  * 3. Navigate to the patched HTML file
  * 4. For each .slide: force .reveal.visible, wait 800ms, screenshot .slide-canvas
- *    using offsetParent-chain absolute coordinates
+ *    or slide-as-canvas fallback using offsetParent-chain absolute coordinates
  * 5. Assemble screenshots into a multi-page PDF (16:9, 1920×1080pt per page) via pdf-lib
  * 6. Write PDF alongside the HTML file (same directory, .html → .pdf)
  * 7. Clean up temp dir
@@ -335,24 +335,23 @@ export async function exportDeckToPdf(htmlFilePath: string): Promise<Omit<Export
       // Wait for CSS transitions and JS rendering (ECharts animations, etc.)
       await new Promise((r) => setTimeout(r, 800))
 
-      // Compute .slide-canvas absolute position by walking the offsetParent chain.
+      // Compute screenshot target absolute position by walking the offsetParent chain.
       // getBoundingClientRect() returns viewport-relative coords (always near 0,0) —
       // unusable as screenshot clip coordinates without adding scrollY.
       // offsetParent walk gives document-absolute coords that Puppeteer clip expects.
       const clipRect = await page.evaluate((i: number) => {
         const slide = document.querySelectorAll(".slide")[i] as HTMLElement | null
         if (!slide) return null
-        const canvas = slide.querySelector(".slide-canvas") as HTMLElement | null
-        if (!canvas) return null
+        const target = (slide.querySelector(".slide-canvas") as HTMLElement | null) ?? slide
         let top = 0
         let left = 0
-        let el: HTMLElement | null = canvas
+        let el: HTMLElement | null = target
         while (el) {
           top += el.offsetTop
           left += el.offsetLeft
           el = el.offsetParent as HTMLElement | null
         }
-        return { x: left, y: top, width: canvas.offsetWidth, height: canvas.offsetHeight }
+        return { x: left, y: top, width: target.offsetWidth, height: target.offsetHeight }
       }, idx)
 
       if (clipRect && clipRect.width > 0 && clipRect.height > 0) {
