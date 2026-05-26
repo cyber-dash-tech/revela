@@ -86,7 +86,7 @@ Usage:
   revela deck-foundation --outputPath <path> --title <title> --language <tag> [--workspaceRoot <path>] [--designName <name>] [--mode create|repair] [--overwrite true]
   revela qa --file <path> [--workspaceRoot <path>]
   revela review-read --file <path> [--workspaceRoot <path>] [--format json|markdown]
-  revela export-pdf --file <path> [--workspaceRoot <path>]
+  revela export-pdf --file <path> [--workspaceRoot <path>]  # deck PDF, or single-page PDF fallback for non-deck HTML
   revela export-pptx --file <path> [--workspaceRoot <path>]
   revela design-list
   revela design-read [--name <design>]

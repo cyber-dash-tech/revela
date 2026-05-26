@@ -9,24 +9,14 @@
  * Returns raw per-slide geometry data consumed by checks.ts.
  */
 
-import puppeteer from "puppeteer-core"
 import { pathToFileURL } from "url"
+import { launchChrome } from "../browser/chrome"
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 /** The canonical slide canvas size (matches the design system). */
 export const CANVAS_W = 1920
 export const CANVAS_H = 1080
-
-/** Path to system Chrome on macOS. Falls back to common Linux paths. */
-const CHROME_PATHS = [
-  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-  "/Applications/Chromium.app/Contents/MacOS/Chromium",
-  "/usr/bin/google-chrome-stable",
-  "/usr/bin/google-chrome",
-  "/usr/bin/chromium-browser",
-  "/usr/bin/chromium",
-]
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -127,19 +117,6 @@ export interface MeasurementResult {
   cssDefinedClasses: string[]
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function findChromePath(): string {
-  const { existsSync } = require("fs") as typeof import("fs")
-  for (const p of CHROME_PATHS) {
-    if (existsSync(p)) return p
-  }
-  throw new Error(
-    "Could not find a Chrome/Chromium installation. " +
-    "Tried: " + CHROME_PATHS.join(", ")
-  )
-}
-
 // ── Main export ──────────────────────────────────────────────────────────────
 
 /**
@@ -147,19 +124,9 @@ function findChromePath(): string {
  * and return slide geometry + CSS class names defined in <style> blocks.
  */
 export async function measureSlides(htmlFilePath: string): Promise<MeasurementResult> {
-  const executablePath = findChromePath()
   const fileUrl = pathToFileURL(htmlFilePath).href
 
-  const browser = await puppeteer.launch({
-    executablePath,
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--window-size=1920,1080",
-    ],
-  })
+  const browser = await launchChrome({ width: CANVAS_W, height: CANVAS_H })
 
   try {
     const page = await browser.newPage()

@@ -17,7 +17,6 @@
  * Output path: replaces the .html extension with .pdf, same directory as input.
  */
 
-import puppeteer from "puppeteer-core"
 import { PDFDocument } from "pdf-lib"
 import {
   existsSync,
@@ -29,22 +28,15 @@ import {
 import { resolve, dirname, basename, join, extname } from "path"
 import { pathToFileURL } from "url"
 import { randomBytes } from "crypto"
+import { launchChrome } from "../browser/chrome"
+import { detectDeckHtml } from "../html-export/deck-detect"
+import { exportSinglePageHtmlPdf } from "../html-export"
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 /** Canonical slide canvas dimensions — must match the design system */
 const CANVAS_W = 1920
 const CANVAS_H = 1080
-
-/** Path to system Chrome on macOS and Linux — same as measure.ts */
-const CHROME_PATHS = [
-  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-  "/Applications/Chromium.app/Contents/MacOS/Chromium",
-  "/usr/bin/google-chrome-stable",
-  "/usr/bin/google-chrome",
-  "/usr/bin/chromium-browser",
-  "/usr/bin/chromium",
-]
 
 /** Mime type → file extension mapping for downloaded images */
 const MIME_TO_EXT: Record<string, string> = {
@@ -70,16 +62,6 @@ const EXT_TO_MIME: Record<string, string> = {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function findChromePath(): string {
-  for (const p of CHROME_PATHS) {
-    if (existsSync(p)) return p
-  }
-  throw new Error(
-    "Could not find a Chrome/Chromium installation.\n" +
-    "Tried:\n" + CHROME_PATHS.map((p) => `  ${p}`).join("\n")
-  )
-}
 
 /** Derive output PDF path from input HTML path (same dir, .html → .pdf) */
 export function derivePdfPath(htmlFilePath: string): string {
@@ -233,6 +215,15 @@ export interface ExportResult {
   outputPath: string
   slideCount: number
   durationMs: number
+  exportMode: "deck" | "single-page-html"
+  deckDetection?: {
+    isDeck: boolean
+    slideCount: number
+    reason: string
+  }
+  selector?: string
+  pngPath?: string
+  warnings?: string[]
 }
 
 /**
@@ -242,6 +233,28 @@ export interface ExportResult {
  * @returns ExportResult with output path, slide count, and duration.
  */
 export async function exportToPdf(htmlFilePath: string): Promise<ExportResult> {
+  const startMs = Date.now()
+  const abs = resolve(htmlFilePath)
+  const detection = await detectDeckHtml(abs)
+  if (detection.isDeck) {
+    const result = await exportDeckToPdf(abs)
+    return { ...result, exportMode: "deck", deckDetection: detection, durationMs: Date.now() - startMs }
+  }
+
+  const result = await exportSinglePageHtmlPdf(abs, { outputPath: derivePdfPath(abs) })
+  return {
+    outputPath: result.outputPath,
+    slideCount: 1,
+    durationMs: Date.now() - startMs,
+    exportMode: "single-page-html",
+    deckDetection: detection,
+    selector: result.selector,
+    pngPath: result.pngPath,
+    warnings: result.warnings,
+  }
+}
+
+export async function exportDeckToPdf(htmlFilePath: string): Promise<Omit<ExportResult, "exportMode">> {
   const startMs = Date.now()
   const abs = resolve(htmlFilePath)
 
@@ -254,7 +267,6 @@ export async function exportToPdf(htmlFilePath: string): Promise<ExportResult> {
   }
 
   const outputPath = derivePdfPath(abs)
-  const executablePath = findChromePath()
 
   // ── Step 1: Download external images and rewrite HTML ─────────────────────
   const tmpDir = join("/tmp", `revela-pdf-${randomBytes(6).toString("hex")}`)
@@ -275,18 +287,7 @@ export async function exportToPdf(htmlFilePath: string): Promise<ExportResult> {
   const fileUrl = pathToFileURL(tmpHtmlPath).href
 
   // ── Step 2: Launch Puppeteer and screenshot each slide ────────────────────
-  const browser = await puppeteer.launch({
-    executablePath,
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      // Allow file:// pages to load other local file:// resources (downloaded images)
-      "--allow-file-access-from-files",
-      `--window-size=${CANVAS_W},${CANVAS_H}`,
-    ],
-  })
+  const browser = await launchChrome({ width: CANVAS_W, height: CANVAS_H, allowFileAccess: true })
 
   let screenshots: Buffer[] = []
 

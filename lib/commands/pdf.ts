@@ -10,7 +10,6 @@
 import { existsSync, readdirSync } from "fs"
 import { resolve } from "path"
 import { exportToPdf } from "../pdf/export"
-import { assertExportQAPassed } from "../qa/export-gate"
 import { recordRenderedArtifact, workspaceRelative } from "../workspace-state/rendered-artifacts"
 
 export async function handlePdf(
@@ -30,10 +29,8 @@ export async function handlePdf(
   }
 
   const abs = resolvedFile.deck.absoluteFile
-  await send(`Running pre-export QA for \`${abs}\`...`)
 
   try {
-    await assertExportQAPassed(abs, { workspaceRoot: root })
     await send(`Exporting \`${abs}\` to PDF...`)
     const result = await exportToPdf(abs)
     recordRenderedArtifact(root, {
@@ -46,6 +43,7 @@ export async function handlePdf(
     await send(
       `**PDF exported successfully**\n\n` +
       `- Output: \`${result.outputPath}\`\n` +
+      `- Mode: ${result.exportMode}\n` +
       `- Slides: ${result.slideCount}\n` +
       `- Time: ${secs}s`
     )

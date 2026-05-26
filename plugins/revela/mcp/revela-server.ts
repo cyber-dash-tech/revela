@@ -83,7 +83,7 @@ const tools = [
   },
   {
     name: "revela_export_pdf",
-    description: "Run export QA and export a Revela HTML deck to PDF.",
+    description: "Export HTML to PDF. Deck HTML uses multi-page deck export; non-deck HTML falls back to a single-page artifact PDF.",
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       file: requiredStringProp("Workspace-relative or absolute HTML deck path."),
@@ -91,7 +91,7 @@ const tools = [
   },
   {
     name: "revela_export_pptx",
-    description: "Run export QA and export a Revela HTML deck to PPTX.",
+    description: "Export a Revela HTML deck to PPTX.",
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       file: requiredStringProp("Workspace-relative or absolute HTML deck path."),

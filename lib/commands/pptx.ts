@@ -9,7 +9,6 @@
 
 import { existsSync, readdirSync } from "fs"
 import { relative, resolve, sep } from "path"
-import { assertDeckHtmlContractValid } from "../deck-html/contract"
 import { exportToPptx } from "../pptx/export"
 import { recordRenderedArtifact } from "../workspace-state/rendered-artifacts"
 
@@ -103,7 +102,6 @@ export async function handlePptx(
     const deck = resolvePptxDeck(workspaceRoot, args.filePath)
     const abs = deck.absoluteFile
 
-    assertDeckHtmlContractValid(workspaceRoot, abs)
     await send(`Exporting \`${abs}\` to PPTX...`)
     let lastSlideUpdate = 0
     let longDeckThreshold: number | null = null

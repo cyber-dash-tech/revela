@@ -3,7 +3,7 @@
  *
  * revela-qa — Artifact quality assurance for generated slide HTML files.
  *
- * Exposed as a manual diagnostic tool. Export commands run pre-export QA automatically.
+ * Exposed as a manual diagnostic tool. Deck writes run post-write QA automatically.
  */
 
 import { tool } from "@opencode-ai/plugin"
@@ -18,7 +18,7 @@ export default tool({
     "Opens the file in a headless browser and measures actual rendered geometry. " +
     "Checks deck contract, component compliance, exact 1920x1080 canvas, scrollbars, element overflow, text overflow, and content/evidence density warnings. " +
     "Returns a structured report with specific issues and fix instructions. " +
-    "Deck writes and PDF/PPTX export commands run QA automatically; call it directly for explicit diagnostics.",
+    "Deck writes run QA automatically; call it directly for explicit diagnostics before review or export.",
   args: {
     file: tool.schema
       .string()

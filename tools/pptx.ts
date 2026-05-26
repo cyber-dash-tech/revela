@@ -7,7 +7,6 @@
 import { tool } from "@opencode-ai/plugin"
 import { existsSync } from "fs"
 import { resolve } from "path"
-import { assertDeckHtmlContractValid } from "../lib/deck-html/contract"
 import { exportToPptx } from "../lib/pptx/export"
 import { recordRenderedArtifact, workspaceRelative } from "../lib/workspace-state/rendered-artifacts"
 
@@ -45,7 +44,6 @@ export default tool({
 
     try {
       const root = directory || process.cwd()
-      assertDeckHtmlContractValid(root, filePath)
       const result = await exportToPptx(filePath, {
         speakerNotes: normalizeSpeakerNotes(speakerNotes),
         onProgress: (event) => {

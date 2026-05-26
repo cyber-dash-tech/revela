@@ -13,7 +13,7 @@
  * editable whenever dom-to-pptx can represent them.
  */
 
-import puppeteer, { type Browser, type Page } from "puppeteer-core"
+import { type Browser, type Page } from "puppeteer-core"
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom"
 import { unzipSync, zipSync, strFromU8, strToU8 } from "fflate"
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs"
@@ -21,21 +21,13 @@ import { createRequire } from "module"
 import { basename, dirname, extname, join, posix as pathPosix, resolve } from "path"
 import { randomBytes } from "crypto"
 import { pathToFileURL } from "url"
+import { findChromePath, launchChrome } from "../browser/chrome"
 
 const CANVAS_W = 1920
 const CANVAS_H = 1080
 const MIN_PPTX_FONT_SIZE_PT = 6
 const PPT_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 const requireFromExportModule = createRequire(import.meta.url)
-
-const CHROME_PATHS = [
-  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-  "/Applications/Chromium.app/Contents/MacOS/Chromium",
-  "/usr/bin/google-chrome-stable",
-  "/usr/bin/google-chrome",
-  "/usr/bin/chromium-browser",
-  "/usr/bin/chromium",
-]
 
 const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".avif", ".bmp"])
 const MIME_TO_EXT: Record<string, string> = {
@@ -125,28 +117,8 @@ interface LocalizeExternalImagesResult {
   localizedCount: number
 }
 
-function findChromePath(): string {
-  for (const p of CHROME_PATHS) {
-    if (existsSync(p)) return p
-  }
-  throw new Error(
-    "Could not find a Chrome/Chromium installation.\n" +
-    "Tried:\n" + CHROME_PATHS.map((p) => `  ${p}`).join("\n")
-  )
-}
-
-async function launchBrowser(executablePath: string): Promise<Browser> {
-  return await puppeteer.launch({
-    executablePath,
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--allow-file-access-from-files",
-      `--window-size=${CANVAS_W},${CANVAS_H}`,
-    ],
-  })
+async function launchBrowser(): Promise<Browser> {
+  return await launchChrome({ width: CANVAS_W, height: CANVAS_H, allowFileAccess: true })
 }
 
 export function derivePptxPath(htmlFilePath: string): string {
@@ -984,7 +956,7 @@ export async function exportToPptx(
     kind: "stage",
     message: "Launching Chrome and preparing slide DOM...",
   })
-  const browser = await launchBrowser(executablePath)
+  const browser = await launchBrowser()
 
   try {
     const pageSetupStart = Date.now()

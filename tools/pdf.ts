@@ -8,13 +8,11 @@ import { tool } from "@opencode-ai/plugin"
 import { existsSync } from "fs"
 import { resolve } from "path"
 import { exportToPdf } from "../lib/pdf/export"
-import { assertExportQAPassed } from "../lib/qa/export-gate"
 import { recordRenderedArtifact, workspaceRelative } from "../lib/workspace-state/rendered-artifacts"
 
 export default tool({
   description:
-    "Export a Revela-generated HTML slide deck to PDF. " +
-    "Runs pre-export QA before writing the PDF. " +
+    "Export HTML to PDF. Revela deck HTML exports as a multi-page deck PDF; non-deck HTML falls back to a single-page artifact PDF. " +
     "Output is written beside the input file with the same basename and a .pdf extension.",
   args: {
     file: tool.schema
@@ -37,7 +35,6 @@ export default tool({
 
     try {
       const root = directory || process.cwd()
-      await assertExportQAPassed(filePath, { workspaceRoot: root })
       const result = await exportToPdf(filePath)
       recordRenderedArtifact(root, {
         sourceHtmlPath: workspaceRelative(resolve(root), filePath),

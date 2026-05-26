@@ -113,10 +113,8 @@ export async function runDeckQa(input: RuntimeFileInput) {
 
 export async function exportPdf(input: RuntimeFileInput) {
   const { exportToPdf } = await import("../pdf/export")
-  const { assertExportQAPassed } = await import("../qa/export-gate")
   const workspaceRoot = root(input.workspaceRoot)
   const filePath = resolve(workspaceRoot, input.file)
-  await assertExportQAPassed(filePath, { workspaceRoot })
   const result = await exportToPdf(filePath)
   recordRenderedArtifact(workspaceRoot, {
     sourceHtmlPath: workspaceRelative(resolve(workspaceRoot), filePath),
@@ -129,10 +127,8 @@ export async function exportPdf(input: RuntimeFileInput) {
 
 export async function exportPptx(input: RuntimeFileInput & { speakerNotes?: Array<string | null | undefined> }) {
   const { exportToPptx } = await import("../pptx/export")
-  const { assertExportQAPassed } = await import("../qa/export-gate")
   const workspaceRoot = root(input.workspaceRoot)
   const filePath = resolve(workspaceRoot, input.file)
-  await assertExportQAPassed(filePath, { workspaceRoot })
   const result = await exportToPptx(filePath, { speakerNotes: input.speakerNotes })
   recordRenderedArtifact(workspaceRoot, {
     sourceHtmlPath: workspaceRelative(resolve(workspaceRoot), filePath),
