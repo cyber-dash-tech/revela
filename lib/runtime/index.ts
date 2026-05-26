@@ -10,6 +10,7 @@ import { readDeckPlanArtifact } from "../narrative-state/deck-plan-artifact"
 import { extractDesignClasses } from "../design/designs"
 import { recordRenderedArtifact, workspaceRelative } from "../workspace-state/rendered-artifacts"
 import type { ReviewDeckOpenInput, ReviewDeckReadInput } from "./review"
+import pkg from "../../package.json"
 export { bindResearchFindings, evaluateResearchFindings, researchSave, researchTargets } from "./research"
 export { storyRead } from "./story"
 
@@ -42,6 +43,7 @@ export function doctor(input: RuntimeWorkspaceInput = {}) {
   const workspaceRoot = root(input.workspaceRoot)
   return {
     ok: true,
+    version: pkg.version,
     workspaceRoot,
     hasNarrativeVault: existsSync(resolve(workspaceRoot, "revela-narrative")),
     hasDeckPlan: existsSync(resolve(workspaceRoot, "deck-plan")),

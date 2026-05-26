@@ -4,6 +4,7 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 import { createDeckFoundation, deckFoundationMarkers } from "../lib/deck-html/foundation"
 import { seedBuiltinDesigns } from "../lib/design/designs"
+import pkg from "../package.json"
 import { tempWorkspace } from "./helpers/tool-helpers"
 
 const serverPath = join(import.meta.dir, "..", "plugins", "revela", "mcp", "revela-server.ts")
@@ -39,6 +40,27 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("revela_domain_list")
     expect(text.stdout).toContain("revela_domain_read")
     expect(text.stdout).toContain("revela_domain_activate")
+  })
+
+  it("reports the package version through the doctor tool", async () => {
+    const root = tempWorkspace("revela-mcp-doctor-")
+    const child = spawn("bun", [serverPath], { stdio: ["pipe", "pipe", "pipe"] })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "revela_doctor", arguments: { workspaceRoot: root } },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":2") && item.stdout.includes(pkg.version))
+    child.kill()
+
+    expect(text.stdout).toContain(`\\\"version\\\": \\\"${pkg.version}\\\"`)
+    expect(text.stdout).toContain(`\\\"workspaceRoot\\\": \\\"${root}`)
   })
 
   it("parses framed initialize requests using byte Content-Length", async () => {

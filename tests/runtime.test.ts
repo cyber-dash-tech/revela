@@ -7,11 +7,43 @@ import { DECKS_STATE_FILE } from "../lib/decks-state"
 import { seedBuiltinDesigns } from "../lib/design/designs"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
-import { bindResearchFindings, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead } from "../lib/runtime"
+import { bindResearchFindings, doctor, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead } from "../lib/runtime"
 import { stopRefineServer } from "../lib/refine/server"
+import pkg from "../package.json"
 import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("runtime facade", () => {
+  it("reports the package version through doctor", () => {
+    const root = tempWorkspace("revela-runtime-doctor-")
+
+    const result = doctor({ workspaceRoot: root })
+
+    expect(result).toMatchObject({
+      ok: true,
+      version: pkg.version,
+      workspaceRoot: root,
+      hasNarrativeVault: false,
+      hasDeckPlan: false,
+      hasDecksJson: false,
+    })
+  })
+
+  it("exposes the package version through CLI doctor", () => {
+    const root = tempWorkspace("revela-runtime-doctor-cli-")
+    const cli = join(import.meta.dir, "..", "bin", "revela.ts")
+
+    const proc = spawnSync("bun", [cli, "doctor", "--workspaceRoot", root], {
+      encoding: "utf-8",
+    })
+
+    expect(proc.status).toBe(0)
+    expect(JSON.parse(proc.stdout)).toMatchObject({
+      ok: true,
+      version: pkg.version,
+      workspaceRoot: root,
+    })
+  })
+
   it("passes compiled narrative hash into deck-plan stale detection", () => {
     const root = tempWorkspace("revela-runtime-deck-plan-hash-")
     writeMinimalVault(root)
