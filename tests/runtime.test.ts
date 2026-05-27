@@ -1,13 +1,13 @@
 import { describe, expect, it } from "bun:test"
 import { spawnSync } from "child_process"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { createDeckFoundation, deckFoundationMarkers } from "../lib/deck-html/foundation"
 import { DECKS_STATE_FILE } from "../lib/decks-state"
 import { seedBuiltinDesigns } from "../lib/design/designs"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
-import { bindResearchFindings, checkDesignRulesReadiness, designRead, doctor, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead } from "../lib/runtime"
+import { bindResearchFindings, checkDesignRulesReadiness, designCreate, designRead, designValidate, doctor, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead } from "../lib/runtime"
 import { stopRefineServer } from "../lib/refine/server"
 import pkg from "../package.json"
 import { tempWorkspace } from "./helpers/tool-helpers"
@@ -304,6 +304,76 @@ sources:
     expect(JSON.parse(domainList.stdout)).toMatchObject({ ok: true, activeDomain: "general" })
   })
 
+  it("creates, validates, and protects local design packages through the runtime", () => {
+    const name = `runtime-codex-design-${Date.now()}`
+    let createdPath = ""
+
+    try {
+      const created = designCreate({
+        name,
+        base: "starter",
+        designMd: validDesignMd(name, "Original"),
+        previewHtml: validPreviewHtml("Original"),
+      })
+      createdPath = created.path
+      const validated = designValidate({ name })
+
+      expect(created).toMatchObject({
+        ok: true,
+        name,
+        base: "starter",
+        overwritten: false,
+        files: ["DESIGN.md", "preview.html"],
+      })
+      expect(existsSync(join(created.path, "DESIGN.md"))).toBe(true)
+      expect(validated).toMatchObject({
+        ok: true,
+        name,
+        hasDesignMd: true,
+        hasPreview: true,
+      })
+
+      expect(() => designCreate({
+        name,
+        designMd: validDesignMd(name, "Duplicate"),
+        previewHtml: validPreviewHtml("Duplicate"),
+      })).toThrow("already exists")
+
+      const overwritten = designCreate({
+        name,
+        designMd: validDesignMd(name, "Updated"),
+        previewHtml: validPreviewHtml("Updated"),
+        overwrite: true,
+      })
+
+      expect(overwritten).toMatchObject({ ok: true, name, overwritten: true })
+      expect(readFileSync(join(overwritten.path, "preview.html"), "utf-8")).toContain("Updated")
+    } finally {
+      if (createdPath) rmSync(createdPath, { recursive: true, force: true })
+    }
+  })
+
+  it("exposes design package validation through the CLI", () => {
+    const name = `runtime-cli-design-${Date.now()}`
+    const cli = join(import.meta.dir, "..", "bin", "revela.ts")
+    const created = designCreate({
+      name,
+      designMd: validDesignMd(name, "CLI"),
+      previewHtml: validPreviewHtml("CLI"),
+    })
+
+    try {
+      const proc = spawnSync("bun", [cli, "design-validate", "--name", name], {
+        encoding: "utf-8",
+      })
+
+      expect(proc.status).toBe(0)
+      expect(JSON.parse(proc.stdout)).toMatchObject({ ok: true, name })
+    } finally {
+      rmSync(created.path, { recursive: true, force: true })
+    }
+  })
+
   it("reads design rules sections and records Codex deck-write hook context", () => {
     const root = tempWorkspace("revela-runtime-design-rules-")
 
@@ -471,4 +541,56 @@ function writeMinimalDeck(root: string, outputPath: string): void {
         </div>
     </section>`
   writeFileSync(htmlPath, html.replace(`${markers.start}\n    ${markers.end}`, `${markers.start}${slide}\n    ${markers.end}`), "utf-8")
+}
+
+function validDesignMd(name: string, label: string): string {
+  return `---
+name: ${name}
+description: ${label} design
+author: test
+version: 1.0.0
+---
+
+<!-- @design:foundation:start -->
+### Foundation
+\`\`\`css
+.test-card { color: red; }
+.test-badge { color: blue; }
+\`\`\`
+<!-- @design:foundation:end -->
+
+<!-- @design:rules:start -->
+### Rules
+- Keep hierarchy clear.
+<!-- @design:rules:end -->
+
+<!-- @layout:test-layout:start qa=true -->
+#### Test Layout
+\`\`\`html
+<section class="slide" slide-qa="true"><div class="slide-canvas"></div></section>
+\`\`\`
+<!-- @layout:test-layout:end -->
+
+<!-- @component:test-card:start -->
+#### Test Card
+\`\`\`html
+<div class="test-card">Card</div>
+\`\`\`
+<!-- @component:test-card:end -->
+
+<!-- @component:test-badge:start -->
+#### Test Badge
+\`\`\`html
+<span class="test-badge">Badge</span>
+\`\`\`
+<!-- @component:test-badge:end -->`
+}
+
+function validPreviewHtml(label: string): string {
+  return `<!doctype html>
+<html><body>
+<section class="slide" slide-qa="false" data-slide-role="cover"><div class="slide-canvas">${label} Cover</div></section>
+<section class="slide" slide-qa="true"><div class="slide-canvas"><div data-preview-component="test-card" class="test-card">Card</div><span data-preview-component="test-badge" class="test-badge">${label} Badge</span></div></section>
+<section class="slide" slide-qa="false" data-slide-role="closing"><div class="slide-canvas">${label} Closing</div></section>
+</body></html>`
 }

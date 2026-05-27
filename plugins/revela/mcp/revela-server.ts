@@ -20,6 +20,8 @@ type RuntimeModule = {
   designList(): any
   designRead(input?: any): any
   designActivate(input: any): any
+  designCreate(input: any): any
+  designValidate(input: any): any
   domainList(): any
   domainRead(input?: any): any
   domainActivate(input: any): any
@@ -115,6 +117,22 @@ const tools = [
     name: "revela_design_activate",
     description: "Activate a Revela design for future deck planning and artifact generation.",
     inputSchema: objectSchema({ name: requiredStringProp("Design name to activate.") }, ["name"]),
+  },
+  {
+    name: "revela_design_create",
+    description: "Create and validate a local Revela design package from complete DESIGN.md and preview.html content.",
+    inputSchema: objectSchema({
+      name: requiredStringProp("Design name in kebab-case."),
+      base: stringProp("Optional base design used as structural scaffold."),
+      designMd: requiredStringProp("Complete DESIGN.md content."),
+      previewHtml: requiredStringProp("Complete preview.html content."),
+      overwrite: booleanProp("Whether to replace an existing local design package. Defaults to false."),
+    }, ["name", "designMd", "previewHtml"]),
+  },
+  {
+    name: "revela_design_validate",
+    description: "Validate a local Revela design package.",
+    inputSchema: objectSchema({ name: requiredStringProp("Design name to validate.") }, ["name"]),
   },
   {
     name: "revela_domain_list",
@@ -258,6 +276,8 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_design_list") return r.designList()
   if (name === "revela_design_read") return r.designRead(args)
   if (name === "revela_design_activate") return r.designActivate(args)
+  if (name === "revela_design_create") return r.designCreate(args)
+  if (name === "revela_design_validate") return r.designValidate(args)
   if (name === "revela_domain_list") return r.domainList()
   if (name === "revela_domain_read") return r.domainRead(args)
   if (name === "revela_domain_activate") return r.domainActivate(args)

@@ -271,6 +271,20 @@ describe("parseDesignSections", () => {
   })
 })
 
+describe("Codex design skill guidance", () => {
+  it("documents the design creation and validation workflow", () => {
+    const skill = readFileSync(join(process.cwd(), "plugins", "revela", "skills", "revela-design", "SKILL.md"), "utf-8")
+
+    expect(skill).toContain("revela_design_create")
+    expect(skill).toContain("revela_design_validate")
+    expect(skill).toContain("Interview the user before saving anything")
+    expect(skill).toContain("Do not automatically activate a newly created design")
+    expect(skill).toContain('data-preview-component="<component-name>"')
+    expect(skill).toContain('data-slide-role="cover"')
+    expect(skill).toContain('data-slide-role="closing"')
+  })
+})
+
 // ── generateLayoutIndex ────────────────────────────────────────────────────
 
 describe("generateLayoutIndex", () => {

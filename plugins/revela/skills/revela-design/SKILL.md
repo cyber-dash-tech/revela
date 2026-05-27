@@ -20,3 +20,15 @@ Use this skill when the user asks about Revela designs or when generating deck H
 Deck HTML must keep exactly one direct `.slide-canvas` child inside every `<section class="slide" ...>`; place `.page` or layout containers inside `.slide-canvas`, not directly under `.slide`.
 
 Design changes are visual/artifact-level unless they change claim meaning, evidence boundaries, decision, or recommendation.
+
+## Creating Or Editing Designs
+
+When the user asks to create a new design, use `starter` as the default base design unless they specify another base. Interview the user before saving anything: collect visual references such as images, webpages, brands, decks, or text descriptions, plus must-have and must-avoid constraints. Summarize the design brief and visual schema, then wait for the user to confirm before creating files.
+
+After confirmation, read the base design with `revela_design_read`. Generate complete `DESIGN.md` and complete `preview.html` content, then call `revela_design_create`. For edits to an existing design, read the existing design first, preserve useful layout/component coverage, and call `revela_design_create` with `overwrite: true` only after the user confirms the edit brief. Always call `revela_design_validate` after creation or overwrite.
+
+`DESIGN.md` must include frontmatter with `name`, `description`, `author`, and `version`, plus valid marker blocks for `@design:foundation`, `@design:rules`, at least one `@layout`, and at least one `@component`.
+
+`preview.html` must be self-contained and directly openable in a browser. Every `<section class="slide">` must include `slide-qa` and exactly one direct `.slide-canvas` child. Include a cover slide with `data-slide-role="cover"`, a closing slide with `data-slide-role="closing"`, and a visible sample for every `@component:*` using `data-preview-component="<component-name>"`.
+
+Do not automatically activate a newly created design. Report the saved path and tell the user they can activate it with `revela_design_activate`.

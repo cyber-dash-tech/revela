@@ -1,7 +1,16 @@
 import { createHash } from "crypto"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { dirname, resolve } from "path"
-import { activeDesign, activateDesign, getDesignSection, getDesignSkillMd, listDesigns, seedBuiltinDesigns } from "../design/designs"
+import {
+  activeDesign,
+  activateDesign,
+  createDesignPackage,
+  getDesignSection,
+  getDesignSkillMd,
+  listDesigns,
+  seedBuiltinDesigns,
+  validateDesignPackage,
+} from "../design/designs"
 import { createDeckFoundation as createDeckFoundationShell } from "../deck-html/foundation"
 import { activeDomain, activateDomain, getDomainSkillMd, listDomains, seedBuiltinDomains } from "../domain/domains"
 import { computeNarrativeHash } from "../narrative-state/hash"
@@ -36,6 +45,14 @@ export interface RuntimeDesignReadInput {
   workspaceRoot?: string
   name?: string
   section?: string
+}
+
+export interface RuntimeDesignCreateInput {
+  name: string
+  base?: string
+  designMd: string
+  previewHtml: string
+  overwrite?: boolean
 }
 
 export interface RuntimeNameInput {
@@ -187,6 +204,22 @@ export function designRead(input: RuntimeDesignReadInput = {}) {
   }
 }
 
+export function designCreate(input: RuntimeDesignCreateInput) {
+  seedBuiltinDesigns()
+  return createDesignPackage({
+    name: requiredString(input?.name, "design name"),
+    base: input.base,
+    designMd: requiredString(input?.designMd, "designMd"),
+    previewHtml: requiredString(input?.previewHtml, "previewHtml"),
+    overwrite: input.overwrite ?? false,
+  })
+}
+
+export function designValidate(input: RuntimeNameInput) {
+  seedBuiltinDesigns()
+  return validateDesignPackage(requiredName(input, "design"))
+}
+
 export interface DesignRulesReadinessResult {
   ok: boolean
   activeDesign: string
@@ -305,4 +338,10 @@ function requiredName(input: RuntimeNameInput, label: string): string {
   const name = input?.name?.trim()
   if (!name) throw new Error(`${label} name is required`)
   return name
+}
+
+function requiredString(value: string | undefined, label: string): string {
+  const text = value?.trim()
+  if (!text) throw new Error(`${label} is required`)
+  return text
 }

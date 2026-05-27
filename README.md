@@ -123,49 +123,61 @@ revela, use consulting as the domain.
 revela, use summit as the design.
 ```
 
-3. Initialize the narrative from local materials. Init grounds the narrative in the workspace and surfaces gaps; it does not replace the research step.
+3. Create a custom design when you want a different visual direction.
+
+```text
+revela, create a new design named neon-finance with a crisp financial-dashboard style: dark surfaces, precise grids, and bright green accents.
+```
+
+Revela may ask for references or constraints, then creates and validates the design. When it is ready, switch to it:
+
+```text
+revela, use neon-finance as the design.
+```
+
+4. Initialize the narrative from local materials. Init grounds the narrative in the workspace and surfaces gaps; it does not replace the research step.
 
 ```text
 revela, help me init this workspace from the local materials.
 ```
 
-4. Research the gaps and bind only source-supported evidence into the narrative.
+5. Research the gaps and bind only source-supported evidence into the narrative.
 
 ```text
 revela, research the current gaps and bind only source-supported evidence.
 ```
 
-5. Read Story before rendering to inspect the claim flow, evidence support, caveats, unsupported scope, and open gaps.
+6. Read Story before rendering to inspect the claim flow, evidence support, caveats, unsupported scope, and open gaps.
 
 ```text
 revela, show me the Story before we make the deck.
 ```
 
-6. Create or update the deck plan before generating HTML so slide order, chapter structure, evidence trace, caveats, and visual intent are explicit.
+7. Create or update the deck plan before generating HTML so slide order, chapter structure, evidence trace, caveats, and visual intent are explicit.
 
 ```text
 revela, create or update the deck plan before generating HTML.
 ```
 
-7. Make an HTML deck from the current deck plan and canonical narrative.
+8. Make an HTML deck from the current deck plan and canonical narrative.
 
 ```text
 revela, make the deck from the current deck plan and narrative.
 ```
 
-8. Review the generated deck for traceability, diagnostics, and targeted edits.
+9. Review the generated deck for traceability, diagnostics, and targeted edits.
 
 ```text
 revela, review the generated deck.
 ```
 
-9. Export a PDF after deck QA passes.
+10. Export a PDF after deck QA passes.
 
 ```text
 revela, export the deck to PDF.
 ```
 
-10. Export an editable PPTX after deck QA passes.
+11. Export an editable PPTX after deck QA passes.
 
 ```text
 revela, export the deck to PPTX.

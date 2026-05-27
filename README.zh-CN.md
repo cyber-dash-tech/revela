@@ -123,49 +123,61 @@ revela，use consulting as domain.
 revela，use summit as design.
 ```
 
-3. 从本地材料初始化 narrative。Init 负责基于 workspace 做 grounding 并暴露 gap；它不替代 research 步骤。
+3. 如果需要不同的视觉方向，可以创建一个自定义 design。
+
+```text
+revela，创建一个名为 neon-finance 的新 design：金融仪表盘风格，深色界面、精密网格、亮绿色重点色。
+```
+
+Revela 可能会继续询问参考图、风格约束或禁忌项，然后创建并校验 design。创建完成后再切换使用：
+
+```text
+revela，使用 neon-finance 作为 design。
+```
+
+4. 从本地材料初始化 narrative。Init 负责基于 workspace 做 grounding 并暴露 gap；它不替代 research 步骤。
 
 ```text
 revela，帮我 init 这个 workspace，先读本地材料。
 ```
 
-4. 针对 gap 做 research，并且只把来源明确支持的 evidence 绑定回 narrative。
+5. 针对 gap 做 research，并且只把来源明确支持的 evidence 绑定回 narrative。
 
 ```text
 revela，research 当前 gaps，只绑定 source-supported evidence。
 ```
 
-5. 生成 deck 前先读 Story，检查 claim flow、证据支撑、caveats、unsupported scope 和 open gaps。
+6. 生成 deck 前先读 Story，检查 claim flow、证据支撑、caveats、unsupported scope 和 open gaps。
 
 ```text
 revela，先给我看 Story，再 make deck。
 ```
 
-6. 先创建或更新 deck plan，明确 slide 顺序、章节结构、evidence trace、caveats 和 visual intent，再生成 HTML。
+7. 先创建或更新 deck plan，明确 slide 顺序、章节结构、evidence trace、caveats 和 visual intent，再生成 HTML。
 
 ```text
 revela，生成 HTML 前先 create or update deck plan。
 ```
 
-7. 基于当前 deck plan 和 canonical narrative 生成 HTML deck。
+8. 基于当前 deck plan 和 canonical narrative 生成 HTML deck。
 
 ```text
 revela，基于当前 deck plan 和 narrative make deck。
 ```
 
-8. Review 生成后的 deck，检查 traceability、diagnostics，并做定向修改。
+9. Review 生成后的 deck，检查 traceability、diagnostics，并做定向修改。
 
 ```text
 revela，review 生成好的 deck。
 ```
 
-9. QA 通过后导出 PDF。
+10. QA 通过后导出 PDF。
 
 ```text
 revela，把 deck export 成 PDF。
 ```
 
-10. QA 通过后导出可编辑 PPTX。
+11. QA 通过后导出可编辑 PPTX。
 
 ```text
 revela，把 deck export 成 PPTX。

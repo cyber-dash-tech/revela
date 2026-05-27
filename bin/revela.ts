@@ -31,6 +31,8 @@ else {
     else if (command === "design-list") result = runtime.designList()
     else if (command === "design-read") result = runtime.designRead(options)
     else if (command === "design-use") result = runtime.designActivate(required(options, ["name"]))
+    else if (command === "design-create") result = runtime.designCreate(required(options, ["name", "designMd", "previewHtml"]))
+    else if (command === "design-validate") result = runtime.designValidate(required(options, ["name"]))
     else if (command === "domain-list") result = runtime.domainList()
     else if (command === "domain-read") result = runtime.domainRead(options)
     else if (command === "domain-use") result = runtime.domainActivate(required(options, ["name"]))
@@ -91,6 +93,8 @@ Usage:
   revela design-list
   revela design-read [--name <design>] [--section <rules|foundation|chart-rules>] [--workspaceRoot <path>]
   revela design-use --name <design>
+  revela design-create --name <design> --designMd <text> --previewHtml <text> [--base <design>] [--overwrite true]
+  revela design-validate --name <design>
   revela domain-list
   revela domain-read [--name <domain>]
   revela domain-use --name <domain>

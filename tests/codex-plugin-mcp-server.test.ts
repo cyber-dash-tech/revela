@@ -37,6 +37,8 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("revela_review_deck_read")
     expect(text.stdout).toContain("revela_review_deck_open")
     expect(text.stdout).toContain("revela_design_activate")
+    expect(text.stdout).toContain("revela_design_create")
+    expect(text.stdout).toContain("revela_design_validate")
     expect(text.stdout).toContain("revela_domain_list")
     expect(text.stdout).toContain("revela_domain_read")
     expect(text.stdout).toContain("revela_domain_activate")
@@ -309,6 +311,48 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("general")
   })
 
+  it("creates and validates design packages through MCP tools", async () => {
+    const home = tempWorkspace("revela-mcp-design-create-home-")
+    const name = `mcp-codex-design-${Date.now()}`
+    const child = spawn("bun", [serverPath], {
+      env: { ...process.env, HOME: home },
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "revela_design_create",
+        arguments: {
+          name,
+          base: "starter",
+          designMd: validDesignMd(name),
+          previewHtml: validPreviewHtml(),
+        },
+      },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "revela_design_validate", arguments: { name } },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":3") && item.stdout.includes("test-badge"))
+    child.kill()
+
+    expect(text.stdout).toContain("\\\"ok\\\": true")
+    expect(text.stdout).toContain(name)
+    expect(text.stdout).toContain("\\\"base\\\": \\\"starter\\\"")
+    expect(text.stdout).toContain("test-layout")
+    expect(text.stdout).toContain("test-card")
+  })
+
   it("calls the Review deck read tool with Markdown output", async () => {
     seedBuiltinDesigns()
     const root = tempWorkspace("revela-mcp-review-")
@@ -429,4 +473,56 @@ function writeResearchVault(root: string): void {
   writeFileSync(join(vault, "thesis.md"), "---\ntype: thesis\nid: thesis:mcp-research\nconfidence: medium\n---\nA bounded pilot is the recommended next step.\n", "utf-8")
   writeFileSync(join(vault, "claims", "pilot.md"), "---\ntype: claim\nid: claim-pilot\nkind: recommendation\nimportance: central\nevidenceRequired: true\n---\nApprove a bounded pilot.\n", "utf-8")
   writeFileSync(join(vault, "research-gaps", "pilot.md"), "---\ntype: research-gap\nid: gap-pilot-evidence\ntargetType: claim\ntargetId: claim-pilot\nquestion: What evidence supports the pilot decision?\nstatus: open\npriority: high\n---\nWhat evidence supports the pilot decision?\n\n## Relations\n\n- depends_on: [[claim-pilot]]\n", "utf-8")
+}
+
+function validDesignMd(name: string): string {
+  return `---
+name: ${name}
+description: MCP test design
+author: test
+version: 1.0.0
+---
+
+<!-- @design:foundation:start -->
+### Foundation
+\`\`\`css
+.test-card { color: red; }
+.test-badge { color: blue; }
+\`\`\`
+<!-- @design:foundation:end -->
+
+<!-- @design:rules:start -->
+### Rules
+- Keep hierarchy clear.
+<!-- @design:rules:end -->
+
+<!-- @layout:test-layout:start qa=true -->
+#### Test Layout
+\`\`\`html
+<section class="slide" slide-qa="true"><div class="slide-canvas"></div></section>
+\`\`\`
+<!-- @layout:test-layout:end -->
+
+<!-- @component:test-card:start -->
+#### Test Card
+\`\`\`html
+<div class="test-card">Card</div>
+\`\`\`
+<!-- @component:test-card:end -->
+
+<!-- @component:test-badge:start -->
+#### Test Badge
+\`\`\`html
+<span class="test-badge">Badge</span>
+\`\`\`
+<!-- @component:test-badge:end -->`
+}
+
+function validPreviewHtml(): string {
+  return `<!doctype html>
+<html><body>
+<section class="slide" slide-qa="false" data-slide-role="cover"><div class="slide-canvas">Cover</div></section>
+<section class="slide" slide-qa="true"><div class="slide-canvas"><div data-preview-component="test-card" class="test-card">Card</div><span data-preview-component="test-badge" class="test-badge">Badge</span></div></section>
+<section class="slide" slide-qa="false" data-slide-role="closing"><div class="slide-canvas">Closing</div></section>
+</body></html>`
 }
