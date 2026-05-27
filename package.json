@@ -1,6 +1,6 @@
 {
   "name": "@cyber-dash-tech/revela",
-  "version": "0.17.18",
+  "version": "0.17.19",
   "description": "OpenCode plugin for trusted narrative artifacts from local sources, research, and evidence",
   "type": "module",
   "main": "./index.ts",
