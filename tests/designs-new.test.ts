@@ -113,7 +113,10 @@ Component
 
 function validPreviewHtml(): string {
   return `<!doctype html>
-<html><body>
+<html><head><style>
+.slide { min-height: 100dvh; display: flex; }
+.slide-canvas { width: 1920px; height: 1080px; }
+</style></head><body>
 <section class="slide" slide-qa="false" data-slide-role="cover"><div class="slide-canvas"></div></section>
 <section class="slide" slide-qa="true"><div class="slide-canvas"><div data-preview-component="test-card" class="test-card">Card</div><span data-preview-component="test-badge" class="test-badge">Badge</span></div></section>
 <section class="slide" slide-qa="false" data-slide-role="closing"><div class="slide-canvas"></div></section>
@@ -122,11 +125,25 @@ function validPreviewHtml(): string {
 
 function validPreviewHtmlForOneComponent(): string {
   return `<!doctype html>
-<html><body>
+<html><head><style>
+.slide { min-height: 100dvh; display: flex; }
+.slide-canvas { width: 1920px; height: 1080px; }
+</style></head><body>
 <section class="slide" slide-qa="false" data-slide-role="cover"><div class="slide-canvas"></div></section>
 <section class="slide" slide-qa="true"><div class="slide-canvas"><div data-preview-component="test-card">Card</div></div></section>
 <section class="slide" slide-qa="false" data-slide-role="closing"><div class="slide-canvas"></div></section>
 </body></html>`
+}
+
+function previewHtmlWithoutCanvasSize(): string {
+  return validPreviewHtml().replace(".slide-canvas { width: 1920px; height: 1080px; }\n", "")
+}
+
+function previewHtmlWithoutFixedSizes(): string {
+  return validPreviewHtml().replace(`<style>
+.slide { min-height: 100dvh; display: flex; }
+.slide-canvas { width: 1920px; height: 1080px; }
+</style>`, "<style>.slide, .slide-canvas { position: relative; }</style>")
 }
 
 afterEach(() => {
@@ -183,6 +200,8 @@ describe("buildDesignsNewPrompt", () => {
     expect(prompt).toContain("Do not generate or save files immediately")
     expect(prompt).toContain("revela-designs-author")
     expect(prompt).toContain("/revela design --use neon-finance")
+    expect(prompt).toContain(".slide-canvas { width: 1920px; height: 1080px; }")
+    expect(prompt).toContain("direct `.slide-canvas` is the fixed 1920px x 1080px export surface")
   })
 
   it("requires visual schema extraction and scoped CSS generation", () => {
@@ -206,6 +225,7 @@ describe("buildDesignsEditPrompt", () => {
     expect(prompt).toContain("/revela design --use neon-finance")
     expect(prompt).toContain("data-preview-component")
     expect(prompt).toContain("data-slide-role=\"closing\"")
+    expect(prompt).toContain(".slide-canvas { width: 1920px; height: 1080px; }")
   })
 })
 
@@ -445,6 +465,28 @@ describe("design package authoring", () => {
     const validation = validateDesignPackage(name)
     expect(validation.ok).toBe(false)
     expect(validation.errors).toContain("preview.html must showcase every @component; missing: test-badge")
+  })
+
+  it("requires fixed 1920x1080 CSS for preview slide-canvas", () => {
+    const name = track("test-preview-canvas-size")
+    const dir = join(DESIGNS_DIR, name)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, "DESIGN.md"), validDesignMd(name), "utf-8")
+    writeFileSync(join(dir, "preview.html"), previewHtmlWithoutCanvasSize(), "utf-8")
+
+    const validation = validateDesignPackage(name)
+    expect(validation.ok).toBe(false)
+    expect(validation.errors).toContain("preview.html must define .slide-canvas CSS with width: 1920px and height: 1080px")
+  })
+
+  it("rejects created packages without fixed preview canvas CSS", () => {
+    const name = track("test-preview-create-size")
+
+    expect(() => createDesignPackage({
+      name,
+      designMd: validDesignMd(name),
+      previewHtml: previewHtmlWithoutFixedSizes(),
+    })).toThrow("Created design package is invalid")
   })
 
   it("requires cover and closing slide roles in preview", () => {

@@ -264,6 +264,29 @@ function hasSlideRole(html: string, role: string): boolean {
   return false
 }
 
+function cssRuleHasClassSelector(selectors: string, className: string): boolean {
+  const escaped = className.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  return new RegExp(`(^|[^a-zA-Z0-9_-])\\.${escaped}(?![a-zA-Z0-9_-])`).test(selectors)
+}
+
+function cssRuleHasFixedCanvasSize(body: string): boolean {
+  const width = /(?:^|[;\s])width\s*:\s*1920px(?:\s*!important)?\s*(?:;|$)/i.test(body)
+  const height = /(?:^|[;\s])height\s*:\s*1080px(?:\s*!important)?\s*(?:;|$)/i.test(body)
+  return width && height
+}
+
+function hasFixedSizeCssRule(html: string, className: "slide-canvas"): boolean {
+  const withoutComments = html.replace(/\/\*[\s\S]*?\*\//g, "")
+  const ruleRe = /([^{}]+)\{([^{}]+)\}/g
+  let match: RegExpExecArray | null
+  while ((match = ruleRe.exec(withoutComments)) !== null) {
+    if (cssRuleHasClassSelector(match[1] ?? "", className) && cssRuleHasFixedCanvasSize(match[2] ?? "")) {
+      return true
+    }
+  }
+  return false
+}
+
 /** Validate a local design package for the minimum Revela design contract. */
 export function validateDesignPackage(nameInput: string): ValidateDesignPackageResult {
   let name = nameInput
@@ -312,6 +335,9 @@ export function validateDesignPackage(nameInput: string): ValidateDesignPackageR
     if (!preview.includes('<section class="slide"')) errors.push("preview.html must include slide sections")
     if (!preview.includes("slide-qa=")) errors.push("preview.html slides must include slide-qa attributes")
     if (!preview.includes("slide-canvas")) errors.push("preview.html must include .slide-canvas")
+    if (!hasFixedSizeCssRule(preview, "slide-canvas")) {
+      errors.push("preview.html must define .slide-canvas CSS with width: 1920px and height: 1080px")
+    }
     if (!hasSlideRole(preview, "cover")) errors.push('preview.html must include a slide section with data-slide-role="cover"')
     if (!hasSlideRole(preview, "closing")) errors.push('preview.html must include a slide section with data-slide-role="closing"')
     const missingComponents = components.filter((component) => !hasDataAttribute(preview, "data-preview-component", component))

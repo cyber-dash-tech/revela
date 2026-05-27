@@ -2,7 +2,7 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-05-27 for 0.17.18 Codex design creation workflow.
+> Last updated: 2026-05-27 for 0.17.19 slide-canvas export-surface validation workflow.
 
 ## Product Baseline
 
@@ -12,7 +12,7 @@ Product promise:
 
 **Turn source materials, research, data, and user intent into trusted, traceable, presentation-ready decision artifacts.**
 
-Current baseline: `0.17.18 release baseline`.
+Current baseline: `0.17.19 release baseline`.
 
 User-facing workflow:
 
@@ -205,6 +205,7 @@ Structured helper role:
 - The 0.17.15 hotfix reports the running Revela npm package version from `revela doctor` and the Codex MCP `revela_doctor` tool.
 - The 0.17.17 hotfix exports slide-as-canvas decks to PDF by clipping each `.slide` when `.slide-canvas` is absent, while keeping `.slide-canvas` as the canonical deck structure.
 - The 0.17.18 release adds Codex design creation/validation workflow support, Codex deck-write design-rules guard coverage, and Quick Start guidance for natural-language custom design creation.
+- The 0.17.19 hotfix keeps `.slide-canvas` as the fixed 1920x1080 export surface while allowing `.slide` to remain a viewport/navigation wrapper in canonical decks and design previews.
 
 ## Wikilink-First Vault Graph
 

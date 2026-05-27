@@ -81,6 +81,7 @@ const VISUAL_QUALITY_RULES = `Visual extraction and CSS quality rules:
 
 const PREVIEW_REQUIREMENTS = `Preview requirements:
 - \`preview.html\` must include a cover slide and a closing slide. Mark their \`<section class="slide">\` elements with \`data-slide-role="cover"\` and \`data-slide-role="closing"\`.
+- \`preview.html\` must define an explicit CSS rule for \`.slide-canvas\` with \`width: 1920px\` and \`height: 1080px\`; every direct \`.slide-canvas\` is the fixed 1920px x 1080px export surface.
 - \`preview.html\` must showcase every \`@component:*\` defined in \`DESIGN.md\`. Mark each showcased component with \`data-preview-component="<component-name>"\`.
 - Do not save with \`revela-designs-author\` until every component has a corresponding preview marker. If a component is decorative or abstract, include a visible labeled sample state.
 - When the design supports chart styling, \`preview.html\` should include a 3x3 ECharts gallery with at least 9 chart examples. This is a preview quality requirement, not a validation blocker.`
@@ -133,6 +134,7 @@ Hard requirements:
 - \`DESIGN.md\` must include valid \`@design\`, \`@layout\`, and \`@component\` markers.
 - \`DESIGN.md\` must include at least \`@design:foundation\`, \`@design:rules\`, one layout, and one component.
 - \`preview.html\` must be self-contained and directly openable in a browser.
+- \`preview.html\` must include an explicit CSS rule: \`.slide-canvas { width: 1920px; height: 1080px; }\`.
 - Every preview slide must include \`slide-qa="true"\` or \`slide-qa="false"\`.
 - \`preview.html\` must include \`data-slide-role="cover"\` and \`data-slide-role="closing"\` on slide sections.
 - \`preview.html\` must showcase every \`@component:*\` with \`data-preview-component="<component-name>"\` before saving.
@@ -172,6 +174,7 @@ Hard requirements:
 - Preserve valid frontmatter and marker structure.
 - Preserve at least \`@design:foundation\`, \`@design:rules\`, one layout, and one component.
 - \`preview.html\` must be self-contained and directly openable in a browser.
+- \`preview.html\` must include an explicit CSS rule: \`.slide-canvas { width: 1920px; height: 1080px; }\`.
 - Every preview slide must include \`slide-qa="true"\` or \`slide-qa="false"\`.
 - \`preview.html\` must include \`data-slide-role="cover"\` and \`data-slide-role="closing"\` on slide sections.
 - \`preview.html\` must showcase every \`@component:*\` with \`data-preview-component="<component-name>"\` before saving.

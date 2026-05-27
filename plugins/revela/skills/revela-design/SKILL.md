@@ -29,6 +29,6 @@ After confirmation, read the base design with `revela_design_read`. Generate com
 
 `DESIGN.md` must include frontmatter with `name`, `description`, `author`, and `version`, plus valid marker blocks for `@design:foundation`, `@design:rules`, at least one `@layout`, and at least one `@component`.
 
-`preview.html` must be self-contained and directly openable in a browser. Every `<section class="slide">` must include `slide-qa` and exactly one direct `.slide-canvas` child. Include a cover slide with `data-slide-role="cover"`, a closing slide with `data-slide-role="closing"`, and a visible sample for every `@component:*` using `data-preview-component="<component-name>"`.
+`preview.html` must be self-contained and directly openable in a browser. Every `<section class="slide">` must include `slide-qa` and exactly one direct `.slide-canvas` child. Every direct `.slide-canvas` is the fixed 1920px x 1080px export surface and must use explicit CSS with `width: 1920px` and `height: 1080px`; `.slide` may remain a viewport/navigation wrapper. Include a cover slide with `data-slide-role="cover"`, a closing slide with `data-slide-role="closing"`, and a visible sample for every `@component:*` using `data-preview-component="<component-name>"`.
 
 Do not automatically activate a newly created design. Report the saved path and tell the user they can activate it with `revela_design_activate`.

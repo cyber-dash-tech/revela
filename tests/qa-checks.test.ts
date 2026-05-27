@@ -172,13 +172,23 @@ describe("canvas and text checks", () => {
     expect(canvas?.detail).toContain("exactly one")
   })
 
-  it("requires exact 1920x1080 slide and canvas dimensions", () => {
+  it("requires exact 1920x1080 slide-canvas dimensions", () => {
     const metrics = makeMetrics({ elements: [makeElement(makeRect(100, 100, 500, 300))] })
     metrics.canvasRect = makeRect(0, 0, 1600, 900)
     const report = runChecks("test.html", [metrics])
     const canvas = report.slides[0].issues.find((i) => i.type === "canvas")
     expect(canvas?.severity).toBe("error")
     expect(canvas?.detail).toContain("1920x1080")
+  })
+
+  it("allows a viewport-sized slide wrapper when slide-canvas is exactly 1920x1080", () => {
+    const metrics = makeMetrics({ elements: [makeElement(makeRect(100, 100, 500, 300))] })
+    metrics.slideRect = makeRect(0, 0, 1440, 900)
+
+    const report = runChecks("test.html", [metrics])
+    const canvas = report.slides[0].issues.find((i) => i.type === "canvas" && i.sub === "size_mismatch")
+
+    expect(canvas).toBeUndefined()
   })
 
   it("does not accept smaller fixed-ratio canvases as deck-ready", () => {
@@ -193,6 +203,8 @@ describe("canvas and text checks", () => {
     expect(canvas?.detail).toContain("exactly 1920x1080px")
     expect(canvas?.data?.expectedWidth).toBe(CANVAS_W)
     expect(canvas?.data?.expectedHeight).toBe(CANVAS_H)
+    expect(canvas?.data?.canvasWidth).toBe(1600)
+    expect(canvas?.data?.slideWidth).toBeUndefined()
   })
 
   it("reports clipped text containers", () => {

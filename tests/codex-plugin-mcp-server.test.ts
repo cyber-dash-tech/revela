@@ -520,7 +520,10 @@ version: 1.0.0
 
 function validPreviewHtml(): string {
   return `<!doctype html>
-<html><body>
+<html><head><style>
+.slide { min-height: 100dvh; display: flex; }
+.slide-canvas { width: 1920px; height: 1080px; }
+</style></head><body>
 <section class="slide" slide-qa="false" data-slide-role="cover"><div class="slide-canvas">Cover</div></section>
 <section class="slide" slide-qa="true"><div class="slide-canvas"><div data-preview-component="test-card" class="test-card">Card</div><span data-preview-component="test-badge" class="test-badge">Badge</span></div></section>
 <section class="slide" slide-qa="false" data-slide-role="closing"><div class="slide-canvas">Closing</div></section>

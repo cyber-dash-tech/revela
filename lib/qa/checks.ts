@@ -209,19 +209,16 @@ function checkCanvas(metrics: SlideMetrics): LayoutIssue[] {
   }
 
   const canvasBad = Math.abs(metrics.canvasRect.width - CANVAS_W) > tol || Math.abs(metrics.canvasRect.height - CANVAS_H) > tol
-  const slideBad = Math.abs(metrics.slideRect.width - CANVAS_W) > tol || Math.abs(metrics.slideRect.height - CANVAS_H) > tol
 
-  if (canvasBad || slideBad) {
+  if (canvasBad) {
     issues.push({
       type: "canvas",
       sub: "size_mismatch",
       severity: "error",
-      detail: `Slide and canvas must render exactly ${CANVAS_W}x${CANVAS_H}px. Measured slide ${Math.round(metrics.slideRect.width)}x${Math.round(metrics.slideRect.height)}px, canvas ${Math.round(metrics.canvasRect.width)}x${Math.round(metrics.canvasRect.height)}px.`,
+      detail: `.slide-canvas must render exactly ${CANVAS_W}x${CANVAS_H}px. Measured canvas ${Math.round(metrics.canvasRect.width)}x${Math.round(metrics.canvasRect.height)}px.`,
       data: {
         expectedWidth: CANVAS_W,
         expectedHeight: CANVAS_H,
-        slideWidth: Math.round(metrics.slideRect.width),
-        slideHeight: Math.round(metrics.slideRect.height),
         canvasWidth: Math.round(metrics.canvasRect.width),
         canvasHeight: Math.round(metrics.canvasRect.height),
       },
@@ -911,7 +908,7 @@ export function formatReport(report: QAReport): string {
     `### Action Required`,
     ``,
     `Please fix the above hard-error issues in the HTML file. For each issue type:`,
-    `- **canvas**: ensure each slide and .slide-canvas render exactly 1920x1080px, not merely any 16:9 size.`,
+    `- **canvas**: ensure each canonical .slide has exactly one direct .slide-canvas and that .slide-canvas renders exactly 1920x1080px, not merely any 16:9 size.`,
     `- **scrollbar**: remove horizontal document/body scrolling and slide-internal scrolling. Multi-slide decks may use normal vertical document scroll for navigation.`,
     `- **navigation**: keep every .slide in normal document flow; do not stack slides with fixed/absolute positioning or rely on aria-hidden/visibility toggles for pagination. Use scrollIntoView-based navigation.`,
     `- **overflow**: reduce font size, padding, or content amount for the affected element.`,

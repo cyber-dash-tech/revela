@@ -145,7 +145,7 @@ function validDeckHtml(): string {
   return `
     <html><head><style>
       body { margin: 0; }
-      .slide { width: 1920px; height: 1080px; }
+      .slide { min-height: 100dvh; display: flex; align-items: center; justify-content: center; }
       .slide-canvas { width: 1920px; height: 1080px; }
     </style></head><body>
       <section class="slide" slide-qa="false" data-slide-index="1">

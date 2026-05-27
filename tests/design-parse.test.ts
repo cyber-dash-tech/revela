@@ -282,6 +282,10 @@ describe("Codex design skill guidance", () => {
     expect(skill).toContain('data-preview-component="<component-name>"')
     expect(skill).toContain('data-slide-role="cover"')
     expect(skill).toContain('data-slide-role="closing"')
+    expect(skill).toContain("1920px x 1080px")
+    expect(skill).toContain("width: 1920px")
+    expect(skill).toContain("height: 1080px")
+    expect(skill).toContain("direct `.slide-canvas`")
   })
 })
 
