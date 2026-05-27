@@ -146,7 +146,7 @@ describe("inspect HTTP request lifecycle", () => {
     const workspaceRoot = tempWorkspace("revela-inspect-")
     try {
       mkdirSync(join(workspaceRoot, "decks"), { recursive: true })
-      writeFileSync(join(workspaceRoot, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><h1>Launch</h1><h2>Conversion improved 18%</h2></section>')
+      writeFileSync(join(workspaceRoot, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1><h2>Conversion improved 18%</h2></div></section>')
 
       const slug = workspaceDeckSlug(workspaceRoot)
       let state = createEmptyDecksState()

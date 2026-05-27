@@ -131,8 +131,9 @@ describe("buildEditPrompt", () => {
       suppressAutomaticArtifactQa: true,
     })
 
-    expect(prompt).toContain("Do not run artifact QA after this edit")
-    expect(prompt).toContain("The Review UI will refresh from the deck file version change")
+    expect(prompt).toContain("The Review bridge may suppress host-side post-write QA")
+    expect(prompt).toContain("Do not treat that as deck readiness")
+    expect(prompt).toContain("reported QA failures still require")
     expect(prompt).not.toContain("Artifact QA runs automatically after deck writes/patches/edits")
     expect(prompt).not.toContain("Refine opens automatically only after hard errors pass")
   })

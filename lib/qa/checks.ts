@@ -25,7 +25,7 @@ export type IssueSeverity = "error" | "warning" | "info"
 export interface LayoutIssue {
   type: "canvas" | "scrollbar" | "navigation" | "overflow" | "text_overflow" | "overlap" | "density" | "balance" | "symmetry" | "rhythm" | "compliance" | "asset"
   /** Sub-category within the dimension */
-  sub?: "size_mismatch" | "page_scroll" | "fixed_overlay_slides" | "hidden_paging" | "unreachable_slides" | "text_clipped" | "thin_content"
+  sub?: "size_mismatch" | "missing_slide_canvas" | "multiple_slide_canvas" | "page_scroll" | "fixed_overlay_slides" | "hidden_paging" | "unreachable_slides" | "text_clipped" | "thin_content"
       | "element_collision" | "major_overlap" | "possible_overlay"
       | "centroid_offset" | "bottom_gap" | "sparse"
       | "height_mismatch" | "density_mismatch"
@@ -188,6 +188,26 @@ function collectLeaves(el: ElementInfo): ElementInfo[] {
 function checkCanvas(metrics: SlideMetrics): LayoutIssue[] {
   const issues: LayoutIssue[] = []
   const tol = T.CANVAS_TOLERANCE
+  const directCanvasCount = metrics.directSlideCanvasCount ?? 1
+  if (directCanvasCount === 0) {
+    issues.push({
+      type: "canvas",
+      sub: "missing_slide_canvas",
+      severity: "error",
+      detail: "Each .slide must have a direct .slide-canvas child.",
+    })
+    return issues
+  }
+  if (directCanvasCount > 1) {
+    issues.push({
+      type: "canvas",
+      sub: "multiple_slide_canvas",
+      severity: "error",
+      detail: `Each .slide must have exactly one direct .slide-canvas child. Found ${directCanvasCount}.`,
+      data: { directSlideCanvasCount: directCanvasCount },
+    })
+  }
+
   const canvasBad = Math.abs(metrics.canvasRect.width - CANVAS_W) > tol || Math.abs(metrics.canvasRect.height - CANVAS_H) > tol
   const slideBad = Math.abs(metrics.slideRect.width - CANVAS_W) > tol || Math.abs(metrics.slideRect.height - CANVAS_H) > tol
 

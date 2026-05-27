@@ -16,6 +16,6 @@ Use this skill when the user asks to export a Revela deck.
 
 `revela_run_deck_qa`, `revela_export_pdf`, and `revela_export_pptx` may launch a browser. In sandboxed Codex sessions, request user-approved command escalation when the browser cannot start inside the default sandbox.
 
-Deck writes run post-write QA automatically. Do not run artifact QA as a pre-export blocker unless the user explicitly asks for diagnostics.
+Post-write hooks and explicit QA tools surface Artifact QA failures. If the latest visible QA result has hard errors, repair them before treating the deck as export-ready.
 
 Do not treat narrative gaps as export blockers unless they affect technical artifact validity or data safety.

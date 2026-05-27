@@ -59,7 +59,7 @@ Codex support is built as small adapter modules around existing Revela capabilit
 6. Codex hooks
    - Purpose: provide safety checks and user-visible reminders around risky file edits.
    - Main surfaces: `plugins/revela/hooks/hooks.json`, `plugins/revela/hooks/revela_guard.ts`, `plugins/revela/hooks/revela_post_write_notice.ts`.
-   - Enables: legacy deck-state edit protection and post-write QA reminders.
+   - Enables: legacy deck-state edit protection and post-write Artifact QA for deck HTML patches.
    - Does not own: primary workflow execution, narrative authoring, or automatic artifact repair.
 
 7. Assets and install surface
@@ -98,7 +98,7 @@ Codex support is built as small adapter modules around existing Revela capabilit
    - Expose it through `revela mcp`; bundle a plugin `.mcp.json` wrapper for local plugin installs.
 
 6. Codex hooks as safety nets
-   - Add plugin hooks for direct `DECKS.json` edits and QA reminders.
+   - Add plugin hooks for direct `DECKS.json` edits and Artifact QA.
    - Treat hooks as defense-in-depth, not the primary workflow engine.
 
 7. Validation and smoke docs

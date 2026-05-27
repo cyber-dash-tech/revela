@@ -242,7 +242,7 @@ describe("openRefineDeck", () => {
 
   it("opens an explicit deck path even when multiple deck files exist", () => {
     const root = workspace()
-    writeFileSync(join(root, "decks", "active.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Active</h2></section></body></html>", "utf-8")
+    writeFileSync(join(root, "decks", "active.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><div class=\"slide-canvas\"><h2>Active</h2></div></section></body></html>", "utf-8")
     writeFileSync(join(root, "decks", "other.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Other</h2></section></body></html>", "utf-8")
     const slug = workspaceDeckSlug(root)
     let state = createEmptyDecksState()
@@ -298,7 +298,7 @@ describe("openRefineDeck", () => {
 
   it("opens a partial active deck when slide identity is self-consistent", () => {
     const root = workspace()
-    writeFileSync(join(root, "decks", "active.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Active</h2></section></body></html>", "utf-8")
+    writeFileSync(join(root, "decks", "active.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><div class=\"slide-canvas\"><h2>Active</h2></div></section></body></html>", "utf-8")
     const slug = workspaceDeckSlug(root)
     let state = createEmptyDecksState()
     state = upsertDeck(state, { slug, goal: "Refine partial", outputPath: "decks/active.html" })
@@ -447,7 +447,7 @@ describe("refine HTTP visual edit lifecycle", () => {
 describe("refine HTTP inspect lifecycle", () => {
   it("returns deterministic preprocess before the generated inspection completes", async () => {
     const root = workspace()
-    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><h1>Launch</h1><h2>Conversion improved 18%</h2></section>', "utf-8")
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1><h2>Conversion improved 18%</h2></div></section>', "utf-8")
     const slug = workspaceDeckSlug(root)
     let state = createEmptyDecksState()
     state = upsertDeck(state, {
@@ -809,7 +809,8 @@ describe("refine HTTP inspect lifecycle", () => {
     })
     expect(captured.prompt).toContain("Target file: decks/demo.html")
     expect(captured.prompt).toContain("Make the title smaller.")
-    expect(captured.prompt).toContain("Do not run artifact QA after this edit")
+    expect(captured.prompt).toContain("The Review bridge may suppress host-side post-write QA")
+    expect(captured.prompt).toContain("Do not treat that as deck readiness")
     expect(captured.prompt).not.toContain("Artifact QA runs automatically after deck writes/patches/edits")
   })
 
@@ -1042,7 +1043,7 @@ describe("refine HTTP inspect lifecycle", () => {
 describe("refine asset APIs", () => {
   it("saves remote image candidates and immediately lists them as local assets", async () => {
     const root = workspace()
-    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><h1>Launch</h1></section>', "utf-8")
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
     const originalFetch = globalThis.fetch
     globalThis.fetch = mockFetchWith(originalFetch, (url, init) => {
       const value = typeof url === "string"
@@ -1121,7 +1122,7 @@ describe("refine asset APIs", () => {
 
   it("falls back to thumbnailUrl when the candidate imageUrl cannot be downloaded", async () => {
     const root = workspace()
-    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><h1>Launch</h1></section>', "utf-8")
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
     const originalFetch = globalThis.fetch
     const thumbnailUrl = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Dallas_Fuel_Fans_at_Esports_Stadium_Arlington.jpg/330px-Dallas_Fuel_Fans_at_Esports_Stadium_Arlington.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
     globalThis.fetch = mockFetchWith(originalFetch, (url, init) => {
@@ -1204,7 +1205,7 @@ describe("refine asset APIs", () => {
 
   it("rejects failed remote asset downloads instead of reporting saved", async () => {
     const root = workspace()
-    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><h1>Launch</h1></section>', "utf-8")
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
     const originalFetch = globalThis.fetch
     globalThis.fetch = Object.assign(
       async (url: URL | RequestInfo, init?: RequestInit) => {
@@ -1253,7 +1254,7 @@ describe("refine asset APIs", () => {
 
   it("lists saved workspace assets with preview and deck-relative paths", async () => {
     const root = workspace()
-    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><h1>Launch</h1></section>', "utf-8")
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
     mkdirSync(join(root, "assets", workspaceDeckSlug(root), "media"), { recursive: true })
     writeFileSync(join(root, "assets", workspaceDeckSlug(root), "media", "acme-logo.png"), new Uint8Array([1, 2, 3]))
     writeFileSync(join(root, "assets", workspaceDeckSlug(root), "media-manifest.json"), JSON.stringify({

@@ -61,7 +61,7 @@ export function buildEditPrompt(payload: EditCommentPayload): string {
     drop: payload.drop,
   }
   const qaInstruction = payload.suppressAutomaticArtifactQa
-    ? `- Do not run artifact QA after this edit and do not keep editing just to satisfy post-write QA. The Review UI will refresh from the deck file version change; QA can be run later through an explicit Review, QA, or export workflow.`
+    ? `- The Review bridge may suppress host-side post-write QA for this specific Apply Fix request. Do not treat that as deck readiness; any reported QA failures still require the smallest targeted repair before review or export readiness.`
     : `- Artifact QA runs automatically after deck writes/patches/edits. It checks deck HTML contract, design component compliance, exact 1920x1080 slide geometry, scrollbars, element overflow, text clipping, and claim/evidence content-density warnings.
 - If the tool result reports hard QA errors, fix them with the smallest targeted patch and let the post-write QA run again. Refine opens automatically only after hard errors pass; warnings such as thin claim/evidence substance do not block opening.`
 

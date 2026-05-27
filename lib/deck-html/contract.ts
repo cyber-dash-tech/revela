@@ -16,6 +16,9 @@ export type DeckHtmlContractIssueType =
   | "duplicate_data_slide_index"
   | "slide_index_order"
   | "legacy_data_index_noncanonical"
+  | "missing_slide_canvas"
+  | "multiple_slide_canvas"
+  | "slide_canvas_not_direct_child"
 
 export interface DeckHtmlContractIssue {
   type: DeckHtmlContractIssueType
@@ -43,6 +46,8 @@ interface SlideSectionAttrs {
   position: number
   dataSlideIndex?: string
   dataIndex?: string
+  directSlideCanvasCount: number
+  descendantSlideCanvasCount: number
 }
 
 export function validateDeckHtmlContract(workspaceRoot: string, filePath: string): DeckHtmlContractReport {
@@ -111,6 +116,26 @@ export function validateDeckHtmlContract(workspaceRoot: string, filePath: string
   let previousIndex = 0
   sections.forEach((section, offset) => {
     const expectedIndex = base.expectedIndexes[offset]
+    if (section.directSlideCanvasCount === 0) {
+      base.issues.push({
+        type: section.descendantSlideCanvasCount > 0 ? "slide_canvas_not_direct_child" : "missing_slide_canvas",
+        severity: "error",
+        message: section.descendantSlideCanvasCount > 0
+          ? `Slide ${section.position} has .slide-canvas, but it must be a direct child of the .slide section.`
+          : `Slide ${section.position} is missing a direct .slide-canvas child.`,
+        slidePosition: section.position,
+        expectedIndex,
+      })
+    } else if (section.directSlideCanvasCount > 1) {
+      base.issues.push({
+        type: "multiple_slide_canvas",
+        severity: "error",
+        message: `Slide ${section.position} has ${section.directSlideCanvasCount} direct .slide-canvas children; expected exactly one.`,
+        slidePosition: section.position,
+        expectedIndex,
+      })
+    }
+
     if (section.dataIndex !== undefined) {
       base.warnings.push({
         type: "legacy_data_index_noncanonical",
@@ -217,18 +242,60 @@ export function formatDeckHtmlContractReport(report: DeckHtmlContractReport): st
 
 function extractSlideSections(html: string): SlideSectionAttrs[] {
   const sections: SlideSectionAttrs[] = []
-  const sectionTagPattern = /<section\b([^>]*)>/gi
+  const sectionPattern = /<section\b([^>]*)>([\s\S]*?)<\/section>/gi
   let match: RegExpExecArray | null
-  while ((match = sectionTagPattern.exec(html))) {
+  while ((match = sectionPattern.exec(html))) {
     const attrs = match[1] ?? ""
     if (!/\bclass\s*=\s*(["'])[^"']*\bslide\b[^"']*\1/i.test(attrs)) continue
+    const body = match[2] ?? ""
+    const directSlideCanvasCount = countDirectSlideCanvasChildren(body)
+    const descendantSlideCanvasCount = countSlideCanvasDescendants(body)
     sections.push({
       position: sections.length + 1,
       dataSlideIndex: readAttr(attrs, "data-slide-index"),
       dataIndex: readAttr(attrs, "data-index"),
+      directSlideCanvasCount,
+      descendantSlideCanvasCount,
     })
   }
   return sections
+}
+
+function countSlideCanvasDescendants(html: string): number {
+  const pattern = /<([a-z][\w:-]*)\b([^>]*)>/gi
+  let count = 0
+  let match: RegExpExecArray | null
+  while ((match = pattern.exec(html))) {
+    const attrs = match[2] ?? ""
+    if (hasClass(attrs, "slide-canvas")) count++
+  }
+  return count
+}
+
+function countDirectSlideCanvasChildren(html: string): number {
+  let depth = 0
+  let count = 0
+  const pattern = /<!--[\s\S]*?-->|<\/?([a-z][\w:-]*)\b([^>]*)>/gi
+  let match: RegExpExecArray | null
+  while ((match = pattern.exec(html))) {
+    const token = match[0]
+    if (token.startsWith("<!--")) continue
+    const tag = match[1]?.toLowerCase()
+    if (!tag) continue
+    if (token.startsWith("</")) {
+      depth = Math.max(0, depth - 1)
+      continue
+    }
+    const attrs = match[2] ?? ""
+    if (depth === 0 && hasClass(attrs, "slide-canvas")) count++
+    if (!isVoidTag(tag) && !/\/\s*>$/.test(token)) depth++
+  }
+  return count
+}
+
+function hasClass(attrs: string, className: string): boolean {
+  const classAttr = readAttr(attrs, "class")
+  return classAttr?.split(/\s+/).includes(className) ?? false
 }
 
 function readAttr(attrs: string, name: string): string | undefined {
@@ -265,4 +332,23 @@ function workspaceRelative(root: string, target: string): string {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function isVoidTag(tag: string): boolean {
+  return new Set([
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr",
+  ]).has(tag)
 }

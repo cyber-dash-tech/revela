@@ -33,6 +33,7 @@ function makeMetrics(
     title?: string
     scrollbars?: ScrollbarMetrics
     navigation?: SlideNavigationMetrics
+    directSlideCanvasCount?: number
   } = {},
 ): SlideMetrics {
   const index = opts.index ?? 0
@@ -58,6 +59,7 @@ function makeMetrics(
     index,
     title,
     slideQa,
+    directSlideCanvasCount: opts.directSlideCanvasCount ?? 1,
     canvasRect: CANVAS_RECT,
     slideRect: CANVAS_RECT,
     hasScrollbars: Boolean(opts.scrollbars && Object.values(opts.scrollbars).some(Boolean)),
@@ -153,6 +155,23 @@ describe("content density", () => {
 })
 
 describe("canvas and text checks", () => {
+  it("requires a direct slide-canvas child", () => {
+    const report = runChecks("test.html", [makeMetrics({ directSlideCanvasCount: 0 })])
+    const canvas = report.slides[0].issues.find((i) => i.type === "canvas")
+
+    expect(canvas?.severity).toBe("error")
+    expect(canvas?.sub).toBe("missing_slide_canvas")
+    expect(canvas?.detail).toContain("direct .slide-canvas")
+  })
+
+  it("rejects multiple direct slide-canvas children", () => {
+    const report = runChecks("test.html", [makeMetrics({ directSlideCanvasCount: 2 })])
+    const canvas = report.slides[0].issues.find((i) => i.type === "canvas" && i.sub === "multiple_slide_canvas")
+
+    expect(canvas?.severity).toBe("error")
+    expect(canvas?.detail).toContain("exactly one")
+  })
+
   it("requires exact 1920x1080 slide and canvas dimensions", () => {
     const metrics = makeMetrics({ elements: [makeElement(makeRect(100, 100, 500, 300))] })
     metrics.canvasRect = makeRect(0, 0, 1600, 900)

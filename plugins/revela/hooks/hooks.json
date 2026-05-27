@@ -19,7 +19,7 @@
           {
             "type": "command",
             "command": "bun ${PLUGIN_ROOT}/hooks/revela_post_write_notice.ts",
-            "statusMessage": "Checking Revela QA reminders"
+            "statusMessage": "Running Revela post-write QA"
           }
         ]
       }

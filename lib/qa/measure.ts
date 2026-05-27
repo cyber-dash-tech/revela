@@ -89,6 +89,8 @@ export interface SlideMetrics {
    * Content-heavy layouts set `slide-qa="true"`; structural/sparse slides omit or use `"false"`.
    */
   slideQa: boolean
+  /** Number of direct .slide-canvas children on the .slide element. */
+  directSlideCanvasCount: number
   /** bounding box of the slide-canvas element itself (post-scale) */
   canvasRect: Rect
   /** bounding box of the .slide element itself (post-scale) */
@@ -337,8 +339,35 @@ export async function measureSlides(htmlFilePath: string): Promise<MeasurementRe
           // Read the QA flag for deck metadata; default checks do not branch on it.
           const slideQa = (slide as HTMLElement).getAttribute("slide-qa") === "true"
 
-          const canvas = slide.querySelector(".slide-canvas") as HTMLElement | null
-          if (!canvas) return null
+          const directCanvases = Array.from(slide.children).filter((child) => child.classList.contains("slide-canvas")) as HTMLElement[]
+          const canvas = directCanvases[0] ?? null
+          if (!canvas) {
+            const slideRaw = (slide as HTMLElement).getBoundingClientRect()
+            const titleEl = slide.querySelector("h1, h2")
+            const title = titleEl
+              ? (titleEl.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80)
+              : `Slide ${slideIdx + 1}`
+            const emptyRect = { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }
+            return {
+              index: slideIdx,
+              title,
+              slideQa,
+              directSlideCanvasCount: directCanvases.length,
+              canvasRect: emptyRect,
+              slideRect: {
+                left: 0,
+                top: 0,
+                right: slideRaw.width,
+                bottom: slideRaw.height,
+                width: slideRaw.width,
+                height: slideRaw.height,
+              },
+              hasScrollbars: false,
+              elements: [],
+              contentRect: emptyRect,
+              contentStats: { bodyTextPoints: 0, contentUnits: 0, supportReferences: 0 },
+            }
+          }
 
           const canvasRaw = canvas.getBoundingClientRect()
           const slideRaw = (slide as HTMLElement).getBoundingClientRect()
@@ -407,6 +436,7 @@ export async function measureSlides(htmlFilePath: string): Promise<MeasurementRe
             index: slideIdx,
             title,
             slideQa,
+            directSlideCanvasCount: directCanvases.length,
             canvasRect,
             slideRect,
             hasScrollbars,
