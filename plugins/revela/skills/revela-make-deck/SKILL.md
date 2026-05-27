@@ -23,8 +23,8 @@ Use this skill when the user asks to make, generate, or update a Revela deck.
 5. Report deck-plan diagnostics before artifact generation, including stale narrative hashes, missing slide projections, missing evidence trace, caveats, or malformed plan files.
 6. Do not start HTML generation from narrative alone unless the user explicitly asks for a throwaway diagnostic smoke deck.
 7. For new HTML files, call `revela_create_deck_foundation`.
-8. Read active design guidance with `revela_design_list` and `revela_design_read` when choosing layouts/components. If the user asks to switch designs persistently, call `revela_design_activate`; if they ask for a one-off design, read that design by name and pass `designName` to `revela_create_deck_foundation`.
-9. Patch slides into the foundation between Revela slide markers. Preserve positive 1-based `data-slide-index` values.
+8. Read active design guidance with `revela_design_list` and `revela_design_read` using `section: "rules"` before writing `decks/*.html`; fetch layouts/components/chart rules as needed. If the user asks to switch designs persistently, call `revela_design_activate`; if they ask for a one-off design, read that design by name and pass `designName` to `revela_create_deck_foundation`.
+9. Patch slides into the foundation between Revela slide markers. Preserve positive 1-based `data-slide-index` values. Every slide must use `<section class="slide" ...>` with exactly one direct `.slide-canvas` child.
 10. Generate chapter by chapter. Keep the HTML valid after each write.
 11. After every HTML write, call `revela_run_deck_qa` and repair hard errors before review or export.
 

@@ -7,7 +7,7 @@ import { DECKS_STATE_FILE } from "../lib/decks-state"
 import { seedBuiltinDesigns } from "../lib/design/designs"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
-import { bindResearchFindings, doctor, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead } from "../lib/runtime"
+import { bindResearchFindings, checkDesignRulesReadiness, designRead, doctor, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead } from "../lib/runtime"
 import { stopRefineServer } from "../lib/refine/server"
 import pkg from "../package.json"
 import { tempWorkspace } from "./helpers/tool-helpers"
@@ -302,6 +302,19 @@ sources:
     expect(JSON.parse(domainUse.stdout)).toMatchObject({ ok: true, activeDomain: "general" })
     expect(domainList.status).toBe(0)
     expect(JSON.parse(domainList.stdout)).toMatchObject({ ok: true, activeDomain: "general" })
+  })
+
+  it("reads design rules sections and records Codex deck-write hook context", () => {
+    const root = tempWorkspace("revela-runtime-design-rules-")
+
+    const result = designRead({ workspaceRoot: root, section: "rules" })
+    const readiness = checkDesignRulesReadiness({ workspaceRoot: root })
+
+    expect(result).toMatchObject({ ok: true, section: "rules" })
+    expect(result.markdown).toContain("Canonical slide canvas")
+    expect(result.markdown).not.toContain("@design:foundation:start")
+    expect(readiness).toMatchObject({ ok: true, activeDesign: result.name })
+    expect(existsSync(join(root, ".opencode", "revela", "codex-hooks", "design-rules-read.json"))).toBe(true)
   })
 
   it("opens a Codex-backed Review server by default without creating compatibility state", async () => {

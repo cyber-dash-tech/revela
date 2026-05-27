@@ -105,7 +105,11 @@ const tools = [
   {
     name: "revela_design_read",
     description: "Read Revela design instructions for the active or requested design.",
-    inputSchema: objectSchema({ name: stringProp("Optional design name.") }),
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root. Used to record deck-write hook context when section is rules."),
+      name: stringProp("Optional design name."),
+      section: stringProp("Optional design section, such as rules, foundation, or chart-rules."),
+    }),
   },
   {
     name: "revela_design_activate",

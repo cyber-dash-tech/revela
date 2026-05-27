@@ -1,6 +1,7 @@
-import { existsSync } from "fs"
-import { resolve } from "path"
-import { activeDesign, activateDesign, getDesignSkillMd, listDesigns, seedBuiltinDesigns } from "../design/designs"
+import { createHash } from "crypto"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
+import { dirname, resolve } from "path"
+import { activeDesign, activateDesign, getDesignSection, getDesignSkillMd, listDesigns, seedBuiltinDesigns } from "../design/designs"
 import { createDeckFoundation as createDeckFoundationShell } from "../deck-html/foundation"
 import { activeDomain, activateDomain, getDomainSkillMd, listDomains, seedBuiltinDomains } from "../domain/domains"
 import { computeNarrativeHash } from "../narrative-state/hash"
@@ -32,7 +33,9 @@ export interface RuntimeDeckFoundationInput extends RuntimeWorkspaceInput {
 }
 
 export interface RuntimeDesignReadInput {
+  workspaceRoot?: string
   name?: string
+  section?: string
 }
 
 export interface RuntimeNameInput {
@@ -166,11 +169,82 @@ export function designList() {
 export function designRead(input: RuntimeDesignReadInput = {}) {
   seedBuiltinDesigns()
   const name = input.name || activeDesign()
+  if (input.section) {
+    const markdown = getDesignSection(input.section, name)
+    const result = {
+      ok: true,
+      name,
+      section: input.section,
+      markdown,
+    }
+    if (input.section === "rules") recordDesignRulesRead(root(input.workspaceRoot), name, markdown)
+    return result
+  }
   return {
     ok: true,
     name,
     markdown: getDesignSkillMd(name),
   }
+}
+
+export interface DesignRulesReadinessResult {
+  ok: boolean
+  activeDesign: string
+  markerPath: string
+  reason?: string
+}
+
+const DESIGN_RULES_MARKER_TTL_MS = 8 * 60 * 60 * 1000
+
+export function checkDesignRulesReadiness(input: RuntimeWorkspaceInput = {}): DesignRulesReadinessResult {
+  seedBuiltinDesigns()
+  const workspaceRoot = root(input.workspaceRoot)
+  const design = activeDesign()
+  const rules = getDesignSection("rules", design)
+  const markerPath = designRulesMarkerPath(workspaceRoot)
+  if (!existsSync(markerPath)) {
+    return { ok: false, activeDesign: design, markerPath, reason: "Design rules have not been read for this workspace." }
+  }
+
+  let marker: any
+  try {
+    marker = JSON.parse(readFileSync(markerPath, "utf-8"))
+  } catch {
+    return { ok: false, activeDesign: design, markerPath, reason: "Design rules marker is unreadable." }
+  }
+
+  if (marker.designName !== design) {
+    return { ok: false, activeDesign: design, markerPath, reason: `Design rules marker is for '${marker.designName ?? "unknown"}', but active design is '${design}'.` }
+  }
+  if (marker.rulesHash !== hashDesignRules(rules)) {
+    return { ok: false, activeDesign: design, markerPath, reason: "Design rules marker is stale for the current active design rules." }
+  }
+  if (typeof marker.readAt !== "string" || Number.isNaN(Date.parse(marker.readAt))) {
+    return { ok: false, activeDesign: design, markerPath, reason: "Design rules marker is missing a valid read timestamp." }
+  }
+  if (Date.now() - Date.parse(marker.readAt) > DESIGN_RULES_MARKER_TTL_MS) {
+    return { ok: false, activeDesign: design, markerPath, reason: "Design rules marker is older than 8 hours." }
+  }
+
+  return { ok: true, activeDesign: design, markerPath }
+}
+
+function recordDesignRulesRead(workspaceRoot: string, designName: string, rules: string): void {
+  const markerPath = designRulesMarkerPath(workspaceRoot)
+  mkdirSync(dirname(markerPath), { recursive: true })
+  writeFileSync(markerPath, JSON.stringify({
+    designName,
+    rulesHash: hashDesignRules(rules),
+    readAt: new Date().toISOString(),
+  }, null, 2) + "\n", "utf-8")
+}
+
+function designRulesMarkerPath(workspaceRoot: string): string {
+  return resolve(workspaceRoot, ".opencode", "revela", "codex-hooks", "design-rules-read.json")
+}
+
+function hashDesignRules(rules: string): string {
+  return createHash("sha256").update(rules).digest("hex")
 }
 
 export function designActivate(input: RuntimeNameInput) {

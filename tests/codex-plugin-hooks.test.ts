@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test"
 import { mkdirSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
+import { designRead } from "../lib/runtime"
+import { extractDeckHtmlPatchTargets, runPreWriteChecks } from "../plugins/revela/hooks/revela_guard"
 import { extractDeckHtmlTargets, runPostWriteChecks, workspaceRootFromInput } from "../plugins/revela/hooks/revela_post_write_notice"
 import { tempWorkspace } from "./helpers/tool-helpers"
 
@@ -13,6 +15,16 @@ describe("Codex plugin hooks", () => {
 *** End Patch`)
 
     expect(targets).toEqual(["decks/demo.html"])
+  })
+
+  it("extracts deck HTML targets only from patch file headers for pre-write checks", () => {
+    expect(extractDeckHtmlPatchTargets(`*** Begin Patch
+*** Update File: docs/guide.md
+@@
++Mention decks/demo.html in prose.
+*** End Patch`)).toEqual([])
+
+    expect(extractDeckHtmlPatchTargets(hookPayload("/tmp/revela-demo", "decks/demo.html"))).toEqual(["decks/demo.html"])
   })
 
   it("reads workspace root from JSON hook payloads", () => {
@@ -59,6 +71,59 @@ describe("Codex plugin hooks", () => {
 
     expect(result.ok).toBe(true)
     expect(result.messages.join("\n")).toContain("Revela narrative Markdown changed")
+  })
+
+  it("blocks deck patches until active design rules are read", async () => {
+    const root = workspace()
+    try {
+      const result = await runPreWriteChecks(hookPayload(root, "decks/demo.html"))
+
+      expect(result.ok).toBe(false)
+      expect(result.messages.join("\n")).toContain("active design rules must be loaded")
+      expect(result.messages.join("\n")).toContain('section: "rules"')
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it("allows deck patches after active design rules are read", async () => {
+    const root = workspace()
+    try {
+      designRead({ workspaceRoot: root, section: "rules" })
+
+      const result = await runPreWriteChecks(hookPayload(root, "decks/demo.html"))
+
+      expect(result.ok).toBe(true)
+      expect(result.messages).toEqual([])
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it("blocks deck patches when the design rules marker is stale or mismatched", async () => {
+    const root = workspace()
+    try {
+      mkdirSync(join(root, ".opencode", "revela", "codex-hooks"), { recursive: true })
+      writeFileSync(join(root, ".opencode", "revela", "codex-hooks", "design-rules-read.json"), JSON.stringify({
+        designName: "not-the-active-design",
+        rulesHash: "stale",
+        readAt: new Date().toISOString(),
+      }), "utf-8")
+
+      const result = await runPreWriteChecks(hookPayload(root, "decks/demo.html"))
+
+      expect(result.ok).toBe(false)
+      expect(result.messages.join("\n")).toContain("active design")
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it("does not require design rules for non-deck patches", async () => {
+    const result = await runPreWriteChecks("*** Update File: notes/readme.md")
+
+    expect(result.ok).toBe(true)
+    expect(result.messages).toEqual([])
   })
 })
 

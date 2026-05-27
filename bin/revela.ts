@@ -89,7 +89,7 @@ Usage:
   revela export-pdf --file <path> [--workspaceRoot <path>]  # deck PDF, or single-page PDF fallback for non-deck HTML
   revela export-pptx --file <path> [--workspaceRoot <path>]
   revela design-list
-  revela design-read [--name <design>]
+  revela design-read [--name <design>] [--section <rules|foundation|chart-rules>] [--workspaceRoot <path>]
   revela design-use --name <design>
   revela domain-list
   revela domain-read [--name <domain>]

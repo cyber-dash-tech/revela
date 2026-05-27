@@ -17,7 +17,7 @@ Use this skill when the user asks to review, inspect, diagnose, or refine a gene
 6. Do not call `revela_run_deck_qa`, `revela_compile_narrative`, or `revela_read_deck_plan` separately for a normal Review UI open.
 7. Call `revela_run_deck_qa` separately only for focused low-level artifact QA, after a repair, or when the user explicitly asks for QA detail.
 8. Separate technical blockers from narrative/evidence diagnostics.
-9. Pure visual/layout/export fixes may patch artifacts directly when the user asks for a change. Meaning changes must update `revela-narrative/` first.
+9. Pure visual/layout/export fixes may patch artifacts directly when the user asks for a change, but read active design rules first with `revela_design_read` using `section: "rules"`. Meaning changes must update `revela-narrative/` first.
 
 ## Generated Visual Assets
 
@@ -34,6 +34,7 @@ Use this skill when the user asks to review, inspect, diagnose, or refine a gene
 - `revela_review_deck_open` opens the local Review server from the MCP process and uses the Codex `codex-exec` bridge for Insight and Comment/Apply Fix. It returns URL/token/open state and basic file metadata, not aggregate diagnostics.
 - `revela_run_deck_qa` may need browser-launch permission in Codex sandboxed sessions.
 - Repair hard QA errors before treating a deck as review-ready.
+- Deck slides must use `<section class="slide" ...>` with exactly one direct `.slide-canvas` child; missing, nested, or duplicate slide canvases are hard artifact failures.
 - Text clipping should usually be fixed with typography and spacing changes, not by deleting evidence or changing claim meaning.
 - A warning that a smoke/development artifact is not the active legacy deck target is non-blocking when the requested file passes hard artifact checks.
 

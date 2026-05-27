@@ -105,6 +105,19 @@ describe("parseDesignSections", () => {
     }
   })
 
+  it("keeps the canonical slide-canvas contract in built-in rules sections", () => {
+    for (const designName of ["starter", "summit", "monet"]) {
+      const design = readFileSync(join(process.cwd(), "designs", designName, "DESIGN.md"), "utf-8")
+      const { sections } = parseDesignSections(design)
+
+      expect(sections.rules).toContain("Canonical slide canvas")
+      expect(sections.rules).toContain('class="slide"')
+      expect(sections.rules).toContain("direct child `.slide-canvas`")
+      expect(sections.rules).toContain("1920px x 1080px")
+      expect(sections.rules).toContain("fail Artifact QA")
+    }
+  })
+
   it("keeps design-specific icon and chart defaults out of the generic deck skill", () => {
     const skill = readFileSync(join(process.cwd(), "skill", "SKILL.md"), "utf-8")
 
