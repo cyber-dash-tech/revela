@@ -2,7 +2,7 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-05-26 for 0.17.17 slide-as-canvas PDF export hotfix.
+> Last updated: 2026-05-27 for 0.17.18 Codex design creation workflow.
 
 ## Product Baseline
 
@@ -12,7 +12,7 @@ Product promise:
 
 **Turn source materials, research, data, and user intent into trusted, traceable, presentation-ready decision artifacts.**
 
-Current baseline: `0.17.17 release baseline`.
+Current baseline: `0.17.18 release baseline`.
 
 User-facing workflow:
 
@@ -195,7 +195,8 @@ Structured helper role:
 - Story is a focused read-only claim/evidence/gap reading surface backed by canonical narrative state.
 - Research can derive targets, evaluate findings, save findings, and bind safe evidence through vault helpers while preserving evidence boundaries.
 - Make/Review/Export are file-native: deck-plan projection guides rendering when present, deck HTML is validated by artifact contract/QA, Review asset state is saved, and PDF/PPTX export remains supported.
-- Design-aware deck rendering fetches active design rules before layouts/components; built-in designs own Lucide, ECharts, chart rules, and foundation-first guidance.
+- Design-aware deck rendering fetches active design rules before layouts/components; built-in designs own Lucide, ECharts, chart rules, and foundation-first guidance. Codex deck patches require a recent active-design rules read before writing deck HTML.
+- Codex can create and validate local design packages through runtime/MCP design create/validate tools, with natural-language Quick Start guidance for custom design creation.
 - The 0.17.10 hotfix keeps Codex MCP basic tools usable from Git marketplace clones without installed package dependencies; browser/export-heavy tools load their dependencies only when invoked.
 - The 0.17.11 hotfix launches Codex Review Comment/Apply Fix through `codex exec --sandbox workspace-write` while keeping Insight read-only, and reports read-only sandbox write blocks as Review bridge failures instead of completed comments.
 - The 0.17.12 hotfix adds `--skip-git-repo-check` to Codex Review `codex exec` calls so Review UI Insight and Apply Fix work in ordinary non-Git deck folders.
@@ -203,6 +204,7 @@ Structured helper role:
 - The 0.17.14 hotfix refreshes Review UI visual target metadata after direct visual edits, so resizing the same element repeatedly no longer fails stale target validation.
 - The 0.17.15 hotfix reports the running Revela npm package version from `revela doctor` and the Codex MCP `revela_doctor` tool.
 - The 0.17.17 hotfix exports slide-as-canvas decks to PDF by clipping each `.slide` when `.slide-canvas` is absent, while keeping `.slide-canvas` as the canonical deck structure.
+- The 0.17.18 release adds Codex design creation/validation workflow support, Codex deck-write design-rules guard coverage, and Quick Start guidance for natural-language custom design creation.
 
 ## Wikilink-First Vault Graph
 
