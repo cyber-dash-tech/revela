@@ -39,11 +39,17 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("revela_design_activate")
     expect(text.stdout).toContain("revela_design_create")
     expect(text.stdout).toContain("revela_design_validate")
+    expect(text.stdout).toContain("revela_design_draft_create")
+    expect(text.stdout).toContain("revela_design_draft_validate")
+    expect(text.stdout).toContain("revela_design_draft_install")
     expect(text.stdout).toContain("revela_domain_list")
     expect(text.stdout).toContain("revela_domain_read")
     expect(text.stdout).toContain("revela_domain_activate")
     expect(text.stdout).toContain("revela_domain_create")
     expect(text.stdout).toContain("revela_domain_validate")
+    expect(text.stdout).toContain("revela_domain_draft_create")
+    expect(text.stdout).toContain("revela_domain_draft_validate")
+    expect(text.stdout).toContain("revela_domain_draft_install")
   })
 
   it("reports the package version through the doctor tool", async () => {
@@ -358,6 +364,61 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("test-card")
   })
 
+  it("creates, validates, and installs design drafts through MCP tools", async () => {
+    const home = tempWorkspace("revela-mcp-design-draft-home-")
+    const root = tempWorkspace("revela-mcp-design-draft-workspace-")
+    const name = `mcp-draft-design-${Date.now()}`
+    const child = spawn("bun", [serverPath], {
+      env: { ...process.env, HOME: home },
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "revela_design_draft_create",
+        arguments: {
+          workspaceRoot: root,
+          name,
+          base: "starter",
+          designMd: validDesignMd(name),
+          previewHtml: validPreviewHtml(),
+        },
+      },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "revela_design_draft_validate", arguments: { workspaceRoot: root, name } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "revela_design_draft_install", arguments: { workspaceRoot: root, name } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: { name: "revela_design_read", arguments: { name } },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":5") && item.stdout.includes("test-layout"))
+    child.kill()
+
+    expect(text.stdout).toContain("\\\"ok\\\": true")
+    expect(text.stdout).toContain(".revela/drafts/designs")
+    expect(text.stdout).toContain("\\\"sourcePath\\\"")
+    expect(text.stdout).toContain("test-layout")
+  })
+
   it("creates and validates domain packages through MCP tools", async () => {
     const home = tempWorkspace("revela-mcp-domain-create-home-")
     const name = `mcp-domain-${Date.now()}`
@@ -407,6 +468,66 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("\\\"files\\\":")
     expect(text.stdout).toContain("INDUSTRY.md")
     expect(text.stdout).toContain("\\\"hasIndustryMd\\\": true")
+    expect(text.stdout).toContain("MCP domain guidance")
+    expect(text.stdout).toContain("\\\"activeDomain\\\": \\\"general\\\"")
+  })
+
+  it("creates, validates, and installs domain drafts through MCP tools", async () => {
+    const home = tempWorkspace("revela-mcp-domain-draft-home-")
+    const root = tempWorkspace("revela-mcp-domain-draft-workspace-")
+    const name = `mcp-draft-domain-${Date.now()}`
+    const child = spawn("bun", [serverPath], {
+      env: { ...process.env, HOME: home },
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "revela_domain_draft_create",
+        arguments: {
+          workspaceRoot: root,
+          name,
+          domainMd: validDomainMd(name),
+        },
+      },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "revela_domain_draft_validate", arguments: { workspaceRoot: root, name } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "revela_domain_draft_install", arguments: { workspaceRoot: root, name } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: { name: "revela_domain_read", arguments: { name } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 6,
+      method: "tools/call",
+      params: { name: "revela_domain_list", arguments: {} },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":6") && item.stdout.includes(name))
+    child.kill()
+
+    expect(text.stdout).toContain("\\\"ok\\\": true")
+    expect(text.stdout).toContain(".revela/drafts/domains")
+    expect(text.stdout).toContain("\\\"sourcePath\\\"")
     expect(text.stdout).toContain("MCP domain guidance")
     expect(text.stdout).toContain("\\\"activeDomain\\\": \\\"general\\\"")
   })

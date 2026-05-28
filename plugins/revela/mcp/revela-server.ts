@@ -22,11 +22,17 @@ type RuntimeModule = {
   designActivate(input: any): any
   designCreate(input: any): any
   designValidate(input: any): any
+  designDraftCreate(input: any): any
+  designDraftValidate(input: any): any
+  designDraftInstall(input: any): any
   domainList(): any
   domainRead(input?: any): any
   domainActivate(input: any): any
   domainCreate(input: any): any
   domainValidate(input: any): any
+  domainDraftCreate(input: any): any
+  domainDraftValidate(input: any): any
+  domainDraftInstall(input: any): any
   storyRead(input?: any): any
   reviewDeckRead(input: any): Promise<any>
   reviewDeckOpen(input: any): Promise<any>
@@ -137,6 +143,35 @@ const tools = [
     inputSchema: objectSchema({ name: requiredStringProp("Design name to validate.") }, ["name"]),
   },
   {
+    name: "revela_design_draft_create",
+    description: "Create and validate a workspace-local Revela design draft package.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      name: requiredStringProp("Design name in kebab-case."),
+      base: stringProp("Optional base design used as structural scaffold."),
+      designMd: requiredStringProp("Complete DESIGN.md content."),
+      previewHtml: requiredStringProp("Complete preview.html content."),
+      overwrite: booleanProp("Whether to replace an existing workspace draft. Defaults to false."),
+    }, ["name", "designMd", "previewHtml"]),
+  },
+  {
+    name: "revela_design_draft_validate",
+    description: "Validate a workspace-local Revela design draft package.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      name: requiredStringProp("Design draft name to validate."),
+    }, ["name"]),
+  },
+  {
+    name: "revela_design_draft_install",
+    description: "Install a validated workspace-local Revela design draft into the user-level design registry.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      name: requiredStringProp("Design draft name to install."),
+      overwrite: booleanProp("Whether to replace an existing user-level design package. Defaults to false."),
+    }, ["name"]),
+  },
+  {
     name: "revela_domain_list",
     description: "List installed Revela narrative domains and the active domain.",
     inputSchema: objectSchema({}),
@@ -164,6 +199,33 @@ const tools = [
     name: "revela_domain_validate",
     description: "Validate a local Revela narrative domain package.",
     inputSchema: objectSchema({ name: requiredStringProp("Domain name to validate.") }, ["name"]),
+  },
+  {
+    name: "revela_domain_draft_create",
+    description: "Create and validate a workspace-local Revela narrative domain draft package.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      name: requiredStringProp("Domain name in kebab-case."),
+      domainMd: requiredStringProp("Complete INDUSTRY.md content."),
+      overwrite: booleanProp("Whether to replace an existing workspace draft. Defaults to false."),
+    }, ["name", "domainMd"]),
+  },
+  {
+    name: "revela_domain_draft_validate",
+    description: "Validate a workspace-local Revela narrative domain draft package.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      name: requiredStringProp("Domain draft name to validate."),
+    }, ["name"]),
+  },
+  {
+    name: "revela_domain_draft_install",
+    description: "Install a validated workspace-local Revela narrative domain draft into the user-level domain registry.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      name: requiredStringProp("Domain draft name to install."),
+      overwrite: booleanProp("Whether to replace an existing user-level domain package. Defaults to false."),
+    }, ["name"]),
   },
   {
     name: "revela_story_read",
@@ -294,11 +356,17 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_design_activate") return r.designActivate(args)
   if (name === "revela_design_create") return r.designCreate(args)
   if (name === "revela_design_validate") return r.designValidate(args)
+  if (name === "revela_design_draft_create") return r.designDraftCreate(args)
+  if (name === "revela_design_draft_validate") return r.designDraftValidate(args)
+  if (name === "revela_design_draft_install") return r.designDraftInstall(args)
   if (name === "revela_domain_list") return r.domainList()
   if (name === "revela_domain_read") return r.domainRead(args)
   if (name === "revela_domain_activate") return r.domainActivate(args)
   if (name === "revela_domain_create") return r.domainCreate(args)
   if (name === "revela_domain_validate") return r.domainValidate(args)
+  if (name === "revela_domain_draft_create") return r.domainDraftCreate(args)
+  if (name === "revela_domain_draft_validate") return r.domainDraftValidate(args)
+  if (name === "revela_domain_draft_install") return r.domainDraftInstall(args)
   if (name === "revela_story_read") return r.storyRead(args)
   if (name === "revela_review_deck_read") return r.reviewDeckRead(args)
   if (name === "revela_review_deck_open") return r.reviewDeckOpen(args)

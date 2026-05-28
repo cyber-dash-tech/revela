@@ -21,8 +21,10 @@ Domain changes are narrative-framing preferences. They do not rewrite existing c
 
 When the user asks to create a new domain, interview the user before saving anything. Collect the communication context, typical audience, decisions, claim patterns, evidence expectations, common objections, risks, research-gap heuristics, terminology to use, and terminology to avoid. Summarize the domain brief, then wait for the user to confirm before creating files.
 
-After confirmation, generate complete `INDUSTRY.md` content and call `revela_domain_create`. For edits to an existing domain, read the existing domain first, preserve useful guidance, and call `revela_domain_create` with `overwrite: true` only after the user confirms the edit brief. Always call `revela_domain_validate` after creation or overwrite.
+After confirmation, generate complete `INDUSTRY.md` content and call `revela_domain_draft_create` to save a workspace-local draft under `.revela/drafts/domains/<name>/`. Always call `revela_domain_draft_validate` after draft creation or overwrite.
+
+Install the draft globally only after the user confirms the validated draft should be installed. Call `revela_domain_draft_install` to copy the draft into the user-level domain registry. If a user-level domain already exists, pass `overwrite: true` only after the user confirms replacement. In sandboxed Codex sessions, the install step may require permission to write Revela user config under `~/.config/revela`.
 
 `INDUSTRY.md` must include frontmatter with `name`, `description`, `author`, and `version`, followed by concrete narrative guidance for audience framing, decision framing, claim standards, evidence expectations, objection/risk handling, and research-gap interpretation.
 
-Do not automatically activate a newly created domain. Report the saved path and tell the user they can activate it with `revela_domain_activate`.
+Do not automatically activate a newly installed domain. Report the draft path, installed path when installed, and tell the user they can activate it with `revela_domain_activate`.

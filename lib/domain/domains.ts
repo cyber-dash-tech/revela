@@ -22,7 +22,7 @@ import {
   statSync,
   writeFileSync,
 } from "fs"
-import { join, resolve, basename } from "path"
+import { dirname, join, resolve, basename } from "path"
 import { tmpdir } from "os"
 import { parseFrontmatter } from "../frontmatter"
 import {
@@ -55,12 +55,26 @@ export interface CreateDomainPackageArgs {
   overwrite?: boolean
 }
 
+export interface CreateDomainDraftArgs extends CreateDomainPackageArgs {
+  workspaceRoot: string
+}
+
 export interface CreateDomainPackageResult {
   ok: true
   name: string
   path: string
   files: string[]
   overwritten: boolean
+}
+
+export interface InstallDomainDraftArgs {
+  workspaceRoot: string
+  name: string
+  overwrite?: boolean
+}
+
+export interface InstallDomainDraftResult extends CreateDomainPackageResult {
+  sourcePath: string
 }
 
 export interface ValidateDomainPackageResult {
@@ -215,8 +229,98 @@ export function createDomainPackage(args: CreateDomainPackageArgs): CreateDomain
   }
 }
 
+/** Create a project-local domain draft under .revela/drafts/domains/<name>/. */
+export function createDomainDraftPackage(args: CreateDomainDraftArgs): CreateDomainPackageResult {
+  const name = normalizeDomainName(args.name)
+  const domainMd = args.domainMd?.trim()
+
+  if (!domainMd) throw new Error("domainMd is required")
+
+  const target = domainDraftDir(args.workspaceRoot, name)
+  const existed = existsSync(target)
+  if (existed && !args.overwrite) {
+    throw new Error(`Domain draft '${name}' already exists. Pass overwrite=true to replace it.`)
+  }
+
+  mkdirSync(dirname(target), { recursive: true })
+  if (existed) {
+    rmSync(target, { recursive: true, force: true })
+  }
+  mkdirSync(target, { recursive: true })
+  writeFileSync(join(target, DOMAIN_FILE), `${domainMd}\n`, "utf-8")
+
+  const validation = validateDomainDraftPackage(args.workspaceRoot, name)
+  if (!validation.ok) {
+    throw new Error(`Created domain draft is invalid: ${validation.errors.join("; ")}`)
+  }
+
+  return {
+    ok: true,
+    name,
+    path: target,
+    files: [DOMAIN_FILE],
+    overwritten: existed,
+  }
+}
+
+/** Validate a project-local domain draft. */
+export function validateDomainDraftPackage(workspaceRoot: string, nameInput: string): ValidateDomainPackageResult {
+  let name = nameInput
+  try {
+    name = normalizeDomainName(nameInput)
+  } catch {
+    // validateDomainPackageAt records the invalid-name error.
+  }
+  return validateDomainPackageAt(nameInput, domainDraftDir(workspaceRoot, name))
+}
+
+/** Install a validated project-local domain draft into the user-level domain registry. */
+export function installDomainDraftPackage(args: InstallDomainDraftArgs): InstallDomainDraftResult {
+  const name = normalizeDomainName(args.name)
+  const sourcePath = domainDraftDir(args.workspaceRoot, name)
+  const validation = validateDomainDraftPackage(args.workspaceRoot, name)
+  if (!validation.ok) {
+    throw new Error(`Domain draft is invalid: ${validation.errors.join("; ")}`)
+  }
+
+  const target = join(DOMAINS_DIR, name)
+  const existed = existsSync(target)
+  if (existed && !args.overwrite) {
+    throw new Error(`Domain '${name}' already exists. Pass overwrite=true to replace it.`)
+  }
+
+  try {
+    mkdirSync(DOMAINS_DIR, { recursive: true })
+    if (existed) {
+      rmSync(target, { recursive: true, force: true })
+    }
+    cpSync(sourcePath, target, { recursive: true })
+  } catch (e) {
+    throw new Error(`Installing domain draft requires write access to Revela user config at ${DOMAINS_DIR}: ${e instanceof Error ? e.message : String(e)}`)
+  }
+
+  return {
+    ok: true,
+    name,
+    path: target,
+    sourcePath,
+    files: [DOMAIN_FILE],
+    overwritten: existed,
+  }
+}
+
 /** Validate a local domain package for the minimum Revela domain contract. */
 export function validateDomainPackage(nameInput: string): ValidateDomainPackageResult {
+  let name = nameInput
+  try {
+    name = normalizeDomainName(nameInput)
+  } catch {
+    // validateDomainPackageAt records the invalid-name error.
+  }
+  return validateDomainPackageAt(nameInput, join(DOMAINS_DIR, name))
+}
+
+function validateDomainPackageAt(nameInput: string, dir: string): ValidateDomainPackageResult {
   let name = nameInput
   const errors: string[] = []
   try {
@@ -225,7 +329,6 @@ export function validateDomainPackage(nameInput: string): ValidateDomainPackageR
     errors.push(e instanceof Error ? e.message : String(e))
   }
 
-  const dir = join(DOMAINS_DIR, name)
   const mdPath = join(dir, DOMAIN_FILE)
   const hasIndustryMd = existsSync(mdPath)
   let hasRequiredFrontmatter = false
@@ -259,6 +362,10 @@ export function validateDomainPackage(nameInput: string): ValidateDomainPackageR
     hasBody,
     errors,
   }
+}
+
+function domainDraftDir(workspaceRoot: string, name: string): string {
+  return resolve(workspaceRoot, ".revela", "drafts", "domains", name)
 }
 
 /** Remove an installed domain. Throws if not found or is the protected default. */

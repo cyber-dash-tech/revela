@@ -18,7 +18,7 @@ import {
   statSync,
   writeFileSync,
 } from "fs"
-import { join, resolve, basename } from "path"
+import { dirname, join, resolve, basename } from "path"
 import { tmpdir } from "os"
 import { parseFrontmatter } from "../frontmatter"
 import {
@@ -55,6 +55,10 @@ export interface CreateDesignPackageArgs {
   overwrite?: boolean
 }
 
+export interface CreateDesignDraftArgs extends CreateDesignPackageArgs {
+  workspaceRoot: string
+}
+
 export interface CreateDesignPackageResult {
   ok: true
   name: string
@@ -62,6 +66,16 @@ export interface CreateDesignPackageResult {
   files: string[]
   base?: string
   overwritten: boolean
+}
+
+export interface InstallDesignDraftArgs {
+  workspaceRoot: string
+  name: string
+  overwrite?: boolean
+}
+
+export interface InstallDesignDraftResult extends CreateDesignPackageResult {
+  sourcePath: string
 }
 
 export interface ValidateDesignPackageResult {
@@ -250,6 +264,90 @@ export function createDesignPackage(args: CreateDesignPackageArgs): CreateDesign
   }
 }
 
+/** Create a project-local design draft under .revela/drafts/designs/<name>/. */
+export function createDesignDraftPackage(args: CreateDesignDraftArgs): CreateDesignPackageResult {
+  const name = normalizeDesignName(args.name)
+  const designMd = args.designMd?.trim()
+  const previewHtml = args.previewHtml?.trim()
+
+  if (!designMd) throw new Error("designMd is required")
+  if (!previewHtml) throw new Error("previewHtml is required")
+
+  const target = designDraftDir(args.workspaceRoot, name)
+  const existed = existsSync(target)
+  if (existed && !args.overwrite) {
+    throw new Error(`Design draft '${name}' already exists. Pass overwrite=true to replace it.`)
+  }
+
+  mkdirSync(dirname(target), { recursive: true })
+  if (existed) {
+    rmSync(target, { recursive: true, force: true })
+  }
+  mkdirSync(target, { recursive: true })
+  writeFileSync(join(target, "DESIGN.md"), `${designMd}\n`, "utf-8")
+  writeFileSync(join(target, "preview.html"), `${previewHtml}\n`, "utf-8")
+
+  const validation = validateDesignDraftPackage(args.workspaceRoot, name)
+  if (!validation.ok) {
+    throw new Error(`Created design draft is invalid: ${validation.errors.join("; ")}`)
+  }
+
+  return {
+    ok: true,
+    name,
+    path: target,
+    files: ["DESIGN.md", "preview.html"],
+    base: args.base,
+    overwritten: existed,
+  }
+}
+
+/** Validate a project-local design draft. */
+export function validateDesignDraftPackage(workspaceRoot: string, nameInput: string): ValidateDesignPackageResult {
+  let name = nameInput
+  try {
+    name = normalizeDesignName(nameInput)
+  } catch {
+    // validateDesignPackageAt records the invalid-name error.
+  }
+  return validateDesignPackageAt(nameInput, designDraftDir(workspaceRoot, name))
+}
+
+/** Install a validated project-local design draft into the user-level design registry. */
+export function installDesignDraftPackage(args: InstallDesignDraftArgs): InstallDesignDraftResult {
+  const name = normalizeDesignName(args.name)
+  const sourcePath = designDraftDir(args.workspaceRoot, name)
+  const validation = validateDesignDraftPackage(args.workspaceRoot, name)
+  if (!validation.ok) {
+    throw new Error(`Design draft is invalid: ${validation.errors.join("; ")}`)
+  }
+
+  const target = join(DESIGNS_DIR, name)
+  const existed = existsSync(target)
+  if (existed && !args.overwrite) {
+    throw new Error(`Design '${name}' already exists. Pass overwrite=true to replace it.`)
+  }
+
+  try {
+    mkdirSync(DESIGNS_DIR, { recursive: true })
+    if (existed) {
+      rmSync(target, { recursive: true, force: true })
+    }
+    cpSync(sourcePath, target, { recursive: true })
+  } catch (e) {
+    throw new Error(`Installing design draft requires write access to Revela user config at ${DESIGNS_DIR}: ${e instanceof Error ? e.message : String(e)}`)
+  }
+
+  return {
+    ok: true,
+    name,
+    path: target,
+    sourcePath,
+    files: ["DESIGN.md", "preview.html"],
+    overwritten: existed,
+  }
+}
+
 function hasDataAttribute(html: string, attr: string, value: string): boolean {
   const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
   return new RegExp(`${attr}\\s*=\\s*(["'])${escaped}\\1`).test(html)
@@ -290,6 +388,16 @@ function hasFixedSizeCssRule(html: string, className: "slide-canvas"): boolean {
 /** Validate a local design package for the minimum Revela design contract. */
 export function validateDesignPackage(nameInput: string): ValidateDesignPackageResult {
   let name = nameInput
+  try {
+    name = normalizeDesignName(nameInput)
+  } catch {
+    // validateDesignPackageAt records the invalid-name error.
+  }
+  return validateDesignPackageAt(nameInput, join(DESIGNS_DIR, name))
+}
+
+function validateDesignPackageAt(nameInput: string, dir: string): ValidateDesignPackageResult {
+  let name = nameInput
   const errors: string[] = []
   try {
     name = normalizeDesignName(nameInput)
@@ -297,7 +405,6 @@ export function validateDesignPackage(nameInput: string): ValidateDesignPackageR
     errors.push(e instanceof Error ? e.message : String(e))
   }
 
-  const dir = join(DESIGNS_DIR, name)
   const mdPath = join(dir, "DESIGN.md")
   const previewPath = join(dir, "preview.html")
   const hasDesignMd = existsSync(mdPath)
@@ -358,6 +465,10 @@ export function validateDesignPackage(nameInput: string): ValidateDesignPackageR
     components,
     errors,
   }
+}
+
+function designDraftDir(workspaceRoot: string, name: string): string {
+  return resolve(workspaceRoot, ".revela", "drafts", "designs", name)
 }
 
 // ---------------------------------------------------------------------------

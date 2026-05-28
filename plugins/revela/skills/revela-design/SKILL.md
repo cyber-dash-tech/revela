@@ -25,10 +25,12 @@ Design changes are visual/artifact-level unless they change claim meaning, evide
 
 When the user asks to create a new design, use `starter` as the default base design unless they specify another base. Interview the user before saving anything: collect visual references such as images, webpages, brands, decks, or text descriptions, plus must-have and must-avoid constraints. Summarize the design brief and visual schema, then wait for the user to confirm before creating files.
 
-After confirmation, read the base design with `revela_design_read`. Generate complete `DESIGN.md` and complete `preview.html` content, then call `revela_design_create`. For edits to an existing design, read the existing design first, preserve useful layout/component coverage, and call `revela_design_create` with `overwrite: true` only after the user confirms the edit brief. Always call `revela_design_validate` after creation or overwrite.
+After confirmation, read the base design with `revela_design_read`. Generate complete `DESIGN.md` and complete `preview.html` content, then call `revela_design_draft_create` to save a workspace-local draft under `.revela/drafts/designs/<name>/`. Always call `revela_design_draft_validate` after draft creation or overwrite.
+
+Install the draft globally only after the user confirms the validated draft should be installed. Call `revela_design_draft_install` to copy the draft into the user-level design registry. If a user-level design already exists, pass `overwrite: true` only after the user confirms replacement. In sandboxed Codex sessions, the install step may require permission to write Revela user config under `~/.config/revela`.
 
 `DESIGN.md` must include frontmatter with `name`, `description`, `author`, and `version`, plus valid marker blocks for `@design:foundation`, `@design:rules`, at least one `@layout`, and at least one `@component`.
 
 `preview.html` must be self-contained and directly openable in a browser. Every `<section class="slide">` must include `slide-qa` and exactly one direct `.slide-canvas` child. Every direct `.slide-canvas` is the fixed 1920px x 1080px export surface and must use explicit CSS with `width: 1920px` and `height: 1080px`; `.slide` may remain a viewport/navigation wrapper. Include a cover slide with `data-slide-role="cover"`, a closing slide with `data-slide-role="closing"`, and a visible sample for every `@component:*` using `data-preview-component="<component-name>"`.
 
-Do not automatically activate a newly created design. Report the saved path and tell the user they can activate it with `revela_design_activate`.
+Do not automatically activate a newly installed design. Report the draft path, installed path when installed, and tell the user they can activate it with `revela_design_activate`.

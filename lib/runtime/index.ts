@@ -4,15 +4,18 @@ import { dirname, resolve } from "path"
 import {
   activeDesign,
   activateDesign,
+  createDesignDraftPackage,
   createDesignPackage,
   getDesignSection,
   getDesignSkillMd,
+  installDesignDraftPackage,
   listDesigns,
   seedBuiltinDesigns,
+  validateDesignDraftPackage,
   validateDesignPackage,
 } from "../design/designs"
 import { createDeckFoundation as createDeckFoundationShell } from "../deck-html/foundation"
-import { activeDomain, activateDomain, createDomainPackage, getDomainSkillMd, listDomains, seedBuiltinDomains, validateDomainPackage } from "../domain/domains"
+import { activeDomain, activateDomain, createDomainDraftPackage, createDomainPackage, getDomainSkillMd, installDomainDraftPackage, listDomains, seedBuiltinDomains, validateDomainDraftPackage, validateDomainPackage } from "../domain/domains"
 import { computeNarrativeHash } from "../narrative-state/hash"
 import { compileNarrativeVault } from "../narrative-vault/compile"
 import { autoCompileNarrativeVault } from "../narrative-vault/auto-compile"
@@ -62,9 +65,18 @@ export interface RuntimeDesignCreateInput {
   overwrite?: boolean
 }
 
+export interface RuntimeDesignDraftCreateInput extends RuntimeDesignCreateInput, RuntimeWorkspaceInput {}
+
 export interface RuntimeDomainCreateInput {
   name: string
   domainMd: string
+  overwrite?: boolean
+}
+
+export interface RuntimeDomainDraftCreateInput extends RuntimeDomainCreateInput, RuntimeWorkspaceInput {}
+
+export interface RuntimeDraftInstallInput extends RuntimeWorkspaceInput {
+  name: string
   overwrite?: boolean
 }
 
@@ -248,6 +260,30 @@ export function designValidate(input: RuntimeNameInput) {
   return validateDesignPackage(requiredName(input, "design"))
 }
 
+export function designDraftCreate(input: RuntimeDesignDraftCreateInput) {
+  return createDesignDraftPackage({
+    workspaceRoot: root(input.workspaceRoot),
+    name: requiredString(input?.name, "design name"),
+    base: input.base,
+    designMd: requiredString(input?.designMd, "designMd"),
+    previewHtml: requiredString(input?.previewHtml, "previewHtml"),
+    overwrite: input.overwrite ?? false,
+  })
+}
+
+export function designDraftValidate(input: RuntimeWorkspaceInput & RuntimeNameInput) {
+  return validateDesignDraftPackage(root(input.workspaceRoot), requiredName(input, "design draft"))
+}
+
+export function designDraftInstall(input: RuntimeDraftInstallInput) {
+  seedBuiltinDesigns()
+  return installDesignDraftPackage({
+    workspaceRoot: root(input.workspaceRoot),
+    name: requiredName(input, "design draft"),
+    overwrite: input.overwrite ?? false,
+  })
+}
+
 export interface DesignRulesReadinessResult {
   ok: boolean
   activeDesign: string
@@ -362,6 +398,28 @@ export function domainCreate(input: RuntimeDomainCreateInput) {
 export function domainValidate(input: RuntimeNameInput) {
   seedBuiltinDomains()
   return validateDomainPackage(requiredName(input, "domain"))
+}
+
+export function domainDraftCreate(input: RuntimeDomainDraftCreateInput) {
+  return createDomainDraftPackage({
+    workspaceRoot: root(input.workspaceRoot),
+    name: requiredString(input?.name, "domain name"),
+    domainMd: requiredString(input?.domainMd, "domainMd"),
+    overwrite: input.overwrite ?? false,
+  })
+}
+
+export function domainDraftValidate(input: RuntimeWorkspaceInput & RuntimeNameInput) {
+  return validateDomainDraftPackage(root(input.workspaceRoot), requiredName(input, "domain draft"))
+}
+
+export function domainDraftInstall(input: RuntimeDraftInstallInput) {
+  seedBuiltinDomains()
+  return installDomainDraftPackage({
+    workspaceRoot: root(input.workspaceRoot),
+    name: requiredName(input, "domain draft"),
+    overwrite: input.overwrite ?? false,
+  })
 }
 
 function root(workspaceRoot: string | undefined): string {

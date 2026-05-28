@@ -7,7 +7,7 @@ import { DECKS_STATE_FILE } from "../lib/decks-state"
 import { seedBuiltinDesigns } from "../lib/design/designs"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
-import { bindResearchFindings, checkDesignRulesReadiness, designCreate, designRead, designValidate, doctor, domainCreate, domainList, domainValidate, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead } from "../lib/runtime"
+import { bindResearchFindings, checkDesignRulesReadiness, designCreate, designDraftCreate, designDraftInstall, designDraftValidate, designList, designRead, designValidate, doctor, domainCreate, domainDraftCreate, domainDraftInstall, domainDraftValidate, domainList, domainValidate, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead } from "../lib/runtime"
 import { stopRefineServer } from "../lib/refine/server"
 import pkg from "../package.json"
 import { tempWorkspace } from "./helpers/tool-helpers"
@@ -360,6 +360,52 @@ sources:
     }
   })
 
+  it("creates, validates, and installs design drafts through the runtime", () => {
+    const root = tempWorkspace("revela-runtime-design-draft-")
+    const name = `runtime-draft-design-${Date.now()}`
+    const draft = designDraftCreate({
+      workspaceRoot: root,
+      name,
+      base: "starter",
+      designMd: validDesignMd(name, "Draft"),
+      previewHtml: validPreviewHtml("Draft"),
+    })
+    let installed = ""
+
+    try {
+      const validated = designDraftValidate({ workspaceRoot: root, name })
+      const activeBefore = designList().activeDesign
+      const result = designDraftInstall({ workspaceRoot: root, name })
+      installed = result.path
+
+      expect(draft).toMatchObject({ ok: true, name, path: join(root, ".revela", "drafts", "designs", name), overwritten: false })
+      expect(validated).toMatchObject({ ok: true, name, hasDesignMd: true, hasPreview: true })
+      expect(result).toMatchObject({ ok: true, name, sourcePath: draft.path, overwritten: false })
+      expect(existsSync(join(result.path, "DESIGN.md"))).toBe(true)
+      expect(() => designDraftInstall({ workspaceRoot: root, name })).toThrow("already exists")
+
+      const overwritten = designDraftInstall({ workspaceRoot: root, name, overwrite: true })
+      expect(overwritten).toMatchObject({ ok: true, name, overwritten: true })
+      expect(designList().activeDesign).toBe(activeBefore)
+    } finally {
+      if (installed) rmSync(installed, { recursive: true, force: true })
+    }
+  })
+
+  it("blocks invalid design draft installs", () => {
+    const root = tempWorkspace("revela-runtime-design-draft-invalid-")
+    const name = `runtime-invalid-design-${Date.now()}`
+    const draftDir = join(root, ".revela", "drafts", "designs", name)
+    mkdirSync(draftDir, { recursive: true })
+    writeFileSync(join(draftDir, "DESIGN.md"), validDesignMd(name, "Invalid"), "utf-8")
+
+    const validated = designDraftValidate({ workspaceRoot: root, name })
+
+    expect(validated.ok).toBe(false)
+    expect(validated.errors).toContain("preview.html is missing")
+    expect(() => designDraftInstall({ workspaceRoot: root, name })).toThrow("Design draft is invalid")
+  })
+
   it("creates, validates, and protects local domain packages through the runtime", () => {
     const name = `runtime-codex-domain-${Date.now()}`
     const invalidName = `${name}-invalid`
@@ -418,6 +464,50 @@ sources:
       if (createdPath) rmSync(createdPath, { recursive: true, force: true })
       if (invalidPath) rmSync(invalidPath, { recursive: true, force: true })
     }
+  })
+
+  it("creates, validates, and installs domain drafts through the runtime", () => {
+    const root = tempWorkspace("revela-runtime-domain-draft-")
+    const name = `runtime-draft-domain-${Date.now()}`
+    const draft = domainDraftCreate({
+      workspaceRoot: root,
+      name,
+      domainMd: validDomainMd(name, "Draft"),
+    })
+    let installed = ""
+
+    try {
+      const validated = domainDraftValidate({ workspaceRoot: root, name })
+      const activeBefore = domainList().activeDomain
+      const result = domainDraftInstall({ workspaceRoot: root, name })
+      installed = result.path
+
+      expect(draft).toMatchObject({ ok: true, name, path: join(root, ".revela", "drafts", "domains", name), overwritten: false })
+      expect(validated).toMatchObject({ ok: true, name, hasIndustryMd: true, hasRequiredFrontmatter: true, hasBody: true })
+      expect(result).toMatchObject({ ok: true, name, sourcePath: draft.path, overwritten: false })
+      expect(existsSync(join(result.path, "INDUSTRY.md"))).toBe(true)
+      expect(() => domainDraftInstall({ workspaceRoot: root, name })).toThrow("already exists")
+
+      const overwritten = domainDraftInstall({ workspaceRoot: root, name, overwrite: true })
+      expect(overwritten).toMatchObject({ ok: true, name, overwritten: true })
+      expect(domainList().activeDomain).toBe(activeBefore)
+    } finally {
+      if (installed) rmSync(installed, { recursive: true, force: true })
+    }
+  })
+
+  it("blocks invalid domain draft installs", () => {
+    const root = tempWorkspace("revela-runtime-domain-draft-invalid-")
+    const name = `runtime-invalid-domain-${Date.now()}`
+    const draftDir = join(root, ".revela", "drafts", "domains", name)
+    mkdirSync(draftDir, { recursive: true })
+    writeFileSync(join(draftDir, "INDUSTRY.md"), "---\nname: missing-fields\n---\n", "utf-8")
+
+    const validated = domainDraftValidate({ workspaceRoot: root, name })
+
+    expect(validated.ok).toBe(false)
+    expect(validated.errors.join("\n")).toContain("missing required field")
+    expect(() => domainDraftInstall({ workspaceRoot: root, name })).toThrow("Domain draft is invalid")
   })
 
   it("exposes design package validation through the CLI", () => {
