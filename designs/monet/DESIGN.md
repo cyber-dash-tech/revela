@@ -511,12 +511,12 @@ These rules are mandatory for Monet.
 
 ### Layout Types
 
-Each `<section class="slide">` must set `slide-qa="true"` or `slide-qa="false"`. It must also set `data-slide-index="N"`, where `N` is the canonical positive 1-based artifact slide identity from the approved deck plan or DOM order. Indexes must be unique and strictly increase. Use the QA column to decide which `slide-qa` value to write. Fetch any layout with the `revela-designs` tool (`action: "read"`, `layout: "<name>"`).
+Each `<section class="slide">` must set `slide-qa="true"` or `slide-qa="false"`. It must also set `data-slide-index="N"`, where `N` is the canonical positive 1-based artifact slide identity from the approved deck plan or DOM order. Indexes must be unique and strictly increase. Use the QA column to decide which `slide-qa` value to write. Choose layouts by narrative structure first, not by surface geometry. Fetch any layout with the `revela-designs` tool (`action: "read"`, `layout: "<name>"`).
 
 <!-- @layout:fullbleed:start qa=false -->
-#### Fullbleed
+Atmospheric cover, closing, or divider layout with one dominant image-title component.
 
-Full-canvas layout for slides where a single image dominates the entire canvas with text composited over it. Use for opening (cover) and closing slides, or atmospheric section dividers.
+#### Fullbleed
 
 Structural intent:
 - Single slot: place one `image-title` component directly inside `.page`. The component is self-contained — it manages its own image, blur, overlay, and text layers internally.
@@ -542,15 +542,15 @@ Structural intent:
 <!-- @layout:fullbleed:end -->
 
 <!-- @layout:narrative:start qa=true -->
+Asymmetric primary-secondary spread with a dominant visual/evidence zone on the left and a narrower explanatory or action zone on the right.
+
 #### Narrative
 
-Asymmetric two-column layout with the left column wider (1.618fr) and the right column narrower (1fr). Use when one side needs more visual or reading weight than the other.
-
 Structural intent:
-- left slot: wider zone (1.618fr) — can hold any component(s)
-- right slot: narrower zone (1fr) — can hold any component(s)
+- left slot: primary zone (1.618fr) — dominant evidence, image, chart, table, or other high-weight component(s)
+- right slot: secondary zone (1fr) — explanation, implication, action, TOC, vertical flow, or supporting component(s)
 
-Every slot accepts 1 or more components. The LLM decides what each slot contains — there is no text/visual semantic preset.
+Every slot accepts 1 or more components, but the layout should preserve a primary-secondary hierarchy. Do not use `narrative` for two equally weighted items; use `halves` instead.
 
 
 ```html
@@ -596,21 +596,21 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 
 ##### Tips
 - **Grid container uses `.narrative-grid` class.** Applies `minmax(0, Nfr)` tracks, `overflow:hidden` on all children, and `align-items:stretch` so both columns fill the full row height. Do not override with `align-items:start` — that collapses columns to content height and exposes the page background.
-- **No semantic preset.** Either slot can hold any component. The wider left column naturally suits visually dominant content (full-bleed media, wide charts), but this is not a hard rule.
+- **Primary-secondary intent.** The wider left column should carry the stronger visual or evidentiary weight. If both sides are equally important, use `halves`.
 - **Dark panel variant.** When a slot uses a dark background, override CSS variables on that container: `--text-primary`, `--text-secondary`, `--text-muted`, `--line`, `--line-strong` — all set to white-family values. Use `.page-number--light`.
 - **Background image inside a slot.** Use the three-layer z-index pattern: background `z-index:0`, dark overlay `z-index:1`, content `z-index:2`.
 <!-- @layout:narrative:end -->
 
 <!-- @layout:narrative-reverse:start qa=true -->
+Asymmetric primary-secondary spread with the narrower explanatory or action zone on the left and the dominant visual/evidence zone on the right.
+
 #### Narrative Reverse
 
-Asymmetric two-column layout with the left column narrower (1fr) and the right column wider (1.618fr). Mirror of `narrative` — same grid class with `--reverse` modifier.
-
 Structural intent:
-- left slot: narrower zone (1fr) — can hold any component(s)
-- right slot: wider zone (1.618fr) — can hold any component(s)
+- left slot: secondary zone (1fr) — explanation, implication, action, TOC, vertical flow, or supporting component(s)
+- right slot: primary zone (1.618fr) — dominant evidence, image, chart, table, or other high-weight component(s)
 
-Every slot accepts 1 or more components. The LLM decides what each slot contains — there is no text/visual semantic preset.
+Every slot accepts 1 or more components, but the layout should preserve a primary-secondary hierarchy. Do not use `narrative-reverse` for two equally weighted items; use `halves` instead.
 
 
 ```html
@@ -635,14 +635,14 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 
 ##### Tips
 - **Same `.narrative-grid` class as `narrative`, with `--reverse` modifier.** Add both `narrative-grid` and `narrative-grid--reverse` to the grid container. The modifier swaps column proportions to `1fr left / 1.618fr right`.
-- **No semantic preset.** Either slot can hold any component — visual on the right, text on the left, or any other combination based on content needs.
+- **Primary-secondary intent.** The wider right column should carry the stronger visual or evidentiary weight. If both sides are equally important, use `halves`.
 - **Dark panel variant.** Same CSS variable override pattern as `narrative`: set `--text-primary` etc. to white-family values on the panel container, all child components inherit automatically.
 <!-- @layout:narrative-reverse:end -->
 
 <!-- @layout:highlight-cols:start qa=true -->
-#### Highlight Cols
+Parallel 3-5 item spread for comparable proof points, options, features, metrics, or evidence blocks.
 
-Equal N-column layout. Use when 3 or more parallel items of roughly equal visual weight should appear side by side — proof blocks, highlights, feature comparisons, stat groups, or any multi-column editorial spread.
+#### Highlight Cols
 
 A short section header is optional but recommended. In Monet, that header should stay lean: eyebrow plus title only, with no intro paragraph competing with the columns below.
 
@@ -650,7 +650,7 @@ Structural intent:
 - each slot: 1fr column — any component(s)
 - column count: determined by the number of direct child divs in the grid container; `auto-fit` distributes space equally
 
-Every slot accepts 1 or more components. Add or remove child divs to control column count — 3 is the default, but 4 or 5 columns work equally well.
+Every slot accepts 1 or more components. Add or remove child divs to control column count — 3 is the default, but 4 or 5 columns work equally well. Use only for comparable items; do not mix unrelated content types just because the slide needs multiple blocks.
 
 ```html
 <section class="slide" slide-qa="true" data-slide-index="N">
@@ -700,21 +700,21 @@ Every slot accepts 1 or more components. Add or remove child divs to control col
 - **Grid container needs `flex:1;min-height:0` inline** when inside `.page` (which is flex-column). The class handles column sizing; the inline style handles row stretch.
 - **Header stays lean.** If you add a section header above the grid, use only `eyebrow + title`. Do not add an intro paragraph; the columns themselves should carry the explanation.
 - **Column count = number of direct child divs.** `repeat(auto-fit, minmax(0, 1fr))` distributes available width equally across however many children exist. Add a 4th or 5th div to get 4 or 5 columns — no CSS change needed.
-- **Equal columns — no hierarchy.** All slots carry the same visual weight. Adjust content density to suit the slide purpose; do not artificially inflate one column to create false hierarchy.
+- **Parallel items only.** All slots carry the same visual weight and should represent the same kind of thing: proof points, options, features, metrics, or evidence blocks.
 - **When using 4-5 columns, compress the header.** Keep the title to one or two short lines so the grid retains most of the slide height.
 - **Do not set fixed heights on editorial components.** Let components fill height via flexbox stretch.
 <!-- @layout:highlight-cols:end -->
 
 <!-- @layout:halves:start qa=true -->
-#### Halves
+Balanced two-up comparison for two equally important items, charts, cases, evidence blocks, or before/after states.
 
-Equal two-column layout. Use when two items of equal visual weight should appear side by side — paired charts, dual evidence blocks, before/after comparisons, or any two-column editorial spread.
+#### Halves
 
 Structural intent:
 - left slot: 1fr column — any component(s)
 - right slot: 1fr column — any component(s)
 
-Every slot accepts 1 or more components. The LLM decides what each slot contains — both columns are fully equal with no hierarchy preset.
+Every slot accepts 1 or more components. Both columns are fully equal by design. Do not use `halves` when one side should dominate; use `narrative` or `narrative-reverse` instead.
 
 
 ```html
@@ -755,20 +755,20 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 
 ##### Tips
 - **Grid container needs `flex:1;min-height:0` inline** when inside `.page`. The class handles column sizing.
-- **Equal columns — no hierarchy.** Both slots carry the same weight. Choose components based on content, not a fixed text/visual assignment.
+- **Equal columns — no hierarchy.** Both slots carry the same weight. Use this for balanced comparison, not primary-secondary explanation.
 - **Gap `40px` is intentional.** The slightly wider gap than `three-col` (32px) compensates for the larger individual column width.
 <!-- @layout:halves:end -->
 
 <!-- @layout:stacked:start qa=true -->
+Top-bottom synthesis layout with compact framing, status, or process context above a larger evidence, table, chart, or detail zone.
+
 #### Stacked
 
-Two-row vertical layout in a fixed golden-ratio proportion: top row takes 1fr and bottom row takes 1.618fr. Use when a horizontal component (process flow, stat row, header band) should anchor the top, with a taller content zone below.
-
 Structural intent:
-- top slot: `1fr` height — upper zone in golden-ratio proportion
-- bottom slot: `1.618fr` height — larger lower zone fills remaining space
+- top slot: `1fr` height — compact framing, status row, process overview, or synthesis component
+- bottom slot: `1.618fr` height — larger evidence, table, chart, media, or detail component
 
-Every slot accepts 1 or more components. The LLM decides what each slot contains — there is no semantic preset for either row.
+Every slot accepts 1 or more components, but the layout should preserve a synthesis-over-detail relationship. Do not use `stacked` as a generic vertical layout for unrelated blocks.
 
 
 ```html
@@ -814,7 +814,7 @@ Every slot accepts 1 or more components. The LLM decides what each slot contains
 ##### Tips
 - **Top and bottom rows follow a fixed 1 : 1.618 golden-ratio proportion.** The top slot takes 1fr and the bottom takes 1.618fr — both rows are sized relative to the total canvas height, not by their content.
 - **Both slots clip overflow.** `min-height: 0` on both `.stacked-top` and `.stacked-bottom` ensures content cannot break out of its row.
-- **Both slots are fully equal in kind.** There is no preset for which slot holds "process" vs "data" — place any combination of components that fits the slide narrative.
+- **Synthesis over detail.** The top row should frame or summarize; the bottom row should carry the larger supporting detail.
 - **Dark background variant.** Set CSS variable overrides (`--text-primary` etc.) on `.stacked-grid` to cascade into both slots automatically.
 <!-- @layout:stacked:end -->
 
