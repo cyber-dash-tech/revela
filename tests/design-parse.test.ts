@@ -458,6 +458,30 @@ describe("generateComponentIndex", () => {
     expect(names).not.toContain("timeline-journey-horizontal")
     expect(names).not.toContain("timeline-journey-vertical")
   })
+
+  it("keeps Monet content layouts anchored by slide-level title blocks", () => {
+    const design = readFileSync(join(process.cwd(), "designs", "monet", "DESIGN.md"), "utf-8")
+    const { sections, layouts } = parseDesignSections(design)
+
+    expect(sections.rules).toContain("Content pages need a stable title block")
+    expect(sections.rules).toContain("Do not hide the page title inside a component")
+    expect(sections.layouts).toContain("Normal `qa=true` content layouts must start with a slide-level title block")
+
+    for (const name of ["narrative", "narrative-reverse", "highlight-cols", "halves", "stacked"]) {
+      const layout = layouts[name]?.content ?? ""
+      expect(layout).toContain('<p class="eyebrow">')
+      expect(layout).toContain("<h2")
+      expect(layout).toContain("Slide claim or takeaway")
+      expect(layout).toContain("height:calc(100% - 150px)")
+    }
+
+    expect(layouts.fullbleed?.content ?? "").not.toContain("Slide claim or takeaway")
+
+    const index = generateLayoutIndex(layouts)
+    expect(index).toContain("Asymmetric primary-secondary spread with a dominant visual/evidence zone")
+    expect(index).toContain("Top-bottom synthesis layout with compact framing")
+    expect(index).not.toContain("| `narrative` | ✓ | Narrative |")
+  })
 })
 
 // ── extractDesignClasses (active design integration) ─────────────────────

@@ -480,6 +480,8 @@ These rules are mandatory for Monet.
 - **Sparse slides depend on image weight.** If content is light, the photo or page framing must hold the composition.
 - **No glass cards, neon KPI styling, or startup-product chrome.** Monet is editorial and print-adjacent.
 - **Visual hierarchy is strict:** eyebrow -> heading -> body -> caption.
+- **Content pages need a stable title block.** Except cover, TOC, closing, section divider, and full-bleed hero slides, every normal content slide should include a visible slide-level title block from the upper-left safe area. It should contain a compact chapter/section label plus a slide title written as the page's claim or takeaway.
+- **Do not hide the page title inside a component.** Body components may have their own headings, but `text-panel`, `box`, `toc`, chart/table headers, and editorial module headings do not replace the slide-level title block.
 - **Icon system is Lucide.** For ordinary UI, semantic, status, category, process, and navigation icons, use Lucide (`data-lucide`). Do not hand-write inline SVG for icons. SVG is allowed only for intentional decorative motifs, illustrations, or design-specific artwork. If any `data-lucide` icon is present, load Lucide via CDN and call `lucide.createIcons()` after `SlidePresentation`.
 - **Chart system is ECharts.** Data charts default to ECharts inside `echart-panel`. Do not use hand-written SVG, div/CSS shapes, canvas mocks, or static faux charts as data-chart substitutes. SVG remains acceptable for decorative motifs, diagrams, or illustrations, not data charts. Before creating or changing a chart, fetch the `echart-panel` component and `section: "chart-rules"`; if chart rules or runtime are unavailable, report the gap instead of inventing a fake chart fallback.
 - **Start from foundation.** New deck HTML starts from `@design:foundation`. Do not recreate foundation CSS, JavaScript, or the HTML skeleton from memory. Prefer a foundation helper when available; otherwise fetch `section: "foundation"` before writing a new deck shell. Existing deck edits preserve the current foundation unless the user asks for foundation repair or QA reports a foundation contract problem.
@@ -512,6 +514,8 @@ These rules are mandatory for Monet.
 ### Layout Types
 
 Each `<section class="slide">` must set `slide-qa="true"` or `slide-qa="false"`. It must also set `data-slide-index="N"`, where `N` is the canonical positive 1-based artifact slide identity from the approved deck plan or DOM order. Indexes must be unique and strictly increase. Use the QA column to decide which `slide-qa` value to write. Choose layouts by narrative structure first, not by surface geometry. Fetch any layout with the `revela-designs` tool (`action: "read"`, `layout: "<name>"`).
+
+Normal `qa=true` content layouts must start with a slide-level title block unless the layout marker explicitly says otherwise. Use an eyebrow for chapter/section context, then an `h2` that states the slide's claim or takeaway. Body boxes, charts, media, tables, and text panels should sit below or beside that title region rather than replacing it.
 
 <!-- @layout:fullbleed:start qa=false -->
 Atmospheric cover, closing, or divider layout with one dominant image-title component.
@@ -557,7 +561,11 @@ Every slot accepts 1 or more components, but the layout should preserve a primar
 <section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page" style="padding:0;overflow:hidden;">
-      <div class="narrative-grid">
+      <div style="display:flex;flex-direction:column;gap:10px;margin:56px 64px 28px;max-width:760px;position:relative;z-index:2;">
+        <p class="eyebrow">Chapter / Section</p>
+        <h2>Slide claim or takeaway</h2>
+      </div>
+      <div class="narrative-grid" style="height:calc(100% - 150px);">
 
         <!-- [slot: left] — 1+ components; suggested: image-title, echart-panel, text-panel -->
         <div>
@@ -617,7 +625,11 @@ Every slot accepts 1 or more components, but the layout should preserve a primar
 <section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page" style="padding:0;overflow:hidden;">
-      <div class="narrative-grid narrative-grid--reverse">
+      <div style="display:flex;flex-direction:column;gap:10px;margin:56px 64px 28px;max-width:760px;position:relative;z-index:2;">
+        <p class="eyebrow">Chapter / Section</p>
+        <h2>Slide claim or takeaway</h2>
+      </div>
+      <div class="narrative-grid narrative-grid--reverse" style="height:calc(100% - 150px);">
 
         <!-- [slot: left] — 1+ components; suggested: text-panel, toc, flow-vertical, echart-panel -->
         <div>
@@ -644,7 +656,7 @@ Parallel 3-5 item spread for comparable proof points, options, features, metrics
 
 #### Highlight Cols
 
-A short section header is optional but recommended. In Monet, that header should stay lean: eyebrow plus title only, with no intro paragraph competing with the columns below.
+A short section header is required for normal content uses. In Monet, that header should stay lean: eyebrow plus title only, with no intro paragraph competing with the columns below.
 
 Structural intent:
 - each slot: 1fr column — any component(s)
@@ -655,13 +667,13 @@ Every slot accepts 1 or more components. Add or remove child divs to control col
 ```html
 <section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
-    <div class="page">
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px;max-width:520px;">
+    <div class="page" style="overflow:hidden;">
+      <div style="display:flex;flex-direction:column;gap:10px;margin:56px 64px 28px;max-width:760px;position:relative;z-index:2;">
         <p class="eyebrow">Section Label</p>
-        <h2 style="font-size:52px;line-height:0.94;text-transform:uppercase;">Short framing title for the parallel columns</h2>
+        <h2 style="font-size:52px;line-height:0.94;text-transform:uppercase;">Slide claim or takeaway</h2>
       </div>
 
-      <div class="highlight-cols-grid" style="flex:1;min-height:0;">
+      <div class="highlight-cols-grid" style="height:calc(100% - 150px);">
 
         <!-- [slot: 1] — 1+ components; suggested: editorial-image-top, editorial-text-top, echart-panel -->
         <div>
@@ -721,7 +733,11 @@ Every slot accepts 1 or more components. Both columns are fully equal by design.
 <section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page" style="overflow:hidden;">
-      <div class="halves-grid" style="flex:1;min-height:0;">
+      <div style="display:flex;flex-direction:column;gap:10px;margin:56px 64px 28px;max-width:760px;position:relative;z-index:2;">
+        <p class="eyebrow">Chapter / Section</p>
+        <h2>Slide claim or takeaway</h2>
+      </div>
+      <div class="halves-grid" style="height:calc(100% - 150px);">
 
         <!-- [slot: left] — 1+ components; suggested: echart-panel, data-table, editorial-image-top -->
         <div>
@@ -775,7 +791,11 @@ Every slot accepts 1 or more components, but the layout should preserve a synthe
 <section class="slide" slide-qa="true" data-slide-index="N">
   <div class="slide-canvas">
     <div class="page" style="padding:0;">
-      <div class="stacked-grid">
+      <div style="display:flex;flex-direction:column;gap:10px;margin:56px 64px 28px;max-width:760px;position:relative;z-index:2;">
+        <p class="eyebrow">Chapter / Section</p>
+        <h2>Slide claim or takeaway</h2>
+      </div>
+      <div class="stacked-grid" style="height:calc(100% - 150px);">
 
         <!-- [slot: top] — 1+ components; suggested: flow-horizontal, stat-row -->
         <div class="stacked-top">
