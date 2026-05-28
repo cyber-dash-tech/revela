@@ -42,11 +42,14 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("revela_domain_list")
     expect(text.stdout).toContain("revela_domain_read")
     expect(text.stdout).toContain("revela_domain_activate")
+    expect(text.stdout).toContain("revela_domain_create")
+    expect(text.stdout).toContain("revela_domain_validate")
   })
 
   it("reports the package version through the doctor tool", async () => {
     const root = tempWorkspace("revela-mcp-doctor-")
-    const child = spawn("bun", [serverPath], { stdio: ["pipe", "pipe", "pipe"] })
+    const home = tempWorkspace("revela-mcp-doctor-home-")
+    const child = spawn("bun", [serverPath], { stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, HOME: home } })
     const output = collectOutput(child)
 
     child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
@@ -63,6 +66,8 @@ describe("Codex plugin MCP server", () => {
 
     expect(text.stdout).toContain(`\\\"version\\\": \\\"${pkg.version}\\\"`)
     expect(text.stdout).toContain(`\\\"workspaceRoot\\\": \\\"${root}`)
+    expect(text.stdout).toContain(`\\\"activeDomain\\\": \\\"general\\\"`)
+    expect(text.stdout).toContain("\\\"activeDomainDescription\\\": \\\"General purpose")
   })
 
   it("parses framed initialize requests using byte Content-Length", async () => {
@@ -353,6 +358,59 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("test-card")
   })
 
+  it("creates and validates domain packages through MCP tools", async () => {
+    const home = tempWorkspace("revela-mcp-domain-create-home-")
+    const name = `mcp-domain-${Date.now()}`
+    const child = spawn("bun", [serverPath], {
+      env: { ...process.env, HOME: home },
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "revela_domain_create",
+        arguments: {
+          name,
+          domainMd: validDomainMd(name),
+        },
+      },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "revela_domain_validate", arguments: { name } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "revela_domain_read", arguments: { name } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: { name: "revela_domain_list", arguments: {} },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":5") && item.stdout.includes(name))
+    child.kill()
+
+    expect(text.stdout).toContain("\\\"ok\\\": true")
+    expect(text.stdout).toContain("\\\"files\\\":")
+    expect(text.stdout).toContain("INDUSTRY.md")
+    expect(text.stdout).toContain("\\\"hasIndustryMd\\\": true")
+    expect(text.stdout).toContain("MCP domain guidance")
+    expect(text.stdout).toContain("\\\"activeDomain\\\": \\\"general\\\"")
+  })
+
   it("calls the Review deck read tool with Markdown output", async () => {
     seedBuiltinDesigns()
     const root = tempWorkspace("revela-mcp-review-")
@@ -528,4 +586,18 @@ function validPreviewHtml(): string {
 <section class="slide" slide-qa="true"><div class="slide-canvas"><div data-preview-component="test-card" class="test-card">Card</div><span data-preview-component="test-badge" class="test-badge">Badge</span></div></section>
 <section class="slide" slide-qa="false" data-slide-role="closing"><div class="slide-canvas">Closing</div></section>
 </body></html>`
+}
+
+function validDomainMd(name: string): string {
+  return `---
+name: ${name}
+description: MCP test domain
+author: test
+version: 1.0.0
+---
+
+# MCP Domain
+
+MCP domain guidance for audience, decision, claims, objections, risks, and research gaps.
+`
 }

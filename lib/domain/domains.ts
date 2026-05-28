@@ -49,6 +49,30 @@ export interface DomainInfo {
   skillText: string
 }
 
+export interface CreateDomainPackageArgs {
+  name: string
+  domainMd: string
+  overwrite?: boolean
+}
+
+export interface CreateDomainPackageResult {
+  ok: true
+  name: string
+  path: string
+  files: string[]
+  overwritten: boolean
+}
+
+export interface ValidateDomainPackageResult {
+  ok: boolean
+  name: string
+  path: string
+  hasIndustryMd: boolean
+  hasRequiredFrontmatter: boolean
+  hasBody: boolean
+  errors: string[]
+}
+
 // ---------------------------------------------------------------------------
 // Seed
 // ---------------------------------------------------------------------------
@@ -146,6 +170,95 @@ export function getDomainSkillMd(name?: string): string {
     throw new Error(`Failed to parse ${DOMAIN_FILE} for '${domainName}'`)
   }
   return info.skillText
+}
+
+/** Normalize and validate a domain package name. */
+export function normalizeDomainName(name: string): string {
+  const normalized = name.trim().toLowerCase()
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(normalized)) {
+    throw new Error("Domain name must be kebab-case using lowercase letters, numbers, and hyphens")
+  }
+  return normalized
+}
+
+/** Create a local domain package in ~/.config/revela/domains/<name>/. */
+export function createDomainPackage(args: CreateDomainPackageArgs): CreateDomainPackageResult {
+  const name = normalizeDomainName(args.name)
+  const domainMd = args.domainMd?.trim()
+
+  if (!domainMd) throw new Error("domainMd is required")
+
+  const target = join(DOMAINS_DIR, name)
+  const existed = existsSync(target)
+  if (existed && !args.overwrite) {
+    throw new Error(`Domain '${name}' already exists. Pass overwrite=true to replace it.`)
+  }
+
+  mkdirSync(DOMAINS_DIR, { recursive: true })
+  if (existed) {
+    rmSync(target, { recursive: true, force: true })
+  }
+  mkdirSync(target, { recursive: true })
+  writeFileSync(join(target, DOMAIN_FILE), `${domainMd}\n`, "utf-8")
+
+  const validation = validateDomainPackage(name)
+  if (!validation.ok) {
+    throw new Error(`Created domain package is invalid: ${validation.errors.join("; ")}`)
+  }
+
+  return {
+    ok: true,
+    name,
+    path: target,
+    files: [DOMAIN_FILE],
+    overwritten: existed,
+  }
+}
+
+/** Validate a local domain package for the minimum Revela domain contract. */
+export function validateDomainPackage(nameInput: string): ValidateDomainPackageResult {
+  let name = nameInput
+  const errors: string[] = []
+  try {
+    name = normalizeDomainName(nameInput)
+  } catch (e) {
+    errors.push(e instanceof Error ? e.message : String(e))
+  }
+
+  const dir = join(DOMAINS_DIR, name)
+  const mdPath = join(dir, DOMAIN_FILE)
+  const hasIndustryMd = existsSync(mdPath)
+  let hasRequiredFrontmatter = false
+  let hasBody = false
+
+  if (!existsSync(dir)) errors.push(`Domain directory does not exist: ${dir}`)
+  if (!hasIndustryMd) errors.push(`${DOMAIN_FILE} is missing`)
+
+  if (hasIndustryMd) {
+    try {
+      const text = readFileSync(mdPath, "utf-8")
+      const { meta, body } = parseFrontmatter(text)
+      const required = ["name", "description", "author", "version"]
+      const missing = required.filter((field) => !meta[field]?.trim())
+      hasRequiredFrontmatter = missing.length === 0
+      hasBody = body.trim().length > 0
+      if (!hasRequiredFrontmatter) errors.push(`INDUSTRY.md frontmatter is missing required field(s): ${missing.join(", ")}`)
+      if (!hasBody) errors.push("INDUSTRY.md body/guidance is empty")
+      if (meta.name && meta.name.trim() !== name) errors.push(`INDUSTRY.md frontmatter name '${meta.name.trim()}' does not match package name '${name}'`)
+    } catch (e) {
+      errors.push(`INDUSTRY.md could not be parsed: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  return {
+    ok: errors.length === 0,
+    name,
+    path: dir,
+    hasIndustryMd,
+    hasRequiredFrontmatter,
+    hasBody,
+    errors,
+  }
 }
 
 /** Remove an installed domain. Throws if not found or is the protected default. */

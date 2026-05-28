@@ -7,7 +7,7 @@ import { DECKS_STATE_FILE } from "../lib/decks-state"
 import { seedBuiltinDesigns } from "../lib/design/designs"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
-import { bindResearchFindings, checkDesignRulesReadiness, designCreate, designRead, designValidate, doctor, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead } from "../lib/runtime"
+import { bindResearchFindings, checkDesignRulesReadiness, designCreate, designRead, designValidate, doctor, domainCreate, domainList, domainValidate, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead } from "../lib/runtime"
 import { stopRefineServer } from "../lib/refine/server"
 import pkg from "../package.json"
 import { tempWorkspace } from "./helpers/tool-helpers"
@@ -26,22 +26,29 @@ describe("runtime facade", () => {
       hasDeckPlan: false,
       hasDecksJson: false,
     })
+    expect(typeof result.activeDomain).toBe("string")
+    expect(typeof result.activeDomainDescription).toBe("string")
   })
 
   it("exposes the package version through CLI doctor", () => {
     const root = tempWorkspace("revela-runtime-doctor-cli-")
+    const home = tempWorkspace("revela-runtime-doctor-cli-home-")
     const cli = join(import.meta.dir, "..", "bin", "revela.ts")
 
     const proc = spawnSync("bun", [cli, "doctor", "--workspaceRoot", root], {
       encoding: "utf-8",
+      env: { ...process.env, HOME: home },
     })
 
     expect(proc.status).toBe(0)
-    expect(JSON.parse(proc.stdout)).toMatchObject({
+    const result = JSON.parse(proc.stdout)
+    expect(result).toMatchObject({
       ok: true,
       version: pkg.version,
       workspaceRoot: root,
+      activeDomain: "general",
     })
+    expect(result.activeDomainDescription).toContain("General purpose")
   })
 
   it("passes compiled narrative hash into deck-plan stale detection", () => {
@@ -353,6 +360,66 @@ sources:
     }
   })
 
+  it("creates, validates, and protects local domain packages through the runtime", () => {
+    const name = `runtime-codex-domain-${Date.now()}`
+    const invalidName = `${name}-invalid`
+    let createdPath = ""
+    let invalidPath = ""
+
+    try {
+      const activeBefore = domainList().activeDomain
+      const created = domainCreate({
+        name,
+        domainMd: validDomainMd(name, "Original"),
+      })
+      createdPath = created.path
+      invalidPath = join(created.path, "..", invalidName)
+      const validated = domainValidate({ name })
+
+      expect(created).toMatchObject({
+        ok: true,
+        name,
+        overwritten: false,
+        files: ["INDUSTRY.md"],
+      })
+      expect(existsSync(join(created.path, "INDUSTRY.md"))).toBe(true)
+      expect(validated).toMatchObject({
+        ok: true,
+        name,
+        hasIndustryMd: true,
+        hasRequiredFrontmatter: true,
+        hasBody: true,
+      })
+      expect(domainList().activeDomain).toBe(activeBefore)
+
+      expect(() => domainCreate({
+        name,
+        domainMd: validDomainMd(name, "Duplicate"),
+      })).toThrow("already exists")
+
+      const overwritten = domainCreate({
+        name,
+        domainMd: validDomainMd(name, "Updated"),
+        overwrite: true,
+      })
+
+      expect(overwritten).toMatchObject({ ok: true, name, overwritten: true })
+      expect(readFileSync(join(overwritten.path, "INDUSTRY.md"), "utf-8")).toContain("Updated domain")
+      expect(() => domainCreate({ name: "Invalid Domain", domainMd: validDomainMd("invalid-domain", "Bad") })).toThrow("kebab-case")
+      expect(() => domainCreate({ name: invalidName, domainMd: "---\nname: missing-fields\n---\n" })).toThrow("missing required field")
+      expect(domainValidate({ name: invalidName })).toMatchObject({
+        ok: false,
+        name: invalidName,
+        hasIndustryMd: true,
+        hasRequiredFrontmatter: false,
+        hasBody: false,
+      })
+    } finally {
+      if (createdPath) rmSync(createdPath, { recursive: true, force: true })
+      if (invalidPath) rmSync(invalidPath, { recursive: true, force: true })
+    }
+  })
+
   it("exposes design package validation through the CLI", () => {
     const name = `runtime-cli-design-${Date.now()}`
     const cli = join(import.meta.dir, "..", "bin", "revela.ts")
@@ -596,4 +663,23 @@ function validPreviewHtml(label: string): string {
 <section class="slide" slide-qa="true"><div class="slide-canvas"><div data-preview-component="test-card" class="test-card">Card</div><span data-preview-component="test-badge" class="test-badge">${label} Badge</span></div></section>
 <section class="slide" slide-qa="false" data-slide-role="closing"><div class="slide-canvas">${label} Closing</div></section>
 </body></html>`
+}
+
+function validDomainMd(name: string, label: string): string {
+  return `---
+name: ${name}
+description: ${label} domain
+author: test
+version: 1.0.0
+---
+
+# ${label} Domain
+
+Use this domain guidance to frame audience, decision, claims, objections, risks, and research gaps.
+
+## Narrative Framing
+
+- Prefer evidence-first claims.
+- Preserve source boundaries.
+`
 }

@@ -12,7 +12,7 @@ import {
   validateDesignPackage,
 } from "../design/designs"
 import { createDeckFoundation as createDeckFoundationShell } from "../deck-html/foundation"
-import { activeDomain, activateDomain, getDomainSkillMd, listDomains, seedBuiltinDomains } from "../domain/domains"
+import { activeDomain, activateDomain, createDomainPackage, getDomainSkillMd, listDomains, seedBuiltinDomains, validateDomainPackage } from "../domain/domains"
 import { computeNarrativeHash } from "../narrative-state/hash"
 import { compileNarrativeVault } from "../narrative-vault/compile"
 import { autoCompileNarrativeVault } from "../narrative-vault/auto-compile"
@@ -62,12 +62,19 @@ export interface RuntimeDesignCreateInput {
   overwrite?: boolean
 }
 
+export interface RuntimeDomainCreateInput {
+  name: string
+  domainMd: string
+  overwrite?: boolean
+}
+
 export interface RuntimeNameInput {
   name: string
 }
 
 export function doctor(input: RuntimeWorkspaceInput = {}) {
   const workspaceRoot = root(input.workspaceRoot)
+  const domain = activeDomainDoctorInfo()
   return {
     ok: true,
     version: pkg.version,
@@ -76,6 +83,8 @@ export function doctor(input: RuntimeWorkspaceInput = {}) {
     hasDeckPlan: existsSync(resolve(workspaceRoot, "deck-plan")),
     hasDecksJson: existsSync(resolve(workspaceRoot, "DECKS.json")),
     activeDesign: safe(activeDesign),
+    activeDomain: domain.name,
+    activeDomainDescription: domain.description,
   }
 }
 
@@ -341,6 +350,20 @@ export function domainActivate(input: RuntimeNameInput) {
   }
 }
 
+export function domainCreate(input: RuntimeDomainCreateInput) {
+  seedBuiltinDomains()
+  return createDomainPackage({
+    name: requiredString(input?.name, "domain name"),
+    domainMd: requiredString(input?.domainMd, "domainMd"),
+    overwrite: input.overwrite ?? false,
+  })
+}
+
+export function domainValidate(input: RuntimeNameInput) {
+  seedBuiltinDomains()
+  return validateDomainPackage(requiredName(input, "domain"))
+}
+
 function root(workspaceRoot: string | undefined): string {
   return resolve(workspaceRoot || process.cwd())
 }
@@ -350,6 +373,17 @@ function safe<T>(fn: () => T): T | undefined {
     return fn()
   } catch {
     return undefined
+  }
+}
+
+function activeDomainDoctorInfo(): { name: string; description: string } {
+  try {
+    seedBuiltinDomains()
+    const name = activeDomain()
+    const description = listDomains().find((domain) => domain.name === name)?.description ?? ""
+    return { name, description }
+  } catch {
+    return { name: safe(activeDomain) ?? "", description: "" }
   }
 }
 

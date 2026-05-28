@@ -25,6 +25,8 @@ type RuntimeModule = {
   domainList(): any
   domainRead(input?: any): any
   domainActivate(input: any): any
+  domainCreate(input: any): any
+  domainValidate(input: any): any
   storyRead(input?: any): any
   reviewDeckRead(input: any): Promise<any>
   reviewDeckOpen(input: any): Promise<any>
@@ -148,6 +150,20 @@ const tools = [
     name: "revela_domain_activate",
     description: "Activate a Revela narrative domain for future narrative authoring guidance.",
     inputSchema: objectSchema({ name: requiredStringProp("Domain name to activate.") }, ["name"]),
+  },
+  {
+    name: "revela_domain_create",
+    description: "Create and validate a local Revela narrative domain package from complete INDUSTRY.md content.",
+    inputSchema: objectSchema({
+      name: requiredStringProp("Domain name in kebab-case."),
+      domainMd: requiredStringProp("Complete INDUSTRY.md content."),
+      overwrite: booleanProp("Whether to replace an existing local domain package. Defaults to false."),
+    }, ["name", "domainMd"]),
+  },
+  {
+    name: "revela_domain_validate",
+    description: "Validate a local Revela narrative domain package.",
+    inputSchema: objectSchema({ name: requiredStringProp("Domain name to validate.") }, ["name"]),
   },
   {
     name: "revela_story_read",
@@ -281,6 +297,8 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_domain_list") return r.domainList()
   if (name === "revela_domain_read") return r.domainRead(args)
   if (name === "revela_domain_activate") return r.domainActivate(args)
+  if (name === "revela_domain_create") return r.domainCreate(args)
+  if (name === "revela_domain_validate") return r.domainValidate(args)
   if (name === "revela_story_read") return r.storyRead(args)
   if (name === "revela_review_deck_read") return r.reviewDeckRead(args)
   if (name === "revela_review_deck_open") return r.reviewDeckOpen(args)

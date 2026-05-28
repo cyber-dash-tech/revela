@@ -5,7 +5,7 @@ description: Use or switch Revela narrative domain guidance in Codex for init, r
 
 # Revela Domain
 
-Use this skill when the user asks about Revela domains, wants domain-specific narrative guidance, or asks to switch the active domain.
+Use this skill when the user asks about Revela domains, wants domain-specific narrative guidance, asks to switch the active domain, or asks to create a new domain.
 
 ## Workflow
 
@@ -16,3 +16,13 @@ Use this skill when the user asks about Revela domains, wants domain-specific na
 5. Do not treat domain guidance as evidence, source material, or proof for factual claims.
 
 Domain changes are narrative-framing preferences. They do not rewrite existing claims, evidence boundaries, artifacts, or deck plans unless the user asks for those updates.
+
+## Creating Or Editing Domains
+
+When the user asks to create a new domain, interview the user before saving anything. Collect the communication context, typical audience, decisions, claim patterns, evidence expectations, common objections, risks, research-gap heuristics, terminology to use, and terminology to avoid. Summarize the domain brief, then wait for the user to confirm before creating files.
+
+After confirmation, generate complete `INDUSTRY.md` content and call `revela_domain_create`. For edits to an existing domain, read the existing domain first, preserve useful guidance, and call `revela_domain_create` with `overwrite: true` only after the user confirms the edit brief. Always call `revela_domain_validate` after creation or overwrite.
+
+`INDUSTRY.md` must include frontmatter with `name`, `description`, `author`, and `version`, followed by concrete narrative guidance for audience framing, decision framing, claim standards, evidence expectations, objection/risk handling, and research-gap interpretation.
+
+Do not automatically activate a newly created domain. Report the saved path and tell the user they can activate it with `revela_domain_activate`.
