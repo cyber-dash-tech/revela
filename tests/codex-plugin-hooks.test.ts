@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { mkdirSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { designRead } from "../lib/runtime"
-import { extractDeckHtmlPatchTargets, runPreWriteChecks } from "../plugins/revela/hooks/revela_guard"
+import { extractDeckHtmlPatchTargets, extractNarrativeCachePatchTargets, runPreWriteChecks } from "../plugins/revela/hooks/revela_guard"
 import { extractDeckHtmlTargets, runPostWriteChecks, workspaceRootFromInput } from "../plugins/revela/hooks/revela_post_write_notice"
 import { tempWorkspace } from "./helpers/tool-helpers"
 
@@ -61,16 +61,67 @@ describe("Codex plugin hooks", () => {
 
       expect(result.ok).toBe(false)
       expect(result.messages.join("\n")).toContain("missing_slide_canvas")
+      expect(result.messages.join("\n")).toContain("**Artifact QA failed**")
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
   }, 10000)
 
-  it("keeps narrative markdown notices", async () => {
-    const result = await runPostWriteChecks("*** Update File: revela-narrative/claims/demo.md")
+  it("auto-compiles narrative Markdown patches when the vault is clean", async () => {
+    const root = workspace()
+    try {
+      writeValidVault(root, "Board")
+
+      const result = await runPostWriteChecks(hookPayload(root, "revela-narrative/claims/pilot.md"))
+
+      expect(result.ok).toBe(true)
+      expect(result.messages.join("\n")).toContain("Auto-compile completed")
+      expect(result.messages.join("\n")).toContain("Status: ok")
+      expect(result.messages.join("\n")).toContain("Markdown QA: clean")
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it("returns a concise Markdown QA blocker notice for invalid narrative Markdown", async () => {
+    const root = workspace()
+    try {
+      writeValidVault(root, "Board")
+      writeFileSync(join(root, "revela-narrative", "claims", "pilot.md"), `---
+type: claim
+id: claim:pilot
+kind: recommendation
+importance: central
+evidenceRequired: true
+supportedScope: Pilot decision.
+unsupportedScope: Full rollout.
+---
+Approve a bounded pilot.
+---
+type: claim
+---
+## Relations
+
+- supports: [[claim:claim-typed-target]]
+- supports: [[claim:missing]]
+`, "utf-8")
+
+      const result = await runPostWriteChecks(hookPayload(root, "revela-narrative/claims/pilot.md"))
+
+      expect(result.ok).toBe(false)
+      expect(result.messages.join("\n")).toContain("**Markdown QA blocked**")
+      expect(result.messages.join("\n")).toContain("duplicate_frontmatter")
+      expect(result.messages.join("\n")).toContain("typed_wikilink_target")
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it("does not run narrative QA for non-vault Markdown patches", async () => {
+    const result = await runPostWriteChecks(hookPayload("/tmp/revela-demo", "researches/topic/findings.md"))
 
     expect(result.ok).toBe(true)
-    expect(result.messages.join("\n")).toContain("Revela narrative Markdown changed")
+    expect(result.messages).toEqual([])
   })
 
   it("blocks deck patches until active design rules are read", async () => {
@@ -125,6 +176,18 @@ describe("Codex plugin hooks", () => {
     expect(result.ok).toBe(true)
     expect(result.messages).toEqual([])
   })
+
+  it("blocks direct narrative cache patches", async () => {
+    const payload = hookPayload("/tmp/revela-demo", ".opencode/revela/narrative-cache/compiled-narrative.json")
+
+    expect(extractNarrativeCachePatchTargets(payload)).toEqual([".opencode/revela/narrative-cache/compiled-narrative.json"])
+
+    const result = await runPreWriteChecks(payload)
+
+    expect(result.ok).toBe(false)
+    expect(result.messages.join("\n")).toContain("narrative cache patches are blocked")
+    expect(result.messages.join("\n")).toContain("Edit `revela-narrative/**/*.md`")
+  })
 })
 
 function workspace(): string {
@@ -153,4 +216,16 @@ function validDeckHtml(): string {
       </section>
     </body></html>
   `
+}
+
+function writeValidVault(root: string, audience: string): void {
+  const vault = join(root, "revela-narrative")
+  mkdirSync(join(vault, "claims"), { recursive: true })
+  mkdirSync(join(vault, "evidence"), { recursive: true })
+  writeFileSync(join(vault, "index.md"), "---\ntype: index\nid: narrative:auto-demo\nstatus: ready_for_approval\n---\n", "utf-8")
+  writeFileSync(join(vault, "audience.md"), `---\ntype: audience\nprimary: ${audience}\nbeliefBefore: Pilot value is unclear.\nbeliefAfter: Pilot value is bounded by evidence.\n---\n`, "utf-8")
+  writeFileSync(join(vault, "decision.md"), "---\ntype: decision\naction: Approve a bounded pilot.\ndecisionType: approve\n---\n", "utf-8")
+  writeFileSync(join(vault, "thesis.md"), "---\ntype: thesis\nid: thesis:pilot\nconfidence: medium\n---\nA bounded pilot is justified.\n", "utf-8")
+  writeFileSync(join(vault, "claims", "pilot.md"), "---\ntype: claim\nid: claim:pilot\nkind: recommendation\nimportance: central\nevidenceRequired: true\nsupportedScope: Pilot decision.\nunsupportedScope: Full rollout.\n---\nApprove a bounded pilot.\n", "utf-8")
+  writeFileSync(join(vault, "evidence", "pilot.md"), "---\ntype: evidence\nid: evidence:pilot\nclaimId: claim:pilot\nsource: Ops note\nquote: Pilot constraints are explicit.\nsupportScope: Pilot only.\nunsupportedScope: Full rollout.\ncaveat: One source.\nstrength: strong\n---\n", "utf-8")
 }

@@ -15,7 +15,10 @@ import { createDeckFoundation as createDeckFoundationShell } from "../deck-html/
 import { activeDomain, activateDomain, getDomainSkillMd, listDomains, seedBuiltinDomains } from "../domain/domains"
 import { computeNarrativeHash } from "../narrative-state/hash"
 import { compileNarrativeVault } from "../narrative-vault/compile"
+import { autoCompileNarrativeVault } from "../narrative-vault/auto-compile"
+import { extractNarrativeVaultMarkdownTargetsFromPatch } from "../narrative-vault/hook-targets"
 import { runNarrativeMarkdownQa, type MarkdownQaOptions } from "../narrative-vault/markdown-qa"
+import { formatArtifactQaUserNotice, formatMarkdownQaUserNotice } from "../hook-notifications"
 import { readDeckPlanArtifact } from "../narrative-state/deck-plan-artifact"
 import { extractDesignClasses } from "../design/designs"
 import { recordRenderedArtifact, workspaceRelative } from "../workspace-state/rendered-artifacts"
@@ -30,6 +33,10 @@ export interface RuntimeWorkspaceInput {
 
 export interface RuntimeFileInput extends RuntimeWorkspaceInput {
   file: string
+}
+
+export interface RuntimeNarrativeAutoCompileInput extends RuntimeWorkspaceInput {
+  touched?: string[]
 }
 
 export interface RuntimeDeckFoundationInput extends RuntimeWorkspaceInput {
@@ -85,6 +92,18 @@ export function markdownQa(input: RuntimeWorkspaceInput & MarkdownQaOptions = {}
     touched: input.touched,
   })
 }
+
+export function autoCompileNarrative(input: RuntimeNarrativeAutoCompileInput = {}) {
+  const workspaceRoot = root(input.workspaceRoot)
+  return autoCompileNarrativeVault(workspaceRoot, input.touched ?? [])
+}
+
+export function extractNarrativeVaultMarkdownPatchTargets(input: RuntimeWorkspaceInput & { patch: string }) {
+  const workspaceRoot = root(input.workspaceRoot)
+  return extractNarrativeVaultMarkdownTargetsFromPatch(input.patch, workspaceRoot)
+}
+
+export { formatArtifactQaUserNotice, formatMarkdownQaUserNotice }
 
 export function readDeckPlan(input: RuntimeWorkspaceInput = {}) {
   const workspaceRoot = root(input.workspaceRoot)

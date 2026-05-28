@@ -24,6 +24,20 @@ export function extractDeckHtmlTargets(input: string): string[] {
   return [...targets].sort((a, b) => a.localeCompare(b))
 }
 
+export function patchPayloadsFromInput(input: string): string[] {
+  try {
+    const parsed = JSON.parse(input)
+    return [
+      parsed.patch,
+      parsed.args?.patch,
+      parsed.tool_input?.patch,
+      parsed.toolInput?.patch,
+    ].filter((item): item is string => typeof item === "string")
+  } catch {
+    return [input]
+  }
+}
+
 export function workspaceRootFromInput(input: string): string {
   try {
     const parsed = JSON.parse(input)
@@ -47,18 +61,16 @@ export function workspaceRootFromInput(input: string): string {
 
 export async function runPostWriteChecks(input: string): Promise<HookResult> {
   const messages: string[] = []
-  if (/revela-narrative\/.*\.md/.test(input)) {
-    messages.push("Revela narrative Markdown changed. Run `revela_markdown_qa` and `revela_compile_narrative` before treating the graph as usable.")
-  }
-
   const deckTargets = extractDeckHtmlTargets(input)
-  if (deckTargets.length === 0) return { ok: true, messages }
+  const hasPossibleNarrativeMarkdown = /revela-narrative\/.*\.md/.test(input)
+  if (deckTargets.length === 0 && !hasPossibleNarrativeMarkdown) return { ok: true, messages }
 
   const pluginRoot = resolve(process.env.PLUGIN_ROOT || dirname(dirname(fileURLToPath(import.meta.url))))
   const runtime = resolveRevelaRuntime({ pluginRoot })
   if (!runtime.ok || !runtime.runtimePath) {
+    const changed = deckTargets.length > 0 ? "deck HTML changed" : "narrative Markdown changed"
     messages.push([
-      "Revela deck HTML changed, but Codex hook could not locate the Revela runtime to run Artifact QA.",
+      `Revela ${changed}, but Codex hook could not locate the Revela runtime to run write-after checks.`,
       ...runtime.diagnostics.map((item) => `- ${item}`),
     ].join("\n"))
     return { ok: false, messages }
@@ -67,9 +79,28 @@ export async function runPostWriteChecks(input: string): Promise<HookResult> {
   const workspaceRoot = workspaceRootFromInput(input)
   const runtimeModule = await import(pathToFileURL(runtime.runtimePath).href)
   let ok = true
+
+  if (hasPossibleNarrativeMarkdown) {
+    const touched = new Set<string>()
+    for (const patch of patchPayloadsFromInput(input)) {
+      const targets = runtimeModule.extractNarrativeVaultMarkdownPatchTargets({ workspaceRoot, patch })
+      for (const target of targets) touched.add(target)
+    }
+
+    if (touched.size > 0) {
+      const result = runtimeModule.autoCompileNarrative({ workspaceRoot, touched: [...touched] })
+      messages.push(result.markdown ?? JSON.stringify(result, null, 2))
+      const notice = runtimeModule.formatMarkdownQaUserNotice?.(result)
+      if (notice) messages.push(notice)
+      if (!result.ok) ok = false
+    }
+  }
+
   for (const target of deckTargets) {
     const result = await runtimeModule.runDeckQa({ workspaceRoot, file: target })
     messages.push(result.markdown ?? JSON.stringify(result, null, 2))
+    const notice = runtimeModule.formatArtifactQaUserNotice?.(result.report)
+    if (notice) messages.push(notice)
     if (!result.ok) ok = false
   }
 

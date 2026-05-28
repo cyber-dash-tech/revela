@@ -17,6 +17,15 @@ export async function runPreWriteChecks(input: string): Promise<HookResult> {
     messages.push(`Revela controls ${controlledStateFile}. Use Revela MCP/runtime tools or file-native narrative files instead of direct ${controlledStateFile} patches.`)
   }
 
+  const cacheTargets = extractNarrativeCachePatchTargets(input)
+  if (cacheTargets.length > 0) {
+    messages.push([
+      "Revela narrative cache patches are blocked.",
+      `Controlled cache target(s): ${cacheTargets.map((target) => `\`${target}\``).join(", ")}`,
+      "Edit `revela-narrative/**/*.md` instead; compile/cache files under `.opencode/revela/narrative-cache/` are regenerated.",
+    ].join("\n"))
+  }
+
   const deckTargets = extractDeckHtmlPatchTargets(input)
   if (deckTargets.length > 0) {
     const pluginRoot = resolve(process.env.PLUGIN_ROOT || dirname(dirname(fileURLToPath(import.meta.url))))
@@ -49,6 +58,16 @@ export function extractDeckHtmlPatchTargets(input: string): string[] {
   const targets = new Set<string>()
   for (const patch of patchPayloads(input)) {
     const pattern = /(?:^\*\*\* Update File: |^\*\*\* Add File: )([^\r\n]*decks\/[^\r\n]+\.html)\s*$/gm
+    let match: RegExpExecArray | null
+    while ((match = pattern.exec(patch))) targets.add(match[1].trim())
+  }
+  return [...targets].sort((a, b) => a.localeCompare(b))
+}
+
+export function extractNarrativeCachePatchTargets(input: string): string[] {
+  const targets = new Set<string>()
+  for (const patch of patchPayloads(input)) {
+    const pattern = /(?:^\*\*\* Update File: |^\*\*\* Add File: |^\*\*\* Delete File: |^\*\*\* Move to: )([^\r\n]*\.opencode\/revela\/narrative-cache\/[^\r\n]+)\s*$/gm
     let match: RegExpExecArray | null
     while ((match = pattern.exec(patch))) targets.add(match[1].trim())
   }
