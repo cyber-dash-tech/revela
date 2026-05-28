@@ -34,7 +34,7 @@ To install globally, add the same entry to `~/.config/opencode/opencode.json`.
 Requirements:
 
 - The Codex CLI must be installed and the `codex` command must be available in your shell.
-- Your environment must be able to run `npx`; Revela uses `npx -y @cyber-dash-tech/revela@0.17.12 mcp` to start the MCP server.
+- Your environment must be able to run `npx`; Revela uses `npx -y @cyber-dash-tech/revela@0.17.20 mcp` to start the MCP server.
 - For interactive Review actions, `codex exec` must also work because the Review UI uses it for Insight and Comment/Apply Fix requests.
 
 Optional preflight:
@@ -55,17 +55,39 @@ npm_config_cache=/tmp/revela-npm-cache bun run smoke:mcp-pack
 Install Revela through the Codex Git marketplace:
 
 ```bash
-codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.17.12
+codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.17.20
 codex plugin add revela@revela
 ```
 
-The Git marketplace install provides the Codex plugin shell, skills, hooks, and MCP configuration. When Codex starts the Revela MCP server for the first time, it runs `npx -y @cyber-dash-tech/revela@0.17.12 mcp` so npm can fetch the published package and its dependencies.
+The Git marketplace install provides the Codex plugin shell, skills, hooks, and MCP configuration. When Codex starts the Revela MCP server for the first time, it runs `npx -y @cyber-dash-tech/revela@0.17.20 mcp` so npm can fetch the published package and its dependencies.
 
 You do not need to run `bun install` inside the Codex marketplace clone.
 
 Start a new Codex thread after installing so Codex loads the Revela skills, MCP tools, and hooks.
 
 For release-aligned local validation, run `bun run smoke:mcp-pack`. It packs the current checkout to a temporary npm tarball and starts the MCP server through `npx`, matching the published Codex launcher path without requiring a registry publish.
+
+#### Codex Upgrade
+
+In Codex, ask Revela to check the current runtime version; the plugin calls `revela_doctor` and reports the running `version`.
+
+For a fixed release tag, reinstall the plugin from that tag:
+
+```bash
+codex plugin remove revela@revela
+codex plugin marketplace remove revela
+codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref vX.Y.Z
+codex plugin add revela@revela
+```
+
+For a marketplace entry that intentionally tracks a branch or movable ref, upgrade the marketplace clone and re-add the plugin:
+
+```bash
+codex plugin marketplace upgrade revela
+codex plugin add revela@revela
+```
+
+The Git marketplace ref and `.mcp.json` npm pin are part of the same release artifact. Start a new Codex thread after upgrading so Codex reloads the Revela skills, MCP tools, hooks, and runtime pin.
 
 ## Built-In Designs
 

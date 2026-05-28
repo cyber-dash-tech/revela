@@ -34,7 +34,7 @@ Revela 可在 [OpenCode](https://opencode.ai) 和 Codex 中使用，把来源材
 环境要求：
 
 - 需要已安装 Codex CLI，并且 shell 中可以执行 `codex`。
-- 环境中需要可以执行 `npx`；Revela 会用 `npx -y @cyber-dash-tech/revela@0.17.12 mcp` 启动 MCP server。
+- 环境中需要可以执行 `npx`；Revela 会用 `npx -y @cyber-dash-tech/revela@0.17.20 mcp` 启动 MCP server。
 - 如果使用 Review UI 的 Insight、Comment 或 Apply Fix，需要 `codex exec` 可用。
 
 可选的安装前检查：
@@ -55,17 +55,39 @@ npm_config_cache=/tmp/revela-npm-cache bun run smoke:mcp-pack
 通过 Codex Git marketplace 安装 Revela：
 
 ```bash
-codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.17.12
+codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.17.20
 codex plugin add revela@revela
 ```
 
-Git marketplace 安装的是 Codex plugin 壳、skills、hooks 和 MCP 配置。Codex 第一次启动 Revela MCP server 时，会运行 `npx -y @cyber-dash-tech/revela@0.17.12 mcp`，由 npm 获取已发布 package 及其 dependencies。
+Git marketplace 安装的是 Codex plugin 壳、skills、hooks 和 MCP 配置。Codex 第一次启动 Revela MCP server 时，会运行 `npx -y @cyber-dash-tech/revela@0.17.20 mcp`，由 npm 获取已发布 package 及其 dependencies。
 
 不需要在 Codex marketplace clone 里运行 `bun install`。
 
 安装后开启一个新的 Codex thread，让 Codex 加载 Revela 的 skills、MCP tools 和 hooks。
 
 如果要按发布路径做本地验证，运行 `bun run smoke:mcp-pack`。它会把当前 checkout 打成临时 npm tarball，再通过 `npx` 启动 MCP server，不需要先发布到 registry。
+
+#### Codex 升级
+
+在 Codex 中，可以让 Revela 检查当前 runtime version；plugin 会调用 `revela_doctor` 并报告正在运行的 `version`。
+
+如果要固定到某个 release tag，按该 tag 重新安装 plugin：
+
+```bash
+codex plugin remove revela@revela
+codex plugin marketplace remove revela
+codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref vX.Y.Z
+codex plugin add revela@revela
+```
+
+如果 marketplace entry 本来就有意跟踪 branch 或 movable ref，升级 marketplace clone 后重新添加 plugin：
+
+```bash
+codex plugin marketplace upgrade revela
+codex plugin add revela@revela
+```
+
+Git marketplace ref 和 `.mcp.json` npm pin 属于同一个 release artifact。升级后开启一个新的 Codex thread，让 Codex 重新加载 Revela skills、MCP tools、hooks 和 runtime pin。
 
 ## 内置设计
 
