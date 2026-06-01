@@ -58,6 +58,7 @@ export type DocumentMaterialsResult = {
   cache_dir?: string
   manifest_path?: string
   text_path?: string
+  read_view_path?: string
   images?: DocumentMaterial[]
   skipped_assets?: SkippedAsset[]
   slides?: PptxSlide[]
@@ -74,6 +75,7 @@ type CachedManifest = {
   cache_dir: string
   manifest_path: string
   text_path: string
+  read_view_path?: string
   images: DocumentMaterial[]
   skipped_assets: SkippedAsset[]
   slides: PptxSlide[]
@@ -155,6 +157,145 @@ function writeCachedBuffer(targetPath: string, buf: Uint8Array): void {
 
 function materialPath(cacheDir: string, workspaceDir: string, ...segments: string[]): string {
   return workspaceRelative(join(cacheDir, ...segments), workspaceDir)
+}
+
+function buildReadView(input: {
+  source: string
+  type: SupportedType
+  fingerprint: string
+  text: string
+  manifestPath: string
+  textPath: string
+  images: DocumentMaterial[]
+  skippedAssets: SkippedAsset[]
+  tables: DocumentMaterial[]
+  slides: PptxSlide[] | undefined
+}): string {
+  const lines = [
+    `# Extracted Material: ${basename(input.source)}`,
+    "",
+    "## Source",
+    "",
+    `- sourcePath: ${input.source}`,
+    `- type: ${input.type}`,
+    `- fingerprint: ${input.fingerprint}`,
+    `- manifestPath: ${input.manifestPath}`,
+    `- textPath: ${input.textPath}`,
+    "",
+    "## Text",
+    "",
+    input.text.trim() || "No text extracted.",
+    "",
+    "## Extracted Images",
+    "",
+  ]
+
+  if (input.images.length === 0) lines.push("- None")
+  else {
+    for (const image of input.images) {
+      const parts = [
+        image.page_or_slide ? `page_or_slide: ${image.page_or_slide}` : null,
+        `source_ref: ${image.source_ref}`,
+        image.note ? `note: ${image.note}` : null,
+      ].filter(Boolean).join("; ")
+      lines.push(`- ${image.path}${parts ? ` (${parts})` : ""}`)
+    }
+  }
+
+  if (input.skippedAssets.length > 0) {
+    lines.push("", "## Skipped Or Unmapped Assets", "")
+    for (const asset of input.skippedAssets) {
+      const parts = [
+        asset.page_or_slide ? `page_or_slide: ${asset.page_or_slide}` : null,
+        `reason: ${asset.reason}`,
+        asset.kind ? `kind: ${asset.kind}` : null,
+      ].filter(Boolean).join("; ")
+      lines.push(`- ${asset.source_ref}${parts ? ` (${parts})` : ""}`)
+    }
+  }
+
+  if (input.tables.length > 0) {
+    lines.push("", "## Extracted Tables", "")
+    for (const table of input.tables) lines.push(`- ${table.path} (${table.note ?? table.source_ref})`)
+  }
+
+  if (input.slides?.length) {
+    lines.push("", "## Slide Structure", "")
+    for (const slide of input.slides) {
+      const textCount = slide.elements.filter((element) => element.kind === "text").length
+      const imageCount = slide.elements.filter((element) => element.kind === "image").length
+      const shapeCount = slide.elements.filter((element) => element.kind === "shape").length
+      lines.push(`- ${slide.slide}: ${textCount} text, ${imageCount} image, ${shapeCount} shape`)
+    }
+  }
+
+  lines.push(
+    "",
+    "## Intake Rules",
+    "",
+    "- Treat this extracted material as source context until a material review records what was considered.",
+    "- Do not treat extracted images as interpreted evidence unless an explicit image review or user-provided meaning exists.",
+    "- Canonical evidence still requires source trace, quote/snippet, support scope, unsupported scope, caveat, strength, and relations in `revela-narrative/`.",
+  )
+
+  return lines.join("\n")
+}
+
+function writeReadView(input: {
+  cacheDir: string
+  workspaceDir: string
+  source: string
+  type: SupportedType
+  fingerprint: string
+  text: string
+  manifestPath: string
+  textPath: string
+  images: DocumentMaterial[]
+  skippedAssets: SkippedAsset[]
+  tables: DocumentMaterial[]
+  slides?: PptxSlide[]
+}): string {
+  const readViewPath = join(input.cacheDir, "read.md")
+  writeFileSync(readViewPath, buildReadView({
+    source: input.source,
+    type: input.type,
+    fingerprint: input.fingerprint,
+    text: input.text,
+    manifestPath: input.manifestPath,
+    textPath: input.textPath,
+    images: input.images,
+    skippedAssets: input.skippedAssets,
+    tables: input.tables,
+    slides: input.slides,
+  }), "utf-8")
+  return workspaceRelative(readViewPath, input.workspaceDir)
+}
+
+function ensureCachedReadView(
+  manifest: CachedManifest,
+  cacheDir: string,
+  workspaceDir: string,
+): string {
+  const existing = manifest.read_view_path
+  if (existing && existsSync(join(workspaceDir, existing))) return existing
+
+  const text = existsSync(join(workspaceDir, manifest.text_path))
+    ? readFileSync(join(workspaceDir, manifest.text_path), "utf-8").replace(/^\[Extracted from: .*?\]\n\n/, "")
+    : ""
+  return writeReadView({
+    cacheDir,
+    workspaceDir,
+    source: manifest.source,
+    type: manifest.type,
+    fingerprint: manifest.fingerprint,
+    text,
+    manifestPath: manifest.manifest_path,
+    textPath: manifest.text_path,
+    images: manifest.images,
+    skippedAssets: manifest.skipped_assets,
+    tables: manifest.tables,
+    slides: manifest.slides,
+  })
 }
 
 function updateDecksSourceMaterialIndex(
@@ -716,6 +857,7 @@ async function processPdfFile(filePath: string, workspaceDir: string): Promise<D
 
   if (existsSync(manifestPath)) {
     const manifest = JSON.parse(readFileSync(manifestPath, "utf-8")) as CachedManifest
+    const readViewPath = ensureCachedReadView(manifest, cacheDir, workspaceDir)
     return {
       status: "processed",
       cache_status: "hit",
@@ -724,6 +866,7 @@ async function processPdfFile(filePath: string, workspaceDir: string): Promise<D
       cache_dir: manifest.cache_dir,
       manifest_path: manifest.manifest_path,
       text_path: manifest.text_path,
+      read_view_path: readViewPath,
       images: manifest.images,
       skipped_assets: manifest.skipped_assets,
       slides: manifest.slides,
@@ -740,6 +883,22 @@ async function processPdfFile(filePath: string, workspaceDir: string): Promise<D
   writeFileSync(textPath, `[Extracted from: ${basename(filePath)}]\n\n${text}`, "utf-8")
 
   const images = await extractPdfImages(buf, cacheDir, workspaceDir)
+  const relativeManifestPath = workspaceRelative(manifestPath, workspaceDir)
+  const relativeTextPath = workspaceRelative(textPath, workspaceDir)
+  const readViewPath = writeReadView({
+    cacheDir,
+    workspaceDir,
+    source: relativeSource,
+    type: "pdf",
+    fingerprint,
+    text,
+    manifestPath: relativeManifestPath,
+    textPath: relativeTextPath,
+    images,
+    skippedAssets: [],
+    tables: [],
+    slides: [],
+  })
 
   const result: DocumentMaterialsResult = {
     status: "processed",
@@ -747,8 +906,9 @@ async function processPdfFile(filePath: string, workspaceDir: string): Promise<D
     source: relativeSource,
     type: "pdf",
     cache_dir: workspaceRelative(cacheDir, workspaceDir),
-    manifest_path: workspaceRelative(manifestPath, workspaceDir),
-    text_path: workspaceRelative(textPath, workspaceDir),
+    manifest_path: relativeManifestPath,
+    text_path: relativeTextPath,
+    read_view_path: readViewPath,
     images,
     skipped_assets: [],
     slides: [],
@@ -762,6 +922,7 @@ async function processPdfFile(filePath: string, workspaceDir: string): Promise<D
     cache_dir: result.cache_dir!,
     manifest_path: result.manifest_path!,
     text_path: result.text_path!,
+    read_view_path: result.read_view_path,
     images: result.images ?? [],
     skipped_assets: [],
     slides: [],
@@ -780,6 +941,7 @@ async function processOfficeFile(filePath: string, workspaceDir: string, type: S
 
   if (existsSync(manifestPath)) {
     const manifest = JSON.parse(readFileSync(manifestPath, "utf-8")) as CachedManifest
+    const readViewPath = ensureCachedReadView(manifest, cacheDir, workspaceDir)
     return {
       status: "processed",
       cache_status: "hit",
@@ -788,6 +950,7 @@ async function processOfficeFile(filePath: string, workspaceDir: string, type: S
       cache_dir: manifest.cache_dir,
       manifest_path: manifest.manifest_path,
       text_path: manifest.text_path,
+      read_view_path: readViewPath,
       images: manifest.images,
       skipped_assets: manifest.skipped_assets,
       slides: manifest.slides,
@@ -821,6 +984,24 @@ async function processOfficeFile(filePath: string, workspaceDir: string, type: S
   const slides = type === "pptx"
     ? extractPptxSlides(files, images, pptxAssets!.skipped_assets)
     : undefined
+  const relativeManifestPath = workspaceRelative(manifestPath, workspaceDir)
+  const relativeTextPath = workspaceRelative(textPath, workspaceDir)
+  const tables = extractTables(type, relativeTextPath)
+  const skippedAssets = pptxAssets?.skipped_assets ?? []
+  const readViewPath = writeReadView({
+    cacheDir,
+    workspaceDir,
+    source: relativeSource,
+    type,
+    fingerprint,
+    text,
+    manifestPath: relativeManifestPath,
+    textPath: relativeTextPath,
+    images,
+    skippedAssets,
+    tables,
+    slides,
+  })
 
   const result: DocumentMaterialsResult = {
     status: "processed",
@@ -828,12 +1009,13 @@ async function processOfficeFile(filePath: string, workspaceDir: string, type: S
     source: relativeSource,
     type,
     cache_dir: workspaceRelative(cacheDir, workspaceDir),
-    manifest_path: workspaceRelative(manifestPath, workspaceDir),
-    text_path: workspaceRelative(textPath, workspaceDir),
+    manifest_path: relativeManifestPath,
+    text_path: relativeTextPath,
+    read_view_path: readViewPath,
     images,
-    skipped_assets: pptxAssets?.skipped_assets ?? [],
+    skipped_assets: skippedAssets,
     slides,
-    tables: extractTables(type, workspaceRelative(textPath, workspaceDir)),
+    tables,
   }
 
   const manifest: CachedManifest = {
@@ -843,6 +1025,7 @@ async function processOfficeFile(filePath: string, workspaceDir: string, type: S
     cache_dir: result.cache_dir!,
     manifest_path: result.manifest_path!,
     text_path: result.text_path!,
+    read_view_path: result.read_view_path,
     images: result.images ?? [],
     skipped_assets: result.skipped_assets ?? [],
     slides: result.slides ?? [],

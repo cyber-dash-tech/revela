@@ -2,6 +2,16 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "exec_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun ${PLUGIN_ROOT}/hooks/revela_material_notice.ts",
+            "statusMessage": "Checking Revela material intake"
+          }
+        ]
+      },
+      {
         "matcher": "apply_patch",
         "hooks": [
           {

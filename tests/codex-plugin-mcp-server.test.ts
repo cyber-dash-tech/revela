@@ -6,6 +6,7 @@ import { createDeckFoundation, deckFoundationMarkers } from "../lib/deck-html/fo
 import { seedBuiltinDesigns } from "../lib/design/designs"
 import pkg from "../package.json"
 import { tempWorkspace } from "./helpers/tool-helpers"
+import { zipSync, strToU8 } from "fflate"
 
 const serverPath = join(import.meta.dir, "..", "plugins", "revela", "mcp", "revela-server.ts")
 const repoRoot = join(import.meta.dir, "..")
@@ -50,6 +51,10 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("revela_domain_draft_create")
     expect(text.stdout).toContain("revela_domain_draft_validate")
     expect(text.stdout).toContain("revela_domain_draft_install")
+    expect(text.stdout).toContain("revela_prepare_local_materials")
+    expect(text.stdout).toContain("revela_extract_document_materials")
+    expect(text.stdout).toContain("revela_record_material_review")
+    expect(text.stdout).toContain("revela_check_material_intake")
   })
 
   it("reports the package version through the doctor tool", async () => {
@@ -556,6 +561,51 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("inspectionContext")
   }, 60000)
 
+  it("calls material intake tools for a docx source", async () => {
+    const root = tempWorkspace("revela-mcp-material-")
+    writeDocx(root, "proposal.docx", "Quarterly summary")
+    const child = spawn("bun", [serverPath], { stdio: ["pipe", "pipe", "pipe"] })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "revela_prepare_local_materials", arguments: { workspaceRoot: root } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: {
+        name: "revela_record_material_review",
+        arguments: {
+          workspaceRoot: root,
+          sourcePath: "proposal.docx",
+          reviewedPaths: [".opencode/revela/doc-materials/example/read.md"],
+          reviewSummary: "Reviewed the extracted proposal.",
+          narrativeDecisions: [{ kind: "ignored", rationale: "No canonical narrative claim was created." }],
+        },
+      },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "revela_check_material_intake", arguments: { workspaceRoot: root } },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":4") && item.stdout.includes("proposal.docx"), 10000)
+    child.kill()
+
+    expect(text.stdout).toContain("\\\"status\\\": \\\"processed\\\"")
+    expect(text.stdout).toContain("\\\"read_view_path\\\"")
+    expect(text.stdout).toContain("\\\"ok\\\": true")
+    expect(text.stdout).toContain("researches/local-materials/proposal-review.md")
+  }, 10000)
+
   it("opens a Codex-backed Review deck server from the MCP process", async () => {
     seedBuiltinDesigns()
     const root = tempWorkspace("revela-mcp-review-open-")
@@ -640,6 +690,33 @@ function writeReviewDeck(root: string, outputPath: string): void {
         </div>
     </section>`
   writeFileSync(htmlPath, html.replace(`${markers.start}\n    ${markers.end}`, `${markers.start}${slide}\n    ${markers.end}`), "utf-8")
+}
+
+function writeDocx(root: string, relativePath: string, text: string): void {
+  writeFileSync(join(root, relativePath), zipSync({
+    "[Content_Types].xml": strToU8(
+      `<?xml version="1.0" encoding="UTF-8"?>
+      <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+        <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+        <Default Extension="xml" ContentType="application/xml"/>
+        <Default Extension="png" ContentType="image/png"/>
+        <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+      </Types>`,
+    ),
+    "_rels/.rels": strToU8(
+      `<?xml version="1.0" encoding="UTF-8"?>
+      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+      </Relationships>`,
+    ),
+    "word/document.xml": strToU8(
+      `<?xml version="1.0" encoding="UTF-8"?>
+      <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+        <w:body><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:body>
+      </w:document>`,
+    ),
+    "word/media/image1.png": new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+  }))
 }
 
 function writeResearchVault(root: string): void {

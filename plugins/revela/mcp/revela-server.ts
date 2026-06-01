@@ -40,6 +40,10 @@ type RuntimeModule = {
   researchSave(input: any): any
   evaluateResearchFindings(input: any): any
   bindResearchFindings(input: any): any
+  prepareLocalMaterials(input: any): Promise<any>
+  extractMaterial(input: any): Promise<any>
+  recordMaterialReview(input: any): any
+  checkMaterialIntake(input: any): any
 }
 
 type MessageMode = "framed" | "raw"
@@ -287,6 +291,43 @@ const tools = [
       evidenceId: stringProp("Optional canonical evidence node id override."),
     }, ["findingsFile"]),
   },
+  {
+    name: "revela_prepare_local_materials",
+    description: "Scan local workspace source materials, create/update the material-intake registry, and optionally extract Office/PDF files into read views.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      path: stringProp("Optional workspace-relative subdirectory to scan."),
+      maxDepth: numberProp("Maximum scan depth. Defaults to 2."),
+      autoExtract: booleanProp("Whether to extract Office/PDF sources during prepare. Defaults to true."),
+    }),
+  },
+  {
+    name: "revela_extract_document_materials",
+    description: "Extract text, manifest, read view, and embedded images from a workspace document. Supports pdf, pptx, docx, and xlsx.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      file: requiredStringProp("Workspace-relative source file path."),
+    }, ["file"]),
+  },
+  {
+    name: "revela_record_material_review",
+    description: "Record that an LLM has read extracted local material and decided what was merged, deferred, ignored, or left as a gap.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      sourcePath: requiredStringProp("Workspace-relative source file path."),
+      reviewedPaths: arrayProp("Workspace-relative extracted paths actually reviewed."),
+      reviewSummary: requiredStringProp("Concise summary of the reviewed material."),
+      narrativeDecisions: arrayObjectProp("Narrative decisions with kind, optional target, and rationale."),
+    }, ["sourcePath", "reviewedPaths", "reviewSummary", "narrativeDecisions"]),
+  },
+  {
+    name: "revela_check_material_intake",
+    description: "Check whether scanned Office/PDF sources were extracted and reviewed before being treated as narrative intake.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      strictness: enumProp(["authoring", "readiness", "render"], "Check strictness."),
+    }),
+  },
 ]
 
 let runtimePromise: Promise<RuntimeModule> | undefined
@@ -374,6 +415,10 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_research_save") return r.researchSave(args)
   if (name === "revela_evaluate_research_findings") return r.evaluateResearchFindings(args)
   if (name === "revela_bind_research_findings") return r.bindResearchFindings(args)
+  if (name === "revela_prepare_local_materials") return r.prepareLocalMaterials(args)
+  if (name === "revela_extract_document_materials") return r.extractMaterial(args)
+  if (name === "revela_record_material_review") return r.recordMaterialReview(args)
+  if (name === "revela_check_material_intake") return r.checkMaterialIntake(args)
   throw new Error(`Unknown tool: ${name}`)
 }
 
@@ -401,12 +446,33 @@ function booleanProp(description: string) {
   return { type: "boolean", description }
 }
 
+function numberProp(description: string) {
+  return { type: "number", description }
+}
+
 function enumProp(values: string[], description: string) {
   return { type: "string", enum: values, description }
 }
 
 function arrayProp(description: string) {
   return { type: "array", items: { type: "string" }, description }
+}
+
+function arrayObjectProp(description: string) {
+  return {
+    type: "array",
+    description,
+    items: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["merged", "gap", "ignored", "deferred"] },
+        target: { type: "string" },
+        rationale: { type: "string" },
+      },
+      required: ["kind", "rationale"],
+      additionalProperties: false,
+    },
+  }
 }
 
 function writeMessage(message: any, mode: MessageMode = activeResponseMode): void {

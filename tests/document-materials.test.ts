@@ -363,6 +363,9 @@ describe("extractDocumentMaterials", () => {
     expect(result.images).toHaveLength(1)
     expect(result.images?.[0].note).toBe("Document-wide association")
     expect(readTextFile(join(workspaceDir, result.text_path!))).toContain("Quarterly summary")
+    expect(result.read_view_path).toContain(".opencode/revela/doc-materials/")
+    expect(readTextFile(join(workspaceDir, result.read_view_path!))).toContain("## Extracted Images")
+    expect(readTextFile(join(workspaceDir, result.read_view_path!))).toContain("document-image-01.png")
   })
 
   it("extracts xlsx sheet text and sheet-level image mappings", async () => {

@@ -7,10 +7,11 @@ import { DECKS_STATE_FILE } from "../lib/decks-state"
 import { seedBuiltinDesigns } from "../lib/design/designs"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
-import { bindResearchFindings, checkDesignRulesReadiness, designCreate, designDraftCreate, designDraftInstall, designDraftValidate, designList, designRead, designValidate, doctor, domainCreate, domainDraftCreate, domainDraftInstall, domainDraftValidate, domainList, domainValidate, evaluateResearchFindings, readDeckPlan, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead } from "../lib/runtime"
+import { bindResearchFindings, checkDesignRulesReadiness, checkMaterialIntake, designCreate, designDraftCreate, designDraftInstall, designDraftValidate, designList, designRead, designValidate, doctor, domainCreate, domainDraftCreate, domainDraftInstall, domainDraftValidate, domainList, domainValidate, evaluateResearchFindings, extractMaterial, prepareLocalMaterials, readDeckPlan, recordMaterialReview, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead } from "../lib/runtime"
 import { stopRefineServer } from "../lib/refine/server"
 import pkg from "../package.json"
 import { tempWorkspace } from "./helpers/tool-helpers"
+import { zipSync, strToU8 } from "fflate"
 
 describe("runtime facade", () => {
   it("reports the package version through doctor", () => {
@@ -49,6 +50,50 @@ describe("runtime facade", () => {
       activeDomain: "general",
     })
     expect(result.activeDomainDescription).toContain("General purpose")
+  })
+
+  it("prepares, extracts, reviews, and checks local material intake", async () => {
+    const root = tempWorkspace("revela-runtime-material-intake-")
+    writeDocx(root, "proposal.docx", "Quarterly summary", true)
+
+    const prepared = await prepareLocalMaterials({ workspaceRoot: root })
+
+    expect(prepared.ok).toBe(true)
+    expect(prepared.found).toBe(1)
+    expect(prepared.suggestedTasks[0]).toMatchObject({
+      path: "proposal.docx",
+      needsExtraction: true,
+      status: "extracted",
+    })
+    expect(prepared.suggestedTasks[0].allowedReadPath).toContain("read.md")
+    expect(readFileSync(join(root, prepared.suggestedTasks[0].allowedReadPath!), "utf-8")).toContain("Quarterly summary")
+
+    const checkBeforeReview = checkMaterialIntake({ workspaceRoot: root })
+    expect(checkBeforeReview.ok).toBe(false)
+    expect(checkBeforeReview.warnings.join("\n")).toContain("extracted but has no recorded material review")
+
+    const reviewed = recordMaterialReview({
+      workspaceRoot: root,
+      sourcePath: "proposal.docx",
+      reviewedPaths: [prepared.suggestedTasks[0].allowedReadPath!],
+      reviewSummary: "The proposal states a quarterly summary but does not prove external demand.",
+      narrativeDecisions: [{ kind: "gap", target: "research-gaps/external-demand.md", rationale: "External demand needs independent evidence." }],
+    })
+
+    expect(reviewed.path).toBe("researches/local-materials/proposal-review.md")
+    expect(readFileSync(join(root, reviewed.path), "utf-8")).toContain("External demand needs independent evidence.")
+    expect(checkMaterialIntake({ workspaceRoot: root }).ok).toBe(true)
+  })
+
+  it("extracts one local material through the runtime facade", async () => {
+    const root = tempWorkspace("revela-runtime-material-extract-")
+    writeDocx(root, "brief.docx", "Pilot scope is clear.", false)
+
+    const extracted = await extractMaterial({ workspaceRoot: root, file: "brief.docx" })
+
+    expect(extracted).toMatchObject({ status: "processed", type: "docx", source: "brief.docx" })
+    expect(extracted.read_view_path).toContain("read.md")
+    expect(readFileSync(join(root, extracted.read_view_path!), "utf-8")).toContain("Pilot scope is clear.")
   })
 
   it("passes compiled narrative hash into deck-plan stale detection", () => {
@@ -600,6 +645,34 @@ sources:
     }
   }, 60000)
 })
+
+function writeDocx(root: string, relativePath: string, text: string, includeImage: boolean): void {
+  const files: Record<string, Uint8Array> = {
+    "[Content_Types].xml": strToU8(
+      `<?xml version="1.0" encoding="UTF-8"?>
+      <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+        <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+        <Default Extension="xml" ContentType="application/xml"/>
+        <Default Extension="png" ContentType="image/png"/>
+        <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+      </Types>`,
+    ),
+    "_rels/.rels": strToU8(
+      `<?xml version="1.0" encoding="UTF-8"?>
+      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+      </Relationships>`,
+    ),
+    "word/document.xml": strToU8(
+      `<?xml version="1.0" encoding="UTF-8"?>
+      <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+        <w:body><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:body>
+      </w:document>`,
+    ),
+  }
+  if (includeImage) files["word/media/image1.png"] = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
+  writeFileSync(join(root, relativePath), zipSync(files))
+}
 
 function writeMinimalVault(root: string): void {
   const vault = join(root, "revela-narrative")

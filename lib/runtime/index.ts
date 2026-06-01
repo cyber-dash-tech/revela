@@ -25,10 +25,12 @@ import { formatArtifactQaUserNotice, formatMarkdownQaUserNotice } from "../hook-
 import { readDeckPlanArtifact } from "../narrative-state/deck-plan-artifact"
 import { extractDesignClasses } from "../design/designs"
 import { recordRenderedArtifact, workspaceRelative } from "../workspace-state/rendered-artifacts"
+import { checkMaterialIntake, extractMaterial, materialIntakeNoticeForCommand, prepareLocalMaterials, recordMaterialReview } from "../material-intake"
 import type { ReviewDeckOpenInput, ReviewDeckReadInput } from "./review"
 import pkg from "../../package.json"
 export { bindResearchFindings, evaluateResearchFindings, researchSave, researchTargets } from "./research"
 export { storyRead } from "./story"
+export { checkMaterialIntake, extractMaterial, materialIntakeNoticeForCommand, prepareLocalMaterials, recordMaterialReview }
 
 export interface RuntimeWorkspaceInput {
   workspaceRoot?: string

@@ -3,6 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { designRead } from "../lib/runtime"
 import { extractDeckHtmlPatchTargets, extractNarrativeCachePatchTargets, runPreWriteChecks } from "../plugins/revela/hooks/revela_guard"
+import { commandFromInput, runMaterialReadNotice } from "../plugins/revela/hooks/revela_material_notice"
 import { extractDeckHtmlTargets, runPostWriteChecks, workspaceRootFromInput } from "../plugins/revela/hooks/revela_post_write_notice"
 import { tempWorkspace } from "./helpers/tool-helpers"
 
@@ -187,6 +188,45 @@ type: claim
     expect(result.ok).toBe(false)
     expect(result.messages.join("\n")).toContain("narrative cache patches are blocked")
     expect(result.messages.join("\n")).toContain("Edit `revela-narrative/**/*.md`")
+  })
+
+  it("extracts shell commands from Codex hook payloads", () => {
+    expect(commandFromInput(JSON.stringify({ tool_input: { cmd: "textutil -convert txt proposal.docx -stdout" } }))).toBe("textutil -convert txt proposal.docx -stdout")
+  })
+
+  it("notices direct textutil reads for scanned Office material", async () => {
+    const root = workspace()
+    try {
+      mkdirSync(join(root, ".opencode", "revela", "material-intake"), { recursive: true })
+      writeFileSync(join(root, ".opencode", "revela", "material-intake", "registry.json"), JSON.stringify({
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        sources: [{
+          sourcePath: "proposal.docx",
+          type: "docx",
+          status: "scanned",
+          requiresExtraction: true,
+          allowedReadPath: null,
+          extraction: null,
+          review: null,
+          warnings: [],
+          firstSeen: new Date().toISOString(),
+          lastChecked: new Date().toISOString(),
+        }],
+      }), "utf-8")
+
+      const result = await runMaterialReadNotice(JSON.stringify({
+        cwd: root,
+        tool_input: { cmd: "textutil -convert txt proposal.docx -stdout" },
+      }))
+
+      expect(result.ok).toBe(true)
+      expect(result.messages.join("\n")).toContain("Revela material intake notice")
+      expect(result.messages.join("\n")).toContain("proposal.docx")
+      expect(result.messages.join("\n")).toContain("read_view_path")
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 })
 
