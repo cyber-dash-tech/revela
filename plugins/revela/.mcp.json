@@ -2,7 +2,7 @@
   "mcpServers": {
     "revela": {
       "command": "npx",
-      "args": ["-y", "@cyber-dash-tech/revela@0.17.21", "mcp"]
+      "args": ["-y", "@cyber-dash-tech/revela@0.17.22", "mcp"]
     }
   }
 }
