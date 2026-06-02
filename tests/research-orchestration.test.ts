@@ -150,11 +150,13 @@ describe("Codex revela-story skill", () => {
 
 describe("Codex revela-make-deck skill", () => {
   it("requires deck-plan preflight before HTML generation", () => {
+    expect(codexMakeDeckSkill).toContain("revela_design_inventory")
     expect(codexMakeDeckSkill).toContain("Call `revela_read_deck_plan` as the required deck-plan preflight before any HTML generation")
     expect(codexMakeDeckSkill).toContain("author or repair `deck-plan/index.md` and `deck-plan/slides/*.md` before calling `revela_create_deck_foundation`")
     expect(codexMakeDeckSkill).toContain("Report deck-plan diagnostics before artifact generation")
     expect(codexMakeDeckSkill).toContain("Do not start HTML generation from narrative alone unless the user explicitly asks for a throwaway diagnostic smoke deck")
 
+    expect(codexMakeDeckSkill.indexOf("revela_design_inventory")).toBeLessThan(codexMakeDeckSkill.indexOf("revela_read_deck_plan"))
     expect(codexMakeDeckSkill.indexOf("revela_read_deck_plan")).toBeLessThan(codexMakeDeckSkill.indexOf("revela_create_deck_foundation"))
   })
 })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { spawn } from "child_process"
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from "fs"
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 import { createDeckFoundation, deckFoundationMarkers } from "../lib/deck-html/foundation"
 import { seedBuiltinDesigns } from "../lib/design/designs"
@@ -37,6 +37,9 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("revela_story_read")
     expect(text.stdout).toContain("revela_review_deck_read")
     expect(text.stdout).toContain("revela_review_deck_open")
+    expect(text.stdout).toContain("revela_design_inventory")
+    expect(text.stdout).toContain("revela_design_read_layout")
+    expect(text.stdout).toContain("revela_design_read_component")
     expect(text.stdout).toContain("revela_design_activate")
     expect(text.stdout).toContain("revela_design_create")
     expect(text.stdout).toContain("revela_design_validate")
@@ -367,6 +370,170 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("\\\"base\\\": \\\"starter\\\"")
     expect(text.stdout).toContain("test-layout")
     expect(text.stdout).toContain("test-card")
+  })
+
+  it("reads design inventory, layouts, and components through MCP tools", async () => {
+    const home = tempWorkspace("revela-mcp-design-inventory-home-")
+    const name = `mcp-codex-inventory-${Date.now()}`
+    const child = spawn("bun", [serverPath], {
+      env: { ...process.env, HOME: home },
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "revela_design_create",
+        arguments: {
+          name,
+          base: "starter",
+          designMd: validDesignMd(name),
+          previewHtml: validPreviewHtml(),
+        },
+      },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "revela_design_inventory", arguments: { name } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "revela_design_read_layout", arguments: { name, layout: "test-layout" } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: { name: "revela_design_read_component", arguments: { name, component: ["test-card", "test-badge"] } },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":5") && item.stdout.includes("Component: test-badge"))
+    child.kill()
+
+    expect(text.stdout).toContain("\\\"ok\\\": true")
+    expect(text.stdout).toContain("\\\"layouts\\\"")
+    expect(text.stdout).toContain("\\\"components\\\"")
+    expect(text.stdout).toContain("\\\"name\\\": \\\"test-layout\\\"")
+    expect(text.stdout).toContain("\\\"qa\\\": true")
+    expect(text.stdout).toContain("Layout: test-layout")
+    expect(text.stdout).toContain("Component: test-card")
+    expect(text.stdout).toContain("Component: test-badge")
+  })
+
+  it("reads bundled design inventory, layouts, components, and validation without seeding user config", async () => {
+    const home = tempWorkspace("revela-mcp-bundled-design-home-")
+    const child = spawn("bun", [serverPath], {
+      env: { ...process.env, HOME: home },
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "revela_design_inventory", arguments: { name: "summit" } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "revela_design_read_layout", arguments: { name: "summit", layout: "narrative" } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "revela_design_read_component", arguments: { name: "summit", component: "text-panel" } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: { name: "revela_design_validate", arguments: { name: "summit" } },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":5") && item.stdout.includes("text-panel"))
+    child.kill()
+
+    expect(text.stdout).toContain("\\\"ok\\\": true")
+    expect(text.stdout).toContain("\\\"name\\\": \\\"summit\\\"")
+    expect(text.stdout).toContain("\\\"name\\\": \\\"narrative\\\"")
+    expect(text.stdout).toContain("Layout: narrative")
+    expect(text.stdout).toContain("Component: text-panel")
+    expect(text.stdout).toContain("\\\"hasDesignMd\\\": true")
+    expect(existsSync(join(home, ".config", "revela", "designs"))).toBe(false)
+  })
+
+  it("prefers user designs over bundled designs with the same name", async () => {
+    const home = tempWorkspace("revela-mcp-design-override-home-")
+    const designDir = join(home, ".config", "revela", "designs", "summit")
+    mkdirSync(designDir, { recursive: true })
+    writeFileSync(join(designDir, "DESIGN.md"), validDesignMd("summit"), "utf-8")
+    writeFileSync(join(designDir, "preview.html"), validPreviewHtml(), "utf-8")
+
+    const child = spawn("bun", [serverPath], {
+      env: { ...process.env, HOME: home },
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "revela_design_inventory", arguments: { name: "summit" } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "revela_design_read_layout", arguments: { name: "summit", layout: "test-layout" } },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":3") && item.stdout.includes("Layout: test-layout"))
+    child.kill()
+
+    expect(text.stdout).toContain("\\\"name\\\": \\\"test-layout\\\"")
+    expect(text.stdout).toContain("Layout: test-layout")
+    expect(text.stdout).not.toContain("\\\"name\\\": \\\"narrative\\\"")
+  })
+
+  it("reports missing designs as not installed without creating user config", async () => {
+    const home = tempWorkspace("revela-mcp-missing-design-home-")
+    const child = spawn("bun", [serverPath], {
+      env: { ...process.env, HOME: home },
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "revela_design_inventory", arguments: { name: "missing-design" } },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":2") && item.stdout.includes("not installed"))
+    child.kill()
+
+    expect(text.stdout).toContain("Design 'missing-design' is not installed")
+    expect(existsSync(join(home, ".config", "revela", "designs"))).toBe(false)
   })
 
   it("creates, validates, and installs design drafts through MCP tools", async () => {

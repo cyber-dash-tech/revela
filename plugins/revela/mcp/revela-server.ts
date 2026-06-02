@@ -19,6 +19,9 @@ type RuntimeModule = {
   exportPptx(input: any): Promise<any>
   designList(): any
   designRead(input?: any): any
+  designInventory(input?: any): any
+  designReadLayout(input: any): any
+  designReadComponent(input: any): any
   designActivate(input: any): any
   designCreate(input: any): any
   designValidate(input: any): any
@@ -124,6 +127,29 @@ const tools = [
       name: stringProp("Optional design name."),
       section: stringProp("Optional design section, such as rules, foundation, or chart-rules."),
     }),
+  },
+  {
+    name: "revela_design_inventory",
+    description: "List the active or requested Revela design sections, layouts, and components.",
+    inputSchema: objectSchema({
+      name: stringProp("Optional design name."),
+    }),
+  },
+  {
+    name: "revela_design_read_layout",
+    description: "Read one or more layout blocks from the active or requested Revela design.",
+    inputSchema: objectSchema({
+      name: stringProp("Optional design name."),
+      layout: stringOrArrayProp("Layout name, comma-separated names, or an array of layout names."),
+    }, ["layout"]),
+  },
+  {
+    name: "revela_design_read_component",
+    description: "Read one or more component blocks from the active or requested Revela design.",
+    inputSchema: objectSchema({
+      name: stringProp("Optional design name."),
+      component: stringOrArrayProp("Component name, comma-separated names, or an array of component names."),
+    }, ["component"]),
   },
   {
     name: "revela_design_activate",
@@ -394,6 +420,9 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_export_pptx") return r.exportPptx(args)
   if (name === "revela_design_list") return r.designList()
   if (name === "revela_design_read") return r.designRead(args)
+  if (name === "revela_design_inventory") return r.designInventory(args)
+  if (name === "revela_design_read_layout") return r.designReadLayout(args)
+  if (name === "revela_design_read_component") return r.designReadComponent(args)
   if (name === "revela_design_activate") return r.designActivate(args)
   if (name === "revela_design_create") return r.designCreate(args)
   if (name === "revela_design_validate") return r.designValidate(args)
@@ -456,6 +485,16 @@ function enumProp(values: string[], description: string) {
 
 function arrayProp(description: string) {
   return { type: "array", items: { type: "string" }, description }
+}
+
+function stringOrArrayProp(description: string) {
+  return {
+    anyOf: [
+      { type: "string" },
+      { type: "array", items: { type: "string" } },
+    ],
+    description,
+  }
 }
 
 function arrayObjectProp(description: string) {

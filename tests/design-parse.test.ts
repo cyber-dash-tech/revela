@@ -345,7 +345,7 @@ describe("generateLayoutIndex", () => {
   it("includes on-demand usage hint", () => {
     const layouts = { cover: { content: "## Cover", qa: false } }
     const result = generateLayoutIndex(layouts)
-    expect(result).toContain("revela-designs")
+    expect(result).toContain("revela_design_read_layout")
     expect(result).toContain("layout")
   })
 
@@ -427,8 +427,8 @@ describe("generateComponentIndex", () => {
 
   it("includes on-demand usage hint", () => {
     const result = generateComponentIndex({ x: "#### X" })
-    expect(result).toContain("revela-designs")
-    expect(result).toContain("action")
+    expect(result).toContain("revela_design_read_component")
+    expect(result).toContain("component")
   })
 
   it("keeps Monet aligned to the standard render component vocabulary", () => {

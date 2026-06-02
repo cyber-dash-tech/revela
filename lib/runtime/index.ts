@@ -6,6 +6,9 @@ import {
   activateDesign,
   createDesignDraftPackage,
   createDesignPackage,
+  getDesignComponent,
+  getDesignInventory,
+  getDesignLayout,
   getDesignSection,
   getDesignSkillMd,
   installDesignDraftPackage,
@@ -57,6 +60,20 @@ export interface RuntimeDesignReadInput {
   workspaceRoot?: string
   name?: string
   section?: string
+}
+
+export interface RuntimeDesignInventoryInput {
+  name?: string
+}
+
+export interface RuntimeDesignLayoutReadInput {
+  name?: string
+  layout: string | string[]
+}
+
+export interface RuntimeDesignComponentReadInput {
+  name?: string
+  component: string | string[]
 }
 
 export interface RuntimeDesignCreateInput {
@@ -212,7 +229,6 @@ export async function reviewDeckOpen(input: ReviewDeckOpenInput) {
 }
 
 export function designList() {
-  seedBuiltinDesigns()
   return {
     ok: true,
     activeDesign: activeDesign(),
@@ -226,7 +242,6 @@ export function designList() {
 }
 
 export function designRead(input: RuntimeDesignReadInput = {}) {
-  seedBuiltinDesigns()
   const name = input.name || activeDesign()
   if (input.section) {
     const markdown = getDesignSection(input.section, name)
@@ -246,6 +261,33 @@ export function designRead(input: RuntimeDesignReadInput = {}) {
   }
 }
 
+export function designInventory(input: RuntimeDesignInventoryInput = {}) {
+  return {
+    ok: true,
+    ...getDesignInventory(input.name || activeDesign()),
+  }
+}
+
+export function designReadLayout(input: RuntimeDesignLayoutReadInput) {
+  const name = input.name || activeDesign()
+  return {
+    ok: true,
+    name,
+    layout: input.layout,
+    markdown: getDesignLayout(input.layout, name),
+  }
+}
+
+export function designReadComponent(input: RuntimeDesignComponentReadInput) {
+  const name = input.name || activeDesign()
+  return {
+    ok: true,
+    name,
+    component: input.component,
+    markdown: getDesignComponent(input.component, name),
+  }
+}
+
 export function designCreate(input: RuntimeDesignCreateInput) {
   seedBuiltinDesigns()
   return createDesignPackage({
@@ -258,7 +300,6 @@ export function designCreate(input: RuntimeDesignCreateInput) {
 }
 
 export function designValidate(input: RuntimeNameInput) {
-  seedBuiltinDesigns()
   return validateDesignPackage(requiredName(input, "design"))
 }
 
@@ -296,7 +337,6 @@ export interface DesignRulesReadinessResult {
 const DESIGN_RULES_MARKER_TTL_MS = 8 * 60 * 60 * 1000
 
 export function checkDesignRulesReadiness(input: RuntimeWorkspaceInput = {}): DesignRulesReadinessResult {
-  seedBuiltinDesigns()
   const workspaceRoot = root(input.workspaceRoot)
   const design = activeDesign()
   const rules = getDesignSection("rules", design)

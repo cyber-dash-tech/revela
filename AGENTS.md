@@ -2,7 +2,7 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-05-28 for 0.17.21 Codex upgrade guidance workflow.
+> Last updated: 2026-06-02 for 0.17.23 read-only Codex design inventory workflow.
 
 ## Product Baseline
 
@@ -12,7 +12,7 @@ Product promise:
 
 **Turn source materials, research, data, and user intent into trusted, traceable, presentation-ready decision artifacts.**
 
-Current baseline: `0.17.21 release baseline`.
+Current baseline: `0.17.23 release baseline`.
 
 User-facing workflow:
 
@@ -208,6 +208,7 @@ Structured helper role:
 - The 0.17.19 hotfix keeps `.slide-canvas` as the fixed 1920x1080 export surface while allowing `.slide` to remain a viewport/navigation wrapper in canonical decks and design previews.
 - The 0.17.20 hotfix synchronizes the Codex MCP launcher package pin with the release version so publish CI validates the packaged launcher contract.
 - The 0.17.21 hotfix adds Codex upgrade guidance, a `revela-upgrade` skill that checks `revela_doctor` first, and release-aligned Codex install pins.
+- The 0.17.23 hotfix makes Codex design list/read/inventory/layout/component/validate paths read bundled designs without seeding user config, adds explicit design inventory/layout/component MCP tools, and preserves user design overrides.
 
 ## Wikilink-First Vault Graph
 

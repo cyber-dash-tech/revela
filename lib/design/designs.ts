@@ -1,11 +1,9 @@
 /**
  * DesignManager — manage revela visual design templates.
  *
- * Designs are stored in ~/.config/revela/designs/<name>/.
+ * User designs are stored in ~/.config/revela/designs/<name>/.
+ * Built-in designs are shipped read-only with this package under designs/<name>/.
  * Each design directory contains DESIGN.md (required) and optionally preview.html.
- *
- * Built-in designs are shipped with the npm package under designs/ and seeded
- * to the config directory on first run.
  */
 
 import {
@@ -152,21 +150,46 @@ export function parseDesignFile(filePath: string): DesignInfo | null {
 // Public API
 // ---------------------------------------------------------------------------
 
-/** List installed designs, sorted by name. Internal designs are hidden by default. */
-export function listDesigns(options: ListDesignsOptions = {}): DesignInfo[] {
-  if (!existsSync(DESIGNS_DIR)) return []
-  const results: DesignInfo[] = []
-  const includeInternal = options.includeInternal ?? false
+function designDirHasPackage(dir: string): boolean {
+  return existsSync(dir) && statSync(dir).isDirectory() && existsSync(join(dir, "DESIGN.md"))
+}
 
-  for (const entry of readdirSync(DESIGNS_DIR).sort()) {
-    const dir = join(DESIGNS_DIR, entry)
-    if (!statSync(dir).isDirectory()) continue
-    const mdPath = join(dir, "DESIGN.md")
-    if (!existsSync(mdPath)) continue
-    const info = parseDesignFile(mdPath)
-    if (info && (includeInternal || !info.internal)) results.push(info)
+function resolveDesignDir(nameInput?: string): string | null {
+  const name = normalizeDesignName(nameInput || activeDesign())
+  const userDir = join(DESIGNS_DIR, name)
+  if (designDirHasPackage(userDir)) return userDir
+
+  const bundledDir = join(SEED_DIR, name)
+  if (designDirHasPackage(bundledDir)) return bundledDir
+
+  return null
+}
+
+function readDesignsFromDir(root: string): Map<string, DesignInfo> {
+  const designs = new Map<string, DesignInfo>()
+  if (!existsSync(root)) return designs
+
+  for (const entry of readdirSync(root).sort()) {
+    const dir = join(root, entry)
+    if (!designDirHasPackage(dir)) continue
+    const info = parseDesignFile(join(dir, "DESIGN.md"))
+    if (info) designs.set(entry, info)
   }
-  return results
+  return designs
+}
+
+/** List available designs, sorted by name. User designs override bundled designs with the same name. Internal designs are hidden by default. */
+export function listDesigns(options: ListDesignsOptions = {}): DesignInfo[] {
+  const includeInternal = options.includeInternal ?? false
+  const available = readDesignsFromDir(SEED_DIR)
+
+  for (const [entry, info] of readDesignsFromDir(DESIGNS_DIR)) {
+    available.set(entry, info)
+  }
+
+  return [...available.values()]
+    .filter((info) => includeInternal || !info.internal)
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 /** Get the name of the currently active design. */
@@ -187,11 +210,12 @@ export function activateDesign(name: string): void {
 
 /** Get the skill text body from a design's DESIGN.md. */
 export function getDesignSkillMd(name?: string): string {
-  const designName = name || activeDesign()
-  const mdPath = join(DESIGNS_DIR, designName, "DESIGN.md")
-  if (!existsSync(mdPath)) {
+  const designName = normalizeDesignName(name || activeDesign())
+  const designDir = resolveDesignDir(designName)
+  if (!designDir) {
     throw new Error(`Design '${designName}' is not installed`)
   }
+  const mdPath = join(designDir, "DESIGN.md")
   const info = parseDesignFile(mdPath)
   if (!info) {
     throw new Error(`Failed to parse DESIGN.md for '${designName}'`)
@@ -202,9 +226,8 @@ export function getDesignSkillMd(name?: string): string {
 /** Resolve a design's preview.html path. Throws if the design is not installed. */
 export function resolveDesignPreview(name?: string): DesignPreviewInfo {
   const designName = normalizeDesignName(name || activeDesign())
-  const designDir = join(DESIGNS_DIR, designName)
-  const mdPath = join(designDir, "DESIGN.md")
-  if (!existsSync(designDir) || !existsSync(mdPath)) {
+  const designDir = resolveDesignDir(designName)
+  if (!designDir) {
     throw new Error(`Design '${designName}' is not installed`)
   }
 
@@ -388,12 +411,15 @@ function hasFixedSizeCssRule(html: string, className: "slide-canvas"): boolean {
 /** Validate a local design package for the minimum Revela design contract. */
 export function validateDesignPackage(nameInput: string): ValidateDesignPackageResult {
   let name = nameInput
+  let hasValidName = true
   try {
     name = normalizeDesignName(nameInput)
   } catch {
+    hasValidName = false
     // validateDesignPackageAt records the invalid-name error.
   }
-  return validateDesignPackageAt(nameInput, join(DESIGNS_DIR, name))
+  const dir = hasValidName ? resolveDesignDir(name) || join(DESIGNS_DIR, name) : join(DESIGNS_DIR, name)
+  return validateDesignPackageAt(nameInput, dir)
 }
 
 function validateDesignPackageAt(nameInput: string, dir: string): ValidateDesignPackageResult {
@@ -493,6 +519,25 @@ export interface DesignSections {
   hasMarkers: boolean
 }
 
+export interface DesignInventoryLayout {
+  name: string
+  qa: boolean
+  description: string
+}
+
+export interface DesignInventoryComponent {
+  name: string
+  description: string
+}
+
+export interface DesignInventory {
+  name: string
+  sections: string[]
+  layouts: DesignInventoryLayout[]
+  components: DesignInventoryComponent[]
+  hasMarkers: boolean
+}
+
 /**
  * Parse a DESIGN.md body (no frontmatter) into sections, layouts, and components
  * using the three-layer HTML comment marker convention:
@@ -566,7 +611,7 @@ export function generateComponentIndex(components: Record<string, string>): stri
     "|---|---|",
     ...rows,
     "",
-    "_Use `revela-designs` tool with `action: \"read\"` and `component: \"<name>\"` to get full CSS/HTML for any component._",
+    "_Use `revela_design_read_component` with `component: \"<name>\"` to get full CSS/HTML for any component._",
   ].join("\n")
 }
 
@@ -598,8 +643,45 @@ export function generateLayoutIndex(layouts: Record<string, LayoutInfo>): string
     "|---|---|---|",
     ...rows,
     "",
-    "_Use `revela-designs` tool with `action: \"read\"` and `layout: \"<name>\"` to get full HTML/CSS for any layout._",
+    "_Use `revela_design_read_layout` with `layout: \"<name>\"` to get full HTML/CSS for any layout._",
   ].join("\n")
+}
+
+export function getDesignInventory(designName?: string): DesignInventory {
+  const name = normalizeDesignName(designName || activeDesign())
+  const designDir = resolveDesignDir(name)
+  if (!designDir) {
+    throw new Error(`Design '${name}' is not installed`)
+  }
+  const mdPath = join(designDir, "DESIGN.md")
+  const text = readFileSync(mdPath, "utf-8")
+  const { body } = parseFrontmatter(text)
+  const { sections, layouts, components, hasMarkers } = parseDesignSections(body)
+
+  return {
+    name,
+    sections: Object.keys(sections),
+    layouts: Object.entries(layouts).map(([layoutName, layout]) => ({
+      name: layoutName,
+      qa: layout.qa,
+      description: designBlockDescription(layout.content),
+    })),
+    components: Object.entries(components).map(([componentName, content]) => ({
+      name: componentName,
+      description: designBlockDescription(content),
+    })),
+    hasMarkers,
+  }
+}
+
+function designBlockDescription(body: string): string {
+  const firstLine = body
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line && !line.startsWith("<!--") && !line.startsWith("```"))
+  return firstLine
+    ? firstLine.replace(/^#+\s*/, "").replace(/\(.*?\)/, "").trim()
+    : ""
 }
 
 /**
@@ -611,11 +693,12 @@ export function getDesignLayout(
   layoutNames: string | string[],
   designName?: string,
 ): string {
-  const name = designName || activeDesign()
-  const mdPath = join(DESIGNS_DIR, name, "DESIGN.md")
-  if (!existsSync(mdPath)) {
+  const name = normalizeDesignName(designName || activeDesign())
+  const designDir = resolveDesignDir(name)
+  if (!designDir) {
     throw new Error(`Design '${name}' is not installed`)
   }
+  const mdPath = join(designDir, "DESIGN.md")
   const text = readFileSync(mdPath, "utf-8")
   const { body } = parseFrontmatter(text)
   const { layouts, hasMarkers } = parseDesignSections(body)
@@ -644,11 +727,12 @@ export function getDesignLayout(
  * Throws if the design is not installed or the section doesn't exist.
  */
 export function getDesignSection(sectionName: string, designName?: string): string {
-  const name = designName || activeDesign()
-  const mdPath = join(DESIGNS_DIR, name, "DESIGN.md")
-  if (!existsSync(mdPath)) {
+  const name = normalizeDesignName(designName || activeDesign())
+  const designDir = resolveDesignDir(name)
+  if (!designDir) {
     throw new Error(`Design '${name}' is not installed`)
   }
+  const mdPath = join(designDir, "DESIGN.md")
   const text = readFileSync(mdPath, "utf-8")
   const { body } = parseFrontmatter(text)
   const { sections, hasMarkers } = parseDesignSections(body)
@@ -671,11 +755,12 @@ export function getDesignComponent(
   componentNames: string | string[],
   designName?: string,
 ): string {
-  const name = designName || activeDesign()
-  const mdPath = join(DESIGNS_DIR, name, "DESIGN.md")
-  if (!existsSync(mdPath)) {
+  const name = normalizeDesignName(designName || activeDesign())
+  const designDir = resolveDesignDir(name)
+  if (!designDir) {
     throw new Error(`Design '${name}' is not installed`)
   }
+  const mdPath = join(designDir, "DESIGN.md")
   const text = readFileSync(mdPath, "utf-8")
   const { body } = parseFrontmatter(text)
   const { components, hasMarkers } = parseDesignSections(body)
@@ -742,8 +827,7 @@ export async function installDesign(
 // ---------------------------------------------------------------------------
 
 function designExists(name: string): boolean {
-  const dir = join(DESIGNS_DIR, name)
-  return existsSync(dir) && existsSync(join(dir, "DESIGN.md"))
+  return resolveDesignDir(name) !== null
 }
 
 function installFromPath(srcPath: string, name?: string): string {
@@ -814,13 +898,13 @@ export interface DesignClassVocabulary {
  * Falls back to UNIVERSAL_CLASSES-only when the design has no markers.
  */
 export function extractDesignClasses(designName?: string): DesignClassVocabulary {
-  const name = designName || activeDesign()
-  const mdPath = join(DESIGNS_DIR, name, "DESIGN.md")
-
-  if (!existsSync(mdPath)) {
+  const name = normalizeDesignName(designName || activeDesign())
+  const designDir = resolveDesignDir(name)
+  if (!designDir) {
     return { classes: new Set(UNIVERSAL_CLASSES), prefixExemptions: DEFAULT_PREFIX_EXEMPTIONS }
   }
 
+  const mdPath = join(designDir, "DESIGN.md")
   const raw = readFileSync(mdPath, "utf-8")
   const { body } = parseFrontmatter(raw)
   const { sections, layouts, components, hasMarkers } = parseDesignSections(body)
