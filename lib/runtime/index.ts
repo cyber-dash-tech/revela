@@ -25,7 +25,7 @@ import { autoCompileNarrativeVault } from "../narrative-vault/auto-compile"
 import { extractNarrativeVaultMarkdownTargetsFromPatch } from "../narrative-vault/hook-targets"
 import { runNarrativeMarkdownQa, type MarkdownQaOptions } from "../narrative-vault/markdown-qa"
 import { formatArtifactQaUserNotice, formatMarkdownQaUserNotice } from "../hook-notifications"
-import { readDeckPlanArtifact } from "../narrative-state/deck-plan-artifact"
+import { deckPlanDesignDiagnostics, readDeckPlanArtifact, upsertDeckPlanSlideArtifact, type DeckPlanSlideUpsertInput } from "../narrative-state/deck-plan-artifact"
 import { extractDesignClasses } from "../design/designs"
 import { recordRenderedArtifact, workspaceRelative } from "../workspace-state/rendered-artifacts"
 import { checkMaterialIntake, extractMaterial, materialIntakeNoticeForCommand, prepareLocalMaterials, recordMaterialReview } from "../material-intake"
@@ -74,6 +74,10 @@ export interface RuntimeDesignLayoutReadInput {
 export interface RuntimeDesignComponentReadInput {
   name?: string
   component: string | string[]
+}
+
+export interface RuntimeDeckPlanSlideUpsertInput extends RuntimeWorkspaceInput, DeckPlanSlideUpsertInput {
+  designName?: string
 }
 
 export interface RuntimeDesignCreateInput {
@@ -149,10 +153,44 @@ export function readDeckPlan(input: RuntimeWorkspaceInput = {}) {
   const workspaceRoot = root(input.workspaceRoot)
   const compiled = compileNarrativeVault(workspaceRoot)
   const knownNodeIds = compiled.graph ? new Set(compiled.graph.nodes.map((node) => node.id)) : undefined
-  return readDeckPlanArtifact(workspaceRoot, {
+  const read = readDeckPlanArtifact(workspaceRoot, {
     narrativeHash: compiled.narrative ? computeNarrativeHash(compiled.narrative) : undefined,
     knownNodeIds,
   })
+  if (read.projection) {
+    try {
+      const inventory = getDesignInventory(activeDesign())
+      const diagnostics = deckPlanDesignDiagnostics(read.projection, {
+        layouts: inventory.layouts.map((layout) => layout.name),
+        components: inventory.components.map((component) => component.name),
+      })
+      read.projection.diagnostics.push(...diagnostics)
+      read.warnings.push(...diagnostics.map((diagnostic) => diagnostic.message))
+    } catch {
+      // Design diagnostics are advisory; deck-plan reading remains available.
+    }
+  }
+  return read
+}
+
+export function upsertDeckPlanSlide(input: RuntimeDeckPlanSlideUpsertInput) {
+  const workspaceRoot = root(input.workspaceRoot)
+  const designName = input.designName || activeDesign()
+  const inventory = getDesignInventory(designName)
+  const compiled = compileNarrativeVault(workspaceRoot)
+  const knownNodeIds = compiled.graph ? new Set(compiled.graph.nodes.map((node) => node.id)) : undefined
+  const narrativeHash = compiled.narrative ? computeNarrativeHash(compiled.narrative) : undefined
+  const result = upsertDeckPlanSlideArtifact(workspaceRoot, input, {
+    narrativeHash,
+    knownNodeIds,
+    designLayouts: inventory.layouts.map((layout) => layout.name),
+    designComponents: inventory.components.map((component) => component.name),
+  })
+  return {
+    ...result,
+    designName,
+    narrativeHash,
+  }
 }
 
 export function createDeckFoundation(input: RuntimeDeckFoundationInput) {

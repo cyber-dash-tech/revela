@@ -2,7 +2,7 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-06-02 for 0.17.23 read-only Codex design inventory workflow.
+> Last updated: 2026-06-04 for 0.17.24 structured Codex deck-plan slide upsert workflow.
 
 ## Product Baseline
 
@@ -12,7 +12,7 @@ Product promise:
 
 **Turn source materials, research, data, and user intent into trusted, traceable, presentation-ready decision artifacts.**
 
-Current baseline: `0.17.23 release baseline`.
+Current baseline: `0.17.24 release baseline`.
 
 User-facing workflow:
 
@@ -209,6 +209,7 @@ Structured helper role:
 - The 0.17.20 hotfix synchronizes the Codex MCP launcher package pin with the release version so publish CI validates the packaged launcher contract.
 - The 0.17.21 hotfix adds Codex upgrade guidance, a `revela-upgrade` skill that checks `revela_doctor` first, and release-aligned Codex install pins.
 - The 0.17.23 hotfix makes Codex design list/read/inventory/layout/component/validate paths read bundled designs without seeding user config, adds explicit design inventory/layout/component MCP tools, and preserves user design overrides.
+- The 0.17.24 hotfix adds the Codex `revela_upsert_deck_plan_slide` MCP tool for structured single-slide deck-plan upserts, parses `componentPlan[]` through `revela_read_deck_plan`, validates planned layouts/components against design inventory, and updates Codex make-deck/design skills to use tool-backed slide planning before HTML generation.
 
 ## Wikilink-First Vault Graph
 

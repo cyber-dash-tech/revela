@@ -13,6 +13,7 @@ type RuntimeModule = {
   compileNarrative(input?: any): any
   markdownQa(input?: any): any
   readDeckPlan(input?: any): any
+  upsertDeckPlanSlide(input: any): any
   createDeckFoundation(input: any): any
   runDeckQa(input: any): Promise<any>
   exportPdf(input: any): Promise<any>
@@ -76,6 +77,25 @@ const tools = [
     name: "revela_read_deck_plan",
     description: "Read the file-native deck-plan/ projection and diagnostics.",
     inputSchema: objectSchema({ workspaceRoot: stringProp("Optional workspace root.") }),
+  },
+  {
+    name: "revela_upsert_deck_plan_slide",
+    description: "Create or update one structured deck-plan/slides/*.md slide plan with active/requested design vocabulary validation.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      designName: stringProp("Optional design name. Defaults to the active design."),
+      slideIndex: requiredNumberProp("Positive 1-based slide index."),
+      id: stringProp("Optional stable slide node id."),
+      title: requiredStringProp("Slide title."),
+      chapter: requiredStringProp("Chapter name."),
+      narrativeRole: requiredStringProp("Slide's communication job."),
+      structural: booleanProp("Whether this is a structural slide such as cover, TOC, divider, or closing."),
+      layout: requiredStringProp("Design layout name from inventory."),
+      components: componentPlanArrayProp(),
+      visualIntent: visualIntentProp(),
+      narrativeLinks: narrativeLinksProp(),
+      caveats: arrayProp("Optional caveats to keep visible in the slide plan."),
+    }, ["slideIndex", "title", "chapter", "narrativeRole", "layout", "components", "visualIntent", "narrativeLinks"]),
   },
   {
     name: "revela_create_deck_foundation",
@@ -414,6 +434,7 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_compile_narrative") return r.compileNarrative(args)
   if (name === "revela_markdown_qa") return r.markdownQa(args)
   if (name === "revela_read_deck_plan") return r.readDeckPlan(args)
+  if (name === "revela_upsert_deck_plan_slide") return r.upsertDeckPlanSlide(args)
   if (name === "revela_create_deck_foundation") return r.createDeckFoundation(args)
   if (name === "revela_run_deck_qa") return r.runDeckQa(args)
   if (name === "revela_export_pdf") return r.exportPdf(args)
@@ -479,6 +500,10 @@ function numberProp(description: string) {
   return { type: "number", description }
 }
 
+function requiredNumberProp(description: string) {
+  return { type: "number", description }
+}
+
 function enumProp(values: string[], description: string) {
   return { type: "string", enum: values, description }
 }
@@ -511,6 +536,63 @@ function arrayObjectProp(description: string) {
       required: ["kind", "rationale"],
       additionalProperties: false,
     },
+  }
+}
+
+function componentPlanArrayProp() {
+  return {
+    type: "array",
+    description: "Structured component plan entries.",
+    items: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Design component name." },
+        slot: { type: "string", description: "Layout semantic slot, such as left, right, top, main, bottom, footer, or fullbleed." },
+        position: { type: "string", description: "Slot-local kebab-case anchor, such as left-top, center, or overlay-top-right." },
+        purpose: { type: "string", description: "Component communication job." },
+        content: { type: "string", description: "Exact text, data, or structure to render." },
+        claimIds: { type: "array", items: { type: "string" } },
+        evidenceIds: { type: "array", items: { type: "string" } },
+        sourceNotes: { type: "array", items: { type: "string" } },
+        renderNotes: { type: "array", items: { type: "string" } },
+        placementNote: { type: "string" },
+      },
+      required: ["name", "slot", "position", "purpose", "content"],
+      additionalProperties: false,
+    },
+  }
+}
+
+function visualIntentProp() {
+  return {
+    anyOf: [
+      { type: "string" },
+      {
+        type: "object",
+        properties: {
+          kind: { type: "string" },
+          component: { type: "string" },
+          rationale: { type: "string" },
+          brief: { type: "string" },
+        },
+        additionalProperties: false,
+      },
+    ],
+    description: "Visual plan or structured visual intent. If component is set, it must exist in components[].name.",
+  }
+}
+
+function narrativeLinksProp() {
+  return {
+    type: "object",
+    properties: {
+      claimIds: { type: "array", items: { type: "string" } },
+      evidenceIds: { type: "array", items: { type: "string" } },
+      riskIds: { type: "array", items: { type: "string" } },
+      objectionIds: { type: "array", items: { type: "string" } },
+      gapIds: { type: "array", items: { type: "string" } },
+    },
+    additionalProperties: false,
   }
 }
 

@@ -7,7 +7,7 @@ import { DECKS_STATE_FILE } from "../lib/decks-state"
 import { seedBuiltinDesigns } from "../lib/design/designs"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
-import { bindResearchFindings, checkDesignRulesReadiness, checkMaterialIntake, designCreate, designDraftCreate, designDraftInstall, designDraftValidate, designList, designRead, designValidate, doctor, domainCreate, domainDraftCreate, domainDraftInstall, domainDraftValidate, domainList, domainValidate, evaluateResearchFindings, extractMaterial, prepareLocalMaterials, readDeckPlan, recordMaterialReview, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead } from "../lib/runtime"
+import { bindResearchFindings, checkDesignRulesReadiness, checkMaterialIntake, designCreate, designDraftCreate, designDraftInstall, designDraftValidate, designList, designRead, designValidate, doctor, domainCreate, domainDraftCreate, domainDraftInstall, domainDraftValidate, domainList, domainValidate, evaluateResearchFindings, extractMaterial, prepareLocalMaterials, readDeckPlan, recordMaterialReview, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead, upsertDeckPlanSlide } from "../lib/runtime"
 import { stopRefineServer } from "../lib/refine/server"
 import pkg from "../package.json"
 import { tempWorkspace } from "./helpers/tool-helpers"
@@ -122,6 +122,107 @@ describe("runtime facade", () => {
     expect(result.ok).toBe(true)
     expect(result.warnings).not.toContain("Deck plan narrativeHash does not match current narrative state.")
     expect(result.projection?.diagnostics.some((item) => item.code === "stale_narrative_hash")).toBe(false)
+  })
+
+  it("upserts one structured deck-plan slide and reads its component plan", () => {
+    const root = tempWorkspace("revela-runtime-deck-plan-upsert-")
+    writeMinimalVault(root)
+
+    const result = upsertDeckPlanSlide(validDeckPlanSlideInput(root))
+
+    expect(result.ok).toBe(true)
+    expect(result.path).toBe("deck-plan/slides/001-pilot-proof.md")
+    expect(existsSync(join(root, "deck-plan", "index.md"))).toBe(true)
+    const read = readDeckPlan({ workspaceRoot: root })
+    expect(read.ok).toBe(true)
+    expect(read.projection?.slides).toHaveLength(1)
+    expect(read.projection?.slides[0]).toMatchObject({
+      slideIndex: 1,
+      id: "slide-pilot-proof",
+      title: "Pilot Proof",
+      layout: "narrative",
+      components: ["text-panel"],
+    })
+    expect(read.projection?.slides[0].componentPlan[0]).toMatchObject({
+      name: "text-panel",
+      slot: "left",
+      position: "left-top",
+      purpose: "State the decision logic.",
+      content: "Approve a bounded pilot.",
+      claimIds: ["claim-pilot"],
+      evidenceIds: ["evidence-pilot"],
+      sourceNotes: ["Proposal"],
+      renderNotes: ["Use concise heading and body copy."],
+    })
+    expect(read.markdown).toContain("Slide 1: [[slide-pilot-proof]]")
+  })
+
+  it("re-upserting the same slideIndex updates the existing slide file", () => {
+    const root = tempWorkspace("revela-runtime-deck-plan-upsert-update-")
+    writeMinimalVault(root)
+    upsertDeckPlanSlide(validDeckPlanSlideInput(root))
+
+    const result = upsertDeckPlanSlide({
+      ...validDeckPlanSlideInput(root),
+      title: "Pilot Decision",
+      components: [{
+        name: "text-panel",
+        slot: "left",
+        position: "left-top",
+        purpose: "Update the recommendation.",
+        content: "Fund the bounded pilot.",
+      }],
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.updated).toBe(true)
+    expect(existsSync(join(root, "deck-plan", "slides", "001-pilot-proof.md"))).toBe(false)
+    expect(existsSync(join(root, "deck-plan", "slides", "001-pilot-decision.md"))).toBe(true)
+    const read = readDeckPlan({ workspaceRoot: root })
+    expect(read.projection?.slides).toHaveLength(1)
+    expect(read.projection?.slides[0].title).toBe("Pilot Decision")
+    expect(read.projection?.slides[0].componentPlan[0].content).toBe("Fund the bounded pilot.")
+  })
+
+  it("hard-errors invalid structured deck-plan slide input before writing", () => {
+    const root = tempWorkspace("revela-runtime-deck-plan-upsert-invalid-")
+    writeMinimalVault(root)
+
+    const unknownLayout = upsertDeckPlanSlide({ ...validDeckPlanSlideInput(root), layout: "unknown-layout" })
+    expect(unknownLayout.ok).toBe(false)
+    expect(unknownLayout.diagnostics).toContainEqual(expect.objectContaining({ severity: "error", code: "slide_layout_unknown" }))
+    expect(existsSync(join(root, "deck-plan", "slides"))).toBe(false)
+
+    const unknownComponent = upsertDeckPlanSlide({
+      ...validDeckPlanSlideInput(root),
+      components: [{ ...validDeckPlanSlideInput(root).components[0], name: "unknown-component" }],
+    })
+    expect(unknownComponent.ok).toBe(false)
+    expect(unknownComponent.diagnostics).toContainEqual(expect.objectContaining({ severity: "error", code: "slide_component_unknown" }))
+
+    const missingPosition = upsertDeckPlanSlide({
+      ...validDeckPlanSlideInput(root),
+      components: [{ ...validDeckPlanSlideInput(root).components[0], position: "" }],
+    })
+    expect(missingPosition.ok).toBe(false)
+    expect(missingPosition.diagnostics).toContainEqual(expect.objectContaining({ severity: "error", code: "slide_component_plan_incomplete" }))
+
+    const missingVisualComponent = upsertDeckPlanSlide({
+      ...validDeckPlanSlideInput(root),
+      visualIntent: { kind: "copy", component: "stat-card" },
+    })
+    expect(missingVisualComponent.ok).toBe(false)
+    expect(missingVisualComponent.diagnostics).toContainEqual(expect.objectContaining({ severity: "error", code: "slide_visual_component_missing" }))
+
+    const duplicatePosition = upsertDeckPlanSlide({
+      ...validDeckPlanSlideInput(root),
+      components: [
+        validDeckPlanSlideInput(root).components[0],
+        { name: "box", slot: "left", position: "left-top", purpose: "Frame support.", content: "Evidence summary." },
+      ],
+    })
+    expect(duplicatePosition.ok).toBe(false)
+    expect(duplicatePosition.diagnostics).toContainEqual(expect.objectContaining({ severity: "error", code: "slide_component_position_duplicate" }))
   })
 
   it("reads a vault-only Story map without creating compatibility state", () => {
@@ -747,6 +848,38 @@ outputPath: decks/runtime-demo.html
 
 - Use positive 1-based slide indexes.
 `, "utf-8")
+}
+
+function validDeckPlanSlideInput(root: string) {
+  return {
+    workspaceRoot: root,
+    designName: "summit",
+    slideIndex: 1,
+    id: "slide-pilot-proof",
+    title: "Pilot Proof",
+    chapter: "Decision",
+    narrativeRole: "Show why the bounded pilot is the next decision.",
+    structural: false,
+    layout: "narrative",
+    components: [{
+      name: "text-panel",
+      slot: "left",
+      position: "left-top",
+      purpose: "State the decision logic.",
+      content: "Approve a bounded pilot.",
+      claimIds: ["claim-pilot"],
+      evidenceIds: ["evidence-pilot"],
+      sourceNotes: ["Proposal"],
+      renderNotes: ["Use concise heading and body copy."],
+      placementNote: "Keep this as the primary reading path.",
+    }],
+    visualIntent: { kind: "copy-led", component: "text-panel", rationale: "The slide should privilege the decision sentence." },
+    narrativeLinks: {
+      claimIds: ["claim-pilot"],
+      evidenceIds: ["evidence-pilot"],
+    },
+    caveats: ["Intent evidence does not prove market demand."],
+  }
 }
 
 function writeMinimalDeck(root: string, outputPath: string): void {

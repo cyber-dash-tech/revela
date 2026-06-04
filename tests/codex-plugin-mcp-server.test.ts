@@ -30,6 +30,7 @@ describe("Codex plugin MCP server", () => {
 
     expect(text.stdout).toContain("\"serverInfo\"")
     expect(text.stdout).toContain("revela_doctor")
+    expect(text.stdout).toContain("revela_upsert_deck_plan_slide")
     expect(text.stdout).toContain("revela_research_targets")
     expect(text.stdout).toContain("revela_research_save")
     expect(text.stdout).toContain("revela_evaluate_research_findings")
@@ -427,6 +428,90 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("Layout: test-layout")
     expect(text.stdout).toContain("Component: test-card")
     expect(text.stdout).toContain("Component: test-badge")
+  })
+
+  it("creates and reads one structured deck-plan slide through MCP tools", async () => {
+    const root = tempWorkspace("revela-mcp-deck-plan-upsert-")
+    writeResearchVault(root)
+    const home = tempWorkspace("revela-mcp-deck-plan-upsert-home-")
+    const child = spawn("bun", [serverPath], {
+      env: { ...process.env, HOME: home },
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "revela_upsert_deck_plan_slide",
+        arguments: {
+          workspaceRoot: root,
+          designName: "summit",
+          slideIndex: 1,
+          id: "slide-pilot-proof",
+          title: "Pilot Proof",
+          chapter: "Decision",
+          narrativeRole: "Show why the bounded pilot is the next decision.",
+          structural: false,
+          layout: "narrative",
+          components: [{
+            name: "text-panel",
+            slot: "left",
+            position: "left-top",
+            purpose: "State the decision logic.",
+            content: "Approve a bounded pilot.",
+            claimIds: ["claim-pilot"],
+            evidenceIds: ["evidence-pilot"],
+            sourceNotes: ["Proposal"],
+            renderNotes: ["Use concise heading and body copy."],
+          }],
+          visualIntent: { kind: "copy-led", component: "text-panel" },
+          narrativeLinks: { claimIds: ["claim-pilot"], evidenceIds: ["evidence-pilot"] },
+          caveats: ["Intent evidence only."],
+        },
+      },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "revela_read_deck_plan", arguments: { workspaceRoot: root } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: {
+        name: "revela_upsert_deck_plan_slide",
+        arguments: {
+          workspaceRoot: root,
+          designName: "summit",
+          slideIndex: 2,
+          title: "Bad",
+          chapter: "Decision",
+          narrativeRole: "Invalid component.",
+          layout: "narrative",
+          components: [{ name: "missing-component", slot: "left", position: "left-top", purpose: "Bad.", content: "Bad." }],
+          visualIntent: { kind: "copy-led", component: "missing-component" },
+          narrativeLinks: {},
+        },
+      },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":4") && item.stdout.includes("slide_component_unknown"))
+    child.kill()
+
+    expect(text.stdout).toContain("\\\"ok\\\": true")
+    expect(text.stdout).toContain("deck-plan/slides/001-pilot-proof.md")
+    expect(text.stdout).toContain("\\\"componentPlan\\\"")
+    expect(text.stdout).toContain("\\\"slot\\\": \\\"left\\\"")
+    expect(text.stdout).toContain("\\\"position\\\": \\\"left-top\\\"")
+    expect(text.stdout).toContain("\\\"ok\\\": false")
+    expect(readFileSync(join(root, "deck-plan", "slides", "001-pilot-proof.md"), "utf-8")).toContain("## Component Plan")
   })
 
   it("reads bundled design inventory, layouts, components, and validation without seeding user config", async () => {
