@@ -16,7 +16,7 @@ import type { MediaAssetRecord, MediaPurpose } from "../media/types"
 import { addCommentRequestEvent, completeCommentRequest, createCommentRequest, failCommentRequest, getCommentRequest, subscribeCommentRequestEvents } from "./comment-requests"
 import { createOpenCodeReviewPromptBridge, type ReviewPromptBridge } from "./prompt-bridge"
 import { suppressReviewApplyFixArtifactQa } from "./qa-suppression"
-import { createReviewComment, listReviewComments, markReviewCommentApplied, markReviewCommentApplying, markReviewCommentFailed, readReviewComment } from "./review-comments"
+import { createReviewComment, listReviewComments, markReviewCommentApplied, markReviewCommentApplying, markReviewCommentFailed, markReviewCommentQueued, readReviewComment, type ReviewCommentRecord } from "./review-comments"
 import { annotateVisualEditTargets, applyVisualTargetChanges, type VisualEditTarget } from "./visual-targets"
 
 const TOKEN_BYTES = 24
@@ -46,6 +46,8 @@ interface EditSession {
   defaultMode: RefineMode
   visualTargets: Map<string, VisualEditTarget>
   visualTargetDeckVersion?: string
+  activeApplyCommentId?: string
+  applyQueue: string[]
 }
 
 export type RefineMode = "edit" | "inspect"
@@ -99,6 +101,7 @@ export function startRefineServer(): RefineServerHandle {
         existing.session.workspaceRoot = resolve(input.workspaceRoot)
         existing.session.defaultMode = input.mode ?? "edit"
         existing.session.visualTargets = existing.session.visualTargets ?? new Map()
+        existing.session.applyQueue = existing.session.applyQueue ?? []
         return {
           token: existing.token,
           reused: true,
@@ -123,6 +126,7 @@ export function startRefineServer(): RefineServerHandle {
         lastActiveAt: Date.now(),
         defaultMode: input.mode ?? "edit",
         visualTargets: new Map(),
+        applyQueue: [],
       })
       return { token, reused: false, live: false }
     },
@@ -821,18 +825,98 @@ async function handleReviewCommentApply(commentId: string, req: Request, session
 
   const comment = readReviewComment(session.workspaceRoot, commentId)
   if (!comment || comment.deckFile !== session.file) return jsonResponse({ ok: false, error: "Review comment not found" }, 404)
-  const response = await applyCommentPayload({
-    ...body,
-    comment: comment.comment,
-    elements: comment.elements,
-    asset: comment.asset,
-    drop: comment.drop,
-    requestId: typeof body.requestId === "string" && body.requestId.trim() ? body.requestId.trim() : randomBytes(10).toString("base64url"),
-  }, session, comment.id)
-  return response
+  return enqueueOrStartPersistedReviewCommentApply(session, comment, body)
 }
 
-async function applyCommentPayload(body: Partial<EditCommentPayload>, session: EditSession, persistedCommentId?: string): Promise<Response> {
+async function enqueueOrStartPersistedReviewCommentApply(session: EditSession, comment: ReviewCommentRecord, body: any = {}): Promise<Response> {
+  session.applyQueue = session.applyQueue ?? []
+  if (session.activeApplyCommentId === comment.id) {
+    const current = readReviewComment(session.workspaceRoot, comment.id) ?? comment
+    return jsonResponse({
+      ok: true,
+      requestId: current.lastApplyRequestId,
+      commentRequestId: current.lastApplyRequestId,
+      deckVersion: readDeckVersion(session).version,
+      status: "pending",
+      comment: current,
+    })
+  }
+
+  const queuedIndex = session.applyQueue.indexOf(comment.id)
+  if (queuedIndex >= 0) {
+    const queued = markReviewCommentQueued(session.workspaceRoot, comment.id) ?? comment
+    return jsonResponse({
+      ok: true,
+      deckVersion: readDeckVersion(session).version,
+      status: "queued",
+      queuePosition: queuedIndex + 1,
+      comment: queued,
+    })
+  }
+
+  if (session.activeApplyCommentId) {
+    session.applyQueue.push(comment.id)
+    const queued = markReviewCommentQueued(session.workspaceRoot, comment.id) ?? comment
+    session.lastActiveAt = Date.now()
+    scheduleIdleStop()
+    return jsonResponse({
+      ok: true,
+      deckVersion: readDeckVersion(session).version,
+      status: "queued",
+      queuePosition: session.applyQueue.length,
+      comment: queued,
+    })
+  }
+
+  return startPersistedReviewCommentApply(session, comment, body)
+}
+
+async function startPersistedReviewCommentApply(session: EditSession, comment: ReviewCommentRecord, body: any = {}): Promise<Response> {
+  session.activeApplyCommentId = comment.id
+  try {
+    const response = await applyCommentPayload({
+      ...body,
+      comment: comment.comment,
+      elements: comment.elements,
+      asset: comment.asset,
+      drop: comment.drop,
+      requestId: typeof body.requestId === "string" && body.requestId.trim() ? body.requestId.trim() : randomBytes(10).toString("base64url"),
+    }, session, {
+      persistedCommentId: comment.id,
+      onSettled: () => settlePersistedReviewCommentApply(session, comment.id),
+    })
+    if (!response.ok) settlePersistedReviewCommentApply(session, comment.id)
+    return response
+  } catch (error) {
+    settlePersistedReviewCommentApply(session, comment.id)
+    throw error
+  }
+}
+
+function settlePersistedReviewCommentApply(session: EditSession, commentId: string): void {
+  if (session.activeApplyCommentId === commentId) session.activeApplyCommentId = undefined
+  drainPersistedReviewCommentApplyQueue(session)
+}
+
+function drainPersistedReviewCommentApplyQueue(session: EditSession): void {
+  if (session.activeApplyCommentId) return
+  session.applyQueue = session.applyQueue ?? []
+  while (session.applyQueue.length) {
+    const nextId = session.applyQueue.shift()
+    if (!nextId) continue
+    const next = readReviewComment(session.workspaceRoot, nextId)
+    if (!next || next.deckFile !== session.file) continue
+    void startPersistedReviewCommentApply(session, next)
+    return
+  }
+}
+
+async function applyCommentPayload(
+  body: Partial<EditCommentPayload>,
+  session: EditSession,
+  options: { persistedCommentId?: string; onSettled?: () => void } = {},
+): Promise<Response> {
+  const { persistedCommentId, onSettled } = options
   const comments = Array.isArray(body.comments)
     ? body.comments
       .map((draft: any) => ({
@@ -884,10 +968,12 @@ async function applyCommentPayload(body: Partial<EditCommentPayload>, session: E
       failCommentRequest(requestId, result.error, result.raw)
       if (persistedCommentId) markReviewCommentFailed(session.workspaceRoot, persistedCommentId, result.error, result.raw)
     }
+    onSettled?.()
   }).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)
     failCommentRequest(requestId, message)
     if (persistedCommentId) markReviewCommentFailed(session.workspaceRoot, persistedCommentId, message)
+    onSettled?.()
   })
 
   session.lastActiveAt = Date.now()
@@ -1238,6 +1324,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .comment-bubble { border: 1px solid #d8d2c6; border-radius: 14px; padding: 10px 12px; background: #fffdf8; color: #3f3a33; font-size: 13px; line-height: 1.45; box-shadow: 0 8px 22px rgba(31,41,51,.05); }
     .comment-bubble.sending { border-color: #c8b88f; background: #f7f0df; }
     .comment-bubble.open { border-color: #d8d2c6; background: #fffdf8; }
+    .comment-bubble.queued { border-color: #c8b88f; background: #f7f0df; }
     .comment-bubble.applying { border-color: #c8b88f; background: #f7f0df; }
     .comment-bubble.applied { border-color: #9dac8a; background: #f0f2e8; }
     .comment-bubble.updated { border-color: #9dac8a; background: #f0f2e8; }
@@ -1409,6 +1496,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       const state = {
         references: [],
         pendingComments: [],
+        queuedCommentPolls: new Set(),
         hoverEl: null,
         hoverOutline: null,
         referenceOutlines: [],
@@ -2377,6 +2465,10 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to load comments');
           state.pendingComments = Array.isArray(body.comments) ? body.comments.map(commentFromRecord) : [];
           renderCommentThread();
+          state.pendingComments.forEach((comment) => {
+            if (comment.status === 'queued') pollQueuedComment(comment.id);
+            else if (comment.status === 'applying' && comment.requestId) watchCommentProgress(comment.id, comment.requestId);
+          });
         } catch (error) {
           reportError(error);
         }
@@ -2414,9 +2506,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
       async function applyPersistedComment(commentId) {
         const comment = state.pendingComments.find((item) => item.id === commentId);
-        if (!comment || comment.status === 'applying') return;
+        if (!comment || comment.status === 'applying' || comment.status === 'queued') return;
         updatePendingCommentStatus(commentId, 'applying', { baseDeckVersion: state.deckVersion || comment.baseDeckVersion, progressEvent: null, eventLog: [], failureRaw: '', failureMessage: '' });
-        setStatus('Applying saved comment...');
+        setStatus(comment.status === 'applied' || comment.status === 'updated' || comment.status === 'stale' ? 'Re-applying saved comment...' : 'Applying saved comment...');
         try {
           const res = await fetch('/api/comments/' + encodeURIComponent(commentId) + '/apply?token=' + encodeURIComponent(token), {
             method: 'POST',
@@ -2426,12 +2518,51 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           const body = await res.json().catch(() => ({}));
           if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to apply comment');
           if (body.comment) upsertPersistedComment(body.comment);
+          if (body.status === 'queued') {
+            updatePendingCommentStatus(commentId, 'queued', { requestId: '', progressEvent: null, failureRaw: '', failureMessage: '' });
+            setStatus('Comment queued. It will apply after the current edit finishes.');
+            pollQueuedComment(commentId);
+            return;
+          }
           updatePendingCommentStatus(commentId, 'applying', { requestId: body.commentRequestId || body.requestId || '', baseDeckVersion: body.deckVersion || state.deckVersion });
           if (body.commentRequestId || body.requestId) watchCommentProgress(commentId, body.commentRequestId || body.requestId);
         } catch (error) {
           updatePendingCommentStatus(commentId, 'failed', { failureMessage: error instanceof Error ? error.message : String(error) });
           reportError(error);
         }
+      }
+
+      function pollQueuedComment(commentId) {
+        if (state.queuedCommentPolls.has(commentId)) return;
+        state.queuedCommentPolls.add(commentId);
+        const tick = async () => {
+          const current = state.pendingComments.find((item) => item.id === commentId);
+          if (!current || current.status !== 'queued') {
+            state.queuedCommentPolls.delete(commentId);
+            return;
+          }
+          try {
+            const res = await fetch('/api/comments?token=' + encodeURIComponent(token), { cache: 'no-store' });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to refresh comments');
+            const records = Array.isArray(body.comments) ? body.comments : [];
+            records.forEach(upsertPersistedComment);
+            const record = records.find((item) => item && item.id === commentId);
+            if (record && record.status === 'applying' && record.lastApplyRequestId) {
+              state.queuedCommentPolls.delete(commentId);
+              watchCommentProgress(commentId, record.lastApplyRequestId);
+              return;
+            }
+            if (record && record.status !== 'queued') {
+              state.queuedCommentPolls.delete(commentId);
+              return;
+            }
+          } catch (error) {
+            // Keep polling: queued comments become actionable only when the server starts them.
+          }
+          setTimeout(tick, 1500);
+        };
+        setTimeout(tick, 750);
       }
 
       async function searchAssets(nextBatch) {
@@ -3098,12 +3229,12 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           bubble.appendChild(meta);
           bubble.appendChild(text);
           bubble.appendChild(status);
-          if (comment.persisted && (comment.status === 'open' || comment.status === 'failed')) {
+          if (comment.persisted && canApplyPersistedComment(comment.status)) {
             const actions = document.createElement('div');
             actions.className = 'comment-actions';
             const apply = document.createElement('button');
             apply.type = 'button';
-            apply.textContent = 'Apply';
+            apply.textContent = isReapplyStatus(comment.status) ? 'Re-apply' : 'Apply';
             apply.addEventListener('click', () => applyPersistedComment(comment.id));
             actions.appendChild(apply);
             bubble.appendChild(actions);
@@ -3136,6 +3267,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
       function commentStatusLabel(status) {
         if (status === 'open') return 'Saved comment';
+        if (status === 'queued') return 'Queued for apply';
         if (status === 'applying') return 'Applying with Codex...';
         if (status === 'applied') return 'Codex completed; waiting for deck update';
         if (status === 'updated') return 'Deck file updated';
@@ -3143,6 +3275,14 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         if (status === 'failed') return 'Failed to apply';
         if (status === 'sending') return 'Sending to Review agent...';
         return 'Sent to Review agent';
+      }
+
+      function canApplyPersistedComment(status) {
+        return status === 'open' || status === 'failed' || isReapplyStatus(status);
+      }
+
+      function isReapplyStatus(status) {
+        return status === 'applied' || status === 'updated' || status === 'stale';
       }
 
       function slideIndexFromElements(elements) {

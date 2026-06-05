@@ -103,6 +103,9 @@ describe("renderRefineShell", () => {
     expect(html).toContain("sendAssetPlacement")
     expect(html).toContain("Leave Comment")
     expect(html).toContain("Apply")
+    expect(html).toContain("Re-apply")
+    expect(html).toContain("Queued for apply")
+    expect(html).toContain("pollQueuedComment")
     expect(html).toContain("class=\"primary-action\"")
     expect(html).toContain("class=\"send-icon\"")
     expect(html).toContain("M14.7 6.3a1 1 0 0 0 0 1.4")
@@ -940,6 +943,137 @@ describe("refine HTTP inspect lifecycle", () => {
       file: "decks/demo.html",
     })
     expect(captured.prompt).toContain("Make the title smaller.")
+  })
+
+  it("re-applies an already applied persisted Review comment", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
+    const calls: any[] = []
+    const promptBridge = {
+      kind: "codex-exec" as const,
+      async send(input: any) {
+        calls.push(input)
+        return { ok: true as const, status: "completed" as const, raw: "patched" }
+      },
+    }
+    const opened = openRefineDeck("", {
+      workspaceRoot: root,
+      openBrowser: false,
+      promptBridge,
+    })
+    const commentsUrl = new URL(opened.url)
+    commentsUrl.pathname = "/api/comments"
+    const savedResponse = await fetch(commentsUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        comment: "Make the title smaller.",
+        elements: [{ slideIndex: 1, tagName: "H1", text: "Launch" }],
+      }),
+    })
+    const saved = await savedResponse.json() as any
+    const applyUrl = new URL(opened.url)
+    applyUrl.pathname = `/api/comments/${saved.comment.id}/apply`
+
+    await fetch(applyUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    })
+    await waitForJson(commentsUrl, (item) => item.comments?.[0]?.status === "applied")
+
+    const response = await fetch(applyUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    })
+    const data = await response.json() as any
+
+    expect(response.status).toBe(200)
+    expect(data).toMatchObject({ ok: true, status: "pending" })
+    expect(data.comment).toMatchObject({ id: saved.comment.id, status: "applying" })
+    expect(calls).toHaveLength(2)
+    expect(calls[1].prompt).toContain("Make the title smaller.")
+  })
+
+  it("queues persisted Review comment applies while another apply is active", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1><p>Body</p></div></section>', "utf-8")
+    const calls: any[] = []
+    const resolvers: Array<(value: { ok: true; status: "completed"; raw: string }) => void> = []
+    const promptBridge = {
+      kind: "codex-exec" as const,
+      async send(input: any) {
+        calls.push(input)
+        return await new Promise<{ ok: true; status: "completed"; raw: string }>((resolve) => {
+          resolvers.push(resolve)
+        })
+      },
+    }
+    const opened = openRefineDeck("", {
+      workspaceRoot: root,
+      openBrowser: false,
+      promptBridge,
+    })
+    const commentsUrl = new URL(opened.url)
+    commentsUrl.pathname = "/api/comments"
+    const firstSaved = await fetch(commentsUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        comment: "Make the title smaller.",
+        elements: [{ slideIndex: 1, tagName: "H1", text: "Launch" }],
+      }),
+    }).then((item) => item.json()) as any
+    const secondSaved = await fetch(commentsUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        comment: "Tighten the body copy.",
+        elements: [{ slideIndex: 1, tagName: "P", text: "Body" }],
+      }),
+    }).then((item) => item.json()) as any
+
+    const firstApplyUrl = new URL(opened.url)
+    firstApplyUrl.pathname = `/api/comments/${firstSaved.comment.id}/apply`
+    const secondApplyUrl = new URL(opened.url)
+    secondApplyUrl.pathname = `/api/comments/${secondSaved.comment.id}/apply`
+
+    const firstApply = await fetch(firstApplyUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    }).then((item) => item.json()) as any
+    expect(firstApply).toMatchObject({ ok: true, status: "pending" })
+    expect(calls).toHaveLength(1)
+
+    const secondApply = await fetch(secondApplyUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    }).then((item) => item.json()) as any
+    expect(secondApply).toMatchObject({ ok: true, status: "queued", queuePosition: 1 })
+    expect(secondApply.comment).toMatchObject({ id: secondSaved.comment.id, status: "queued" })
+    expect(calls).toHaveLength(1)
+
+    const duplicateSecondApply = await fetch(secondApplyUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    }).then((item) => item.json()) as any
+    expect(duplicateSecondApply).toMatchObject({ ok: true, status: "queued", queuePosition: 1 })
+    expect(calls).toHaveLength(1)
+
+    resolvers[0]?.({ ok: true, status: "completed", raw: "patched title" })
+    const listed = await waitForJson(commentsUrl, (item) => item.comments?.find((comment: any) => comment.id === secondSaved.comment.id)?.status === "applying")
+    const secondRecord = listed.comments.find((comment: any) => comment.id === secondSaved.comment.id)
+    expect(secondRecord).toMatchObject({ status: "applying" })
+    expect(secondRecord.lastApplyRequestId).toBeTruthy()
+    expect(calls).toHaveLength(2)
+    expect(calls[1].prompt).toContain("Tighten the body copy.")
+
+    resolvers[1]?.({ ok: true, status: "completed", raw: "patched body" })
+    await waitForJson(commentsUrl, (item) => item.comments?.find((comment: any) => comment.id === secondSaved.comment.id)?.status === "applied")
   })
 
   it("registers Apply Fix artifact QA suppression for the current OpenCode session", async () => {

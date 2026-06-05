@@ -3,7 +3,7 @@ import { join } from "path"
 import { randomBytes } from "crypto"
 import { workspaceMetaPath } from "../workspace-meta"
 
-export type ReviewCommentStatus = "open" | "applying" | "applied" | "failed"
+export type ReviewCommentStatus = "open" | "queued" | "applying" | "applied" | "failed"
 
 export interface ReviewCommentRecord {
   id: string
@@ -80,6 +80,15 @@ export function markReviewCommentApplying(workspaceRoot: string, id: string, req
     ...record,
     status: "applying",
     lastApplyRequestId: requestId,
+    lastApplyError: undefined,
+    lastApplyRaw: undefined,
+  }))
+}
+
+export function markReviewCommentQueued(workspaceRoot: string, id: string): ReviewCommentRecord | undefined {
+  return updateReviewComment(workspaceRoot, id, (record) => ({
+    ...record,
+    status: "queued",
     lastApplyError: undefined,
     lastApplyRaw: undefined,
   }))
