@@ -1,5 +1,5 @@
 export const NARRATIVE_VAULT_DIR = "revela-narrative"
-export const NARRATIVE_VAULT_CACHE_DIR = ".opencode/revela/narrative-cache"
+export const NARRATIVE_VAULT_CACHE_DIR = ".revela/narrative-cache"
 
 export const NARRATIVE_VAULT_NODE_DIRS = ["claims", "evidence", "objections", "risks", "research-gaps"] as const
 

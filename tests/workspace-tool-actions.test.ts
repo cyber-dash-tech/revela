@@ -40,6 +40,8 @@ describe("workspace tool action provenance", () => {
     writeFileSync(join(root, "proposal.docx"), "proposal", "utf-8")
     mkdirSync(join(root, "revela-narrative"), { recursive: true })
     writeFileSync(join(root, "revela-narrative", "index.md"), "vault", "utf-8")
+    mkdirSync(join(root, ".revela"), { recursive: true })
+    writeFileSync(join(root, ".revela", "internal.txt"), "generated", "utf-8")
 
     const result = await executeTool(workspaceScanTool, { max_depth: 1 }, root)
     const state = readDecksState(root)

@@ -1651,6 +1651,7 @@ function isIgnorableSourceMaterial(path: string): boolean {
       normalized.startsWith("decks/") ||
       normalized.startsWith("researches/") ||
       normalized.startsWith("assets/") ||
+      normalized.startsWith(".revela/") ||
       normalized.startsWith(".opencode/"),
   )
 }

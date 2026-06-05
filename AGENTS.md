@@ -51,7 +51,7 @@ Decks are render targets. The durable core is source trust, canonical narrative 
 - `deck-plan/`, when present, is the render-layer execution-plan workspace for slide order, chapter writing batches, visual intent, and evidence trace; it is not the source of canonical meaning.
 - `DECKS.json.slides[]` must not be treated as the authoritative HTML slide-count contract. Artifact identity is self-consistent positive 1-based slide indexes, unique indexes, DOM order, and canvas validity; plan completeness belongs to `deck-plan/` projection Markdown when present.
 - Vault workspaces must not persist top-level `DECKS.json.narrative`; runtime `state.narrative` may still be hydrated as a compatibility projection.
-- `.opencode/revela/narrative-cache/` contains regenerable compiled projections and diagnostics, not editable source.
+- `.revela/narrative-cache/` contains regenerable compiled projections and diagnostics, not editable source.
 - Saved research findings are not evidence support until explicit evidence nodes or bindings preserve source, quote/snippet, support scope, unsupported scope, caveat, and strength.
 - Do not invent quotes, source paths, URLs, page references, caveats, claim ids, evidence ids, or artifact coverage.
 - Missing evidence must stay visible as a gap instead of being filled by the model.
@@ -321,7 +321,7 @@ Deferred until after MVP stability:
 - `revela-decks attachResearchFindings` attaches a workspace-relative findings file to a matching research axis. It does not mutate slide evidence or deck HTML.
 - `revela-decks applyEvidenceCandidates` and evidence-status services are compatibility-only. Canonical support should be created through `revela-narrative/evidence/*.md` or `bindResearchFindings`, then compiled.
 - `revela-workspace-scan` discovers candidate documents and records provenance when possible; scan actions are not proof.
-- `revela-extract-document-materials` writes extraction cache under `.opencode/revela/doc-materials/{fingerprint}/` and updates `workspace.sourceMaterials` when `DECKS.json` exists.
+- `revela-extract-document-materials` writes extraction cache under `.revela/doc-materials/{fingerprint}/` and updates `workspace.sourceMaterials` when `DECKS.json` exists.
 - `revela-media-save` and `revela-media-batch-save` promote image leads into workspace assets under `assets/<topic>/media/` and update the media manifest.
 - Review asset search results are remote candidates only until saved. Deck HTML should reference saved workspace asset paths, never remote candidate URLs or `/__revela_asset` proxy URLs.
 - Inspection/result tools submit structured JSON for browser UI. Do not rely on assistant Markdown parsing for Review UI state.

@@ -6,7 +6,7 @@ describe("hook user notifications", () => {
     const notice = formatMarkdownQaUserNotice({
       ok: false,
       mirrored: "preserved_failed_compile",
-      cachePath: ".opencode/revela/narrative-cache",
+      cachePath: ".revela/narrative-cache",
       touched: ["revela-narrative/thesis.md"],
       markdownQa: {
         ok: false,

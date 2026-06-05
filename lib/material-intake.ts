@@ -3,6 +3,7 @@ import { basename, extname, isAbsolute, join, relative, resolve, sep } from "pat
 import { extractDocumentMaterials, type DocumentMaterialsResult } from "./document-materials/extract"
 import { sourceMaterialMetadata, sourceMaterialType } from "./source-materials"
 import type { SourceMaterial } from "./decks-state"
+import { existingWorkspaceMetaPath, workspaceMetaPath } from "./workspace-meta"
 
 export type MaterialIntakeStatus =
   | "scanned"
@@ -107,24 +108,28 @@ export interface CheckMaterialIntakeResult {
 }
 
 const DOC_EXTENSIONS = new Set([".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt", ".csv", ".md", ".txt"])
-const EXCLUDE_DIRS = new Set(["node_modules", ".git", "dist", ".opencode", "researches", "revela-narrative", "designs", "domains"])
+const EXCLUDE_DIRS = new Set(["node_modules", ".git", "dist", ".opencode", ".revela", "researches", "revela-narrative", "designs", "domains"])
 const EXCLUDE_FILENAMES = new Set(["AGENTS.md", "DECKS.md", "README.md", "README.zh-CN.md"])
 const EXTRACTION_EXTENSIONS = new Set(["pdf", "ppt", "pptx", "doc", "docx", "xls", "xlsx"])
 const SUPPORTED_EXTRACTION_EXTENSIONS = new Set(["pdf", "pptx", "docx", "xlsx"])
 
 export function materialRegistryPath(workspaceRoot: string): string {
-  return join(workspaceRoot, ".opencode", "revela", "material-intake", "registry.json")
+  return workspaceMetaPath(workspaceRoot, "material-intake", "registry.json")
+}
+
+function existingMaterialRegistryPath(workspaceRoot: string): string {
+  return existingWorkspaceMetaPath(workspaceRoot, "material-intake", "registry.json")
 }
 
 export function readMaterialRegistry(workspaceRoot: string): MaterialRegistry {
-  const path = materialRegistryPath(workspaceRoot)
+  const path = existingMaterialRegistryPath(workspaceRoot)
   if (!existsSync(path)) return { version: 1, updatedAt: new Date(0).toISOString(), sources: [] }
   return JSON.parse(readFileSync(path, "utf-8")) as MaterialRegistry
 }
 
 export function writeMaterialRegistry(workspaceRoot: string, registry: MaterialRegistry): string {
   const path = materialRegistryPath(workspaceRoot)
-  mkdirSync(join(workspaceRoot, ".opencode", "revela", "material-intake"), { recursive: true })
+  mkdirSync(join(workspaceRoot, ".revela", "material-intake"), { recursive: true })
   writeFileSync(path, JSON.stringify({ ...registry, updatedAt: new Date().toISOString() }, null, 2), "utf-8")
   return workspaceRelative(path, workspaceRoot)
 }

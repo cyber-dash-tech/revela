@@ -260,7 +260,7 @@ Evidence:
     expect(written.narrative).toBeUndefined()
     expect(written.workspace.openQuestions).toEqual(["Keep render state intact."])
     expect(hydrated.narrative?.id).toBe("narrative:vault-demo")
-    expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "diagnostics.json"), "utf-8")).toContain("broken_link")
+    expect(readFileSync(join(root, ".revela", "narrative-cache", "diagnostics.json"), "utf-8")).toContain("broken_link")
   })
 
   it("does not replace existing DECKS narrative when the vault is empty", () => {
@@ -272,7 +272,7 @@ Evidence:
     const read = readDecksState(root)
 
     expect(read.narrative?.id).toBe(state.narrative?.id)
-    expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "diagnostics.json"), "utf-8")).toContain("empty_vault")
+    expect(readFileSync(join(root, ".revela", "narrative-cache", "diagnostics.json"), "utf-8")).toContain("empty_vault")
   })
 
   it("tool actions compile/export vault and block JSON narrative mutation when vault exists", async () => {
@@ -350,7 +350,7 @@ Evidence:
     expect(result.nextActions).toContain("Treat workspace source material records as candidates until explicit evidence trace is written.")
     expect(existsSync(join(root, "DECKS.json"))).toBe(false)
     expect(compiled.narrative?.audience.primary).toBe("Product leadership")
-    expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("Product leadership")
+    expect(readFileSync(join(root, ".revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("Product leadership")
   })
 
   it("smoke tests fresh init with proposal intent, inventory-first authoring, QA repair, and graph compile", async () => {
@@ -754,7 +754,7 @@ Evidence:
     expect(written.narrative).toBeUndefined()
     expect(hydrated.narrative?.evidenceBindings).toContainEqual(expect.objectContaining({ id: "evidence:pilot:ops" }))
     expect(hydrated.narrative?.researchGaps).toContainEqual(expect.objectContaining({ id: "gap:pilot-evidence", status: "evidence_bound" }))
-    expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("evidence:pilot:ops")
+    expect(readFileSync(join(root, ".revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("evidence:pilot:ops")
   })
 
   it("upserts research gaps through a vault-native structured action", async () => {

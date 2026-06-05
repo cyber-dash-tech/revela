@@ -179,6 +179,18 @@ type: claim
   })
 
   it("blocks direct narrative cache patches", async () => {
+    const payload = hookPayload("/tmp/revela-demo", ".revela/narrative-cache/compiled-narrative.json")
+
+    expect(extractNarrativeCachePatchTargets(payload)).toEqual([".revela/narrative-cache/compiled-narrative.json"])
+
+    const result = await runPreWriteChecks(payload)
+
+    expect(result.ok).toBe(false)
+    expect(result.messages.join("\n")).toContain("narrative cache patches are blocked")
+    expect(result.messages.join("\n")).toContain("Edit `revela-narrative/**/*.md`")
+  })
+
+  it("blocks legacy narrative cache patches", async () => {
     const payload = hookPayload("/tmp/revela-demo", ".opencode/revela/narrative-cache/compiled-narrative.json")
 
     expect(extractNarrativeCachePatchTargets(payload)).toEqual([".opencode/revela/narrative-cache/compiled-narrative.json"])
@@ -187,7 +199,6 @@ type: claim
 
     expect(result.ok).toBe(false)
     expect(result.messages.join("\n")).toContain("narrative cache patches are blocked")
-    expect(result.messages.join("\n")).toContain("Edit `revela-narrative/**/*.md`")
   })
 
   it("extracts shell commands from Codex hook payloads", () => {

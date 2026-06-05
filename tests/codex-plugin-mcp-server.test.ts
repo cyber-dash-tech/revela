@@ -830,7 +830,7 @@ describe("Codex plugin MCP server", () => {
         arguments: {
           workspaceRoot: root,
           sourcePath: "proposal.docx",
-          reviewedPaths: [".opencode/revela/doc-materials/example/read.md"],
+          reviewedPaths: [".revela/doc-materials/example/read.md"],
           reviewSummary: "Reviewed the extracted proposal.",
           narrativeDecisions: [{ kind: "ignored", rationale: "No canonical narrative claim was created." }],
         },

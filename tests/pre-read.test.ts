@@ -58,7 +58,7 @@ describe("preRead", () => {
     expect(view).toContain("## Text")
     expect(view).toContain("Growth doubled")
     expect(view).toContain("## Images")
-    expect(view).toContain(".opencode/revela/doc-materials/")
+    expect(view).toContain(".revela/doc-materials/")
     expect(view).toContain("images/slide-01-image-01.png")
     expect(view).toContain("## Slide Structure")
     expect(view).toContain("slide-01: 1 text, 1 kept image")

@@ -793,6 +793,7 @@ topic: factory
       "DECKS.json",
       "decks/pg_future_manufacturing_opening.pptx",
       "decks/pg_future_manufacturing_opening.html",
+      ".revela/doc-materials/hash/read.md",
       "更新V2-Plug and Play Proposal for P&G (English).pdf",
     ]) {
       upsertSourceMaterial(state, { path, status: "discovered" }, "discovered")

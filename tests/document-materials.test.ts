@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { existsSync, rmSync, writeFileSync } from "fs"
+import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { zipSync, strToU8 } from "fflate"
 import { PDFDocument, StandardFonts } from "pdf-lib"
@@ -75,7 +75,7 @@ describe("extractDocumentMaterials", () => {
     expect(result.status).toBe("processed")
     expect(result.type).toBe("pptx")
     expect(result.source).toBe("deck.pptx")
-    expect(result.text_path).toContain(".opencode/revela/doc-materials/")
+    expect(result.text_path).toContain(".revela/doc-materials/")
     expect(result.images).toHaveLength(1)
     expect(result.images?.[0].page_or_slide).toBe("slide-01")
     expect(result.slides).toEqual([
@@ -363,7 +363,7 @@ describe("extractDocumentMaterials", () => {
     expect(result.images).toHaveLength(1)
     expect(result.images?.[0].note).toBe("Document-wide association")
     expect(readTextFile(join(workspaceDir, result.text_path!))).toContain("Quarterly summary")
-    expect(result.read_view_path).toContain(".opencode/revela/doc-materials/")
+    expect(result.read_view_path).toContain(".revela/doc-materials/")
     expect(readTextFile(join(workspaceDir, result.read_view_path!))).toContain("## Extracted Images")
     expect(readTextFile(join(workspaceDir, result.read_view_path!))).toContain("document-image-01.png")
   })
@@ -516,6 +516,32 @@ describe("extractDocumentMaterials", () => {
       },
     ])
     expect(second).toEqual({ ...first, cache_status: "hit" })
+  })
+
+  it("reuses legacy .opencode doc-materials cache when present", async () => {
+    writeZip("legacy-cache.pptx", {
+      "ppt/slides/slide1.xml": strToU8(
+        `<?xml version="1.0" encoding="UTF-8"?>
+        <p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+          <p:cSld><p:spTree><p:sp><p:spPr><a:xfrm><a:off x="50" y="60"/><a:ext cx="400" cy="100"/></a:xfrm></p:spPr><p:txBody><a:p><a:r><a:t>Legacy cache</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld>
+        </p:sld>`
+      ),
+    })
+
+    const first = await extractDocumentMaterials("legacy-cache.pptx", workspaceDir)
+    const legacyRoot = join(workspaceDir, ".opencode", "revela")
+    mkdirSync(legacyRoot, { recursive: true })
+    renameSync(join(workspaceDir, ".revela", "doc-materials"), join(legacyRoot, "doc-materials"))
+    const legacyManifestPath = join(workspaceDir, first.manifest_path!.replace(/^\.revela\//, ".opencode/revela/"))
+    const legacyManifest = readTextFile(legacyManifestPath).replace(/\.revela\//g, ".opencode/revela/")
+    writeFileSync(legacyManifestPath, legacyManifest, "utf-8")
+
+    const second = await extractDocumentMaterials("legacy-cache.pptx", workspaceDir)
+
+    expect(first.cache_status).toBe("miss")
+    expect(second.cache_status).toBe("hit")
+    expect(second.cache_dir).toContain(".opencode/revela/doc-materials/")
+    expect(second.text_path).toContain(".opencode/revela/doc-materials/")
   })
 
   it("reuses cached manifest on repeated pdf extraction", async () => {

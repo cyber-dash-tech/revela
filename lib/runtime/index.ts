@@ -27,6 +27,7 @@ import { formatArtifactQaUserNotice, formatMarkdownQaUserNotice } from "../hook-
 import { deckPlanDesignDiagnostics, readDeckPlanArtifact, upsertDeckPlanSlideArtifact, type DeckPlanSlideUpsertInput } from "../narrative-state/deck-plan-artifact"
 import { extractDesignClasses } from "../design/designs"
 import { recordRenderedArtifact, workspaceRelative } from "../workspace-state/rendered-artifacts"
+import { existingWorkspaceMetaPath, workspaceMetaPath } from "../workspace-meta"
 import { checkMaterialIntake, extractMaterial, materialIntakeNoticeForCommand, prepareLocalMaterials, recordMaterialReview } from "../material-intake"
 import type { ReviewDeckOpenInput, ReviewDeckReadInput } from "./review"
 import pkg from "../../package.json"
@@ -414,7 +415,7 @@ export function checkDesignRulesReadiness(input: RuntimeWorkspaceInput = {}): De
 }
 
 function recordDesignRulesRead(workspaceRoot: string, designName: string, rules: string): void {
-  const markerPath = designRulesMarkerPath(workspaceRoot)
+  const markerPath = workspaceMetaPath(workspaceRoot, "codex-hooks", "design-rules-read.json")
   mkdirSync(dirname(markerPath), { recursive: true })
   writeFileSync(markerPath, JSON.stringify({
     designName,
@@ -424,7 +425,7 @@ function recordDesignRulesRead(workspaceRoot: string, designName: string, rules:
 }
 
 function designRulesMarkerPath(workspaceRoot: string): string {
-  return resolve(workspaceRoot, ".opencode", "revela", "codex-hooks", "design-rules-read.json")
+  return existingWorkspaceMetaPath(workspaceRoot, "codex-hooks", "design-rules-read.json")
 }
 
 function hashDesignRules(rules: string): string {

@@ -745,7 +745,7 @@ sources:
     expect(result.markdown).toContain("Canonical slide canvas")
     expect(result.markdown).not.toContain("@design:foundation:start")
     expect(readiness).toMatchObject({ ok: true, activeDesign: result.name })
-    expect(existsSync(join(root, ".opencode", "revela", "codex-hooks", "design-rules-read.json"))).toBe(true)
+    expect(existsSync(join(root, ".revela", "codex-hooks", "design-rules-read.json"))).toBe(true)
   })
 
   it("opens a Codex-backed Review server by default without creating compatibility state", async () => {

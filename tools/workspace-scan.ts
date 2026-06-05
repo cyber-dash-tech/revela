@@ -13,7 +13,7 @@ const DOC_EXTENSIONS = new Set([
 
 // Directories to exclude from scanning
 const EXCLUDE_DIRS = new Set([
-  "node_modules", ".git", "dist", ".opencode",
+  "node_modules", ".git", "dist", ".opencode", ".revela",
   "researches",  // Exclude revela's own research output
   "revela-narrative", // Exclude canonical narrative vault source files
   "designs", "domains",  // Exclude revela plugin assets

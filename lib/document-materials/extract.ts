@@ -11,6 +11,7 @@ import { extractXlsx } from "../read-hooks/extractors/xlsx"
 import { hasDecksState, readDecksState, writeDecksState } from "../decks-state"
 import { computeSourceFingerprint, sourceMaterialMetadata, upsertSourceMaterial } from "../source-materials"
 import { recordWorkspaceAction } from "../workspace-state/actions"
+import { existingWorkspaceMetaPath, workspaceMetaPath } from "../workspace-meta"
 
 export type DocumentMaterial = {
   path: string
@@ -852,7 +853,7 @@ async function extractPdfImages(buf: Buffer, cacheDir: string, workspaceDir: str
 async function processPdfFile(filePath: string, workspaceDir: string): Promise<DocumentMaterialsResult> {
   const relativeSource = workspaceRelative(filePath, workspaceDir)
   const fingerprint = buildFingerprint(filePath)
-  const cacheDir = join(workspaceDir, ".opencode", "revela", "doc-materials", fingerprint)
+  const cacheDir = existingWorkspaceMetaPath(workspaceDir, "doc-materials", fingerprint)
   const manifestPath = join(cacheDir, "manifest.json")
 
   if (existsSync(manifestPath)) {
@@ -874,19 +875,21 @@ async function processPdfFile(filePath: string, workspaceDir: string): Promise<D
     }
   }
 
-  mkdirSync(join(cacheDir, "images"), { recursive: true })
-  mkdirSync(join(cacheDir, "tables"), { recursive: true })
+  const writeCacheDir = workspaceMetaPath(workspaceDir, "doc-materials", fingerprint)
+  const writeManifestPath = join(writeCacheDir, "manifest.json")
+  mkdirSync(join(writeCacheDir, "images"), { recursive: true })
+  mkdirSync(join(writeCacheDir, "tables"), { recursive: true })
 
   const buf = readFileSync(filePath)
   const text = await extractPdfText(buf)
-  const textPath = join(cacheDir, "text.txt")
+  const textPath = join(writeCacheDir, "text.txt")
   writeFileSync(textPath, `[Extracted from: ${basename(filePath)}]\n\n${text}`, "utf-8")
 
-  const images = await extractPdfImages(buf, cacheDir, workspaceDir)
-  const relativeManifestPath = workspaceRelative(manifestPath, workspaceDir)
+  const images = await extractPdfImages(buf, writeCacheDir, workspaceDir)
+  const relativeManifestPath = workspaceRelative(writeManifestPath, workspaceDir)
   const relativeTextPath = workspaceRelative(textPath, workspaceDir)
   const readViewPath = writeReadView({
-    cacheDir,
+    cacheDir: writeCacheDir,
     workspaceDir,
     source: relativeSource,
     type: "pdf",
@@ -905,7 +908,7 @@ async function processPdfFile(filePath: string, workspaceDir: string): Promise<D
     cache_status: "miss",
     source: relativeSource,
     type: "pdf",
-    cache_dir: workspaceRelative(cacheDir, workspaceDir),
+    cache_dir: workspaceRelative(writeCacheDir, workspaceDir),
     manifest_path: relativeManifestPath,
     text_path: relativeTextPath,
     read_view_path: readViewPath,
@@ -929,14 +932,14 @@ async function processPdfFile(filePath: string, workspaceDir: string): Promise<D
     tables: [],
   }
 
-  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf-8")
+  writeFileSync(writeManifestPath, JSON.stringify(manifest, null, 2), "utf-8")
   return result
 }
 
 async function processOfficeFile(filePath: string, workspaceDir: string, type: SupportedType): Promise<DocumentMaterialsResult> {
   const relativeSource = workspaceRelative(filePath, workspaceDir)
   const fingerprint = buildFingerprint(filePath)
-  const cacheDir = join(workspaceDir, ".opencode", "revela", "doc-materials", fingerprint)
+  const cacheDir = existingWorkspaceMetaPath(workspaceDir, "doc-materials", fingerprint)
   const manifestPath = join(cacheDir, "manifest.json")
 
   if (existsSync(manifestPath)) {
@@ -958,8 +961,10 @@ async function processOfficeFile(filePath: string, workspaceDir: string, type: S
     }
   }
 
-  mkdirSync(join(cacheDir, "images"), { recursive: true })
-  mkdirSync(join(cacheDir, "tables"), { recursive: true })
+  const writeCacheDir = workspaceMetaPath(workspaceDir, "doc-materials", fingerprint)
+  const writeManifestPath = join(writeCacheDir, "manifest.json")
+  mkdirSync(join(writeCacheDir, "images"), { recursive: true })
+  mkdirSync(join(writeCacheDir, "tables"), { recursive: true })
 
   const buf = readFileSync(filePath)
   const files = unzipSync(new Uint8Array(buf))
@@ -970,26 +975,26 @@ async function processOfficeFile(filePath: string, workspaceDir: string, type: S
       ? await extractDocx(buf)
       : await extractXlsx(buf)
 
-  const textPath = join(cacheDir, "text.txt")
+  const textPath = join(writeCacheDir, "text.txt")
   writeFileSync(textPath, `[Extracted from: ${basename(filePath)}]\n\n${text}`, "utf-8")
 
   const pptxAssets = type === "pptx"
-    ? extractPptxImages(files, cacheDir, workspaceDir)
+    ? extractPptxImages(files, writeCacheDir, workspaceDir)
     : null
   const images = type === "pptx"
     ? pptxAssets!.images
     : type === "docx"
-      ? extractDocxImages(files, cacheDir, workspaceDir)
-      : extractXlsxImages(files, cacheDir, workspaceDir)
+      ? extractDocxImages(files, writeCacheDir, workspaceDir)
+      : extractXlsxImages(files, writeCacheDir, workspaceDir)
   const slides = type === "pptx"
     ? extractPptxSlides(files, images, pptxAssets!.skipped_assets)
     : undefined
-  const relativeManifestPath = workspaceRelative(manifestPath, workspaceDir)
+  const relativeManifestPath = workspaceRelative(writeManifestPath, workspaceDir)
   const relativeTextPath = workspaceRelative(textPath, workspaceDir)
   const tables = extractTables(type, relativeTextPath)
   const skippedAssets = pptxAssets?.skipped_assets ?? []
   const readViewPath = writeReadView({
-    cacheDir,
+    cacheDir: writeCacheDir,
     workspaceDir,
     source: relativeSource,
     type,
@@ -1008,7 +1013,7 @@ async function processOfficeFile(filePath: string, workspaceDir: string, type: S
     cache_status: "miss",
     source: relativeSource,
     type,
-    cache_dir: workspaceRelative(cacheDir, workspaceDir),
+    cache_dir: workspaceRelative(writeCacheDir, workspaceDir),
     manifest_path: relativeManifestPath,
     text_path: relativeTextPath,
     read_view_path: readViewPath,
@@ -1032,7 +1037,7 @@ async function processOfficeFile(filePath: string, workspaceDir: string, type: S
     tables: result.tables ?? [],
   }
 
-  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf-8")
+  writeFileSync(writeManifestPath, JSON.stringify(manifest, null, 2), "utf-8")
   return result
 }
 

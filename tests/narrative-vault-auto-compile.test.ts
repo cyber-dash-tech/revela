@@ -24,6 +24,7 @@ describe("narrative vault auto-compile hook", () => {
     expect(isNarrativeVaultMarkdownPath("revela-narrative/claims/pilot.txt", root)).toBe(false)
     expect(isNarrativeVaultMarkdownPath("researches/topic/findings.md", root)).toBe(false)
     expect(isNarrativeVaultMarkdownPath(".opencode/revela/narrative-cache/diagnostics.md", root)).toBe(false)
+    expect(isNarrativeVaultMarkdownPath(".revela/narrative-cache/diagnostics.md", root)).toBe(false)
     expect(isNarrativeVaultMarkdownPath(resolve(root, "..", "revela-narrative", "outside.md"), root)).toBe(false)
     expect(normalizeNarrativeVaultMarkdownPath(join(root, "revela-narrative", "claims", "pilot.md"), root)).toBe("revela-narrative/claims/pilot.md")
   })
@@ -64,8 +65,8 @@ describe("narrative vault auto-compile hook", () => {
     expect(result.markdown).toContain("Status: ok")
     expect(result.markdown).toContain(`${DECKS_STATE_FILE} render state saved; runtime narrative hydrated from vault`)
     expect(written.narrative).toBeUndefined()
-    expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("narrative:auto-demo")
-    expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "diagnostics.json"), "utf-8")).not.toContain('"severity": "error"')
+    expect(readFileSync(join(root, ".revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("narrative:auto-demo")
+    expect(readFileSync(join(root, ".revela", "narrative-cache", "diagnostics.json"), "utf-8")).not.toContain('"severity": "error"')
   })
 
   it("writes failed compile diagnostics while preserving last-good cache and disk state", () => {
@@ -78,7 +79,7 @@ describe("narrative vault auto-compile hook", () => {
 
     const result = autoCompileNarrativeVault(root, ["revela-narrative/evidence/pilot.md"])
     const written = readJsonFile<any>(join(root, DECKS_STATE_FILE))
-    const cached = readFileSync(join(root, ".opencode", "revela", "narrative-cache", "compiled-narrative.json"), "utf-8")
+    const cached = readFileSync(join(root, ".revela", "narrative-cache", "compiled-narrative.json"), "utf-8")
 
     expect(result.ok).toBe(false)
     expect(result.mirrored).toBe("preserved_failed_compile")
@@ -87,7 +88,7 @@ describe("narrative vault auto-compile hook", () => {
     expect(written.narrative).toBeUndefined()
     expect(written.narrativeApprovals).toEqual(previous.narrative?.approvals)
     expect(cached).toContain("narrative:auto-demo")
-    expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "diagnostics.json"), "utf-8")).toContain("evidence_claim_missing")
+    expect(readFileSync(join(root, ".revela", "narrative-cache", "diagnostics.json"), "utf-8")).toContain("evidence_claim_missing")
   })
 
   it("reports authoring guard blockers for duplicate frontmatter, headings, typed links, invalid types, and missing claimId", () => {
@@ -209,14 +210,14 @@ source: proposal.md
     expect(result.mirrored).toBe("skipped_no_decks")
     expect(result.markdown).toContain(`${DECKS_STATE_FILE} not found; no state created`)
     expect(existsSync(join(root, DECKS_STATE_FILE))).toBe(false)
-    expect(readFileSync(join(root, ".opencode", "revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("Product leadership")
+    expect(readFileSync(join(root, ".revela", "narrative-cache", "compiled-narrative.json"), "utf-8")).toContain("Product leadership")
   })
 
   it("caps compact report touched files and diagnostics", () => {
     const markdown = formatAutoCompileReport({
       ok: false,
       mirrored: "preserved_failed_compile",
-      cachePath: ".opencode/revela/narrative-cache",
+      cachePath: ".revela/narrative-cache",
       touched: Array.from({ length: 12 }, (_, index) => `revela-narrative/claims/${index}.md`),
       blockers: Array.from({ length: 9 }, (_, index) => ({
         code: `blocker_${index}`,

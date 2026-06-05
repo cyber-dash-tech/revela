@@ -22,7 +22,7 @@ export async function runPreWriteChecks(input: string): Promise<HookResult> {
     messages.push([
       "Revela narrative cache patches are blocked.",
       `Controlled cache target(s): ${cacheTargets.map((target) => `\`${target}\``).join(", ")}`,
-      "Edit `revela-narrative/**/*.md` instead; compile/cache files under `.opencode/revela/narrative-cache/` are regenerated.",
+      "Edit `revela-narrative/**/*.md` instead; compile/cache files under `.revela/narrative-cache/` are regenerated.",
     ].join("\n"))
   }
 
@@ -67,7 +67,7 @@ export function extractDeckHtmlPatchTargets(input: string): string[] {
 export function extractNarrativeCachePatchTargets(input: string): string[] {
   const targets = new Set<string>()
   for (const patch of patchPayloads(input)) {
-    const pattern = /(?:^\*\*\* Update File: |^\*\*\* Add File: |^\*\*\* Delete File: |^\*\*\* Move to: )([^\r\n]*\.opencode\/revela\/narrative-cache\/[^\r\n]+)\s*$/gm
+    const pattern = /(?:^\*\*\* Update File: |^\*\*\* Add File: |^\*\*\* Delete File: |^\*\*\* Move to: )([^\r\n]*(?:\.revela|\.opencode\/revela)\/narrative-cache\/[^\r\n]+)\s*$/gm
     let match: RegExpExecArray | null
     while ((match = pattern.exec(patch))) targets.add(match[1].trim())
   }

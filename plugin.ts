@@ -98,6 +98,7 @@ import { extractDesignClasses } from "./lib/design/designs"
 import { log, childLog } from "./lib/log"
 import { appendToolResult } from "./lib/tool-result"
 import { formatArtifactQaUserNotice, formatMarkdownQaUserNotice, formatStateGateUserNotice } from "./lib/hook-notifications"
+import { workspaceMetaPath, workspaceMetaRelativePath } from "./lib/workspace-meta"
 
 // OpenCode internal agent signatures — used to skip system prompt injection
 // for built-in system agents (title, summary, compaction).
@@ -712,7 +713,7 @@ const server: Plugin = (async (pluginCtx) => {
       if (input.tool === "write") {
         const filePath: string = (output.args as any)?.filePath ?? ""
         if (isDecksStatePath(filePath)) {
-          const blockedDir = join(workspaceRoot, ".opencode", "revela", "blocked-writes")
+          const blockedDir = workspaceMetaPath(workspaceRoot, "blocked-writes")
           mkdirSync(blockedDir, { recursive: true })
           const blockedPath = join(blockedDir, "DECKS-json-direct-write.blocked.md")
           const blocker = `${DECKS_STATE_FILE} is a controlled Revela state file. Use the revela-decks tool instead of write/apply_patch.`
@@ -738,9 +739,9 @@ Next step: use \`revela-decks\` with action \`init\`, \`upsertDeck\`, \`upsertSl
 
         const stateTargets = extractDecksStateTargetsFromPatch(patchText)
         if (stateTargets.length > 0) {
-          const blockedDir = join(workspaceRoot, ".opencode", "revela", "blocked-writes")
+          const blockedDir = workspaceMetaPath(workspaceRoot, "blocked-writes")
           mkdirSync(blockedDir, { recursive: true })
-          const blockedRelativePath = `.opencode/revela/blocked-writes/DECKS-json-direct-patch-${Date.now()}.blocked.md`
+          const blockedRelativePath = workspaceMetaRelativePath("blocked-writes", `DECKS-json-direct-patch-${Date.now()}.blocked.md`)
           const blocker = `${DECKS_STATE_FILE} is a controlled Revela state file. Use the revela-decks tool instead of write/apply_patch.`
           const blockedPatch = `*** Begin Patch
 *** Add File: ${blockedRelativePath}
