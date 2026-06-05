@@ -2,7 +2,7 @@
 
 [English](README.md) | **中文**
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-691%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-696%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="560" />
@@ -35,7 +35,7 @@ Revela 可在 [OpenCode](https://opencode.ai) 和 Codex 中使用，把来源材
 
 - 需要已安装 Codex CLI，并且 shell 中可以执行 `codex`。
 - 环境中需要可以执行 `npx`；Revela 会用 `npx -y @cyber-dash-tech/revela@0.18.4 mcp` 启动 MCP server。
-- 如果使用 Review UI 的 Comment 或 Apply Fix，需要 `codex exec` 可用。
+- 如果使用 Review UI 的 Apply，需要 `codex exec` 可用；评论会先保存，点击 Apply 后才执行修复。
 
 可选的安装前检查：
 

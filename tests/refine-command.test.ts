@@ -101,7 +101,8 @@ describe("renderRefineShell", () => {
     expect(html).toContain("/api/assets/save")
     expect(html).toContain("/api/assets/list")
     expect(html).toContain("sendAssetPlacement")
-    expect(html).toContain("Apply Fix")
+    expect(html).toContain("Leave Comment")
+    expect(html).toContain("Apply")
     expect(html).toContain("class=\"primary-action\"")
     expect(html).toContain("class=\"send-icon\"")
     expect(html).toContain("M14.7 6.3a1 1 0 0 0 0 1.4")
@@ -159,7 +160,7 @@ describe("renderRefineShell", () => {
     expect(html).not.toContain("Sent to OpenCode")
     expect(html).toContain("class=\"spinner\"")
     expect(html).toContain("skeleton-card")
-    expect(html).toContain("/api/comment")
+    expect(html).toContain("/api/comments")
     expect(html).toContain("/api/inspect")
     expect(html).toContain("/api/inspect-result")
     expect(html).toContain("Generated")
@@ -824,6 +825,123 @@ describe("refine HTTP inspect lifecycle", () => {
     expect(captured.prompt).not.toContain("Artifact QA runs automatically after deck writes/patches/edits")
   })
 
+  it("persists Review comments before applying fixes", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
+    let bridgeCalls = 0
+    const promptBridge = {
+      kind: "codex-exec" as const,
+      async send() {
+        bridgeCalls += 1
+        return { ok: true as const, status: "completed" as const, raw: "patched" }
+      },
+    }
+    const opened = openRefineDeck("", {
+      workspaceRoot: root,
+      openBrowser: false,
+      promptBridge,
+    })
+    const commentsUrl = new URL(opened.url)
+    commentsUrl.pathname = "/api/comments"
+
+    const response = await fetch(commentsUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        comment: "Make the title smaller.",
+        elements: [{ slideIndex: 1, tagName: "H1", text: "Launch" }],
+      }),
+    })
+    const data = await response.json() as any
+
+    expect(response.status).toBe(200)
+    expect(data.comment).toMatchObject({
+      deckFile: "decks/demo.html",
+      slideIndex: 1,
+      comment: "Make the title smaller.",
+      status: "open",
+    })
+    expect(bridgeCalls).toBe(0)
+    expect(existsSync(join(root, ".revela", "review-comments", `${data.comment.id}.json`))).toBe(true)
+
+    const listed = await fetch(commentsUrl).then((item) => item.json()) as any
+    expect(listed.comments).toHaveLength(1)
+    expect(listed.comments[0]).toMatchObject({ id: data.comment.id, slideIndex: 1 })
+  })
+
+  it("rejects Review comments that reference multiple slides", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>One</h1></div></section><section class="slide" data-slide-index="2"><div class="slide-canvas"><h1>Two</h1></div></section>', "utf-8")
+    const opened = openRefineDeck("", {
+      workspaceRoot: root,
+      openBrowser: false,
+    })
+    const commentsUrl = new URL(opened.url)
+    commentsUrl.pathname = "/api/comments"
+
+    const response = await fetch(commentsUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        comment: "Make both titles smaller.",
+        elements: [{ slideIndex: 1, tagName: "H1", text: "One" }, { slideIndex: 2, tagName: "H1", text: "Two" }],
+      }),
+    })
+    const data = await response.json() as any
+
+    expect(response.status).toBe(400)
+    expect(data.error).toContain("multiple slides")
+  })
+
+  it("applies a persisted Review comment through the Codex Review bridge", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
+    let captured: any
+    const promptBridge = {
+      kind: "codex-exec" as const,
+      async send(input: any) {
+        captured = input
+        return { ok: true as const, status: "completed" as const, raw: "patched" }
+      },
+    }
+    const opened = openRefineDeck("", {
+      workspaceRoot: root,
+      openBrowser: false,
+      promptBridge,
+    })
+    const commentsUrl = new URL(opened.url)
+    commentsUrl.pathname = "/api/comments"
+    const savedResponse = await fetch(commentsUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        comment: "Make the title smaller.",
+        elements: [{ slideIndex: 1, tagName: "H1", text: "Launch" }],
+      }),
+    })
+    const saved = await savedResponse.json() as any
+    const applyUrl = new URL(opened.url)
+    applyUrl.pathname = `/api/comments/${saved.comment.id}/apply`
+
+    const response = await fetch(applyUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    })
+    const data = await response.json() as any
+
+    expect(response.status).toBe(200)
+    expect(data).toMatchObject({ ok: true, status: "pending" })
+    expect(data.comment).toMatchObject({ id: saved.comment.id, status: "applying" })
+    expect(data.commentRequestId).toBeTruthy()
+    expect(captured).toMatchObject({
+      action: "comment",
+      workspaceRoot: root,
+      file: "decks/demo.html",
+    })
+    expect(captured.prompt).toContain("Make the title smaller.")
+  })
+
   it("registers Apply Fix artifact QA suppression for the current OpenCode session", async () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
@@ -917,7 +1035,7 @@ describe("refine HTTP inspect lifecycle", () => {
     expect(completed).toMatchObject({ ok: true, status: "completed" })
   })
 
-  it("reports failed background Apply Fix bridge results", async () => {
+  it("reports failed background saved-comment Apply bridge results", async () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
     const promptBridge = {
@@ -1012,14 +1130,14 @@ describe("refine HTTP inspect lifecycle", () => {
     expect(terminal[0]).toMatchObject({ type: "completed", message: "Codex completed." })
   })
 
-  it("accepts asset placement comments through the same pending Comment lifecycle", async () => {
+  it("persists asset placement comments before applying", async () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
-    let captured: any
+    let bridgeCalls = 0
     const promptBridge = {
       kind: "codex-exec" as const,
-      async send(input: any) {
-        captured = input
+      async send() {
+        bridgeCalls += 1
         return { ok: true as const, status: "completed" as const, raw: "patched" }
       },
     }
@@ -1029,7 +1147,7 @@ describe("refine HTTP inspect lifecycle", () => {
       promptBridge,
     })
     const commentUrl = new URL(opened.url)
-    commentUrl.pathname = "/api/comment"
+    commentUrl.pathname = "/api/comments"
 
     const response = await fetch(commentUrl, {
       method: "POST",
@@ -1044,9 +1162,13 @@ describe("refine HTTP inspect lifecycle", () => {
     const data = await response.json() as any
 
     expect(response.status).toBe(200)
-    expect(data).toMatchObject({ ok: true, status: "pending" })
-    expect(data.commentRequestId).toBeTruthy()
-    expect(captured.prompt).toContain("assets/demo/logo.png")
+    expect(data.comment).toMatchObject({
+      status: "open",
+      slideIndex: 1,
+      asset: { id: "logo", path: "assets/demo/logo.png", purpose: "logo" },
+      drop: { slideIndex: 1, targetMode: "insert", x: 12, y: 24 },
+    })
+    expect(bridgeCalls).toBe(0)
   })
 })
 

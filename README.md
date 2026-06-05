@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-691%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-696%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="560" />
@@ -35,7 +35,7 @@ Requirements:
 
 - The Codex CLI must be installed and the `codex` command must be available in your shell.
 - Your environment must be able to run `npx`; Revela uses `npx -y @cyber-dash-tech/revela@0.18.4 mcp` to start the MCP server.
-- For interactive Review actions, `codex exec` must also work because the Review UI uses it for Comment/Apply Fix requests.
+- For interactive Review Apply actions, `codex exec` must also work because the Review UI uses it after saved comments are applied.
 
 Optional preflight:
 

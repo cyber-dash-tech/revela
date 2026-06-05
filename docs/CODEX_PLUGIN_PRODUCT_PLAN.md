@@ -119,15 +119,15 @@ The first Codex smoke run proved the file-native workflow can complete through t
 
 ## Review UI Roadmap
 
-Codex Review UI is the default surface for a plain `review <deck.html>` request. The current supported Codex Review surface is `revela_review_deck_open` for browser QA and Comment/Apply Fix, `revela_review_deck_read` over MCP for aggregate diagnostics, `revela review-read` over CLI for deterministic diagnostic reads, and `revela_run_deck_qa` for focused artifact QA.
+Codex Review UI is the default surface for a plain `review <deck.html>` request. The current supported Codex Review surface is `revela_review_deck_open` for browser QA and Leave Comment / Apply, `revela_review_deck_read` over MCP for aggregate diagnostics, `revela review-read` over CLI for deterministic diagnostic reads, and `revela_run_deck_qa` for focused artifact QA.
 
 The next Review server batch should add a Codex-safe prompt bridge before exposing the existing local Refine workspace through MCP. The bridge should be layered so the browser UI can keep working even when a deeper Codex integration is unavailable:
 
-- `pending` bridge: the stable MCP fallback. Browser Comment/Apply Fix actions create pending Review requests; Codex reads them through MCP tools, performs the work, and submits structured results back to the server.
-- `codex-exec` / Codex SDK bridge: the first direct Codex Review server path. Browser Comment/Apply Fix actions start a short-lived Codex job, preferably `codex exec --json --ephemeral -C <workspace>` or the SDK equivalent, wait for structured output, then close the process/thread.
+- `pending` bridge: the stable MCP fallback. Browser Apply actions create pending Review requests from saved comments; Codex reads them through MCP tools, performs the work, and submits structured results back to the server.
+- `codex-exec` / Codex SDK bridge: the first direct Codex Review server path. Browser Apply actions start a short-lived Codex job from a saved comment, preferably `codex exec --json --ephemeral -C <workspace>` or the SDK equivalent, wait for structured output, then close the process/thread.
 - `codex-app-server` bridge: a later deep-integration path for Codex App/CLI parity, current-thread steering, streamed events, and richer approval handling.
 
-Use the `codex-exec` / SDK bridge as the MVP implementation route for interactive Codex Review. It is simpler than the app-server protocol, matches Codex's non-interactive CLI/SDK strengths, and avoids depending on a current interactive session. Review read diagnostics remain read-only. Comment/Apply Fix may patch artifacts for pure visual edits, while meaning changes must update `deck-plan.md` before artifacts are remade.
+Use the `codex-exec` / SDK bridge as the MVP implementation route for interactive Codex Review. It is simpler than the app-server protocol, matches Codex's non-interactive CLI/SDK strengths, and avoids depending on a current interactive session. Review read diagnostics remain read-only. Applying saved comments may patch artifacts for pure visual edits, while meaning changes must update `deck-plan.md` before artifacts are remade.
 
 Review event-stream reliability remains a follow-up for the `codex-exec` bridge. Raw Codex JSONL events such as `{"type":"turn.started"}` are start/progress signals only, not terminal completion. The `/api/comment-events` SSE stream should send heartbeat comments while requests are pending, and the Review server should use an idle timeout appropriate for long-running Codex jobs so quiet streams are not closed by Bun's default idle timeout. Frontend fallback polling must still surface terminal `completed`, `failed`, or `timeout` request states when SSE disconnects. Deck-version updates remain authoritative for preview refresh, but they must not be confused with Codex job completion.
 

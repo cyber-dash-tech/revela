@@ -283,7 +283,7 @@ const tools = [
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       file: requiredStringProp("Workspace-relative or absolute HTML deck path."),
-      bridge: enumProp(["codex-exec"], "Prompt bridge for browser Comment and Apply Fix interactions."),
+      bridge: enumProp(["codex-exec"], "Prompt bridge for browser saved-comment Apply interactions."),
       openBrowser: booleanProp("Whether the tool should open the browser itself. Defaults to true when omitted."),
     }, ["file"]),
   },

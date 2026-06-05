@@ -123,7 +123,7 @@ During the smoke, confirm Codex uses the corresponding MCP tools: `revela_doctor
 - Design list/read/activate works before deck generation, and active design guidance is read before selecting layouts/components.
 - Artifact QA passes with `hardErrorCount: 0`.
 - Story reading returns a deterministic map or Markdown view from `revela-narrative/`.
-- Review deck open returns a local Review URL hosted by the MCP process with the `codex-exec` Insight and Apply Fix bridge.
+- Review deck open returns a local Review URL hosted by the MCP process with saved comments and the `codex-exec` Apply bridge.
 - Review deck reading returns artifact QA, deck-plan/narrative diagnostics, and skipped legacy inspection context when diagnostics are explicitly requested.
 
 ## Known Smoke Notes

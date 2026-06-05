@@ -183,7 +183,7 @@ describe("Codex revela-review-deck skill", () => {
   it("opens the Review UI by default and keeps diagnostics explicit", () => {
     expect(codexReviewDeckSkill).toContain("For a plain review request, call `revela_review_deck_open`")
     expect(codexReviewDeckSkill).toContain("Use `revela_review_deck_read`, normally with `format: \"markdown\"`, only when the user explicitly asks")
-    expect(codexReviewDeckSkill).toContain("Review UI is QA + Comment/Apply Fix. Insight/Inspect is removed.")
+    expect(codexReviewDeckSkill).toContain("Review UI is QA + Leave Comment / Apply. Insight/Inspect is removed.")
     expect(codexReviewDeckSkill).toContain("Do not call `revela_run_deck_qa` separately for a normal Review UI open")
     expect(codexReviewDeckSkill).toContain("revela_review_deck_open")
     expect(codexReviewDeckSkill).toContain("format: \"markdown\"")
@@ -206,7 +206,7 @@ describe("Codex revela-review-deck skill", () => {
     expect(codexProductPlan).toContain("`codex-exec` / Codex SDK bridge")
     expect(codexProductPlan).toContain("codex exec --json --ephemeral -C <workspace>")
     expect(codexProductPlan).toContain("`codex-app-server` bridge")
-    expect(codexProductPlan).toContain("Comment/Apply Fix may patch artifacts for pure visual edits")
+    expect(codexProductPlan).toContain("Applying saved comments may patch artifacts for pure visual edits")
     expect(codexProductPlan).toContain("Review event-stream reliability remains a follow-up")
     expect(codexProductPlan).toContain('`{"type":"turn.started"}` are start/progress signals only')
     expect(codexProductPlan).toContain("/api/comment-events")

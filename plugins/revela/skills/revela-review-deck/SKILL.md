@@ -12,7 +12,7 @@ Use this skill when the user asks to review, diagnose, QA, or refine a generated
 1. Resolve the target `decks/*.html` file from the user request or unambiguous workspace state.
 2. For a plain review request, call `revela_review_deck_open` and let the tool open the browser by default.
 3. Use `revela_review_deck_read`, normally with `format: "markdown"`, only when the user explicitly asks for diagnostics, QA details, export readiness, or no-GUI output.
-4. Review UI is QA + Comment/Apply Fix. Insight/Inspect is removed.
+4. Review UI is QA + Leave Comment / Apply. Insight/Inspect is removed.
 5. Do not call `revela_run_deck_qa` separately for a normal Review UI open.
 6. Pure visual/layout/export fixes may patch artifacts directly when the user asks for a change, but read active design rules first with `revela_design_read` using `section: "rules"`.
 7. Content changes that affect the deck argument should update `deck-plan.md` first, then remake the deck.

@@ -16,6 +16,7 @@ import type { MediaAssetRecord, MediaPurpose } from "../media/types"
 import { addCommentRequestEvent, completeCommentRequest, createCommentRequest, failCommentRequest, getCommentRequest, subscribeCommentRequestEvents } from "./comment-requests"
 import { createOpenCodeReviewPromptBridge, type ReviewPromptBridge } from "./prompt-bridge"
 import { suppressReviewApplyFixArtifactQa } from "./qa-suppression"
+import { createReviewComment, listReviewComments, markReviewCommentApplied, markReviewCommentApplying, markReviewCommentFailed, readReviewComment } from "./review-comments"
 import { annotateVisualEditTargets, applyVisualTargetChanges, type VisualEditTarget } from "./visual-targets"
 
 const TOKEN_BYTES = 24
@@ -200,6 +201,25 @@ async function handleRequest(req: Request): Promise<Response> {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
     return handleComment(req, session.value)
+  }
+
+  if (url.pathname === "/api/comments" && req.method === "GET") {
+    const session = validateSession(url.searchParams.get("token"))
+    if (!session.ok) return session.response
+    return handleReviewCommentsList(session.value)
+  }
+
+  if (url.pathname === "/api/comments" && req.method === "POST") {
+    const session = validateSession(url.searchParams.get("token"))
+    if (!session.ok) return session.response
+    return handleReviewCommentCreate(req, session.value)
+  }
+
+  const applyMatch = url.pathname.match(/^\/api\/comments\/([^/]+)\/apply$/)
+  if (applyMatch && req.method === "POST") {
+    const session = validateSession(url.searchParams.get("token"))
+    if (!session.ok) return session.response
+    return handleReviewCommentApply(decodeURIComponent(applyMatch[1]), req, session.value)
   }
 
   if (url.pathname === "/api/comment-result" && req.method === "GET") {
@@ -749,6 +769,70 @@ async function handleComment(req: Request, session: EditSession): Promise<Respon
     return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400)
   }
 
+  return applyCommentPayload(body, session)
+}
+
+function handleReviewCommentsList(session: EditSession): Response {
+  const deckVersion = readDeckVersion(session).version
+  const comments = listReviewComments(session.workspaceRoot, session.file)
+  session.lastActiveAt = Date.now()
+  scheduleIdleStop()
+  return jsonResponse({ ok: true, deckVersion, comments })
+}
+
+async function handleReviewCommentCreate(req: Request, session: EditSession): Promise<Response> {
+  let body: Partial<EditCommentPayload>
+  try {
+    body = await req.json()
+  } catch {
+    return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400)
+  }
+
+  const comment = typeof body.comment === "string" ? body.comment.trim() : ""
+  const elements = Array.isArray(body.elements) ? body.elements : []
+  if (!comment) return jsonResponse({ ok: false, error: "Comment is required" }, 400)
+  try {
+    const deckVersion = readDeckVersion(session).version
+    const saved = createReviewComment(session.workspaceRoot, {
+      deckFile: session.file,
+      deckVersion,
+      comment,
+      elements,
+      asset: (body as any).asset,
+      drop: (body as any).drop,
+    })
+    session.lastActiveAt = Date.now()
+    scheduleIdleStop()
+    return jsonResponse({ ok: true, comment: saved, deckVersion })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return jsonResponse({ ok: false, error: message }, 400)
+  }
+}
+
+async function handleReviewCommentApply(commentId: string, req: Request, session: EditSession): Promise<Response> {
+  let body: any = {}
+  try {
+    const text = await req.text()
+    body = text ? JSON.parse(text) : {}
+  } catch {
+    return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400)
+  }
+
+  const comment = readReviewComment(session.workspaceRoot, commentId)
+  if (!comment || comment.deckFile !== session.file) return jsonResponse({ ok: false, error: "Review comment not found" }, 404)
+  const response = await applyCommentPayload({
+    ...body,
+    comment: comment.comment,
+    elements: comment.elements,
+    asset: comment.asset,
+    drop: comment.drop,
+    requestId: typeof body.requestId === "string" && body.requestId.trim() ? body.requestId.trim() : randomBytes(10).toString("base64url"),
+  }, session, comment.id)
+  return response
+}
+
+async function applyCommentPayload(body: Partial<EditCommentPayload>, session: EditSession, persistedCommentId?: string): Promise<Response> {
   const comments = Array.isArray(body.comments)
     ? body.comments
       .map((draft: any) => ({
@@ -778,6 +862,7 @@ async function handleComment(req: Request, session: EditSession): Promise<Respon
     ? (body as any).requestId.trim()
     : randomBytes(10).toString("base64url")
   createCommentRequest({ requestId, deckVersion })
+  if (persistedCommentId) markReviewCommentApplying(session.workspaceRoot, persistedCommentId, requestId)
   suppressReviewApplyFixArtifactQa({
     workspaceRoot: session.workspaceRoot,
     file: session.file,
@@ -794,17 +879,21 @@ async function handleComment(req: Request, session: EditSession): Promise<Respon
   }).then((result) => {
     if (result.ok) {
       completeCommentRequest(requestId)
+      if (persistedCommentId) markReviewCommentApplied(session.workspaceRoot, persistedCommentId)
     } else {
       failCommentRequest(requestId, result.error, result.raw)
+      if (persistedCommentId) markReviewCommentFailed(session.workspaceRoot, persistedCommentId, result.error, result.raw)
     }
   }).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)
     failCommentRequest(requestId, message)
+    if (persistedCommentId) markReviewCommentFailed(session.workspaceRoot, persistedCommentId, message)
   })
 
   session.lastActiveAt = Date.now()
   scheduleIdleStop()
-  return jsonResponse({ ok: true, requestId, commentRequestId: requestId, deckVersion, status: "pending" })
+  const persistedComment = persistedCommentId ? readReviewComment(session.workspaceRoot, persistedCommentId) : undefined
+  return jsonResponse({ ok: true, requestId, commentRequestId: requestId, deckVersion, status: "pending", ...(persistedComment ? { comment: persistedComment } : {}) })
 }
 
 function handleCommentEvents(requestId: string | null, session: EditSession): Response {
@@ -1148,11 +1237,17 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .comment-thread:empty { display: none; }
     .comment-bubble { border: 1px solid #d8d2c6; border-radius: 14px; padding: 10px 12px; background: #fffdf8; color: #3f3a33; font-size: 13px; line-height: 1.45; box-shadow: 0 8px 22px rgba(31,41,51,.05); }
     .comment-bubble.sending { border-color: #c8b88f; background: #f7f0df; }
+    .comment-bubble.open { border-color: #d8d2c6; background: #fffdf8; }
+    .comment-bubble.applying { border-color: #c8b88f; background: #f7f0df; }
+    .comment-bubble.applied { border-color: #9dac8a; background: #f0f2e8; }
     .comment-bubble.updated { border-color: #9dac8a; background: #f0f2e8; }
     .comment-bubble.stale { border-color: #c6a96a; background: #f8efd7; }
     .comment-bubble.failed { border-color: #c58f82; background: #f7eae5; }
     .comment-bubble-text { white-space: pre-wrap; overflow-wrap: anywhere; }
     .comment-bubble-state { margin-top: 8px; color: #8a6231; font-size: 12px; font-weight: 800; }
+    .comment-bubble-meta { margin-bottom: 6px; color: #756f66; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; }
+    .comment-actions { margin-top: 9px; display: flex; gap: 8px; }
+    .comment-actions button { width: auto; min-width: 86px; padding: 8px 10px; border-radius: 10px; font-size: 12px; box-shadow: none; }
     .comment-progress { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; color: #5f574d; font-size: 12px; }
     .comment-progress-line { display: flex; gap: 6px; align-items: flex-start; }
     .comment-progress-line::before { content: ""; width: 6px; height: 6px; margin-top: 6px; border-radius: 999px; background: #b48b52; flex: 0 0 auto; }
@@ -1259,7 +1354,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             <div id="editSavedAssets" class="asset-grid"><p class="asset-empty">No local assets yet. Click + to search assets.</p></div>
           </div>
         </div>
-        <button id="send" class="primary-action" disabled><svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94L14.7 6.3z"/></svg><span>Apply Fix</span></button>
+        <button id="send" class="primary-action" disabled><svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94L14.7 6.3z"/></svg><span>Leave Comment</span></button>
         <div class="activity-panel"><div class="label">${activityLabel}</div><div id="commentThread" class="comment-thread" aria-live="polite"></div></div>
       </div>
       <div id="inspectPanel" class="tab-panel">
@@ -1452,6 +1547,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           setMode(state.mode);
           setStatus('Review ready. Ctrl/Cmd + click deck elements to reference them.');
           initFrame();
+          loadReviewComments();
           loadSavedAssets();
           startDeckVersionPolling();
         } catch (error) {
@@ -2249,31 +2345,92 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         if (!text) return;
         const elements = state.references.map((reference) => reference.payload);
         const asset = state.selectedAsset || undefined;
-        const commentId = addPendingComment(text, elements, 'sending');
-        clearReferences(false);
-        state.selectedAsset = null;
-        els.comment.textContent = '';
-        renderReferenceOutlines();
         state.sendingEdit = true;
         updateSendState();
-        setStatus('Sending...');
+        setStatus('Saving comment...');
         try {
-          const res = await fetch('/api/comment?token=' + encodeURIComponent(token), {
+          const res = await fetch('/api/comments?token=' + encodeURIComponent(token), {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ comment: text, elements, asset }),
           });
           const body = await res.json().catch(() => ({}));
-          if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to send comment');
-          updatePendingCommentStatus(commentId, 'sent', { baseDeckVersion: body.deckVersion || state.deckVersion, requestId: body.commentRequestId || body.requestId || '' });
-          if (pendingCommentStatus(commentId) !== 'updated') setStatus('Comment sent. Waiting for deck update...');
-          if (body.commentRequestId || body.requestId) watchCommentProgress(commentId, body.commentRequestId || body.requestId);
+          if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to save comment');
+          upsertPersistedComment(body.comment);
+          clearReferences(false);
+          state.selectedAsset = null;
+          els.comment.textContent = '';
+          renderReferenceOutlines();
+          setStatus('Comment saved. Use Apply on the comment card when you want Codex to edit the deck.');
         } catch (error) {
-          updatePendingCommentStatus(commentId, 'failed');
           reportError(error);
         } finally {
           state.sendingEdit = false;
           updateSendState();
+        }
+      }
+
+      async function loadReviewComments() {
+        try {
+          const res = await fetch('/api/comments?token=' + encodeURIComponent(token), { cache: 'no-store' });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to load comments');
+          state.pendingComments = Array.isArray(body.comments) ? body.comments.map(commentFromRecord) : [];
+          renderCommentThread();
+        } catch (error) {
+          reportError(error);
+        }
+      }
+
+      function upsertPersistedComment(record) {
+        if (!record || !record.id) return;
+        const next = commentFromRecord(record);
+        const index = state.pendingComments.findIndex((item) => item.id === next.id);
+        if (index >= 0) state.pendingComments[index] = { ...state.pendingComments[index], ...next };
+        else state.pendingComments.push(next);
+        state.pendingComments.sort((a, b) => (a.slideIndex || 0) - (b.slideIndex || 0) || (a.createdAt || 0) - (b.createdAt || 0));
+        renderCommentThread();
+      }
+
+      function commentFromRecord(record) {
+        const createdAt = Date.parse(record.createdAt || '') || Date.now();
+        return {
+          id: record.id,
+          persisted: true,
+          text: record.comment || '',
+          elements: Array.isArray(record.elements) ? record.elements : [],
+          slideIndex: record.slideIndex,
+          status: record.status || 'open',
+          createdAt,
+          baseDeckVersion: record.deckVersion || state.deckVersion,
+          updatedVersion: null,
+          requestId: record.lastApplyRequestId || '',
+          progressEvent: null,
+          eventLog: [],
+          failureRaw: record.lastApplyRaw || '',
+          failureMessage: record.lastApplyError || '',
+        };
+      }
+
+      async function applyPersistedComment(commentId) {
+        const comment = state.pendingComments.find((item) => item.id === commentId);
+        if (!comment || comment.status === 'applying') return;
+        updatePendingCommentStatus(commentId, 'applying', { baseDeckVersion: state.deckVersion || comment.baseDeckVersion, progressEvent: null, eventLog: [], failureRaw: '', failureMessage: '' });
+        setStatus('Applying saved comment...');
+        try {
+          const res = await fetch('/api/comments/' + encodeURIComponent(commentId) + '/apply?token=' + encodeURIComponent(token), {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({}),
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to apply comment');
+          if (body.comment) upsertPersistedComment(body.comment);
+          updatePendingCommentStatus(commentId, 'applying', { requestId: body.commentRequestId || body.requestId || '', baseDeckVersion: body.deckVersion || state.deckVersion });
+          if (body.commentRequestId || body.requestId) watchCommentProgress(commentId, body.commentRequestId || body.requestId);
+        } catch (error) {
+          updatePendingCommentStatus(commentId, 'failed', { failureMessage: error instanceof Error ? error.message : String(error) });
+          reportError(error);
         }
       }
 
@@ -2499,7 +2656,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         insertPlainText(' ');
         setMode('edit');
         updateSendState();
-        setStatus('Asset added to the Edit comment. Describe where or how to use it, then Apply Fix.');
+        setStatus('Asset added to the Edit comment. Describe where or how to use it, then Leave Comment.');
       }
 
       function onAssetDragOver(event) {
@@ -2615,21 +2772,18 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             : 'add it near the drop point';
         const comment = 'Place workspace asset ' + asset.path + ' on slide ' + placement.slideIndex + ' as a ' + (asset.purpose || 'visual asset') + '; ' + modeText + '. Preserve the current layout and do not cover existing text, charts, tables, or evidence.';
         const elements = placement.target ? [placement.target] : [];
-        const commentId = addPendingComment(comment, elements, 'sending');
-        setStatus('Sending asset placement comment...');
+        setStatus('Saving asset placement comment...');
         try {
-          const res = await fetch('/api/comment?token=' + encodeURIComponent(token), {
+          const res = await fetch('/api/comments?token=' + encodeURIComponent(token), {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ comment, elements, asset, drop: placement }),
           });
           const body = await res.json().catch(() => ({}));
-          if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to send asset placement');
-          updatePendingCommentStatus(commentId, 'sent', { baseDeckVersion: body.deckVersion || state.deckVersion, requestId: body.commentRequestId || body.requestId || '' });
-          if (pendingCommentStatus(commentId) !== 'updated') setStatus('Asset placement sent. Waiting for deck update...');
-          if (body.commentRequestId || body.requestId) watchCommentProgress(commentId, body.commentRequestId || body.requestId);
+          if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to save asset placement');
+          upsertPersistedComment(body.comment);
+          setStatus('Asset placement comment saved. Use Apply on the comment card when ready.');
         } catch (error) {
-          updatePendingCommentStatus(commentId, 'failed');
           reportError(error);
         }
       }
@@ -2733,7 +2887,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function markCommentsUpdatedForVersion(version) {
         let changed = false;
         state.pendingComments.forEach((comment) => {
-          if ((comment.status === 'sent' || comment.status === 'sending' || comment.status === 'stale') && comment.baseDeckVersion !== version) {
+          if ((comment.status === 'sent' || comment.status === 'sending' || comment.status === 'applying' || comment.status === 'applied' || comment.status === 'stale') && comment.baseDeckVersion !== version) {
             comment.status = 'updated';
             comment.updatedVersion = version;
             comment.progressEvent = null;
@@ -2750,7 +2904,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         const now = Date.now();
         let changed = false;
         state.pendingComments.forEach((comment) => {
-          if (comment.status !== 'sent' && comment.status !== 'sending') return;
+          if (comment.status !== 'sent' && comment.status !== 'sending' && comment.status !== 'applying') return;
           if (now - comment.createdAt < COMMENT_STALE_MS) return;
           comment.status = 'stale';
           changed = true;
@@ -2851,6 +3005,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         }
         if (event.type === 'completed') {
           comment.progressEvent = null;
+          if (comment.persisted && comment.status === 'applying') comment.status = 'applied';
           if (codexReview) renderCommentThread();
           return;
         }
@@ -2928,6 +3083,10 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           const bubble = document.createElement('div');
           bubble.className = 'comment-bubble ' + comment.status;
 
+          const meta = document.createElement('div');
+          meta.className = 'comment-bubble-meta';
+          meta.textContent = 'Slide ' + (comment.slideIndex || slideIndexFromElements(comment.elements) || '?') + (comment.baseDeckVersion && state.deckVersion && comment.baseDeckVersion !== state.deckVersion && comment.status === 'open' ? ' · stale deck version' : '');
+
           const text = document.createElement('div');
           text.className = 'comment-bubble-text';
           text.textContent = comment.text;
@@ -2936,8 +3095,19 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           status.className = 'comment-bubble-state';
           status.textContent = commentStatusLabel(comment.status);
 
+          bubble.appendChild(meta);
           bubble.appendChild(text);
           bubble.appendChild(status);
+          if (comment.persisted && (comment.status === 'open' || comment.status === 'failed')) {
+            const actions = document.createElement('div');
+            actions.className = 'comment-actions';
+            const apply = document.createElement('button');
+            apply.type = 'button';
+            apply.textContent = 'Apply';
+            apply.addEventListener('click', () => applyPersistedComment(comment.id));
+            actions.appendChild(apply);
+            bubble.appendChild(actions);
+          }
           if (comment.progressEvent) {
             const progress = document.createElement('div');
             progress.className = 'comment-progress';
@@ -2965,11 +3135,20 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function commentStatusLabel(status) {
+        if (status === 'open') return 'Saved comment';
+        if (status === 'applying') return 'Applying with Codex...';
+        if (status === 'applied') return 'Codex completed; waiting for deck update';
         if (status === 'updated') return 'Deck file updated';
         if (status === 'stale') return 'Still waiting for deck file update';
-        if (status === 'failed') return 'Failed to send';
+        if (status === 'failed') return 'Failed to apply';
         if (status === 'sending') return 'Sending to Review agent...';
         return 'Sent to Review agent';
+      }
+
+      function slideIndexFromElements(elements) {
+        if (!Array.isArray(elements)) return null;
+        const found = elements.map((item) => item && item.slideIndex).find((value) => Number.isInteger(value) && value > 0);
+        return found || null;
       }
 
       function targetFromPointer(event) {
@@ -3052,7 +3231,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
       function updateSendState() {
         if (state.sendingEdit) setButtonLoading(els.send, true, 'Sending...');
-        else setButtonLoading(els.send, false, '<svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94L14.7 6.3z"/></svg><span>Apply Fix</span>', true);
+        else setButtonLoading(els.send, false, '<svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94L14.7 6.3z"/></svg><span>Leave Comment</span>', true);
         els.send.disabled = state.sendingEdit || !getCommentText().trim();
         if (state.inspecting) setButtonLoading(els.inspectButton, true, 'Getting insight...');
         else setButtonLoading(els.inspectButton, false, 'Get Insight');
