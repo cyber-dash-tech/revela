@@ -24,7 +24,7 @@ const timer = setTimeout(() => {
 child.stdout.on("data", (data) => {
   stdout += data.toString()
   process.stdout.write(data)
-  if (stdout.includes("\"id\":2") && stdout.includes("revela_doctor") && stdout.includes("revela_story_read") && stdout.includes("revela_review_deck_read") && stdout.includes("revela_review_deck_open")) {
+  if (stdout.includes("\"id\":2") && stdout.includes("revela_doctor") && stdout.includes("revela_read_deck_plan") && stdout.includes("revela_review_deck_read") && stdout.includes("revela_review_deck_open")) {
     clearTimeout(timer)
     child.kill()
   }
