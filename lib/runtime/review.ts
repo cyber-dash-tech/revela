@@ -1,12 +1,7 @@
 import { existsSync } from "fs"
 import { resolve } from "path"
-import { DECKS_STATE_FILE, hasDecksState, normalizeWorkspaceDeckState, readDecksState } from "../decks-state"
 import { extractDesignClasses } from "../design/designs"
-import { compileInspectionContext, type InspectionContext } from "../inspection-context/compile"
-import { computeNarrativeHash } from "../narrative-state/hash"
 import { readDeckPlanArtifact } from "../narrative-state/deck-plan-artifact"
-import { compileNarrativeVault } from "../narrative-vault/compile"
-import { formatVaultDiagnosticMarkdown, formatVaultDiagnosticReport } from "../narrative-vault/diagnostic-report"
 import { formatArtifactQAReport, runArtifactQA } from "../qa/artifact"
 import { openRefineDeck } from "../refine/open"
 import { createCodexExecReviewPromptBridge } from "../refine/prompt-bridge"
@@ -22,13 +17,6 @@ export interface ReviewDeckOpenInput extends ReviewDeckReadInput {
   bridge?: "codex-exec"
   openBrowser?: boolean
   openUrl?: (url: string) => void
-}
-
-export interface ReviewDeckInspectionContextResult {
-  ok: boolean
-  skipped: boolean
-  reason?: string
-  context?: InspectionContext
 }
 
 export async function reviewDeckRead(input: ReviewDeckReadInput): Promise<any> {
@@ -55,20 +43,13 @@ export async function reviewDeckRead(input: ReviewDeckReadInput): Promise<any> {
   }
 
   const artifactQa = await readArtifactQa(workspaceRoot, filePath)
-  const narrativeRead = readNarrative(workspaceRoot)
-  const deckPlan = readDeckPlan(workspaceRoot, narrativeRead.knownNodeIds, narrativeRead.narrativeHash)
-  const { knownNodeIds: _knownNodeIds, ...narrative } = narrativeRead
-  const inspectionContext = readInspectionContext(workspaceRoot, file)
+  const deckPlan = readDeckPlan(workspaceRoot)
   const diagnostics = {
     artifactQa: artifactQa.summary,
     deckPlan: summarizeDeckPlan(deckPlan),
-    narrative: narrative.summary,
-    inspectionContext: inspectionContext.ok
-      ? { ok: true, skipped: false }
-      : { ok: false, skipped: true, reason: inspectionContext.reason },
   }
   const markdown = input.format === "markdown"
-    ? formatReviewDeckReadMarkdown({ file, artifactQa, deckPlan, narrative, inspectionContext })
+    ? formatReviewDeckReadMarkdown({ file, artifactQa, deckPlan })
     : undefined
 
   return {
@@ -76,11 +57,7 @@ export async function reviewDeckRead(input: ReviewDeckReadInput): Promise<any> {
     file,
     artifactQa,
     deckPlan,
-    narrative,
     diagnostics,
-    inspectionContext,
-    artifactCoverage: inspectionContext.context?.artifactCoverage ?? [],
-    evidenceTrace: inspectionContext.context?.slides.flatMap((slide) => slide.evidence) ?? narrative.evidenceTrace,
     markdown,
   }
 }
@@ -158,76 +135,8 @@ async function readArtifactQa(workspaceRoot: string, filePath: string) {
   }
 }
 
-function readNarrative(workspaceRoot: string): any {
-  if (!existsSync(resolve(workspaceRoot, "revela-narrative"))) {
-    return {
-      ok: false,
-      skipped: true,
-      reason: "No revela-narrative/ vault exists; narrative diagnostics skipped.",
-      summary: { ok: false, skipped: true, reason: "No revela-narrative/ vault exists; narrative diagnostics skipped." },
-      evidenceTrace: [],
-    }
-  }
-
-  const compiled = compileNarrativeVault(workspaceRoot)
-  const report = formatVaultDiagnosticReport(compiled.diagnostics)
-  const narrative = compiled.narrative
-  return {
-    ok: compiled.ok,
-    skipped: false,
-    narrativeHash: narrative ? computeNarrativeHash(narrative) : undefined,
-    summary: report,
-    diagnostics: compiled.diagnostics,
-    diagnosticsMarkdown: formatVaultDiagnosticMarkdown(report),
-    evidenceTrace: narrative?.evidenceBindings.map((binding) => ({
-      id: binding.id,
-      claimId: binding.claimId,
-      source: binding.source,
-      sourcePath: binding.sourcePath,
-      findingsFile: binding.findingsFile,
-      quote: binding.quote,
-      location: binding.location,
-      url: binding.url,
-      supportScope: binding.supportScope,
-      unsupportedScope: binding.unsupportedScope,
-      caveat: binding.caveat,
-      strength: binding.strength,
-    })) ?? [],
-    knownNodeIds: compiled.graph ? new Set(compiled.graph.nodes.map((node) => node.id)) : undefined,
-  }
-}
-
-function readDeckPlan(workspaceRoot: string, knownNodeIds: Set<string> | undefined, narrativeHash: string | undefined) {
-  return readDeckPlanArtifact(workspaceRoot, { knownNodeIds, narrativeHash })
-}
-
-function readInspectionContext(workspaceRoot: string, file: string): ReviewDeckInspectionContextResult {
-  if (!hasDecksState(workspaceRoot)) {
-    return {
-      ok: false,
-      skipped: true,
-      reason: `No ${DECKS_STATE_FILE} exists; legacy inspection context skipped for file-native deck.`,
-    }
-  }
-
-  try {
-    const state = normalizeWorkspaceDeckState(readDecksState(workspaceRoot), workspaceRoot)
-    const slug = Object.entries(state.decks).find(([, deck]) => normalizePath(deck.outputPath) === normalizePath(file))?.[0]
-    if (!slug) {
-      return {
-        ok: false,
-        skipped: true,
-        reason: `No ${DECKS_STATE_FILE} deck outputPath matches ${file}; legacy inspection context skipped.`,
-      }
-    }
-    return { ok: true, skipped: false, context: compileInspectionContext(state, slug) }
-  } catch (e) {
-    return {
-      ok: false,
-      skipped: true,
-      reason: `Could not compile legacy inspection context: ${e instanceof Error ? e.message : String(e)}`,
-    }
-  }
+function readDeckPlan(workspaceRoot: string) {
+  return readDeckPlanArtifact(workspaceRoot)
 }
 
 function summarizeDeckPlan(deckPlan: ReturnType<typeof readDeckPlanArtifact>) {
@@ -243,8 +152,6 @@ function formatReviewDeckReadMarkdown(input: {
   file: string
   artifactQa: Awaited<ReturnType<typeof readArtifactQa>>
   deckPlan: ReturnType<typeof readDeckPlanArtifact>
-  narrative: ReturnType<typeof readNarrative>
-  inspectionContext: ReviewDeckInspectionContextResult
 }): string {
   const lines = [
     "# Review Deck Read",
@@ -253,17 +160,10 @@ function formatReviewDeckReadMarkdown(input: {
     "",
     `Artifact QA: ${input.artifactQa.summary.passed ? "passed" : "failed"} (${input.artifactQa.summary.errors} hard error(s), ${input.artifactQa.summary.warnings} warning(s))`,
     `Deck-plan: ${input.deckPlan.ok ? "read" : `skipped/diagnostic - ${input.deckPlan.reason ?? "not available"}`}`,
-    `Narrative: ${input.narrative.skipped ? input.narrative.reason : input.narrative.summary.summary}`,
-    `Inspection context: ${input.inspectionContext.ok ? "read" : `skipped - ${input.inspectionContext.reason}`}`,
     "",
     input.artifactQa.markdown,
   ]
-  if (!input.narrative.skipped && input.narrative.diagnosticsMarkdown) lines.push("", input.narrative.diagnosticsMarkdown)
   return lines.join("\n")
-}
-
-function normalizePath(value: string): string {
-  return value.replace(/\\/g, "/").replace(/^\.\/+/, "")
 }
 
 function root(workspaceRoot: string | undefined): string {

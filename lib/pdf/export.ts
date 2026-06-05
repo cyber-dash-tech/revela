@@ -226,6 +226,18 @@ export interface ExportResult {
   warnings?: string[]
 }
 
+export interface ExportPngResult {
+  outputDir: string
+  files: string[]
+  slideCount: number
+  durationMs: number
+  exportMode: "deck"
+}
+
+export interface ExportPngOptions {
+  outputDir?: string
+}
+
 /**
  * Export an HTML slide deck to PDF.
  *
@@ -268,8 +280,78 @@ export async function exportDeckToPdf(htmlFilePath: string): Promise<Omit<Export
 
   const outputPath = derivePdfPath(abs)
 
+  const screenshots = await screenshotDeckSlides(abs, "pdf")
+
+  // ── Step 3: Assemble PDF with pdf-lib ─────────────────────────────────────
+  const pdfDoc = await PDFDocument.create()
+
+  for (const pngBuf of screenshots) {
+    const pngImage = await pdfDoc.embedPng(new Uint8Array(pngBuf))
+    // Each page is exactly the canvas size (points = pixels at 1:1 for screen PDF)
+    const page = pdfDoc.addPage([CANVAS_W, CANVAS_H])
+    page.drawImage(pngImage, {
+      x: 0,
+      y: 0,
+      width: CANVAS_W,
+      height: CANVAS_H,
+    })
+  }
+
+  const pdfBytes = await pdfDoc.save()
+  writeFileSync(outputPath, pdfBytes)
+
+  return {
+    outputPath,
+    slideCount: screenshots.length,
+    durationMs: Date.now() - startMs,
+  }
+}
+
+export async function exportDeckToPng(htmlFilePath: string, options: ExportPngOptions = {}): Promise<ExportPngResult> {
+  const startMs = Date.now()
+  const abs = resolve(htmlFilePath)
+
+  if (!existsSync(abs)) {
+    throw new Error(`File not found: ${abs}`)
+  }
+
+  if (!/\.html?$/i.test(abs)) {
+    throw new Error(`Not an HTML file: ${abs}`)
+  }
+
+  const outputDir = options.outputDir ?? join(dirname(abs), `${basename(abs).replace(/\.html?$/i, "")}-png`)
+  mkdirSync(outputDir, { recursive: true })
+  const screenshots = await screenshotDeckSlides(abs, "png")
+  const files: string[] = []
+
+  screenshots.forEach((pngBuf, index) => {
+    const outputPath = join(outputDir, `slide-${String(index + 1).padStart(3, "0")}.png`)
+    writeFileSync(outputPath, new Uint8Array(pngBuf))
+    files.push(outputPath)
+  })
+
+  return {
+    outputDir,
+    files,
+    slideCount: screenshots.length,
+    durationMs: Date.now() - startMs,
+    exportMode: "deck",
+  }
+}
+
+async function screenshotDeckSlides(htmlFilePath: string, label: "pdf" | "png"): Promise<Buffer[]> {
+  const abs = resolve(htmlFilePath)
+
+  if (!existsSync(abs)) {
+    throw new Error(`File not found: ${abs}`)
+  }
+
+  if (!/\.html?$/i.test(abs)) {
+    throw new Error(`Not an HTML file: ${abs}`)
+  }
+
   // ── Step 1: Download external images and rewrite HTML ─────────────────────
-  const tmpDir = join("/tmp", `revela-pdf-${randomBytes(6).toString("hex")}`)
+  const tmpDir = join("/tmp", `revela-${label}-${randomBytes(6).toString("hex")}`)
   mkdirSync(tmpDir, { recursive: true })
 
   let tmpHtmlPath: string
@@ -373,27 +455,5 @@ export async function exportDeckToPdf(htmlFilePath: string): Promise<Omit<Export
     }
   }
 
-  // ── Step 3: Assemble PDF with pdf-lib ─────────────────────────────────────
-  const pdfDoc = await PDFDocument.create()
-
-  for (const pngBuf of screenshots) {
-    const pngImage = await pdfDoc.embedPng(new Uint8Array(pngBuf))
-    // Each page is exactly the canvas size (points = pixels at 1:1 for screen PDF)
-    const page = pdfDoc.addPage([CANVAS_W, CANVAS_H])
-    page.drawImage(pngImage, {
-      x: 0,
-      y: 0,
-      width: CANVAS_W,
-      height: CANVAS_H,
-    })
-  }
-
-  const pdfBytes = await pdfDoc.save()
-  writeFileSync(outputPath, pdfBytes)
-
-  return {
-    outputPath,
-    slideCount: screenshots.length,
-    durationMs: Date.now() - startMs,
-  }
+  return screenshots
 }

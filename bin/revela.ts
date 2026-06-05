@@ -20,14 +20,13 @@ else {
   try {
     let result: CommandResult
     if (command === "doctor") result = runtime.doctor(options)
-    else if (command === "compile") result = runtime.compileNarrative(options)
-    else if (command === "markdown-qa") result = runtime.markdownQa(options)
     else if (command === "deck-plan") result = runtime.readDeckPlan(options)
     else if (command === "deck-foundation") result = runtime.createDeckFoundation(required(options, ["outputPath", "title", "language"]))
     else if (command === "qa") result = runtime.runDeckQa(required(options, ["file"]))
     else if (command === "review-read") result = runtime.reviewDeckRead(required(options, ["file"]))
     else if (command === "export-pdf") result = runtime.exportPdf(required(options, ["file"]))
     else if (command === "export-pptx") result = runtime.exportPptx(required(options, ["file"]))
+    else if (command === "export-png") result = runtime.exportPng(required(options, ["file"]))
     else if (command === "design-list") result = runtime.designList()
     else if (command === "design-read") result = runtime.designRead(options)
     else if (command === "design-use") result = runtime.designActivate(required(options, ["name"]))
@@ -82,14 +81,13 @@ function printHelp(): void {
 Usage:
   revela mcp
   revela doctor [--workspaceRoot <path>]
-  revela compile [--workspaceRoot <path>]
-  revela markdown-qa [--workspaceRoot <path>] [--scope touched|affected|full] [--strictness authoring|readiness|render]
   revela deck-plan [--workspaceRoot <path>]
   revela deck-foundation --outputPath <path> --title <title> --language <tag> [--workspaceRoot <path>] [--designName <name>] [--mode create|repair] [--overwrite true]
   revela qa --file <path> [--workspaceRoot <path>]
   revela review-read --file <path> [--workspaceRoot <path>] [--format json|markdown]
   revela export-pdf --file <path> [--workspaceRoot <path>]  # deck PDF, or single-page PDF fallback for non-deck HTML
   revela export-pptx --file <path> [--workspaceRoot <path>]
+  revela export-png --file <path> [--workspaceRoot <path>] [--outputDir <path>]
   revela design-list
   revela design-read [--name <design>] [--section <rules|foundation|chart-rules>] [--workspaceRoot <path>]
   revela design-use --name <design>

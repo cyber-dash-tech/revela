@@ -96,7 +96,7 @@ describe("runtime facade", () => {
     expect(readFileSync(join(root, extracted.read_view_path!), "utf-8")).toContain("Pilot scope is clear.")
   })
 
-  it("passes compiled narrative hash into deck-plan stale detection", () => {
+  it("reads deck-plan without narrative hash stale detection", () => {
     const root = tempWorkspace("revela-runtime-deck-plan-hash-")
     writeMinimalVault(root)
     writeDeckPlan(root, "stale-narrative-hash")
@@ -104,11 +104,8 @@ describe("runtime facade", () => {
     const result = readDeckPlan({ workspaceRoot: root })
 
     expect(result.ok).toBe(true)
-    expect(result.warnings).toContain("Deck plan narrativeHash does not match current narrative state.")
-    expect(result.projection?.diagnostics).toContainEqual(expect.objectContaining({
-      code: "stale_narrative_hash",
-      file: "deck-plan/index.md",
-    }))
+    expect(result.warnings).not.toContain("Deck plan narrativeHash does not match current narrative state.")
+    expect(result.projection?.diagnostics.some((item) => item.code === "stale_narrative_hash")).toBe(false)
   })
 
   it("does not warn when deck-plan narrative hash matches the compiled vault", () => {
@@ -358,15 +355,11 @@ sources:
     expect(result.file).toBe("decks/review.html")
     expect(result.artifactQa.summary).toMatchObject({ passed: true, errors: 0 })
     expect(result.deckPlan.ok).toBe(true)
-    expect(result.narrative.skipped).toBe(false)
-    expect(result.narrative.summary.summary).toContain("Narrative vault diagnostics")
-    expect(result.inspectionContext).toMatchObject({ ok: false, skipped: true })
-    expect(result.inspectionContext.reason).toContain(`No ${DECKS_STATE_FILE} exists`)
+    expect(result.narrative).toBeUndefined()
+    expect(result.inspectionContext).toBeUndefined()
     expect(result.markdown).toContain("Review Deck Read")
     expect(result.markdown).toContain("Artifact QA: passed")
-    expect(result.evidenceTrace).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: "evidence-pilot", claimId: "claim-pilot" }),
-    ]))
+    expect(result.evidenceTrace).toBeUndefined()
     expect(existsSync(join(root, DECKS_STATE_FILE))).toBe(false)
   }, 60000)
 
@@ -379,12 +372,8 @@ sources:
 
     expect(result.ok).toBe(true)
     expect(result.artifactQa.summary.passed).toBe(true)
-    expect(result.narrative).toMatchObject({
-      ok: false,
-      skipped: true,
-      reason: "No revela-narrative/ vault exists; narrative diagnostics skipped.",
-    })
-    expect(result.markdown).toContain("Narrative: No revela-narrative/ vault exists")
+    expect(result.narrative).toBeUndefined()
+    expect(result.markdown).not.toContain("Narrative:")
     expect(existsSync(join(root, DECKS_STATE_FILE))).toBe(false)
   }, 60000)
 

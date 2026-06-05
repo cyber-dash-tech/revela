@@ -3,17 +3,18 @@
 | Revela capability | Current OpenCode surface | Codex MVP surface | Status |
 | --- | --- | --- | --- |
 | Help / product guidance | `/revela` and prompt injection | Plugin manifest, default prompts, skills | MVP |
-| Init workspace | `/revela init`, OpenCode tools | `revela-init` skill + MCP QA/compile tools | MVP |
-| Research workflow | `/revela research`, research subagent, research-save tool | `revela-research` skill + MCP targets/save/evaluate/bind tools + compile/QA | Tool-backed MVP |
-| Story reading | `/revela story`, local HTML story UI | `revela-story` skill + `revela_story_read` deterministic map/Markdown tool; HTML/local UI parity remains OpenCode surface | Tool-backed MVP |
-| Deck planning | `/revela make --deck`, deck-render prompt | `revela-make-deck` skill + read deck plan + create foundation | MVP |
+| Init workspace | `/revela init`, OpenCode tools | `revela-init` skill + local material prepare/extract/review/intake tools | MVP |
+| Research workflow | `/revela research`, research-save tool | `revela-research` skill + `revela_research_save`; findings stay source-linked until used by deck-plan | Tool-backed MVP |
+| Deck planning | `/revela plan --deck`, deck-plan prompt | `revela-make-deck` skill + `revela_read_deck_plan` + `revela_upsert_deck_plan_slide` | MVP |
+| Make deck | `/revela make --deck`, deck-render prompt | `revela-make-deck` skill + create foundation + design reads + artifact QA | MVP |
 | Deck foundation | `revela-deck-foundation` OpenCode tool | `revela_create_deck_foundation` MCP tool | MVP |
 | Artifact QA | post-write hook and `revela-qa` tool | `revela_run_deck_qa` MCP tool + hook reminders | MVP |
 | PDF export | `/revela export --deck pdf`, `revela-pdf` tool | `revela_export_pdf` MCP tool | MVP |
 | PPTX export | `/revela export --deck pptx`, `revela-pptx` tool | `revela_export_pptx` MCP tool | MVP |
+| PNG export | `/revela export --deck png`, runtime PNG export | `revela_export_png` MCP tool | MVP |
 | Design list/read/activate | `/revela design`, `revela-designs` tool | `revela-design` skill + `revela_design_list`, `revela_design_read`, `revela_design_activate` MCP tools | MVP |
 | Domain list/read/activate | `/revela domain`, `revela-domains` tool | `revela-domain` skill + `revela_domain_list`, `revela_domain_read`, `revela_domain_activate` MCP tools | MVP |
-| Review deck UI and diagnostics | `/revela review --deck`, local refine server | `revela-review-deck` skill + `revela_review_deck_open` Codex Insight and Apply Fix bridge by default + `revela_review_deck_read` aggregate diagnostics tool | Tool-backed MVP |
+| Review deck UI and diagnostics | `/revela review --deck`, local Review server | `revela-review-deck` skill + `revela_review_deck_open` QA/Comment UI + `revela_review_deck_read` aggregate diagnostics tool | Tool-backed MVP |
 | OpenCode prompt transform | `experimental.chat.system.transform` | Not applicable; skills provide guidance | Not ported |
 | OpenCode read/write hooks | `tool.execute.before/after` | Codex plugin hooks where supported | Partial |
 | OpenCode subagents | `revela-research`, `revela-narrative-reviewer` | Skills and tool-backed workflows first; Codex subagent packaging later | Deferred |

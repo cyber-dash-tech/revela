@@ -10,14 +10,13 @@ type JsonRpcRequest = {
 
 type RuntimeModule = {
   doctor(input?: any): any
-  compileNarrative(input?: any): any
-  markdownQa(input?: any): any
   readDeckPlan(input?: any): any
   upsertDeckPlanSlide(input: any): any
   createDeckFoundation(input: any): any
   runDeckQa(input: any): Promise<any>
   exportPdf(input: any): Promise<any>
   exportPptx(input: any): Promise<any>
+  exportPng(input: any): Promise<any>
   designList(): any
   designRead(input?: any): any
   designInventory(input?: any): any
@@ -37,13 +36,9 @@ type RuntimeModule = {
   domainDraftCreate(input: any): any
   domainDraftValidate(input: any): any
   domainDraftInstall(input: any): any
-  storyRead(input?: any): any
   reviewDeckRead(input: any): Promise<any>
   reviewDeckOpen(input: any): Promise<any>
-  researchTargets(input?: any): any
   researchSave(input: any): any
-  evaluateResearchFindings(input: any): any
-  bindResearchFindings(input: any): any
   prepareLocalMaterials(input: any): Promise<any>
   extractMaterial(input: any): Promise<any>
   recordMaterialReview(input: any): any
@@ -57,21 +52,6 @@ const tools = [
     name: "revela_doctor",
     description: "Inspect Revela workspace availability and basic file-native state.",
     inputSchema: objectSchema({ workspaceRoot: stringProp("Optional workspace root.") }),
-  },
-  {
-    name: "revela_compile_narrative",
-    description: "Compile revela-narrative/ Markdown into canonical NarrativeStateV1 diagnostics.",
-    inputSchema: objectSchema({ workspaceRoot: stringProp("Optional workspace root.") }),
-  },
-  {
-    name: "revela_markdown_qa",
-    description: "Run Markdown QA for the Revela narrative vault.",
-    inputSchema: objectSchema({
-      workspaceRoot: stringProp("Optional workspace root."),
-      scope: enumProp(["touched", "affected", "full"], "QA scope."),
-      strictness: enumProp(["authoring", "readiness", "render"], "QA strictness."),
-      touched: arrayProp("Touched vault files."),
-    }),
   },
   {
     name: "revela_read_deck_plan",
@@ -132,6 +112,15 @@ const tools = [
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       file: requiredStringProp("Workspace-relative or absolute HTML deck path."),
+    }, ["file"]),
+  },
+  {
+    name: "revela_export_png",
+    description: "Export a Revela HTML deck to one PNG file per slide.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      file: requiredStringProp("Workspace-relative or absolute HTML deck path."),
+      outputDir: stringProp("Optional workspace-relative output directory."),
     }, ["file"]),
   },
   {
@@ -278,16 +267,8 @@ const tools = [
     }, ["name"]),
   },
   {
-    name: "revela_story_read",
-    description: "Read a deterministic Revela Story map and optional Markdown view from the canonical narrative vault without mutating files.",
-    inputSchema: objectSchema({
-      workspaceRoot: stringProp("Optional workspace root."),
-      format: enumProp(["map", "markdown"], "Return only the map, or include a formatted Markdown reading view."),
-    }),
-  },
-  {
     name: "revela_review_deck_read",
-    description: "Read-only aggregate Review diagnostics for a Revela HTML deck: artifact QA, deck-plan diagnostics, narrative/vault diagnostics, artifact coverage, and available evidence trace.",
+    description: "Read-only aggregate Review diagnostics for a Revela HTML deck: artifact QA, deck-plan diagnostics, and export/readiness signals.",
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       file: requiredStringProp("Workspace-relative or absolute HTML deck path."),
@@ -300,18 +281,13 @@ const tools = [
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       file: requiredStringProp("Workspace-relative or absolute HTML deck path."),
-      bridge: enumProp(["codex-exec"], "Prompt bridge for browser Insight and Comment interactions."),
+      bridge: enumProp(["codex-exec"], "Prompt bridge for browser Comment and Apply Fix interactions."),
       openBrowser: booleanProp("Whether the tool should open the browser itself. Defaults to true when omitted."),
     }, ["file"]),
   },
   {
-    name: "revela_research_targets",
-    description: "Derive current Revela research targets from canonical narrative state, saved findings, and evidence gaps.",
-    inputSchema: objectSchema({ workspaceRoot: stringProp("Optional workspace root.") }),
-  },
-  {
     name: "revela_research_save",
-    description: "Save research findings under researches/{topic}/{filename}.md and evaluate binding readiness when workspace state exists.",
+    description: "Save source-linked research findings under researches/{topic}/{filename}.md for deck-plan use.",
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       topic: requiredStringProp("Research topic key."),
@@ -319,23 +295,6 @@ const tools = [
       content: requiredStringProp("Structured Markdown findings content."),
       sources: arrayProp("Source URLs or workspace files for YAML frontmatter."),
     }, ["topic", "filename", "content"]),
-  },
-  {
-    name: "revela_evaluate_research_findings",
-    description: "Evaluate whether a saved researches/**/*.md findings file is safely bindable as canonical evidence.",
-    inputSchema: objectSchema({
-      workspaceRoot: stringProp("Optional workspace root."),
-      findingsFile: requiredStringProp("Workspace-relative researches/**/*.md findings file."),
-    }, ["findingsFile"]),
-  },
-  {
-    name: "revela_bind_research_findings",
-    description: "Bind a safely evaluated findings file into canonical revela-narrative/evidence/*.md evidence.",
-    inputSchema: objectSchema({
-      workspaceRoot: stringProp("Optional workspace root."),
-      findingsFile: requiredStringProp("Workspace-relative researches/**/*.md findings file."),
-      evidenceId: stringProp("Optional canonical evidence node id override."),
-    }, ["findingsFile"]),
   },
   {
     name: "revela_prepare_local_materials",
@@ -431,14 +390,13 @@ async function handle(req: JsonRpcRequest): Promise<any | undefined> {
 async function callTool(name: string, args: any): Promise<any> {
   const r = await runtime()
   if (name === "revela_doctor") return r.doctor(args)
-  if (name === "revela_compile_narrative") return r.compileNarrative(args)
-  if (name === "revela_markdown_qa") return r.markdownQa(args)
   if (name === "revela_read_deck_plan") return r.readDeckPlan(args)
   if (name === "revela_upsert_deck_plan_slide") return r.upsertDeckPlanSlide(args)
   if (name === "revela_create_deck_foundation") return r.createDeckFoundation(args)
   if (name === "revela_run_deck_qa") return r.runDeckQa(args)
   if (name === "revela_export_pdf") return r.exportPdf(args)
   if (name === "revela_export_pptx") return r.exportPptx(args)
+  if (name === "revela_export_png") return r.exportPng(args)
   if (name === "revela_design_list") return r.designList()
   if (name === "revela_design_read") return r.designRead(args)
   if (name === "revela_design_inventory") return r.designInventory(args)
@@ -458,13 +416,9 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_domain_draft_create") return r.domainDraftCreate(args)
   if (name === "revela_domain_draft_validate") return r.domainDraftValidate(args)
   if (name === "revela_domain_draft_install") return r.domainDraftInstall(args)
-  if (name === "revela_story_read") return r.storyRead(args)
   if (name === "revela_review_deck_read") return r.reviewDeckRead(args)
   if (name === "revela_review_deck_open") return r.reviewDeckOpen(args)
-  if (name === "revela_research_targets") return r.researchTargets(args)
   if (name === "revela_research_save") return r.researchSave(args)
-  if (name === "revela_evaluate_research_findings") return r.evaluateResearchFindings(args)
-  if (name === "revela_bind_research_findings") return r.bindResearchFindings(args)
   if (name === "revela_prepare_local_materials") return r.prepareLocalMaterials(args)
   if (name === "revela_extract_document_materials") return r.extractMaterial(args)
   if (name === "revela_record_material_review") return r.recordMaterialReview(args)

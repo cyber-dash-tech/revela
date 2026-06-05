@@ -2,7 +2,24 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-06-04 for 0.17.24 structured Codex deck-plan slide upsert workflow.
+> Last updated: 2026-06-05 for 0.18.0 deck-first workflow migration.
+
+## 0.18.0 Migration Override
+
+0.18.0 is a breaking deck-first target. For current development, the default workflow is:
+
+```text
+Init -> Research -> Plan --deck -> Make --deck -> Review --deck -> Export
+```
+
+- Do not generate `revela-narrative/` during init, research, plan, make, review, or export.
+- `/revela story` and `/revela make --brief` are removed from the public workflow.
+- Research saves source-linked findings under `researches/`; it does not bind findings into vault evidence.
+- `deck-plan/` is the main execution plan and may use `[[...]]` links to source materials, material reviews, research findings, assets, and caveats.
+- Review is Artifact QA plus Comment/Apply Fix. Insight/Inspect is removed from the public Review path.
+- Export supports PDF, PPTX, and per-slide PNG.
+
+Older 0.17 Narrative Vault guidance below remains release archaeology until it is fully deleted; when it conflicts with this override, follow the 0.18.0 rules above.
 
 ## Product Baseline
 

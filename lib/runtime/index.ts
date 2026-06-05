@@ -19,7 +19,6 @@ import {
 } from "../design/designs"
 import { createDeckFoundation as createDeckFoundationShell } from "../deck-html/foundation"
 import { activeDomain, activateDomain, createDomainDraftPackage, createDomainPackage, getDomainSkillMd, installDomainDraftPackage, listDomains, seedBuiltinDomains, validateDomainDraftPackage, validateDomainPackage } from "../domain/domains"
-import { computeNarrativeHash } from "../narrative-state/hash"
 import { compileNarrativeVault } from "../narrative-vault/compile"
 import { autoCompileNarrativeVault } from "../narrative-vault/auto-compile"
 import { extractNarrativeVaultMarkdownTargetsFromPatch } from "../narrative-vault/hook-targets"
@@ -151,12 +150,7 @@ export { formatArtifactQaUserNotice, formatMarkdownQaUserNotice }
 
 export function readDeckPlan(input: RuntimeWorkspaceInput = {}) {
   const workspaceRoot = root(input.workspaceRoot)
-  const compiled = compileNarrativeVault(workspaceRoot)
-  const knownNodeIds = compiled.graph ? new Set(compiled.graph.nodes.map((node) => node.id)) : undefined
-  const read = readDeckPlanArtifact(workspaceRoot, {
-    narrativeHash: compiled.narrative ? computeNarrativeHash(compiled.narrative) : undefined,
-    knownNodeIds,
-  })
+  const read = readDeckPlanArtifact(workspaceRoot)
   if (read.projection) {
     try {
       const inventory = getDesignInventory(activeDesign())
@@ -177,19 +171,13 @@ export function upsertDeckPlanSlide(input: RuntimeDeckPlanSlideUpsertInput) {
   const workspaceRoot = root(input.workspaceRoot)
   const designName = input.designName || activeDesign()
   const inventory = getDesignInventory(designName)
-  const compiled = compileNarrativeVault(workspaceRoot)
-  const knownNodeIds = compiled.graph ? new Set(compiled.graph.nodes.map((node) => node.id)) : undefined
-  const narrativeHash = compiled.narrative ? computeNarrativeHash(compiled.narrative) : undefined
   const result = upsertDeckPlanSlideArtifact(workspaceRoot, input, {
-    narrativeHash,
-    knownNodeIds,
     designLayouts: inventory.layouts.map((layout) => layout.name),
     designComponents: inventory.components.map((component) => component.name),
   })
   return {
     ...result,
     designName,
-    narrativeHash,
   }
 }
 
@@ -251,6 +239,21 @@ export async function exportPptx(input: RuntimeFileInput & { speakerNotes?: Arra
     sourceHtmlPath: workspaceRelative(resolve(workspaceRoot), filePath),
     outputPath: result.outputPath,
     type: "pptx",
+    actor: "revela-codex-mcp",
+  })
+  return { ok: true, ...result }
+}
+
+export async function exportPng(input: RuntimeFileInput & { outputDir?: string }) {
+  const { exportDeckToPng } = await import("../pdf/export")
+  const workspaceRoot = root(input.workspaceRoot)
+  const filePath = resolve(workspaceRoot, input.file)
+  const outputDir = input.outputDir ? resolve(workspaceRoot, input.outputDir) : undefined
+  const result = await exportDeckToPng(filePath, { outputDir })
+  recordRenderedArtifact(workspaceRoot, {
+    sourceHtmlPath: workspaceRelative(resolve(workspaceRoot), filePath),
+    outputPath: result.outputDir,
+    type: "png",
     actor: "revela-codex-mcp",
   })
   return { ok: true, ...result }

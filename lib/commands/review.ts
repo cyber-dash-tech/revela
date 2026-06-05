@@ -58,6 +58,84 @@ Rules:
 Start now by reading canonical narrative files and reporting diagnostics. Do not create ${DECKS_STATE_FILE} or request approval.`
 }
 
+export function buildDeckPlanPrompt({
+  exists,
+  workspaceRoot,
+}: {
+  exists: boolean
+  workspaceRoot?: string
+}): string {
+  const state = exists
+    ? "Legacy/cache state exists. Do not treat it as workflow authority."
+    : "No legacy/cache state exists. Keep the workflow file-native."
+
+  return `Create or update a Revela deck plan.
+
+Goal:
+- Build deck-plan/index.md and deck-plan/slides/*.md directly from the user's goal, reviewed local materials, saved research findings, and active design vocabulary.
+- Do not create, read, repair, or require revela-narrative/.
+- Use [[...]] links in deck-plan files to reference source material paths, material review files, research finding files, or asset paths. These are source links, not narrative graph links.
+- Use "unresolved inputs", "research tasks", "source limitations", or "caveats"; do not use the product concept of research gaps.
+- Do not write HTML during planning.
+
+Current state:
+- ${state}
+${workspaceRoot ? `- Current workspace root: \`${workspaceRoot}\`` : ""}
+
+Workflow:
+1. Call material intake tools as needed: prepare/check local materials, read extracted read views, and record material reviews for sources you rely on.
+2. Inspect existing researches/**/*.md, assets/, and deck-plan/ when present. Save new external findings with revela-research-save.
+3. Ask only for missing high-impact intent: audience, objective, decision/action, language, rough slide count, or source priority.
+4. Read active design inventory/rules before selecting layouts/components.
+5. Write deck-plan/index.md with deck objective, audience, output format, chapter outline, source authority, unresolved inputs, and slide file list.
+6. Write one deck-plan/slides/*.md file per slide with positive 1-based slideIndex, title, chapter, purpose, layout, component plan, visual intent, source links, caveats, and speaker/content notes.
+7. Include Cover, Table of Contents, and Closing slides unless the user explicitly asks for a non-standard artifact.
+8. Run/read deck-plan diagnostics after writing and report technical issues separately from source limitations.
+
+Report:
+- Start with "Deck plan: drafted" or "Deck plan: updated".
+- List plan paths, chapter ranges, slide count, source/research files used, unresolved inputs, and the next command /revela make --deck.
+- Do not ask for approval gates; users decide whether to proceed.`
+}
+
+export function buildDeckMakePrompt({
+  exists,
+  workspaceRoot,
+}: {
+  exists: boolean
+  workspaceRoot?: string
+}): string {
+  const state = exists
+    ? "Legacy/cache state exists. Do not treat it as workflow authority."
+    : "No legacy/cache state exists. Continue from deck-plan/ and artifact files."
+
+  return `Generate a Revela HTML deck from deck-plan/.
+
+Goal:
+- Read the current deck-plan/ projection and generate or update decks/*.html.
+- Do not create, compile, or require revela-narrative/.
+- Use the deck-render prompt mode for design, layout, components, HTML, QA, and export preflight.
+- Preserve source links and caveats from deck-plan in slide source notes or speaker notes where appropriate.
+
+Current state:
+- ${state}
+${workspaceRoot ? `- Current workspace root: \`${workspaceRoot}\`` : ""}
+
+Workflow:
+1. Read deck-plan/ and treat it as the execution blueprint.
+2. If deck-plan/ is missing or structurally invalid, stop and tell the user to run /revela plan --deck.
+3. For a new deck, call revela-deck-foundation before adding slide content.
+4. Read active design rules and needed layouts/components before patching HTML.
+5. Generate chapter by chapter. Keep the HTML valid after every write and preserve existing completed slides.
+6. Each slide must have unique increasing 1-based data-slide-index, a 1920x1080 .slide-canvas, no text overflow, and no unsafe remote asset references.
+7. Run Artifact QA after writes and fix hard errors before reporting ready.
+
+Report:
+- Start with "Deck handoff: generated" or "Deck handoff: updated".
+- Include output path, slide count, deck-plan path, current chapters generated, Artifact QA status, and next command /revela review --deck or /revela export --deck pdf|pptx|png.
+- Report unresolved inputs as source limitations, not workflow blockers.`
+}
+
 export function buildDeckPrompt({
   exists,
   workspaceRoot,

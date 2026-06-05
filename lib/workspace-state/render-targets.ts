@@ -47,7 +47,7 @@ export function upsertRenderTarget(state: DecksState, target: RenderTarget): Dec
   return state
 }
 
-export function deriveExportRenderTarget(htmlTarget: RenderTarget, type: "pdf" | "pptx", outputPath: string): RenderTarget {
+export function deriveExportRenderTarget(htmlTarget: RenderTarget, type: "pdf" | "pptx" | "png", outputPath: string): RenderTarget {
   const normalizedOutput = normalizeWorkspacePath(outputPath)
   return cleanRenderTarget({
     id: renderTargetId(type, normalizedOutput),
@@ -64,7 +64,7 @@ export function deriveExportRenderTarget(htmlTarget: RenderTarget, type: "pdf" |
 
 export function recordArtifactRenderTarget(
   state: DecksState,
-  input: { sourceHtmlPath: string; type: "pdf" | "pptx"; outputPath: string; artifactVersion?: string },
+  input: { sourceHtmlPath: string; type: "pdf" | "pptx" | "png"; outputPath: string; artifactVersion?: string },
 ): RenderTarget {
   const normalizedSource = normalizeWorkspacePath(input.sourceHtmlPath)
   const activeTarget = ensureActiveHtmlDeckRenderTarget(state)

@@ -1,6 +1,6 @@
 ---
 name: revela-domain
-description: Use or switch Revela narrative domain guidance in Codex for init, research, and story work.
+description: Use or switch Revela domain guidance in Codex for init, research, and deck planning work.
 ---
 
 # Revela Domain

@@ -88,6 +88,7 @@ export interface DeckPlanSlideProjection {
   frontmatter: Record<string, string | string[] | boolean>
   sections: string[]
   links: DeckPlanNarrativeLink[]
+  caveats: string[]
 }
 
 export interface DeckPlanSlideComponentPlan {
@@ -357,6 +358,7 @@ function readDeckPlanSlideFiles(workspaceRoot: string, knownNodeIds?: Set<string
     const id = stringField(parsed.frontmatter, "id") || fileId(entry)
     const componentPlan = parseDeckPlanComponentPlan(split.sections["component-plan"] ?? "")
     const links = parseDeckPlanNarrativeLinks(split.sections["narrative-links"] ?? parsed.body, knownNodeIds)
+    const caveats = parseBulletText(split.sections["caveats"] ?? "")
     slides.push({
       path,
       absolutePath,
@@ -373,6 +375,7 @@ function readDeckPlanSlideFiles(workspaceRoot: string, knownNodeIds?: Set<string
       frontmatter: parsed.frontmatter,
       sections: parseMarkdownSections(markdown),
       links,
+      caveats,
     })
   }
   return slides.sort((a, b) => (a.slideIndex ?? Number.MAX_SAFE_INTEGER) - (b.slideIndex ?? Number.MAX_SAFE_INTEGER) || a.path.localeCompare(b.path))
@@ -396,8 +399,19 @@ function parseDeckPlanNarrativeLinks(section: string, knownNodeIds?: Set<string>
   return uniqueLinks(links)
 }
 
+function parseBulletText(section: string): string[] {
+  return section
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/^\s*[-*]\s+/, "").trim())
+    .filter((line) => line && line.toLowerCase() !== "none.")
+}
+
 function relationForDeckPlanLink(group: string, id: string): DeckPlanNarrativeLink["relation"] {
   const normalized = group.toLowerCase()
+  if (normalized.includes("source") || normalized.includes("material")) return "uses_evidence"
+  if (normalized.includes("finding") || normalized.includes("research")) return "uses_evidence"
+  if (normalized.includes("asset") || normalized.includes("media")) return "uses_evidence"
   if (normalized.includes("evidence") || id.startsWith("evidence")) return "uses_evidence"
   if (normalized.includes("risk") || id.startsWith("risk")) return "addresses_risk"
   if (normalized.includes("objection") || id.startsWith("objection")) return "answers_objection"
@@ -406,6 +420,8 @@ function relationForDeckPlanLink(group: string, id: string): DeckPlanNarrativeLi
 }
 
 function inferredLinkGroup(id: string, knownNodeIds?: Set<string>): string {
+  if (id.startsWith("researches/")) return "findings"
+  if (id.startsWith("assets/")) return "assets"
   if (id.startsWith("evidence")) return "evidence"
   if (id.startsWith("risk")) return "risk"
   if (id.startsWith("objection")) return "objection"
@@ -435,7 +451,7 @@ function deckPlanIndexDiagnostics(slides: DeckPlanSlideProjection[]): DeckPlanPr
 
 function slideDiagnostics(slide: DeckPlanSlideProjection, knownNodeIds?: Set<string>): DeckPlanProjectionDiagnostic[] {
   const diagnostics: DeckPlanProjectionDiagnostic[] = []
-  if (!slide.structural && !slide.links.some((link) => link.relation === "uses_claim")) diagnostics.push({ severity: "warning", code: "slide_claim_link_missing", message: `Non-structural deck-plan slide ${slide.id} has no claim wikilink in ## Narrative Links.`, file: slide.path, nodeId: slide.id })
+  if (!slide.structural && slide.links.length === 0 && slide.caveats.length === 0) diagnostics.push({ severity: "warning", code: "slide_source_link_missing", message: `Non-structural deck-plan slide ${slide.id} has no source, research, asset, or caveat link.`, file: slide.path, nodeId: slide.id })
   if (!slide.layout) diagnostics.push({ severity: "warning", code: "slide_layout_missing", message: `Deck-plan slide ${slide.id} is missing a layout.`, file: slide.path, nodeId: slide.id })
   if (slide.components.length === 0) diagnostics.push({ severity: "warning", code: "slide_components_missing", message: `Deck-plan slide ${slide.id} has no component names in frontmatter.`, file: slide.path, nodeId: slide.id })
   if (slide.componentPlan.length === 0) diagnostics.push({ severity: "warning", code: "slide_component_plan_missing", message: `Deck-plan slide ${slide.id} is missing structured ## Component Plan entries.`, file: slide.path, nodeId: slide.id })

@@ -10,7 +10,7 @@
 
 Revela works from [OpenCode](https://opencode.ai) and Codex to turn source materials, research, data, and intent into trusted, traceable, presentation-ready decision artifacts.
 
-Its narrative workspace records the core elements needed to generate a brief or deck: audience, decision, claims, evidence, sources, risks, objections, and open gaps.
+Its deck-first workspace reviews local materials, saves source-linked research, builds an explicit `deck-plan/`, generates HTML decks, reviews them, and exports PDF/PPTX/PNG artifacts.
 
 ## Install
 
@@ -35,7 +35,7 @@ Requirements:
 
 - The Codex CLI must be installed and the `codex` command must be available in your shell.
 - Your environment must be able to run `npx`; Revela uses `npx -y @cyber-dash-tech/revela@0.17.21 mcp` to start the MCP server.
-- For interactive Review actions, `codex exec` must also work because the Review UI uses it for Insight and Comment/Apply Fix requests.
+- For interactive Review actions, `codex exec` must also work because the Review UI uses it for Comment/Apply Fix requests.
 
 Optional preflight:
 
@@ -121,13 +121,13 @@ In Codex, ask Revela to list or switch designs; the plugin uses the active desig
 
 ## Domains
 
-Domains add topic-specific narrative guidance, such as consulting, product, or investor communication. Use them when you want Revela to adapt story framing to a specific context.
+Domains add topic-specific communication guidance, such as consulting, product, or investor communication. Use them when you want Revela to adapt deck framing to a specific context.
 
 ```text
 /revela domain
 ```
 
-In Codex, ask Revela to list or switch domains; the active domain guides narrative framing during init, research, and story work.
+In Codex, ask Revela to list or switch domains; the active domain guides deck framing during init, research, and planning.
 
 ## Quick Start
 
@@ -157,52 +157,52 @@ Revela may ask for references or constraints, then creates and validates the des
 revela, use neon-finance as the design.
 ```
 
-4. Initialize the narrative from local materials. Init grounds the narrative in the workspace and surfaces gaps; it does not replace the research step.
+4. Initialize local material intake. Init scans, extracts, and reviews workspace sources; it does not create a Narrative Vault.
 
 ```text
 revela, help me init this workspace from the local materials.
 ```
 
-5. Research the gaps and bind only source-supported evidence into the narrative.
+5. Research source-linked deck inputs and save findings.
 
 ```text
-revela, research the current gaps and bind only source-supported evidence.
+revela, research the public evidence and examples needed for this deck.
 ```
 
-6. Read Story before rendering to inspect the claim flow, evidence support, caveats, unsupported scope, and open gaps.
-
-```text
-revela, show me the Story before we make the deck.
-```
-
-7. Create or update the deck plan before generating HTML so slide order, chapter structure, evidence trace, caveats, and visual intent are explicit.
+6. Create or update the deck plan before generating HTML so slide order, chapter structure, source links, caveats, and visual intent are explicit.
 
 ```text
 revela, create or update the deck plan before generating HTML.
 ```
 
-8. Make an HTML deck from the current deck plan and canonical narrative.
+7. Make an HTML deck from the current deck plan.
 
 ```text
-revela, make the deck from the current deck plan and narrative.
+revela, make the deck from the current deck plan.
 ```
 
-9. Review the generated deck for traceability, diagnostics, and targeted edits.
+8. Review the generated deck for Artifact QA and targeted edits.
 
 ```text
 revela, review the generated deck.
 ```
 
-10. Export a PDF after deck QA passes.
+9. Export a PDF after deck QA passes.
 
 ```text
 revela, export the deck to PDF.
 ```
 
-11. Export an editable PPTX after deck QA passes.
+10. Export an editable PPTX after deck QA passes.
 
 ```text
 revela, export the deck to PPTX.
+```
+
+11. Export per-slide PNG files after deck QA passes.
+
+```text
+revela, export the deck to PNG.
 ```
 
 ## Review A Deck
@@ -213,7 +213,6 @@ Use Review after generating an HTML deck:
 /revela review --deck
 ```
 
-Review opens a local deck workspace with two main modes:
+Review opens a local deck workspace for QA and targeted edits:
 
-- Insight explains selected slide content: what claim it supports, what evidence backs it, what caveats or gaps remain, and why it matters in the narrative.
 - Comment lets you request targeted edits on the deck, such as layout, copy, hierarchy, spacing, or visual changes.

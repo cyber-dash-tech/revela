@@ -46,14 +46,14 @@ Codex support is built as small adapter modules around existing Revela capabilit
 
 4. Workflow skills
    - Purpose: give Codex workflow guidance that replaces OpenCode prompt injection for Codex sessions.
-   - Main surfaces: `plugins/revela/skills/revela-init`, `revela-research`, `revela-story`, `revela-make-deck`, `revela-review-deck`, `revela-export`, `revela-design`, and `revela-domain`.
-   - Enables: file-native Init, Research, Story, Make, Review, Export, Design, and Domain workflows in Codex.
+   - Main surfaces: `plugins/revela/skills/revela-init`, `revela-research`, `revela-make-deck`, `revela-review-deck`, `revela-export`, `revela-design`, and `revela-domain`.
+   - Enables: file-native Init, Research, Plan Deck, Make Deck, Review Deck, Export, Design, and Domain workflows in Codex.
    - Does not own: hidden workflow state, approval gates, OpenCode slash-command parity, or direct mutation of canonical compiled caches.
 
 5. MCP server
    - Purpose: expose shared runtime functions to Codex as tools over stdio JSON-RPC.
    - Main surfaces: `bin/revela.ts`, `plugins/revela/mcp/revela-server.ts`, `plugins/revela/mcp/runtime-resolver.ts`, `plugins/revela/.mcp.json`.
-   - Enables: Codex tool calls such as `revela_compile_narrative`, `revela_markdown_qa`, `revela_read_deck_plan`, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_review_deck_open`, `revela_review_deck_read`, `revela_export_pdf`, `revela_export_pptx`, `revela_design_list`, `revela_design_read`, `revela_design_activate`, `revela_domain_list`, `revela_domain_read`, and `revela_domain_activate`.
+   - Enables: Codex tool calls such as `revela_prepare_local_materials`, `revela_extract_document_materials`, `revela_research_save`, `revela_read_deck_plan`, `revela_upsert_deck_plan_slide`, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_review_deck_open`, `revela_review_deck_read`, `revela_export_pdf`, `revela_export_pptx`, `revela_export_png`, `revela_design_list`, `revela_design_read`, `revela_design_activate`, `revela_domain_list`, `revela_domain_read`, and `revela_domain_activate`.
    - Does not own: product workflow policy, broad orchestration, or OpenCode tool replacement. Prefer `revela mcp` as the stable entry; plugin `.mcp.json` is a wrapper for Codex plugin installation.
 
 6. Codex hooks
@@ -86,7 +86,7 @@ Codex support is built as small adapter modules around existing Revela capabilit
    - Add minimal assets and install-surface metadata.
 
 3. Workflow skills
-   - Add `revela-init`, `revela-research`, `revela-story`, `revela-make-deck`, `revela-review-deck`, `revela-export`, `revela-design`, and `revela-domain`.
+   - Add `revela-init`, `revela-research`, `revela-make-deck`, `revela-review-deck`, `revela-export`, `revela-design`, and `revela-domain`.
    - Skills must refer to Codex MCP tools and normal file edits, not OpenCode-only slash commands or OpenCode tool names.
 
 4. Shared runtime boundary
@@ -119,21 +119,21 @@ The first Codex smoke run proved the file-native workflow can complete through t
 
 ## Review UI Roadmap
 
-Codex Review UI is the default surface for a plain `review <deck.html>` request. The current supported Codex Review surface is `revela_review_deck_open` for browser Insight and Comment/Apply Fix, `revela_review_deck_read` over MCP for aggregate diagnostics, `revela review-read` over CLI for deterministic diagnostic reads, and `revela_run_deck_qa` for focused artifact QA.
+Codex Review UI is the default surface for a plain `review <deck.html>` request. The current supported Codex Review surface is `revela_review_deck_open` for browser QA and Comment/Apply Fix, `revela_review_deck_read` over MCP for aggregate diagnostics, `revela review-read` over CLI for deterministic diagnostic reads, and `revela_run_deck_qa` for focused artifact QA.
 
 The next Review server batch should add a Codex-safe prompt bridge before exposing the existing local Refine workspace through MCP. The bridge should be layered so the browser UI can keep working even when a deeper Codex integration is unavailable:
 
-- `pending` bridge: the stable MCP fallback. Browser Insight/Comment actions create pending Review requests; Codex reads them through MCP tools, performs the work, and submits structured results back to the server.
-- `codex-exec` / Codex SDK bridge: the first direct Codex Review server path. Browser Insight/Comment actions start a short-lived Codex job, preferably `codex exec --json --ephemeral -C <workspace>` or the SDK equivalent, wait for structured output, then close the process/thread.
+- `pending` bridge: the stable MCP fallback. Browser Comment/Apply Fix actions create pending Review requests; Codex reads them through MCP tools, performs the work, and submits structured results back to the server.
+- `codex-exec` / Codex SDK bridge: the first direct Codex Review server path. Browser Comment/Apply Fix actions start a short-lived Codex job, preferably `codex exec --json --ephemeral -C <workspace>` or the SDK equivalent, wait for structured output, then close the process/thread.
 - `codex-app-server` bridge: a later deep-integration path for Codex App/CLI parity, current-thread steering, streamed events, and richer approval handling.
 
-Use the `codex-exec` / SDK bridge as the MVP implementation route for interactive Codex Review. It is simpler than the app-server protocol, matches Codex's non-interactive CLI/SDK strengths, and avoids depending on a current interactive session. Insight remains read-only. Comment/Apply Fix may patch artifacts for pure visual edits, while meaning changes must update `revela-narrative/` before artifacts are remade.
+Use the `codex-exec` / SDK bridge as the MVP implementation route for interactive Codex Review. It is simpler than the app-server protocol, matches Codex's non-interactive CLI/SDK strengths, and avoids depending on a current interactive session. Review read diagnostics remain read-only. Comment/Apply Fix may patch artifacts for pure visual edits, while meaning changes must update `deck-plan/` before artifacts are remade.
 
-Review event-stream reliability remains a follow-up for the `codex-exec` bridge. Raw Codex JSONL events such as `{"type":"turn.started"}` are start/progress signals only, not terminal completion. The `/api/comment-events` and `/api/inspect-events` SSE streams should send heartbeat comments while requests are pending, and the Review server should use an idle timeout appropriate for long-running Codex jobs so quiet streams are not closed by Bun's default idle timeout. Frontend fallback polling must still surface terminal `completed`, `failed`, or `timeout` request states when SSE disconnects. Deck-version updates remain authoritative for preview refresh, but they must not be confused with Codex job completion.
+Review event-stream reliability remains a follow-up for the `codex-exec` bridge. Raw Codex JSONL events such as `{"type":"turn.started"}` are start/progress signals only, not terminal completion. The `/api/comment-events` SSE stream should send heartbeat comments while requests are pending, and the Review server should use an idle timeout appropriate for long-running Codex jobs so quiet streams are not closed by Bun's default idle timeout. Frontend fallback polling must still surface terminal `completed`, `failed`, or `timeout` request states when SSE disconnects. Deck-version updates remain authoritative for preview refresh, but they must not be confused with Codex job completion.
 
 Interactive Review should attempt to open the local Review page by default; test, CI, sandbox, and no-GUI flows may pass `openBrowser: false` and use the returned URL instead.
 
-The current OpenCode Review server depends on an OpenCode `client.session.prompt` callback for Comment and Insight interactions; Codex uses the `codex-exec` bridge instead. Deeper Codex app-server integration remains deferred.
+The current OpenCode Review server depends on an OpenCode `client.session.prompt` callback for Comment interactions; Codex uses the `codex-exec` bridge instead. Deeper Codex app-server integration remains deferred.
 
 ## Non-Goals
 

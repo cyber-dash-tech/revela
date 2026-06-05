@@ -19,7 +19,7 @@ export async function handleHelp(
     `\`\`\`\n` +
     `             R E V E L A   H e l p   v${pkg.version}\n` +
     `\`\`\`\n` +
-    `Turn source materials, research, and narrative state into trusted, traceable decision artifacts.\n\n` +
+    `Turn source materials, research, and deck plans into trusted, traceable decision artifacts.\n\n` +
     `**Current**\n\n` +
     `Status: ${status}\n` +
     `Design: \`${design}\`\n` +
@@ -27,25 +27,25 @@ export async function handleHelp(
     `Run \`/revela enable\` to load Revela context without starting a workflow, or run \`/revela disable\` to pause it. Workflow commands still auto-enable Revela.\n\n` +
     `---\n\n` +
     `**Workflow**\n\n` +
-    `1. \`init\` — discover sources, refresh the graph, ask key questions, and recommend next steps\n` +
-    `2. \`research\` — close evidence gaps and bind support\n` +
-    `3. \`story\` — inspect audience, thesis, claims, evidence, risks, and diagnostics\n` +
-    `4. \`make\` — generate deck or brief from canonical story state\n` +
-    `5. \`review\` — comment on and inspect rendered deck artifacts\n` +
-    `6. \`export\` — export deck artifacts to PDF or PPTX\n\n` +
+    `1. \`init\` — discover and review local source materials\n` +
+    `2. \`research\` — save source-linked findings for the deck objective\n` +
+    `3. \`plan --deck\` — create deck-plan/ from materials, research, and user intent\n` +
+    `4. \`make --deck\` — generate HTML deck from deck-plan/\n` +
+    `5. \`review --deck\` — QA and comment on rendered deck artifacts\n` +
+    `6. \`export\` — export deck artifacts to PDF, PPTX, or PNG\n\n` +
     `---\n\n` +
     `**Commands**\n\n` +
     `\`/revela\`                                      — show REVELA help\n` +
     `\`/revela enable\`                               — enable Revela prompt/context without starting a workflow\n` +
     `\`/revela disable\`                              — disable Revela prompt/context for this session\n` +
-    `\`/revela init\`                                 — start Revela: discover sources, refresh story state, ask key questions, and recommend next steps\n` +
-    `\`/revela research\`                             — research, bind evidence, and reduce story gaps\n` +
-    `\`/revela story [-l language]\`                   — open the read-only story workspace UI\n` +
-    `\`/revela make --deck\`                          — make a deck from story state and deck-plan/\n` +
-    `\`/revela make --brief [file.md]\`                — render executive brief from story state\n` +
-    `\`/revela review --deck\`                        — open deck reading, insight, and comment workspace\n` +
+    `\`/revela init\`                                 — discover local sources, extract materials, and capture deck intent\n` +
+    `\`/revela research\`                             — research and save source-linked deck findings\n` +
+    `\`/revela plan --deck\`                          — create or update deck-plan/ from materials and research\n` +
+    `\`/revela make --deck\`                          — make a deck from deck-plan/\n` +
+    `\`/revela review --deck\`                        — open deck QA and comment workspace\n` +
     `\`/revela export --deck pdf [file.html]\`         — export HTML deck to PDF\n` +
     `\`/revela export --deck pptx [file.html] [--notes]\` — export HTML deck to PPTX\n` +
+    `\`/revela export --deck png [file.html]\`         — export HTML deck to per-slide PNG files\n` +
     `\`/revela design\`                               — list installed designs\n` +
     `\`/revela design --use <name>\`                  — activate a design\n` +
     `\`/revela design --preview [name]\`              — open a design preview in browser\n` +

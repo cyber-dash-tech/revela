@@ -20,7 +20,7 @@
   "interface": {
     "displayName": "Revela",
     "shortDescription": "Trusted narrative artifacts from local sources and research.",
-    "longDescription": "Revela helps Codex initialize a narrative vault, bind evidence, plan decks, generate artifact foundations, run QA, and export decision artifacts while preserving source traceability.",
+    "longDescription": "Revela helps Codex ingest local materials, save research findings, plan decks, generate HTML deck artifacts, review them, and export PDF/PPTX/PNG outputs while preserving source traceability.",
     "developerName": "cyber-dash-tech",
     "category": "Productivity",
     "capabilities": [
@@ -29,7 +29,7 @@
     ],
     "defaultPrompt": [
       "Use Revela to initialize this workspace.",
-      "Use Revela to make a deck from the narrative.",
+      "Use Revela to make a deck from the deck plan.",
       "Use Revela to review this deck artifact."
     ],
     "brandColor": "#2563EB"

@@ -527,6 +527,10 @@ describe("refine HTTP inspect lifecycle", () => {
     }), 100)
     const data = await response.json() as any
 
+    expect(response.status).toBe(410)
+    expect(promptCalled).toBe(false)
+    expect(data.error).toContain("removed")
+    return
     expect(promptCalled).toBe(true)
     expect(data.ok).toBe(true)
     expect(data.status).toBe("pending")
@@ -641,6 +645,9 @@ describe("refine HTTP inspect lifecycle", () => {
       body: JSON.stringify({ snapshot: { slideIndex: 1, text: "Launch", tagName: "H1", classList: [] } }),
     })
     const data = await response.json() as any
+    expect(response.status).toBe(410)
+    expect(data.error).toContain("removed")
+    return
     expect(response.status).toBe(200)
     expect(data).toMatchObject({ ok: true, status: "pending" })
     const resultUrl = new URL(opened.url)
@@ -735,13 +742,16 @@ describe("refine HTTP inspect lifecycle", () => {
       body: JSON.stringify({ snapshot: { slideIndex: 1, text: "Launch", tagName: "H1", classList: [] } }),
     })
     const data = await response.json() as any
+    expect(response.status).toBe(410)
+    expect(data.error).toContain("removed")
+    return
 
     const eventsUrl = new URL(opened.url)
     eventsUrl.pathname = "/api/inspect-events"
     eventsUrl.searchParams.set("requestId", data.requestId)
     const eventsResponse = await fetch(eventsUrl)
     expect(eventsResponse.status).toBe(200)
-    const reader = eventsResponse.body?.getReader()
+    const reader = eventsResponse.body!.getReader()
     if (!reader) throw new Error("Missing SSE body reader")
 
     const historical = await readSseEvents(reader, 1)

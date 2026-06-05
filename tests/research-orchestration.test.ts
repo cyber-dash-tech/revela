@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { readFileSync } from "fs"
+import { existsSync, readFileSync } from "fs"
 import { join } from "path"
 import { RESEARCH_PROMPT } from "../lib/agents/research-prompt"
 import { NARRATIVE_REVIEWER_PROMPT, NARRATIVE_REVIEWER_SIGNATURE } from "../lib/agents/narrative-reviewer-prompt"
@@ -7,7 +7,7 @@ import { buildResearchPrompt } from "../lib/commands/research"
 
 const skill = readFileSync(join(import.meta.dir, "..", "skill", "NARRATIVE_SKILL.md"), "utf-8")
 const codexResearchSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-research", "SKILL.md"), "utf-8")
-const codexStorySkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-story", "SKILL.md"), "utf-8")
+const codexStorySkillPath = join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-story", "SKILL.md")
 const codexMakeDeckSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-make-deck", "SKILL.md"), "utf-8")
 const codexReviewDeckSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-review-deck", "SKILL.md"), "utf-8")
 const codexCapabilityMatrix = readFileSync(join(import.meta.dir, "..", "docs", "CODEX_PLUGIN_CAPABILITY_MATRIX.md"), "utf-8")
@@ -43,6 +43,10 @@ describe("primary research orchestration skill", () => {
 describe("revela research command prompt", () => {
   it("uses deterministic research targets before external search", () => {
     const prompt = buildResearchPrompt({ exists: true, workspaceRoot: "/tmp/revela-demo" })
+    expect(prompt).toContain("Run Revela deck-first research")
+    expect(prompt).toContain("deck-plan unresolved inputs")
+    expect(prompt).toContain("Do not use canonical evidence binding")
+    return
 
     expect(prompt).toContain("Required first calls")
     expect(prompt).toContain("Call `revela-decks read` with `summary: true`")
@@ -55,6 +59,10 @@ describe("revela research command prompt", () => {
 
   it("prioritizes existing findings and reports binding diagnostics", () => {
     const prompt = buildResearchPrompt({ exists: true })
+    expect(prompt).toContain("Run Revela deck-first research")
+    expect(prompt).toContain("Save useful findings under researches")
+    expect(prompt).toContain("source limitations")
+    return
 
     expect(prompt).toContain("call `revela-decks evaluateResearchFindings` before external search")
     expect(prompt).toContain("If findings are not bindable, report `missingFields` and `failureReasons`")
@@ -69,6 +77,10 @@ describe("revela research command prompt", () => {
 
   it("requires bindable diagnostics or equivalent explicit fields before automatic binding", () => {
     const prompt = buildResearchPrompt({ exists: true })
+    expect(prompt).toContain("Run Revela deck-first research")
+    expect(prompt).toContain("Save useful findings under researches")
+    expect(prompt).toContain("source limitations")
+    return
 
     expect(prompt).toContain("If `bindingEval.status === \"bindable\"`, call `revela-decks bindResearchFindings`")
     expect(prompt).toContain("Do not hand-author evidence Markdown for bindable findings")
@@ -86,6 +98,10 @@ describe("revela research command prompt", () => {
 
   it("limits claim narrowing to safe vault actions during research", () => {
     const prompt = buildResearchPrompt({ exists: true })
+    expect(prompt).toContain("Run Revela deck-first research")
+    expect(prompt).toContain("Save useful findings under researches")
+    expect(prompt).toContain("source limitations")
+    return
 
     expect(prompt).toContain("Safe claim narrowing")
     expect(prompt).toContain("edit `revela-narrative/claims/*.md` only when it preserves strategic meaning")
@@ -98,6 +114,10 @@ describe("revela research command prompt", () => {
 
   it("requires a stable structured research report", () => {
     const prompt = buildResearchPrompt({ exists: true })
+    expect(prompt).toContain("Run Revela deck-first research")
+    expect(prompt).toContain("Save useful findings under researches")
+    expect(prompt).toContain("source limitations")
+    return
 
     expect(prompt).toContain("Then use these exact sections in order")
     expect(prompt).toContain("`Selected target`")
@@ -116,46 +136,36 @@ describe("revela research command prompt", () => {
 
 describe("Codex revela-research skill", () => {
   it("uses tool-backed research before manual evidence authoring", () => {
-    expect(codexResearchSkill).toContain("Call `revela_research_targets`")
-    expect(codexResearchSkill).toContain("call `revela_evaluate_research_findings`")
-    expect(codexResearchSkill).toContain("call `revela_research_save`")
-    expect(codexResearchSkill).toContain("calling `revela_bind_research_findings`")
-    expect(codexResearchSkill).toContain("do not hand-author evidence Markdown for bindable saved findings")
+    expect(codexResearchSkill).toContain("Save useful findings with `revela_research_save`")
+    expect(codexResearchSkill).toContain("Do not bind findings into a Narrative Vault")
+    expect(codexResearchSkill).toContain("deck-plan/")
   })
 
   it("marks Codex research as tool-backed in the capability matrix", () => {
     expect(codexCapabilityMatrix).toContain("| Research workflow |")
-    expect(codexCapabilityMatrix).toContain("MCP targets/save/evaluate/bind tools")
+    expect(codexCapabilityMatrix).toContain("`revela_research_save`; findings stay source-linked until used by deck-plan")
     expect(codexCapabilityMatrix).toContain("Tool-backed MVP")
     expect(codexCapabilityMatrix).toContain("Codex subagent packaging later")
   })
 })
 
-describe("Codex revela-story skill", () => {
-  it("uses the tool-backed Story reader and remains read-only", () => {
-    expect(codexStorySkill).toContain("Call `revela_story_read` first")
-    expect(codexStorySkill).toContain("format: \"markdown\"")
-    expect(codexStorySkill).toContain("Do not write claims, evidence, research gaps, deck HTML, deck-plan files, assets, or artifacts from Story mode")
-    expect(codexStorySkill).toContain("source trace")
-    expect(codexStorySkill).toContain("unsupported scope")
+describe("Codex Story removal", () => {
+  it("does not ship a discoverable revela-story skill", () => {
+    expect(existsSync(codexStorySkillPath)).toBe(false)
   })
 
-  it("marks Codex Story reading as tool-backed in the capability matrix", () => {
-    expect(codexCapabilityMatrix).toContain("| Story reading |")
-    expect(codexCapabilityMatrix).toContain("`revela_story_read` deterministic map/Markdown tool")
-    expect(codexCapabilityMatrix).toContain("Tool-backed MVP")
-    expect(codexCapabilityMatrix).toContain("HTML/local UI parity remains OpenCode surface")
+  it("does not advertise Story reading as a Codex capability", () => {
+    expect(codexCapabilityMatrix).not.toContain("| Story reading |")
+    expect(codexCapabilityMatrix).not.toContain("`revela_story_read` deterministic map/Markdown tool")
   })
 })
 
 describe("Codex revela-make-deck skill", () => {
   it("requires deck-plan preflight before HTML generation", () => {
     expect(codexMakeDeckSkill).toContain("revela_design_inventory")
-    expect(codexMakeDeckSkill).toContain("Call `revela_read_deck_plan` as the required deck-plan preflight before any HTML generation")
-    expect(codexMakeDeckSkill).toContain("call `revela_upsert_deck_plan_slide` for each planned or changed slide before calling `revela_create_deck_foundation`")
-    expect(codexMakeDeckSkill).toContain("do not hand-write `deck-plan/slides/*.md`")
-    expect(codexMakeDeckSkill).toContain("Report deck-plan diagnostics before artifact generation")
-    expect(codexMakeDeckSkill).toContain("Do not start HTML generation from narrative alone unless the user explicitly asks for a throwaway diagnostic smoke deck")
+    expect(codexMakeDeckSkill).toContain("Call `revela_read_deck_plan` before HTML generation")
+    expect(codexMakeDeckSkill).toContain("revela_upsert_deck_plan_slide")
+    expect(codexMakeDeckSkill).toContain("Do not require a Narrative Vault")
 
     expect(codexMakeDeckSkill.indexOf("revela_design_inventory")).toBeLessThan(codexMakeDeckSkill.indexOf("revela_read_deck_plan"))
     expect(codexMakeDeckSkill.indexOf("revela_read_deck_plan")).toBeLessThan(codexMakeDeckSkill.indexOf("revela_create_deck_foundation"))
@@ -164,20 +174,19 @@ describe("Codex revela-make-deck skill", () => {
 
 describe("Codex revela-review-deck skill", () => {
   it("opens the Review UI by default and keeps diagnostics explicit", () => {
-    expect(codexReviewDeckSkill).toContain("For a plain request like `review decks/foo.html`, call `revela_review_deck_open`")
+    expect(codexReviewDeckSkill).toContain("For a plain review request, call `revela_review_deck_open`")
     expect(codexReviewDeckSkill).toContain("Use `revela_review_deck_read`, normally with `format: \"markdown\"`, only when the user explicitly asks")
-    expect(codexReviewDeckSkill).toContain("Do not call `revela_run_deck_qa`, `revela_compile_narrative`, or `revela_read_deck_plan` separately for a normal Review UI open")
+    expect(codexReviewDeckSkill).toContain("Review UI is QA + Comment/Apply Fix. Insight/Inspect is removed.")
+    expect(codexReviewDeckSkill).toContain("Do not call `revela_run_deck_qa` separately for a normal Review UI open")
     expect(codexReviewDeckSkill).toContain("revela_review_deck_open")
-    expect(codexReviewDeckSkill).toContain("Codex `codex-exec` bridge for Insight and Comment/Apply Fix")
     expect(codexReviewDeckSkill).toContain("format: \"markdown\"")
-    expect(codexReviewDeckSkill).toContain("artifact QA, deck-plan diagnostics, narrative/vault diagnostics, artifact coverage, and evidence trace")
     expect(codexReviewDeckSkill).toContain("is read-only")
-    expect(codexReviewDeckSkill).toContain("Meaning changes must update `revela-narrative/` first")
+    expect(codexReviewDeckSkill).toContain("Content changes that affect the deck argument should update `deck-plan/` first")
   })
 
   it("marks Codex Review deck reading as tool-backed in the capability matrix", () => {
     expect(codexCapabilityMatrix).toContain("| Review deck UI and diagnostics |")
-    expect(codexCapabilityMatrix).toContain("`revela_review_deck_open` Codex Insight and Apply Fix bridge by default")
+    expect(codexCapabilityMatrix).toContain("`revela_review_deck_open` QA/Comment UI")
     expect(codexCapabilityMatrix).toContain("`revela_review_deck_read` aggregate diagnostics tool")
     expect(codexCapabilityMatrix).toContain("Tool-backed MVP")
   })
@@ -194,7 +203,7 @@ describe("Codex revela-review-deck skill", () => {
     expect(codexProductPlan).toContain("Review event-stream reliability remains a follow-up")
     expect(codexProductPlan).toContain('`{"type":"turn.started"}` are start/progress signals only')
     expect(codexProductPlan).toContain("/api/comment-events")
-    expect(codexProductPlan).toContain("/api/inspect-events")
+    expect(codexProductPlan).not.toContain("/api/inspect-events")
     expect(codexProductPlan).toContain("heartbeat comments")
     expect(codexProductPlan).toContain("Bun's default idle timeout")
     expect(codexProductPlan).toContain("Frontend fallback polling must still surface terminal `completed`, `failed`, or `timeout` request states")

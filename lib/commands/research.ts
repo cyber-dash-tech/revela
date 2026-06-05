@@ -7,6 +7,30 @@ export function buildResearchPrompt({
   exists: boolean
   workspaceRoot?: string
 }): string {
+  return `Run Revela deck-first research.
+
+Goal:
+- Gather source-linked findings that help the user's deck objective, current material reviews, existing research files, and deck-plan unresolved inputs.
+- Save useful findings under researches/{topic}/{filename}.md.
+- Do not create, bind, compile, or require revela-narrative/.
+- Do not use canonical evidence binding, narrative research targets, Story, or research-gap lifecycle concepts.
+
+Current state:
+- Legacy/cache state exists: ${exists ? "yes" : "no"}.
+${workspaceRoot ? `- Current workspace root: \`${workspaceRoot}\`` : ""}
+
+Workflow:
+1. Inspect material intake registry/check output, material review files, existing researches/**/*.md, and deck-plan/ when present.
+2. Identify the smallest research tasks needed for the deck: missing market facts, benchmarks, examples, source quotes, images/logos/screenshots, or caveats.
+3. Use external research only for public facts or user-authorized questions. Do not invent URLs, quotes, page references, numbers, or licenses.
+4. Save every useful finding with source URLs/paths, quote/snippet, what it supports, what it does not support, caveat, date checked, and optional image leads.
+5. If a finding is only context, label it as context. Do not promote it to proof.
+
+Report:
+- Start with "Research: completed".
+- List research tasks addressed, saved findings paths, source limitations, unresolved inputs, and whether /revela plan --deck can proceed.
+- If no useful findings were saved, state exactly what source type is needed next.`
+
   const state = exists
     ? `${DECKS_STATE_FILE} exists. Read it through the revela-decks tool before researching.`
     : `${DECKS_STATE_FILE} does not exist yet. Do not start broad internet research; initialize the workspace first with /revela init unless the user supplied a specific research question in chat.`

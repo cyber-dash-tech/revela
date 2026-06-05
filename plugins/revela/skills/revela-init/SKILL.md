@@ -1,46 +1,31 @@
 ---
 name: revela-init
-description: Initialize or refresh a Revela narrative workspace in Codex from local source materials, preserving source traceability and file-native state.
+description: Initialize a Revela deck-first workspace in Codex from local source materials and material reviews.
 ---
 
 # Revela Init
 
-Use this skill when the user asks to start Revela, initialize the workspace, ingest local materials, or prepare a trusted narrative graph.
+Use this skill when the user asks to start Revela, initialize the workspace, ingest local materials, or prepare source inputs for a deck.
 
 ## Product Contract
 
-- `revela-narrative/` is the editable source of truth for communication meaning when present.
-- `NarrativeStateV1` is the compiled internal interface.
-- `deck-plan/` is render planning, not canonical meaning.
-- `decks/*.html` are artifacts.
-- `DECKS.json` is compatibility/cache state, not workflow authority.
-- Do not invent quotes, source paths, URLs, page references, caveats, claim ids, evidence ids, or artifact coverage.
+- Init prepares local source material intake; it does not create a Narrative Vault.
+- Durable deck-first state is local material intake, material review files, `researches/`, `deck-plan/`, `assets/`, and `decks/*.html`.
+- Scan results prove only that files exist. A material is usable only after its direct text or extracted read view has been reviewed.
+- Do not invent quotes, source paths, URLs, page references, caveats, licenses, or artifact coverage.
 
 ## Workflow
 
-1. Call `revela_prepare_local_materials` first. Treat scan results as an intake registry and task list, not as source content.
-2. For any registry entry with `requiresExtraction: true`, do not read the original Office/PDF file directly for narrative intake. Use the returned `allowedReadPath` / `read_view_path`; if missing, call `revela_extract_document_materials` first.
-3. Prefer local source materials first: Markdown, text, CSV, PDFs, Office files, existing `researches/`, existing `revela-narrative/`, `deck-plan/`, and `decks/`.
-4. After reading extracted material views, call `revela_record_material_review` for each considered Office/PDF source. Record what was merged, deferred, ignored, or left as a gap.
-5. Call `revela_domain_list` and `revela_domain_read` for active domain guidance before authoring narrative meaning. Treat domain guidance as framing guidance, never as evidence.
-6. If `revela-narrative/` exists, call `revela_markdown_qa` and `revela_compile_narrative`.
-7. If the narrative vault is missing, create the initial `revela-narrative/` Markdown nodes directly with valid frontmatter and plain wikilink relations.
-8. Evidence nodes must preserve source, quote/snippet, support scope, unsupported scope, caveat, and strength before being treated as support.
-9. After writing narrative Markdown, call `revela_markdown_qa` and `revela_compile_narrative` again.
-10. Before the final report, call `revela_check_material_intake` and surface any warnings about scanned-but-unextracted, extracted-but-unreviewed, unsupported, failed, or text-only sources.
-11. End with a concise init report: local materials found, active domain, narrative graph status, material intake status, open gaps, Markdown QA status, and next command/action.
+1. Call `revela_prepare_local_materials` first. Treat the result as an intake registry and task list.
+2. For Office/PDF sources, read `allowedReadPath` / `read_view_path`; if missing, call `revela_extract_document_materials`.
+3. Prefer local source materials first: Markdown, text, CSV, PDFs, Office files, existing `researches/`, `deck-plan/`, `assets/`, and `decks/`.
+4. After reading extracted material views, call `revela_record_material_review` for each considered Office/PDF source.
+5. Call `revela_check_material_intake` before the final report and surface scanned-but-unreviewed, unsupported, failed, or text-only limitations.
+6. Ask only high-impact intent questions: audience, objective, decision/action, scope, language, source priority, or whether public research is allowed.
+7. End with an intake report: local materials found, read views reviewed, material reviews recorded, source limitations, captured user intent, and next command.
 
-## Material Intake Rules
+## Report
 
-- Scan results only prove that files exist; they do not prove file content.
-- For `.docx`, `.pptx`, `.xlsx`, and `.pdf`, read the extracted `read_view_path` instead of using Codex/textutil/raw reads of the original file.
-- Extracted images are candidate materials only. Do not interpret them as evidence unless image meaning is explicitly reviewed or supplied by the user.
-- If a user explicitly asks for text-only inspection, report it as degraded intake and do not treat it as complete source review.
-
-## Markdown Rules
-
-- Use node types: `index`, `audience`, `decision`, `thesis`, `claim`, `evidence`, `objection`, `risk`, `research-gap`.
-- Use one leading frontmatter block per file.
-- Use `## Relations` with plain node-id wikilinks, such as `- supports: [[claim-recommendation]]`.
-- Do not use typed wikilinks such as `[[claim:claim-recommendation]]`.
-- Do not duplicate stable headings like `## Evidence`, `## Caveats`, `## Relations`, `## Response`, or `## Mitigation`.
+- Recommend `/revela research` when public/source support is still needed.
+- Recommend `/revela plan --deck` when enough local/research inputs exist.
+- Do not ask for layout, visual style, output path, export format, or approval during init.

@@ -7,6 +7,30 @@ export function buildInitPrompt({
   exists: boolean
   workspaceRoot?: string
 }): string {
+  return `Start Revela deck-first workspace intake.
+
+Goal:
+- Discover local source materials and prepare them for deck planning.
+- Do not create or update revela-narrative/.
+- Treat local files, extraction read views, material reviews, saved research, assets, deck-plan/, and decks/*.html as the product workspace.
+- End with a concise intake report and the next command: /revela research when external support is needed, or /revela plan --deck when enough inputs exist.
+
+Current state:
+- Legacy/cache state exists: ${exists ? "yes" : "no"}.
+${workspaceRoot ? `- Current workspace root: \`${workspaceRoot}\`` : ""}
+
+Workflow:
+1. Call revela_prepare_local_materials or the OpenCode material tools to scan at max depth 2 and extract Office/PDF sources when supported.
+2. Read direct text/Markdown/CSV sources and extracted read views only for relevant materials.
+3. Record material reviews for every Office/PDF source you rely on. Use "merged", "deferred", "ignored", or "gap" decisions as intake notes only; do not create a product research-gap object.
+4. Check material intake before final reporting and surface scanned-but-unreviewed, unsupported, failed, or text-only limitations.
+5. Ask only high-impact missing intent questions: audience, objective, decision/action, scope, language, source priority, or whether public research is allowed.
+
+Report:
+- Start with "Init: completed" or "Init: needs input".
+- Include local files found, extracted read views, material reviews recorded, source limitations, user intent captured, and next command.
+- Do not ask for slide layout, visual style, export format, or approval during init.`
+
   const mode = exists
     ? `A ${DECKS_STATE_FILE} file already exists as legacy/cache state. Read it first through the revela-decks tool and update it conservatively only for compatibility metadata.`
     : `No ${DECKS_STATE_FILE} file exists yet. Keep this workspace file-native: initialize the Markdown narrative vault before writing narrative meaning and do not create ${DECKS_STATE_FILE}.`

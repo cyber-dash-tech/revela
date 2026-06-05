@@ -18,7 +18,7 @@ export async function handleRefine(
       `File: \`${result.deck.file}\`\n` +
       `${result.stateNote}\n` +
       `URL: ${result.url}\n\n` +
-      `Use Ctrl/Cmd-click in the browser to reference deck elements. The Comment tab sends targeted change comments; the Insight tab reviews the same selection with Source/Purpose cards and does not edit the deck.`
+      `Use Ctrl/Cmd-click in the browser to reference deck elements. The Comment tab sends targeted change comments and applies deck edits after artifact QA.`
     )
   } catch (e: any) {
     await send(`**Review failed:** ${e.message || String(e)}`)

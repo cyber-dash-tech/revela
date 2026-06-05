@@ -8,7 +8,7 @@ export function recordRenderedArtifact(
   input: {
     sourceHtmlPath: string
     outputPath: string
-    type: "pdf" | "pptx"
+    type: "pdf" | "pptx" | "png"
     actor: string
     artifactVersion?: string
   },

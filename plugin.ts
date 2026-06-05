@@ -44,6 +44,7 @@ import {
 } from "./lib/commands/domains"
 import { handlePdf } from "./lib/commands/pdf"
 import { buildPptxNotesPrompt, handlePptx, parsePptxArgs, resolvePptxDeck } from "./lib/commands/pptx"
+import { handlePng } from "./lib/commands/png"
 import { handleRefine } from "./lib/commands/refine"
 import { formatArtifactQAReport, runArtifactQA } from "./lib/qa/artifact"
 import { ensureRefineDeckOpenForChange } from "./lib/refine/open"
@@ -57,9 +58,7 @@ import {
 } from "./lib/commands/designs-new"
 import { buildInitPrompt } from "./lib/commands/init"
 import { buildResearchPrompt } from "./lib/commands/research"
-import { handleBrief, parseBriefArgs } from "./lib/commands/brief"
-import { buildNarrativeViewPrompt, parseStoryArgs } from "./lib/commands/narrative"
-import { buildDeckPrompt } from "./lib/commands/review"
+import { buildDeckMakePrompt, buildDeckPlanPrompt } from "./lib/commands/review"
 import {
   extractDeckHtmlTargetsFromPatch,
   extractPatchTextArg,
@@ -87,9 +86,6 @@ import mediaBatchSaveTool from "./tools/media-batch-save"
 import mediaSaveTool from "./tools/media-save"
 import researchImagesListTool from "./tools/research-images-list"
 import researchSaveTool from "./tools/research-save"
-import inspectionContextTool from "./tools/inspection-context"
-import inspectionResultTool from "./tools/inspection-result"
-import narrativeViewTool from "./tools/narrative-view"
 import workspaceScanTool from "./tools/workspace-scan"
 import extractDocumentMaterialsTool from "./tools/extract-document-materials"
 import qaTool from "./tools/qa"
@@ -356,23 +352,31 @@ const server: Plugin = (async (pluginCtx) => {
             sessionID,
             name: "make --deck",
             mode: "deck-render",
-            visibleText: "Make Revela deck from approved story.",
-            hiddenPrompt: buildDeckPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
+            visibleText: "Make Revela deck from deck-plan.",
+            hiddenPrompt: buildDeckMakePrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
             output,
           })
           return
         }
-        if (target === "--brief") {
-          const parsed = parseBriefArgs(makeParam)
-          if (!parsed.ok) {
-            await send(parsed.error.replace("/revela brief", "/revela make --brief"))
-            throw new Error("__REVELA_MAKE_BRIEF_USAGE_HANDLED__")
-          }
-          await handleBrief({ workspaceRoot, outputPath: parsed.args.outputPath }, send)
-          throw new Error("__REVELA_MAKE_BRIEF_HANDLED__")
-        }
-        await send("Usage: `/revela make --deck` or `/revela make --brief [workspace-relative-output.md]`.")
+        await send("Usage: `/revela make --deck`.")
         throw new Error("__REVELA_MAKE_USAGE_HANDLED__")
+      }
+      if (sub === "plan") {
+        const target = args[1]?.toLowerCase() ?? ""
+        const planParam = args.slice(2).join(" ")
+        if (target !== "--deck" || planParam) {
+          await send("Usage: `/revela plan --deck`.")
+          throw new Error("__REVELA_PLAN_USAGE_HANDLED__")
+        }
+        queueWorkflowCommand({
+          sessionID,
+          name: "plan --deck",
+          mode: "deck-render",
+          visibleText: "Plan Revela deck from local materials and research.",
+          hiddenPrompt: buildDeckPlanPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
+          output,
+        })
+        return
       }
       if (sub === "review") {
         if (param !== "--deck") {
@@ -395,13 +399,17 @@ const server: Plugin = (async (pluginCtx) => {
         const target = args[1]?.toLowerCase() ?? ""
         const format = args[2]?.toLowerCase() ?? ""
         const exportParam = args.slice(3).join(" ")
-        if (target !== "--deck" || (format !== "pdf" && format !== "pptx")) {
-          await send("Usage: `/revela export --deck pdf [file.html]` or `/revela export --deck pptx [file.html] [--notes]`.")
+        if (target !== "--deck" || (format !== "pdf" && format !== "pptx" && format !== "png")) {
+          await send("Usage: `/revela export --deck pdf [file.html]`, `/revela export --deck pptx [file.html] [--notes]`, or `/revela export --deck png [file.html]`.")
           throw new Error("__REVELA_EXPORT_USAGE_HANDLED__")
         }
         if (format === "pdf") {
           await handlePdf(exportParam, send, workspaceRoot)
           throw new Error("__REVELA_EXPORT_PDF_HANDLED__")
+        }
+        if (format === "png") {
+          await handlePng(exportParam, send, workspaceRoot)
+          throw new Error("__REVELA_EXPORT_PNG_HANDLED__")
         }
         const pptxArgs = parsePptxArgs(exportParam)
         if (pptxArgs.notes) {
@@ -530,7 +538,7 @@ const server: Plugin = (async (pluginCtx) => {
         throw new Error("__REVELA_DOMAIN_USAGE_HANDLED__")
       }
       const legacyCommands = new Set([
-        "review", "narrative", "deck", "brief", "edit", "inspect", "remember",
+        "narrative", "deck", "brief", "edit", "inspect", "story", "remember",
         "designs", "designs-new", "designs-edit", "designs-preview", "designs-add", "designs-rm",
         "domains", "domains-add", "domains-rm", "pdf", "pptx",
       ])
@@ -551,31 +559,15 @@ const server: Plugin = (async (pluginCtx) => {
       }
       if (sub === "research") {
         if (param) {
-          await send("`/revela research` does not accept arguments yet. Add the research question in normal chat, or run it to work from open story gaps.")
+          await send("`/revela research` does not accept arguments yet. Add the research question in normal chat, or run it to work from deck inputs and unresolved source needs.")
           throw new Error("__REVELA_RESEARCH_USAGE_HANDLED__")
         }
         queueWorkflowCommand({
           sessionID,
           name: "research",
           mode: "narrative",
-          visibleText: "Research Revela story gaps.",
+          visibleText: "Research Revela deck inputs.",
           hiddenPrompt: buildResearchPrompt({ exists: hasDecksState(workspaceRoot), workspaceRoot }),
-          output,
-        })
-        return
-      }
-      if (sub === "story") {
-        const parsed = parseStoryArgs(param)
-        if (!parsed.ok) {
-          await send(parsed.error)
-          throw new Error("__REVELA_STORY_USAGE_HANDLED__")
-        }
-        queueWorkflowCommand({
-          sessionID,
-          name: "story",
-          mode: "narrative",
-          visibleText: "Open Revela story workspace.",
-          hiddenPrompt: buildNarrativeViewPrompt({ workspaceRoot, language: parsed.args.language }),
           output,
         })
         return
@@ -596,9 +588,6 @@ const server: Plugin = (async (pluginCtx) => {
       "revela-media-save": mediaSaveTool,
       "revela-research-images-list": researchImagesListTool,
       "revela-research-save": researchSaveTool,
-      "revela-inspection-context": inspectionContextTool,
-      "revela-inspection-result": inspectionResultTool,
-      "revela-narrative-view": narrativeViewTool,
       "revela-workspace-scan": workspaceScanTool,
       "revela-extract-document-materials": extractDocumentMaterialsTool,
       "revela-qa": qaTool,

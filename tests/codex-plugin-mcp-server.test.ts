@@ -31,13 +31,14 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("\"serverInfo\"")
     expect(text.stdout).toContain("revela_doctor")
     expect(text.stdout).toContain("revela_upsert_deck_plan_slide")
-    expect(text.stdout).toContain("revela_research_targets")
     expect(text.stdout).toContain("revela_research_save")
-    expect(text.stdout).toContain("revela_evaluate_research_findings")
-    expect(text.stdout).toContain("revela_bind_research_findings")
-    expect(text.stdout).toContain("revela_story_read")
+    expect(text.stdout).toContain("revela_export_png")
     expect(text.stdout).toContain("revela_review_deck_read")
     expect(text.stdout).toContain("revela_review_deck_open")
+    expect(text.stdout).not.toContain("revela_research_targets")
+    expect(text.stdout).not.toContain("revela_evaluate_research_findings")
+    expect(text.stdout).not.toContain("revela_bind_research_findings")
+    expect(text.stdout).not.toContain("revela_story_read")
     expect(text.stdout).toContain("revela_design_inventory")
     expect(text.stdout).toContain("revela_design_read_layout")
     expect(text.stdout).toContain("revela_design_read_component")
@@ -226,11 +227,8 @@ describe("Codex plugin MCP server", () => {
     expect(text.stderr).toContain("\"method\":\"initialize\"")
   })
 
-  it("calls research target and findings evaluation tools", async () => {
+  it("saves source-linked research findings through MCP", async () => {
     const root = tempWorkspace("revela-mcp-research-")
-    writeResearchVault(root)
-    mkdirSync(join(root, "researches", "pilot"), { recursive: true })
-    writeFileSync(join(root, "researches", "pilot", "ops.md"), "- claimId: claim-pilot\n- Source: https://example.com/ops\n", "utf-8")
     const child = spawn("bun", [serverPath], { stdio: ["pipe", "pipe", "pipe"] })
     const output = collectOutput(child)
 
@@ -240,44 +238,23 @@ describe("Codex plugin MCP server", () => {
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "revela_research_targets", arguments: { workspaceRoot: root } },
-    }))
-    child.stdin.write(frame({
-      jsonrpc: "2.0",
-      id: 3,
-      method: "tools/call",
-      params: { name: "revela_evaluate_research_findings", arguments: { workspaceRoot: root, findingsFile: "researches/pilot/ops.md" } },
+      params: {
+        name: "revela_research_save",
+        arguments: {
+          workspaceRoot: root,
+          topic: "pilot",
+          filename: "ops",
+          content: "Source: https://example.com/ops\nQuote: Pilot reduced cycle time.\nSupports: deck-plan source context only.",
+          sources: ["https://example.com/ops"],
+        },
+      },
     }))
 
-    const text = await output.until((item) => item.stdout.includes("\"id\":3") && item.stdout.includes("needs_fields"))
+    const text = await output.until((item) => item.stdout.includes("\"id\":2") && item.stdout.includes("researches/pilot/ops.md"))
     child.kill()
 
-    expect(text.stdout).toContain("research_gap")
-    expect(text.stdout).toContain("claim-pilot")
-    expect(text.stdout).toContain("needs_fields")
-  })
-
-  it("calls the Story read tool with Markdown output", async () => {
-    const root = tempWorkspace("revela-mcp-story-")
-    writeResearchVault(root)
-    const child = spawn("bun", [serverPath], { stdio: ["pipe", "pipe", "pipe"] })
-    const output = collectOutput(child)
-
-    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
-    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
-    child.stdin.write(frame({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: { name: "revela_story_read", arguments: { workspaceRoot: root, format: "markdown" } },
-    }))
-
-    const text = await output.until((item) => item.stdout.includes("\"id\":2") && item.stdout.includes("Narrative Snapshot"))
-    child.kill()
-
-    expect(text.stdout).toContain("claim-pilot")
-    expect(text.stdout).toContain("diagnosticsMarkdown")
-    expect(text.stdout).toContain("gap-pilot-evidence")
+    expect(text.stdout).toContain("\\\"ok\\\": true")
+    expect(readFileSync(join(root, "researches", "pilot", "ops.md"), "utf-8")).toContain("Pilot reduced cycle time")
   })
 
   it("calls design and domain list/read/activate tools", async () => {
@@ -809,8 +786,9 @@ describe("Codex plugin MCP server", () => {
     child.kill()
 
     expect(text.stdout).toContain("Artifact QA: passed")
-    expect(text.stdout).toContain("No revela-narrative/")
-    expect(text.stdout).toContain("inspectionContext")
+    expect(text.stdout).toContain("Deck-plan:")
+    expect(text.stdout).not.toContain("inspectionContext")
+    expect(text.stdout).not.toContain("No revela-narrative/")
   }, 60000)
 
   it("calls material intake tools for a docx source", async () => {

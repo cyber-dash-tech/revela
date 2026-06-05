@@ -217,19 +217,19 @@ async function handleRequest(req: Request): Promise<Response> {
   if (url.pathname === "/api/inspect" && req.method === "POST") {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
-    return handleInspect(req, session.value)
+    return jsonResponse({ ok: false, error: "Review Insight/Inspect was removed in Revela 0.18. Use Comment for deck edits." }, 410)
   }
 
   if (url.pathname === "/api/inspect-result" && req.method === "GET") {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
-    return handleInspectResult(url.searchParams.get("requestId"), session.value)
+    return jsonResponse({ ok: false, error: "Review Insight/Inspect was removed in Revela 0.18." }, 410)
   }
 
   if (url.pathname === "/api/inspect-events" && req.method === "GET") {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
-    return handleInspectEvents(url.searchParams.get("requestId"), session.value)
+    return jsonResponse({ ok: false, error: "Review Insight/Inspect was removed in Revela 0.18." }, 410)
   }
 
   if (url.pathname === "/api/deck-version" && req.method === "GET") {
@@ -1133,6 +1133,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .tab.active { position: relative; top: 1px; background: #fbfaf7; border-color: #d8d2c6; color: #111827; box-shadow: 0 -7px 16px rgba(31,41,51,.05); }
     .tab-panel { display: none; flex-direction: column; gap: 12px; padding-top: 12px; }
     .tab-panel.active { display: flex; }
+    #inspectTab, #inspectPanel { display: none !important; }
     .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
     .selection-summary { padding: 10px 12px; border: 1px solid #d8d2c6; border-radius: 14px; background: #fbfaf7; color: #3f3a33; font-size: 13px; line-height: 1.45; box-shadow: 0 8px 22px rgba(31,41,51,.05); }
     .selection-summary strong { display: block; margin-bottom: 7px; color: #756f66; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; }
