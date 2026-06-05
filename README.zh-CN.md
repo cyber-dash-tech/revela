@@ -169,7 +169,7 @@ revela，帮我 init 这个 workspace，先读本地材料。
 revela，research 这个 deck 需要的公开证据、案例和 source。
 ```
 
-6. 先创建或更新 deck plan，明确 slide 顺序、章节结构、source links、caveats 和 visual intent，再生成 HTML。
+6. 先创建或更新 deck plan，明确 slide 顺序、章节结构、source links、unresolved inputs、source limitations 和 visual intent，再生成 HTML。
 
 ```text
 revela，生成 HTML 前先 create or update deck plan。

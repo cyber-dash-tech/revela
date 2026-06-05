@@ -14,6 +14,7 @@ export const DECK_PLAN_INDEX_PATH = "deck-plan/index.md"
 export const DECK_PLAN_SLIDES_DIR = "deck-plan/slides"
 export const LEGACY_DECK_PLAN_ARTIFACT_PATH = "decks/deck-plan.md"
 export const DECK_PLAN_ARTIFACT_PATH = DECK_PLAN_MARKDOWN_PATH
+export const MAX_HTML_SLIDES_PER_BATCH = 5
 
 export interface DeckPlanArtifactInput {
   deck: DeckSpec
@@ -69,9 +70,19 @@ export interface DeckPlanProjection {
   designName?: string
   outputPath?: string
   slides: DeckPlanSlideProjection[]
+  htmlWritingBatches: DeckPlanHtmlWritingBatch[]
+  htmlWritingInstruction: string
   graphNodes: Array<{ id: string; type: WorkspaceGraphNodeType; file: string }>
   graphRelations: VaultRelation[]
   diagnostics: DeckPlanProjectionDiagnostic[]
+}
+
+export interface DeckPlanHtmlWritingBatch {
+  label: string
+  chapterTitle: string
+  slideIndexes: number[]
+  maxSlides: number
+  instructions: string
 }
 
 export interface DeckPlanSlideProjection {
@@ -283,6 +294,7 @@ export function readDeckPlanProjection(workspaceRoot: string, expected?: { narra
     file: slide.path,
     source: "inline" as const,
   })))
+  const htmlWritingBatches = buildHtmlWritingBatches(slides)
   return {
     path,
     absolutePath,
@@ -294,6 +306,8 @@ export function readDeckPlanProjection(workspaceRoot: string, expected?: { narra
     designName: stringField(parsed.frontmatter, "designName") || stringField(parsed.frontmatter, "design"),
     outputPath: stringField(parsed.frontmatter, "outputPath") || stringField(parsed.frontmatter, "output"),
     slides,
+    htmlWritingBatches,
+    htmlWritingInstruction: htmlWritingInstruction(),
     graphNodes,
     graphRelations,
     diagnostics,
@@ -470,31 +484,35 @@ function writeDeckPlanSingleFile(workspaceRoot: string, input: {
 
 function renderDeckPlanSlideBlock(slide: DeckPlanSlideProjection, visualIntent?: DeckPlanSlideUpsertInput["visualIntent"]): string {
   const lines: string[] = []
-  lines.push(`### Slide ${slide.slideIndex ?? "?"} — ${slide.title}`)
+  lines.push("---")
+  lines.push(`slideIndex: ${slide.slideIndex ?? ""}`)
+  lines.push(`id: ${slide.id}`)
+  lines.push(`title: ${yamlScalar(slide.title)}`)
+  lines.push(`chapter: ${yamlScalar(slide.chapter || "Unassigned")}`)
+  lines.push(`role: ${yamlScalar(slide.narrativeRole || "Not specified")}`)
+  lines.push(`structural: ${slide.structural ? "true" : "false"}`)
+  lines.push(`layout: ${slide.layout || "unspecified"}`)
+  lines.push(`components: ${slide.components.join(", ") || "none"}`)
+  lines.push("---")
   lines.push("")
-  lines.push(`- Id: ${slide.id}`)
-  lines.push(`- Chapter: ${slide.chapter || "Unassigned"}`)
+  lines.push("#### Content Plan")
+  lines.push("")
+  lines.push(`- Message: ${slide.narrativeRole || "Not specified."}`)
   lines.push(`- Role: ${slide.narrativeRole || "Not specified"}`)
-  lines.push(`- Structural: ${slide.structural ? "true" : "false"}`)
-  lines.push(`- Layout: ${slide.layout || "unspecified"}`)
-  lines.push(`- Components: ${slide.components.join(", ") || "none"}`)
+  lines.push("- Speaker notes: Not specified.")
   lines.push("")
-  lines.push("#### Visual Intent")
-  lines.push("")
-  if (visualIntent) lines.push(renderVisualIntent(visualIntent))
-  else lines.push("- Brief: Not specified.")
-  lines.push("")
-  lines.push("#### Component Plan")
-  lines.push("")
-  for (const component of slide.componentPlan) lines.push(renderComponentPlanMarkdown(component, 5))
   lines.push("#### Source Links")
   lines.push("")
   lines.push(renderSourceLinksMarkdown(slide.sourceLinks))
   lines.push("")
-  lines.push("#### Caveats")
+  lines.push("#### Design Plan")
   lines.push("")
-  if (slide.caveats.length === 0) lines.push("- None.")
-  else for (const caveat of slide.caveats) lines.push(`- ${caveat}`)
+  lines.push(`- Layout: ${slide.layout || "unspecified"}`)
+  lines.push(`- Components: ${slide.components.join(", ") || "none"}`)
+  lines.push("- Visual intent:")
+  lines.push(...indentMultiline(visualIntent ? renderVisualIntent(visualIntent) : "- Brief: Not specified."))
+  lines.push("")
+  for (const component of slide.componentPlan) lines.push(renderComponentPlanMarkdown(component, 5))
   lines.push("")
   return lines.join("\n")
 }
@@ -525,7 +543,6 @@ function renderSourceLinksMarkdown(sourceLinks: DeckPlanSourceLinks): string {
     ["Findings", sourceLinks.findings],
     ["Assets", sourceLinks.assets],
     ["URLs", sourceLinks.urls],
-    ["Caveats", sourceLinks.caveats],
   ] as const) {
     lines.push(`${label}:`)
     if (values.length === 0) lines.push("- None.")
@@ -575,6 +592,8 @@ function readDeckPlanSlideFiles(workspaceRoot: string, knownNodeIds?: Set<string
 }
 
 function readDeckPlanSlidesFromSingleFile(workspaceRoot: string, absolutePath: string, markdown: string, knownNodeIds?: Set<string>): DeckPlanSlideProjection[] {
+  const slideBlocks = readDeckPlanSeparatorSlidesFromSingleFile(workspaceRoot, absolutePath, markdown, knownNodeIds)
+  if (slideBlocks.length > 0) return slideBlocks
   const path = relativePath(workspaceRoot, absolutePath)
   const body = parseVaultFrontmatter(markdown).body
   const matches = [...body.matchAll(/^[ \t]*###\s+Slide\s+(\d+)\s+(?:—|-)\s+(.+?)\s*$/gm)]
@@ -618,6 +637,58 @@ function readDeckPlanSlidesFromSingleFile(workspaceRoot: string, absolutePath: s
     })
   }
   return slides.sort((a, b) => (a.slideIndex ?? Number.MAX_SAFE_INTEGER) - (b.slideIndex ?? Number.MAX_SAFE_INTEGER))
+}
+
+function readDeckPlanSeparatorSlidesFromSingleFile(workspaceRoot: string, absolutePath: string, markdown: string, knownNodeIds?: Set<string>): DeckPlanSlideProjection[] {
+  const path = relativePath(workspaceRoot, absolutePath)
+  const body = parseVaultFrontmatter(markdown).body
+  const slidesHeading = /^[ \t]*##\s+Slides\s*$/mi.exec(body)
+  if (!slidesHeading || slidesHeading.index === undefined) return []
+  const headingEnd = body.indexOf("\n", slidesHeading.index)
+  const slidesStart = headingEnd === -1 ? slidesHeading.index + slidesHeading[0].length : headingEnd + 1
+  const rest = body.slice(slidesStart)
+  const nextSection = rest.search(/^[ \t]*##\s+(?!#)/m)
+  const slidesRegion = nextSection === -1 ? rest : rest.slice(0, nextSection)
+  const metadataMatches = [...slidesRegion.matchAll(/^[ \t]*---[ \t]*\n[\s\S]*?\n[ \t]*---[ \t]*(?:\n|$)/gm)]
+  const slides: DeckPlanSlideProjection[] = []
+  for (let i = 0; i < metadataMatches.length; i++) {
+    const match = metadataMatches[i]
+    const start = match.index ?? 0
+    const next = i + 1 < metadataMatches.length ? metadataMatches[i + 1].index ?? slidesRegion.length : slidesRegion.length
+    const block = slidesRegion.slice(start, next).trim()
+    const parsed = parseVaultFrontmatter(block)
+    const slideIndex = numberField(parsed.frontmatter, "slideIndex")
+    const title = stringField(parsed.frontmatter, "title") || firstHeading(parsed.body) || `Slide ${slideIndex ?? i + 1}`
+    const fields = parseSlideBlockFields(parsed.body)
+    const sourceLinks = normalizeSourceLinks(parseDeckPlanSourceLinks(singleFileSubsection(block, "Source Links")))
+    const narrativeLinks = parseDeckPlanNarrativeLinks(singleFileSubsection(block, "Narrative Links") || block, knownNodeIds)
+    const links = sourceLinksToNarrativeLinks(sourceLinks, narrativeLinks)
+    const componentPlan = parseDeckPlanComponentPlan(singleFileSubsection(block, "Component Plan") || singleFileSubsection(block, "Design Plan"))
+    slides.push({
+      path,
+      absolutePath,
+      id: stringField(parsed.frontmatter, "id") || fields.id || `slide-${slugify(title)}`,
+      slideIndex,
+      title,
+      chapter: stringField(parsed.frontmatter, "chapter") || fields.chapter || "",
+      layout: stringField(parsed.frontmatter, "layout") || fields.layout || "",
+      components: arrayField(parsed.frontmatter, "components").length > 0 ? arrayField(parsed.frontmatter, "components") : parseCsv(fields.components || componentPlan.map((component) => component.name).join(", ")),
+      componentPlan,
+      structural: booleanField(parsed.frontmatter, "structural", fields.structural === "true" || fields.structural === "yes"),
+      narrativeRole: stringField(parsed.frontmatter, "role") || stringField(parsed.frontmatter, "narrativeRole") || fields.role || fields.narrativeRole || "",
+      markdown: block,
+      frontmatter: parsed.frontmatter,
+      sections: parseMarkdownSections(block),
+      links,
+      sourceLinks,
+      caveats: uniqueStrings([...parseBulletText(singleFileSubsection(block, "Caveats")), ...sourceLinks.caveats]),
+    })
+  }
+  return slides.sort((a, b) => (a.slideIndex ?? Number.MAX_SAFE_INTEGER) - (b.slideIndex ?? Number.MAX_SAFE_INTEGER))
+}
+
+function firstHeading(markdown: string): string {
+  return /^#{1,6}\s+(.+?)\s*$/m.exec(markdown)?.[1]?.trim() ?? ""
 }
 
 function parseSlideBlockFields(block: string): Record<string, string> {
@@ -787,9 +858,53 @@ function deckPlanIndexDiagnostics(slides: DeckPlanSlideProjection[]): DeckPlanPr
   return diagnostics
 }
 
+function buildHtmlWritingBatches(slides: DeckPlanSlideProjection[]): DeckPlanHtmlWritingBatch[] {
+  const ordered = slides
+    .filter((slide) => Number.isInteger(slide.slideIndex) && (slide.slideIndex ?? 0) > 0)
+    .sort((a, b) => (a.slideIndex ?? Number.MAX_SAFE_INTEGER) - (b.slideIndex ?? Number.MAX_SAFE_INTEGER))
+  const chapterGroups: Array<{ chapterTitle: string; slideIndexes: number[] }> = []
+  for (const slide of ordered) {
+    const chapterTitle = slide.chapter || "Unassigned"
+    const current = chapterGroups[chapterGroups.length - 1]
+    if (current && current.chapterTitle === chapterTitle) current.slideIndexes.push(slide.slideIndex!)
+    else chapterGroups.push({ chapterTitle, slideIndexes: [slide.slideIndex!] })
+  }
+  const batches: DeckPlanHtmlWritingBatch[] = []
+  for (const group of chapterGroups) {
+    const chunks = chunkNumbers(group.slideIndexes, MAX_HTML_SLIDES_PER_BATCH)
+    for (let index = 0; index < chunks.length; index += 1) {
+      const chunk = chunks[index]
+      const chapterSuffix = chunks.length > 1 ? ` part ${index + 1}` : ""
+      const label = batches.length === 0
+        ? `Initial shell and ${group.chapterTitle}${chapterSuffix}`
+        : `${group.chapterTitle}${chapterSuffix}`
+      batches.push({
+        label,
+        chapterTitle: group.chapterTitle,
+        slideIndexes: chunk,
+        maxSlides: MAX_HTML_SLIDES_PER_BATCH,
+        instructions: batches.length === 0
+          ? `Create or update the foundation if needed, then write only slide sections ${formatSlideRange(chunk)}. Do not add or rewrite more than ${MAX_HTML_SLIDES_PER_BATCH} slide sections in this write.`
+          : `Patch only slide sections ${formatSlideRange(chunk)}, preserve previously written slides, and keep the file valid after the patch. Do not add or rewrite more than ${MAX_HTML_SLIDES_PER_BATCH} slide sections in this write.`,
+      })
+    }
+  }
+  return batches
+}
+
+function chunkNumbers(values: number[], size: number): number[][] {
+  const chunks: number[][] = []
+  for (let index = 0; index < values.length; index += size) chunks.push(values.slice(index, index + size))
+  return chunks
+}
+
+function htmlWritingInstruction(): string {
+  return `Before every HTML write/edit/apply_patch, follow htmlWritingBatches and add or rewrite at most ${MAX_HTML_SLIDES_PER_BATCH} <section class="slide"> blocks. Run Artifact QA after each batch before continuing.`
+}
+
 function slideDiagnostics(slide: DeckPlanSlideProjection, knownNodeIds?: Set<string>): DeckPlanProjectionDiagnostic[] {
   const diagnostics: DeckPlanProjectionDiagnostic[] = []
-  if (!slide.structural && slide.links.length === 0 && slide.caveats.length === 0) diagnostics.push({ severity: "warning", code: "slide_source_link_missing", message: `Non-structural deck-plan slide ${slide.id} has no source, research, asset, or caveat link.`, file: slide.path, nodeId: slide.id })
+  if (!slide.structural && linksCount(slide.sourceLinks) === 0) diagnostics.push({ severity: "warning", code: "slide_source_link_missing", message: `Non-structural deck-plan slide ${slide.id} has no material, finding, asset, or URL source link.`, file: slide.path, nodeId: slide.id })
   if (!slide.layout) diagnostics.push({ severity: "warning", code: "slide_layout_missing", message: `Deck-plan slide ${slide.id} is missing a layout.`, file: slide.path, nodeId: slide.id })
   if (slide.components.length === 0) diagnostics.push({ severity: "warning", code: "slide_components_missing", message: `Deck-plan slide ${slide.id} has no component names in frontmatter.`, file: slide.path, nodeId: slide.id })
   if (slide.componentPlan.length === 0) diagnostics.push({ severity: "warning", code: "slide_component_plan_missing", message: `Deck-plan slide ${slide.id} is missing structured ## Component Plan entries.`, file: slide.path, nodeId: slide.id })
@@ -847,7 +962,7 @@ function validateDeckPlanSlideUpsert(input: DeckPlanSlideUpsertInput, options: {
   const visual = normalizeVisualIntent(input.visualIntent)
   if (visual.component && !componentNames.has(visual.component)) diagnostics.push(errorDiagnostic("slide_visual_component_missing", `visualIntent.component '${visual.component}' is not present in component plan.`, nodeId))
   const sourceLinks = sourceLinksForInput(input)
-  if (!input.structural && linksCount(sourceLinks) === 0) diagnostics.push({ severity: "warning", code: "slide_source_link_missing", message: "Non-structural slides should include at least one material, finding, asset, URL, or caveat source link.", nodeId })
+  if (!input.structural && linksCount(sourceLinks) === 0) diagnostics.push({ severity: "warning", code: "slide_source_link_missing", message: "Non-structural slides should include at least one material, finding, asset, or URL source link.", nodeId })
   return diagnostics
 }
 
@@ -887,7 +1002,7 @@ function validateComponentInput(component: DeckPlanSlideUpsertComponentInput, co
 }
 
 function linksCount(sourceLinks: DeckPlanSourceLinks): number {
-  return sourceLinks.materials.length + sourceLinks.findings.length + sourceLinks.assets.length + sourceLinks.urls.length + sourceLinks.caveats.length
+  return sourceLinks.materials.length + sourceLinks.findings.length + sourceLinks.assets.length + sourceLinks.urls.length
 }
 
 function errorDiagnostic(code: string, message: string, nodeId?: string): DeckPlanProjectionDiagnostic {
@@ -1017,12 +1132,6 @@ function renderDeckPlanSlideMarkdown(input: DeckPlanSlideUpsertInput & { id: str
     lines.push("")
   }
   lines.push(renderSourceLinksMarkdown(sourceLinksForInput(input)).replace(/^####/gm, "##"))
-  lines.push("## Caveats")
-  lines.push("")
-  const caveats = input.caveats?.filter((item) => item.trim()) ?? []
-  if (caveats.length === 0) lines.push("- None.")
-  else for (const caveat of caveats) lines.push(`- ${caveat.trim()}`)
-  lines.push("")
   return lines.join("\n")
 }
 
@@ -1083,10 +1192,10 @@ function renderMinimalDeckPlanIndex(narrativeHash: string | undefined, slides: D
   if (evidenceIds.length === 0) lines.push("- No evidence links planned yet.")
   else for (const id of evidenceIds) lines.push(`- [[${id}]]`)
   lines.push("")
-  lines.push("## Boundary / Risk Treatment")
+  lines.push("## Source Limitations")
   lines.push("")
   const boundaryIds = uniqueStrings(slides.flatMap((slide) => slide.links.filter((link) => link.relation === "addresses_risk" || link.relation === "answers_objection" || link.relation === "mentions_gap").map((link) => link.id)))
-  if (boundaryIds.length === 0) lines.push("- No risk, objection, or gap links planned yet.")
+  if (boundaryIds.length === 0) lines.push("- No legacy risk, objection, or gap links planned.")
   else for (const id of boundaryIds) lines.push(`- [[${id}]]`)
   lines.push("")
   lines.push("## Chapter Writing Batches")
@@ -1130,8 +1239,8 @@ function booleanField(frontmatter: Record<string, string | string[] | boolean>, 
 
 function arrayField(frontmatter: Record<string, string | string[] | boolean>, key: string): string[] {
   const value = frontmatter[key]
-  if (Array.isArray(value)) return value.map((item) => item.trim()).filter(Boolean)
-  if (typeof value === "string" && value.trim()) return value.split(",").map((item) => item.trim()).filter(Boolean)
+  if (Array.isArray(value)) return value.map((item) => item.trim()).filter((item) => item && item.toLowerCase() !== "none")
+  if (typeof value === "string" && value.trim()) return value.split(",").map((item) => item.trim()).filter((item) => item && item.toLowerCase() !== "none")
   return []
 }
 
@@ -1265,8 +1374,8 @@ function renderDeckPlanMarkdown(input: DeckPlanArtifactInput): string {
   lines.push("")
   lines.push("- Write one `<section class=\"slide\" data-slide-index=\"N\">` per planned slide in the completed deck, using positive 1-based slide indexes that are unique and strictly increase in DOM order. Partial chapter-by-chapter drafts may contain only the written prefix/range.")
   lines.push("- Keep every rendered slide exactly 1920x1080px with no page-level scrollbars or hidden overflow.")
-  lines.push("- Preserve claim-led chapters, visual intent, evidence ids, source trace, supported scope, unsupported scope, caveats, and strength.")
-  lines.push("- Generate HTML chapter by chapter; do not draft a full 5+ slide deck in one broad write or patch.")
+  lines.push("- Preserve claim-led chapters, visual intent, evidence ids, source trace, source limitations, unresolved inputs, and user review notes.")
+  lines.push(`- Generate HTML in the listed writing batches; do not add or rewrite more than ${MAX_HTML_SLIDES_PER_BATCH} slide sections in one write or patch.`)
   lines.push("")
   lines.push("## Chapter Map")
   lines.push("")
@@ -1284,14 +1393,17 @@ function renderDeckPlanMarkdown(input: DeckPlanArtifactInput): string {
   }
   lines.push("## Chapter Writing Batches")
   lines.push("")
-  lines.push("Use these batches for HTML generation. Keep the HTML valid after every batch and preserve previously written slides.")
+  lines.push(`Use these batches for HTML generation. Each batch is capped at ${MAX_HTML_SLIDES_PER_BATCH} slide sections. Keep the HTML valid after every batch and preserve previously written slides.`)
   lines.push("")
   if (input.renderPlan) {
-    for (const batch of input.renderPlan.chapterWritingBatches) lines.push(`- ${batch.label}: ${batch.chapterTitle}, slides ${formatSlideRange(batch.slideIndexes)}. ${batch.instructions}`)
+    for (const batch of input.renderPlan.chapterWritingBatches) lines.push(`- ${batch.label}: ${batch.chapterTitle}, slides ${formatSlideRange(batch.slideIndexes)}; max ${batch.maxSlides} slides. ${batch.instructions}`)
   } else {
     input.chapters.forEach((chapter, index) => {
       const prefix = index === 0 ? "Initial shell and first chapter" : `Chapter batch ${index + 1}`
-      lines.push(`- ${prefix}: ${chapter.title}, slides ${formatSlideRange(chapter.slideIndexes)}.`)
+      for (const [chunkIndex, chunk] of chunkNumbers(chapter.slideIndexes, MAX_HTML_SLIDES_PER_BATCH).entries()) {
+        const suffix = chunkIndex === 0 ? "" : ` part ${chunkIndex + 1}`
+        lines.push(`- ${prefix}${suffix}: ${chapter.title}, slides ${formatSlideRange(chunk)}; max ${MAX_HTML_SLIDES_PER_BATCH} slides.`)
+      }
     })
   }
   if (input.renderPlan) {

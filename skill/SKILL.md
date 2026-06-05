@@ -78,12 +78,14 @@ Batches, slide plan, visual intent, evidence trace, boundaries, and narrative
 links. Do not call `compileDeckPlan` merely to understand an existing plan, and
 do not reinterpret cached `DECKS.json.slides[]` as the render contract.
 
-Decks with 5 or more slides must be generated chapter by chapter, not in one
-broad `write` or `apply_patch` call. The first HTML write may create the stable
-HTML shell, structural slides, and the first chapter only. Subsequent writes
-must patch one chapter at a time, preserving already-written slides and keeping
-the file valid after every write. Do not continue to the next chapter while the
-current file has Artifact QA hard errors.
+Deck HTML must be generated in bounded batches, not in one broad `write` or
+`apply_patch` call. Follow `htmlWritingBatches` from `readDeckPlan`; each HTML
+write/edit/apply_patch may add or rewrite at most 5 `<section class="slide">`
+blocks. The first HTML write may create the stable HTML shell, but its slide
+sections are still capped at 5. Subsequent writes must patch only the next
+listed batch, preserving already-written slides and keeping the file valid after
+every write. Do not continue to the next batch while the current file has
+Artifact QA hard errors.
 
 ---
 
@@ -118,15 +120,17 @@ Before writing HTML, the deck-plan projection should include:
 
 - `deck-plan.md` with `designName`, `outputPath` when known, chapter map, and
   ordered slide blocks.
-- Each slide block uses `sourceLinks` for materials, findings, assets, URLs,
-  and caveats. Legacy narrative links may be read for compatibility, but new
+- Each slide block uses `sourceLinks` for materials, findings, assets, and URLs.
+  Legacy narrative/caveat links may be read for compatibility, but new
   plans should not use them.
+- Use `---` slide separators under `## Slides` with slide-local metadata, then
+  `#### Content Plan`, `#### Source Links`, and `#### Design Plan`.
 - `Required structure: Cover + Table of Contents + Closing`.
 - A `Chapters` section with 3-5 TOC headings, slide ranges, and the
   non-structural slides assigned to each chapter.
 - One row/block per slide with title, purpose, narrative role, content summary,
   layout, components, `sourceLinks`, visual intent, visual brief, render notes,
-  and caveats/unsupported scope.
+  unresolved inputs, source limitations, and user review notes.
 - Source Authority, Chapter Map, Slides, Unresolved Inputs, and HTML Contract
   sections.
 - A low-fidelity layout sketch for every slide when requested by the handoff
@@ -167,14 +171,16 @@ a required workflow gate.
 
 ## Chapter-By-Chapter Generation
 
-Generate the artifact chapter by chapter. Never draft a full 5+ slide deck in
-one broad `write`, `edit`, or `apply_patch` call.
+Generate the artifact by following `htmlWritingBatches`. Never add or rewrite
+more than 5 slide sections in one `write`, `edit`, or `apply_patch` call.
 
 For decks with 5 or more slides:
 
 - First call `revela-deck-foundation` for new files, then patch structural
-  slides and the first chapter between the `revela-slides` markers.
-- Then fill or revise exactly one chapter range at a time.
+  slides and the first listed batch between the `revela-slides` markers.
+- Then fill or revise exactly one listed batch at a time.
+- If a chapter has more than 5 slides, split it into consecutive batches from
+  `htmlWritingBatches`.
 - Do not mix multiple central-claim chapters in the same write.
 - Chapter divider or chapter TOC slides are allowed as structural wayfinding and
   should usually use the `toc` component.
@@ -292,15 +298,15 @@ patch and rerun QA before considering the deck ready.
 
 ## Evidence And Source Rules
 
-- Do not invent quotes, URLs, page references, source paths, caveats, or evidence
-  ids.
-- Preserve supported scope, unsupported scope, caveats, and source trace when
-  visible in narrative state or slide specs.
+- Do not invent quotes, URLs, page references, source paths, source limitations,
+  user review notes, or evidence ids.
+- Preserve source trace, explicit source limitations, and unresolved inputs when
+  visible in deck-plan source context or slide specs.
 - Evidence-sensitive claims need visible evidence/source context when available.
 - Never stretch partial evidence into support for future-state, recommendation,
   roadmap, or product-vision claims.
-- Keep missing evidence visible as a caveat, gap, or blocker instead of filling
-  it with assumptions.
+- Keep missing evidence visible as an unresolved input, source limitation, user
+  review note, or blocker instead of filling it with assumptions.
 - Do not render internal evidence diagnostics as executive-facing body copy.
   Avoid labels such as `Evidence gap:`, `Unsupported scope:`, `Caveat:`,
   `Missing Data`, or `Evidence Boundary` in normal slide text unless the user

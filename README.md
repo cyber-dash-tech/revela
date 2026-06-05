@@ -169,7 +169,7 @@ revela, help me init this workspace from the local materials.
 revela, research the public evidence and examples needed for this deck.
 ```
 
-6. Create or update the deck plan before generating HTML so slide order, chapter structure, source links, caveats, and visual intent are explicit.
+6. Create or update the deck plan before generating HTML so slide order, chapter structure, source links, unresolved inputs, source limitations, and visual intent are explicit.
 
 ```text
 revela, create or update the deck plan before generating HTML.

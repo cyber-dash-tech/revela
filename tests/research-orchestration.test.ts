@@ -166,6 +166,8 @@ describe("Codex revela-make-deck skill", () => {
     expect(codexMakeDeckSkill).toContain("write or repair `deck-plan.md` directly")
     expect(codexMakeDeckSkill).toContain("Do not use structured upsert tools for normal plan authoring")
     expect(codexMakeDeckSkill).toContain("Call `revela_read_deck_plan` before HTML generation")
+    expect(codexMakeDeckSkill).toContain("Read `htmlWritingBatches`")
+    expect(codexMakeDeckSkill).toContain("at most 5 slide sections")
     expect(codexMakeDeckSkill).toContain("`revela_read_deck_plan` is QA/diagnostics, not a writer")
     expect(codexMakeDeckSkill).not.toContain("revela_upsert_deck_plan")
     expect(codexMakeDeckSkill).not.toContain("revela_upsert_deck_plan_slide")

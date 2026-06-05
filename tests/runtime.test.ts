@@ -175,10 +175,46 @@ describe("runtime facade", () => {
     expect(read.projection?.slides[0].sourceLinks).toMatchObject({
       findings: ["researches/pilot.md"],
       urls: ["https://example.com/pilot"],
-      caveats: ["Intent evidence does not prove market demand."],
+      caveats: [],
     })
-    expect(read.markdown).toContain("### Slide 1")
+    expect(read.markdown).toContain("---\nslideIndex: 1")
+    expect(read.markdown).toContain("#### Content Plan")
     expect(read.markdown).toContain("#### Source Links")
+    expect(read.markdown).toContain("#### Design Plan")
+  })
+
+  it("reads deck-plan.md with YAML slide separators", () => {
+    const root = tempWorkspace("revela-runtime-deck-plan-yaml-slides-")
+    writeFileSync(join(root, "deck-plan.md"), separatorDeckPlanMarkdown(), "utf-8")
+
+    const result = readDeckPlan({ workspaceRoot: root })
+
+    expect(result.ok).toBe(true)
+    expect(result.projection?.slides).toHaveLength(1)
+    expect(result.projection?.slides[0]).toMatchObject({
+      slideIndex: 1,
+      id: "slide-cover",
+      title: "Cover",
+      chapter: "Opening",
+      layout: "cover",
+      components: ["hero", "brand-watermark"],
+      narrativeRole: "cover",
+      sourceLinks: expect.objectContaining({
+        materials: ["materials/source.md"],
+        findings: ["researches/source-findings.md"],
+        assets: ["assets/cover.png"],
+        urls: ["https://example.com/source"],
+        caveats: [],
+      }),
+    })
+    expect(result.projection?.slides[0].componentPlan[0]).toMatchObject({
+      name: "hero",
+      slot: "canvas",
+      position: "full-bleed",
+      purpose: "Create the opening visual.",
+      content: "Use the source-backed opening claim.",
+      renderNotes: ["Keep title readable."],
+    })
   })
 
   it("re-upserting the same slideIndex updates the existing slide block", () => {
@@ -1002,6 +1038,89 @@ function validDeckPlanSlideInput(root: string) {
     },
     caveats: ["Intent evidence does not prove market demand."],
   }
+}
+
+function separatorDeckPlanMarkdown(): string {
+  return `---
+id: deck-plan
+designName: summit
+---
+
+# Deck Plan
+
+## Goal
+
+Open with the source-backed decision context.
+
+## Audience
+
+Executives.
+
+## Design
+
+- Design: summit
+
+## Source Authority
+
+- Use only linked workspace materials, findings, assets, URLs, and user intent.
+
+## Chapter Map
+
+- Opening: slides 1
+
+## Slides
+
+---
+slideIndex: 1
+id: slide-cover
+title: Cover
+chapter: Opening
+role: cover
+layout: cover
+components: hero, brand-watermark
+---
+
+#### Content Plan
+
+- Message: Open the decision conversation.
+- User review notes: Confirm final title language.
+
+#### Source Links
+
+Materials:
+- [[materials/source.md]]
+
+Findings:
+- [[researches/source-findings.md]]
+
+Assets:
+- [[assets/cover.png]]
+
+URLs:
+- https://example.com/source
+
+#### Design Plan
+
+- Visual intent: full-bleed cover.
+
+##### hero
+
+- Slot: canvas
+- Position: full-bleed
+- Purpose: Create the opening visual.
+- Content:
+  Use the source-backed opening claim.
+- Source notes: Source material and findings.
+- Render notes: Keep title readable.
+
+## Unresolved Inputs
+
+- None.
+
+## HTML Contract
+
+- Use positive 1-based data-slide-index values.
+`
 }
 
 function writeMinimalDeck(root: string, outputPath: string): void {

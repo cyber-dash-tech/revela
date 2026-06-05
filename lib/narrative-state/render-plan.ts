@@ -93,6 +93,7 @@ export interface RenderPlanWritingBatch {
   label: string
   chapterTitle: string
   slideIndexes: number[]
+  maxSlides: number
   instructions: string
 }
 
@@ -112,6 +113,7 @@ export interface RenderPlanContract {
 
 type VisualIntentKind = "hero" | "toc" | "metric-stat" | "evidence-table" | "comparison-grid" | "risk-matrix" | "steps" | "text-only"
 type ClaimChapterSlideKind = "framing" | "evidence" | "implication"
+const MAX_HTML_SLIDES_PER_BATCH = 5
 
 interface VisualIntent {
   kind: VisualIntentKind
@@ -251,10 +253,11 @@ function buildDeckPlanRequirements(narrativeHash: string): DeckPlanRequirements 
       "Each substantive chapter should have framing, proof, and implication/boundary coverage.",
       "Chapter divider or chapter TOC slides may use the toc component as structural wayfinding.",
       "Do not create filler slides, repeated thesis pages, or generic bridge slides.",
-      "Preserve evidence ids, source trace, supported scope, unsupported scope, caveats, and strength where available.",
+      "Preserve evidence ids, source trace, source limitations, unresolved inputs, and user review notes where available.",
       "Do not render internal labels such as Evidence gap:, Unsupported scope:, Caveat:, Missing Data, or Evidence Boundary in executive body copy.",
       "Do not infer plan structure from DECKS.json slides[]; it is compatibility cache only.",
-      "Use sourceLinks in slide blocks for materials, findings, assets, URLs, and caveats; do not use canonical ## Relations in deck-plan files.",
+      "Use sourceLinks in slide blocks for materials, findings, assets, and URLs; do not use canonical ## Relations in deck-plan files.",
+      "Use `---` slide separators under ## Slides with slide-local metadata, followed by #### Content Plan, #### Source Links, and #### Design Plan.",
     ],
     requiredSections: [
       "Goal",
@@ -283,7 +286,7 @@ export function buildRenderPlanContract(deck: DeckSpec, chapters: DeckPlanChapte
       "Render chapter divider slides with the toc component when slideKind is chapter-divider.",
       "Chapter divider and global TOC slides are structural wayfinding and do not count toward central-claim substance.",
       "Each central claim chapter needs non-structural framing, proof, and implication/boundary slides unless the current deck-plan projection explicitly says otherwise.",
-      "Generate HTML chapter by chapter, preserving valid HTML and already-written slides after every batch.",
+      `Generate HTML in chapter-bounded batches of at most ${MAX_HTML_SLIDES_PER_BATCH} slides, preserving valid HTML and already-written slides after every batch.`,
     ],
     htmlIdentityContract: [
       "Every written slide section uses class slide and a positive 1-based data-slide-index.",
@@ -306,16 +309,36 @@ export function buildRenderPlanContract(deck: DeckSpec, chapters: DeckPlanChapte
         allowedStructuralSlides: chapter.sourceClaimId ? ["chapter-divider", "toc"] : ["cover", "toc", "ask"],
       }
     }),
-    chapterWritingBatches: chapters.map((chapter, index) => ({
-      label: index === 0 ? "Initial shell and first chapter" : `Chapter batch ${index + 1}`,
-      chapterTitle: chapter.title,
-      slideIndexes: chapter.slideIndexes,
-      instructions: index === 0
-        ? "Create the stable HTML shell, required structural slides, and this first chapter range only."
-        : "Patch exactly this chapter range, preserve previously written slides, and keep the file valid after the patch.",
-    })),
+    chapterWritingBatches: chapterWritingBatches(chapters),
     slideRenderMetadata: deck.slides.map((slide) => slideRenderMetadata(slide, chapters)),
   }
+}
+
+function chapterWritingBatches(chapters: DeckPlanChapter[]): RenderPlanWritingBatch[] {
+  const batches: RenderPlanWritingBatch[] = []
+  for (const chapter of chapters) {
+    const chunks = chunkNumbers(chapter.slideIndexes, MAX_HTML_SLIDES_PER_BATCH)
+    for (let index = 0; index < chunks.length; index += 1) {
+      const chunk = chunks[index]
+      const chapterSuffix = chunks.length > 1 ? ` part ${index + 1}` : ""
+      batches.push({
+        label: batches.length === 0 ? `Initial shell and ${chapter.title}${chapterSuffix}` : `${chapter.title}${chapterSuffix}`,
+        chapterTitle: chapter.title,
+        slideIndexes: chunk,
+        maxSlides: MAX_HTML_SLIDES_PER_BATCH,
+        instructions: batches.length === 0
+          ? `Create the stable HTML shell if needed, then write only slide sections ${formatSlideRange(chunk)}. Do not add or rewrite more than ${MAX_HTML_SLIDES_PER_BATCH} slide sections in this write.`
+          : `Patch only slide sections ${formatSlideRange(chunk)}, preserve previously written slides, and keep the file valid after the patch. Do not add or rewrite more than ${MAX_HTML_SLIDES_PER_BATCH} slide sections in this write.`,
+      })
+    }
+  }
+  return batches
+}
+
+function chunkNumbers(values: number[], size: number): number[][] {
+  const chunks: number[][] = []
+  for (let index = 0; index < values.length; index += size) chunks.push(values.slice(index, index + size))
+  return chunks
 }
 
 function slideRenderMetadata(slide: SlideSpec, chapters: DeckPlanChapter[]): RenderPlanSlideMetadata {
@@ -1113,6 +1136,13 @@ function titleFromClaim(claim: NarrativeClaim): string {
 function claimChapterTitle(claim: NarrativeClaim): string {
   const title = titleFromClaim(claim)
   return title.endsWith(".") ? title.slice(0, -1) : title
+}
+
+function formatSlideRange(indexes: number[]): string {
+  if (indexes.length === 0) return "none"
+  const sorted = [...indexes].sort((a, b) => a - b)
+  if (sorted.length === 1) return String(sorted[0])
+  return `${sorted[0]}-${sorted[sorted.length - 1]}`
 }
 
 function hasCurrentApprovalOrOverride(narrative: NarrativeStateV1, narrativeHash: string): boolean {

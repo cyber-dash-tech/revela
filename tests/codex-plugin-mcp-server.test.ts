@@ -495,10 +495,12 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("deck-plan.md")
     expect(text.stdout).toContain("\\\"componentPlan\\\"")
     expect(text.stdout).toContain("\\\"sourceLinks\\\"")
+    expect(text.stdout).toContain("\\\"htmlWritingBatches\\\"")
+    expect(text.stdout).toContain("\\\"maxSlides\\\": 5")
     expect(text.stdout).toContain("\\\"slot\\\": \\\"left\\\"")
     expect(text.stdout).toContain("\\\"position\\\": \\\"left-top\\\"")
     expect(text.stdout).toContain("\\\"ok\\\": false")
-    expect(readFileSync(join(root, "deck-plan.md"), "utf-8")).toContain("#### Component Plan")
+    expect(readFileSync(join(root, "deck-plan.md"), "utf-8")).toContain("#### Design Plan")
   })
 
   it("reads bundled design inventory, layouts, components, and validation without seeding user config", async () => {
