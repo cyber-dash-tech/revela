@@ -523,11 +523,17 @@ export interface DesignInventoryLayout {
   name: string
   qa: boolean
   description: string
+  slots: string[]
 }
 
 export interface DesignInventoryComponent {
   name: string
   description: string
+  nesting: {
+    role: "container" | "content" | "fullbleed" | "utility"
+    acceptsChildren: boolean
+    allowedChildren?: string[]
+  }
 }
 
 export interface DesignInventory {
@@ -665,13 +671,51 @@ export function getDesignInventory(designName?: string): DesignInventory {
       name: layoutName,
       qa: layout.qa,
       description: designBlockDescription(layout.content),
+      slots: inferLayoutSlots(layoutName, layout.content),
     })),
     components: Object.entries(components).map(([componentName, content]) => ({
       name: componentName,
       description: designBlockDescription(content),
+      nesting: inferComponentNesting(componentName),
     })),
     hasMarkers,
   }
+}
+
+function inferLayoutSlots(name: string, content: string): string[] {
+  const slots = new Set<string>()
+  const known = ["fullbleed", "left", "right", "top", "bottom", "main", "footer", "content", "overlay", "center"]
+  for (const slot of known) {
+    if (new RegExp(`\\b${slot}\\s+slot\\b|\\[slot:\\s*${slot}\\]|slot:\\s*\`${slot}\`|slot:\\s*${slot}\\b`, "i").test(content)) slots.add(slot)
+  }
+  for (const match of content.matchAll(/\[slot:\s*([a-z0-9-]+)\]/gi)) slots.add(match[1])
+  for (const match of content.matchAll(/\b(each|slot)\s+slot\b/gi)) {
+    if (match[0]) {
+      // highlight-cols and similar layouts use numbered peer slots in examples.
+      if (/highlight|cols|columns/i.test(name)) ["1", "2", "3", "4", "5"].forEach((slot) => slots.add(slot))
+    }
+  }
+  if (slots.size === 0) {
+    if (name === "fullbleed") slots.add("fullbleed")
+    else if (name === "halves" || name === "narrative" || name === "narrative-reverse") ["left", "right"].forEach((slot) => slots.add(slot))
+    else if (name === "stacked") ["top", "bottom"].forEach((slot) => slots.add(slot))
+    else if (name === "highlight-cols") ["1", "2", "3", "4", "5"].forEach((slot) => slots.add(slot))
+    else slots.add("main")
+  }
+  return [...slots]
+}
+
+function inferComponentNesting(name: string): DesignInventoryComponent["nesting"] {
+  if (name === "box") {
+    return {
+      role: "container",
+      acceptsChildren: true,
+      allowedChildren: ["text-panel", "media", "echart-panel", "data-table", "stat-card", "quote", "steps", "roadmap-horizontal", "roadmap-vertical", "toc"],
+    }
+  }
+  if (name === "hero") return { role: "fullbleed", acceptsChildren: false }
+  if (name === "page-number" || name === "brand-watermark") return { role: "utility", acceptsChildren: false }
+  return { role: "content", acceptsChildren: false }
 }
 
 function designBlockDescription(body: string): string {

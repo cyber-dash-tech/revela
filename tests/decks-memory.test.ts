@@ -227,7 +227,7 @@ describe("review command", () => {
     expect(prompt).toContain("artifact diagnostics")
     expect(prompt).toContain("technical blockers only")
     expect(prompt).toContain("legacy/cache state")
-    expect(prompt).toContain("deck-plan/")
+    expect(prompt).toContain("deck-plan.md")
     expect(prompt).toContain("writeReadiness")
     expect(prompt).toContain("evidence and Narrative Compiler readiness review")
     expect(prompt).toContain("unsupported numbers")
@@ -560,7 +560,7 @@ describe("DECKS.json state readiness", () => {
 
       expect(layer).toContain("findingsFile")
       expect(layer).toContain("compatibility/render state")
-      expect(layer).toContain("deck-plan/")
+      expect(layer).toContain("deck-plan.md")
       expect(layer).toContain("Do not treat DECKS.json `slides[]` as the authoritative HTML slide-count")
       expect(layer).toContain("unique and strictly increase in DOM order")
       expect(layer).not.toContain("source of truth for the single current deck's specs, slide plan")

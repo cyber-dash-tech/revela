@@ -10,7 +10,7 @@
 
 Revela works from [OpenCode](https://opencode.ai) and Codex to turn source materials, research, data, and intent into trusted, traceable, presentation-ready decision artifacts.
 
-Its deck-first workspace reviews local materials, saves source-linked research, builds an explicit `deck-plan/`, generates HTML decks, reviews them, and exports PDF/PPTX/PNG artifacts.
+Its deck-first workspace reviews local materials, saves source-linked research, builds an explicit `deck-plan.md`, generates HTML decks, reviews them, and exports PDF/PPTX/PNG artifacts.
 
 ## Install
 

@@ -703,7 +703,7 @@ export function evaluateDeckStateWriteReadiness(state: DecksState, filePath: str
         type: "missing_slide_spec",
         severity: "warning",
         message: warning,
-        suggestedAction: "Proceed from the file-native deck-plan/ projection or explicit user request; DECKS.json deck records are not required for artifact writing.",
+        suggestedAction: "Proceed from the file-native deck-plan.md or explicit user request; deck records are not required for artifact writing.",
       }],
     }
   }
@@ -798,7 +798,7 @@ export function buildDecksStatePromptLayer(workspaceRoot: string, maxChars = 140
   }
   let text = JSON.stringify(compact, null, 2)
   if (text.length > maxChars) text = text.slice(0, maxChars).trimEnd() + "\n[DECKS.json state truncated for prompt size.]"
-  return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as compatibility/render state: workspace context, active output path, render targets, reviews, readiness, provenance, artifact coverage, and cached projections.\n- Do not treat ${DECKS_STATE_FILE} \`slides[]\` as the authoritative HTML slide-count, slide-order, or slide-content contract. When \`deck-plan/\` exists, use \`deck-plan/index.md\` and \`deck-plan/slides/*.md\` as the deck execution blueprint for HTML generation/remake.\n- The decks map is compatibility storage; operate only on the current workspace deck.\n- HTML slide identity is artifact self-consistency: each \`<section class="slide">\` needs a positive 1-based \`data-slide-index\`, indexes must be unique and strictly increase in DOM order, and 0-based \`data-index\` is never canonical identity. Cached ${DECKS_STATE_FILE} \`slides[].index\` values are diagnostic context only.\n- The active HTML deck is represented as a \`renderTarget\` of type \`html_deck\`; PDF/PPTX exports should be recorded as derived render targets, not as separate deck specs.\n- \`writeReadiness\` and \`planReview\` are compatibility projections for the /revela make --deck generation workflow, not hard blockers for targeted artifact-level HTML fixes.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- For /revela make --deck generated HTML, use the current deck's outputPath, read \`deck-plan/\` when present, and satisfy the deck HTML contract without padding missing chapters just to match cached ${DECKS_STATE_FILE} \`slides[]\`. Deck-plan diagnostics are advisory; for targeted artifact-level edits, patch the requested deck HTML directly without treating \`writeReadiness\` or \`planReview\` as a precondition.`
+  return `---\n\n# Revela Workspace State From ${DECKS_STATE_FILE}\n\n\`\`\`json\n${text}\n\`\`\`\n\nRules for this state layer:\n- Treat ${DECKS_STATE_FILE} as compatibility/render state: workspace context, active output path, render targets, reviews, readiness, provenance, artifact coverage, and cached projections.\n- Do not treat ${DECKS_STATE_FILE} \`slides[]\` as the authoritative HTML slide-count, slide-order, or slide-content contract. When \`deck-plan.md\` exists, use it as the deck execution blueprint for HTML generation/remake. Legacy \`deck-plan/index.md\` and \`deck-plan/slides/*.md\` are read-compatible fallback inputs only.\n- The decks map is compatibility storage; operate only on the current workspace deck.\n- HTML slide identity is artifact self-consistency: each \`<section class="slide">\` needs a positive 1-based \`data-slide-index\`, indexes must be unique and strictly increase in DOM order, and 0-based \`data-index\` is never canonical identity. Cached ${DECKS_STATE_FILE} \`slides[].index\` values are diagnostic context only.\n- The active HTML deck is represented as a \`renderTarget\` of type \`html_deck\`; PDF/PPTX exports should be recorded as derived render targets, not as separate deck specs.\n- \`writeReadiness\` and \`planReview\` are compatibility projections for the /revela make --deck generation workflow, not hard blockers for targeted artifact-level HTML fixes.\n- Do not edit ${DECKS_STATE_FILE} directly; use the revela-decks tool.\n- For /revela make --deck generated HTML, use the current deck's outputPath, read \`deck-plan.md\` when present, and satisfy the deck HTML contract without padding missing chapters just to match cached ${DECKS_STATE_FILE} \`slides[]\`. Deck-plan diagnostics are advisory; for targeted artifact-level edits, patch the requested deck HTML directly without treating \`writeReadiness\` or \`planReview\` as a precondition.`
 }
 
 function compactWorkspaceForPrompt(workspace: DecksState["workspace"]): DecksState["workspace"] {
@@ -968,7 +968,7 @@ function computeDeckReadinessIssues(state: DecksState, deck: DeckSpec, options: 
     issues.push(warningIssue(
       "missing_slide_spec",
       `outputPath must be decks/*.html, got ${deck.outputPath || "missing"}`,
-      "Resolve output path from the user request, deck-plan/index.md, or a deterministic decks/*.html default instead of treating cached state as permission.",
+      "Resolve output path from the user request, deck-plan.md, or a deterministic decks/*.html default instead of treating cached state as permission.",
     ))
   }
 
@@ -985,14 +985,14 @@ function computeDeckReadinessIssues(state: DecksState, deck: DeckSpec, options: 
     issues.push(warningIssue(
       "slide_plan_unconfirmed",
       planReview.stale ? `Deck plan confirmation is stale: ${planReview.reason}` : `Deck plan is not confirmed: ${planReview.reason}`,
-      "Write or read deck-plan/ projection Markdown if useful, then decide whether to continue. This is advisory and does not block artifact work.",
+      "Write or read deck-plan.md if useful, then decide whether to continue. This is advisory and does not block artifact work.",
     ))
   }
   issues.push(...deckPlanQualityIssues(deck))
   issues.push(...artifactCoverageIssues(state, deck))
   for (const slide of deck.slides) {
     const slideRef = { slideIndex: slide.index, slideTitle: slide.title }
-    if (!slide.title.trim()) issues.push(warningIssue("missing_slide_spec", `Cached slide ${slide.index} title is missing`, "Use deck-plan/ and artifact content as source for rendering; cached slide specs are diagnostics only.", slideRef))
+    if (!slide.title.trim()) issues.push(warningIssue("missing_slide_spec", `Cached slide ${slide.index} title is missing`, "Use deck-plan.md and artifact content as source for rendering; cached slide specs are diagnostics only.", slideRef))
     if (!slide.layout.trim()) issues.push(warningIssue("missing_slide_spec", `Cached slide ${slide.index} layout is missing`, "Fetch needed design layouts before writing HTML, but do not block solely on cached slide specs.", slideRef))
     if (slide.components.length === 0) issues.push(warningIssue("missing_slide_spec", `Cached slide ${slide.index} components are missing`, "Fetch needed design components before writing HTML, but do not block solely on cached slide specs.", slideRef))
     if (!hasSlideContent(slide)) issues.push(warningIssue("missing_slide_spec", `Cached slide ${slide.index} content is missing`, "Use deck-plan/ and the artifact request as render guidance; cached slide specs are diagnostics only.", slideRef))
@@ -1080,7 +1080,7 @@ function artifactCoverageIssues(state: DecksState, deck: DeckSpec): ReadinessIss
     issues.push(warningIssue(
       "artifact_coverage",
       `Active deck plan is missing required narrative claims: ${coverage.missingClaimIds.join(", ")}`,
-      "Coverage gaps are diagnostic; revise deck-plan/ or proceed with the visible limitation if the user chooses.",
+      "Coverage gaps are diagnostic; revise deck-plan.md or proceed with the visible limitation if the user chooses.",
     ))
   }
   if (coverage.coverageStatus === "stale") {
@@ -1136,7 +1136,7 @@ function readinessNextActions(issues: ReadinessIssue[], coverage?: ArtifactCover
   const actions = issues
     .filter((issue) => issue.severity === "blocker" || issue.type === "plan_quality" || issue.type === "artifact_coverage")
     .map((issue) => issue.suggestedAction)
-  if (coverage?.missingClaimIds.length) actions.unshift("Review missingClaimIds in artifactCoverage and decide whether to revise deck-plan/ or continue with the current artifact.")
+  if (coverage?.missingClaimIds.length) actions.unshift("Review missingClaimIds in artifactCoverage and decide whether to revise deck-plan.md or continue with the current artifact.")
   if (coverage?.coverageStatus === "stale") actions.unshift("Artifact coverage is stale; decide whether to remake, review, or export the current artifact.")
   return [...new Set(actions)].slice(0, 5)
 }

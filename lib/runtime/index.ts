@@ -153,10 +153,12 @@ export function readDeckPlan(input: RuntimeWorkspaceInput = {}) {
   const read = readDeckPlanArtifact(workspaceRoot)
   if (read.projection) {
     try {
-      const inventory = getDesignInventory(activeDesign())
+      const inventory = getDesignInventory(read.projection.designName || activeDesign())
       const diagnostics = deckPlanDesignDiagnostics(read.projection, {
         layouts: inventory.layouts.map((layout) => layout.name),
         components: inventory.components.map((component) => component.name),
+        layoutSlots: Object.fromEntries(inventory.layouts.map((layout) => [layout.name, layout.slots])),
+        componentNesting: Object.fromEntries(inventory.components.map((component) => [component.name, component.nesting])),
       })
       read.projection.diagnostics.push(...diagnostics)
       read.warnings.push(...diagnostics.map((diagnostic) => diagnostic.message))
@@ -174,6 +176,8 @@ export function upsertDeckPlanSlide(input: RuntimeDeckPlanSlideUpsertInput) {
   const result = upsertDeckPlanSlideArtifact(workspaceRoot, input, {
     designLayouts: inventory.layouts.map((layout) => layout.name),
     designComponents: inventory.components.map((component) => component.name),
+    layoutSlots: Object.fromEntries(inventory.layouts.map((layout) => [layout.name, layout.slots])),
+    componentNesting: Object.fromEntries(inventory.components.map((component) => [component.name, component.nesting])),
   })
   return {
     ...result,

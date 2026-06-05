@@ -26,7 +26,7 @@ The active design is injected after this prompt. Follow it exactly.
 - Do not create or patch `DECKS.json` as workflow state.
 - Canonical narrative remains the authority for audience, decision, thesis,
   claims, evidence boundaries, objections, risks, and caveats.
-- When present, `deck-plan/` is the deck execution blueprint for slide order,
+- When present, `deck-plan.md` is the deck execution blueprint for slide order,
   chapter batches, visual intent, and evidence trace. It does not replace
   canonical narrative meaning.
 - `DECKS.json.slides[]` is a compatibility/cache projection, not the authority
@@ -59,9 +59,9 @@ handoff exactly:
    deck-plan authoring requirements. It does not write the final slide list.
 4. If target slide count, audience, language, output purpose, or visual style is
    unclear, ask the user for the smallest needed confirmation. Then write
-   `deck-plan/index.md` plus `deck-plan/slides/*.md` from the planning packet
-   and requirements, including low-fidelity sketches and `## Narrative Links`.
-5. Use `readDeckPlan` to inspect the current `deck-plan/` projection before
+   `deck-plan.md` from the planning packet and requirements, including
+   low-fidelity sketches and `sourceLinks`.
+5. Use `readDeckPlan` to inspect the current `deck-plan.md` projection before
    artifact review or HTML generation. Diagnostics are advisory unless they are
    artifact validity errors handled by QA.
 6. For a new deck HTML file, call `revela-deck-foundation` to create the
@@ -73,7 +73,7 @@ handoff exactly:
    user proceeds and the deck contract can be satisfied.
 
 Before any HTML generation, call `revela-decks` action `readDeckPlan` and follow
-the current `deck-plan/`: Source Authority, deck parameters, Chapter Writing
+the current `deck-plan.md`: Source Authority, deck parameters, Chapter Writing
 Batches, slide plan, visual intent, evidence trace, boundaries, and narrative
 links. Do not call `compileDeckPlan` merely to understand an existing plan, and
 do not reinterpret cached `DECKS.json.slides[]` as the render contract.
@@ -116,20 +116,19 @@ the deck's chapter grouping and the order of non-structural slides that follow.
 
 Before writing HTML, the deck-plan projection should include:
 
-- `deck-plan/index.md` with current `narrativeHash` when known and a slide-file
-  inventory.
-- `deck-plan/slides/*.md` files for each planned slide, using `## Narrative
-  Links` for `[[claim-id]]`, `[[evidence-id]]`, `[[risk-id]]`,
-  `[[objection-id]]`, or `[[gap-id]]` references.
+- `deck-plan.md` with `designName`, `outputPath` when known, chapter map, and
+  ordered slide blocks.
+- Each slide block uses `sourceLinks` for materials, findings, assets, URLs,
+  and caveats. Legacy narrative links may be read for compatibility, but new
+  plans should not use them.
 - `Required structure: Cover + Table of Contents + Closing`.
 - A `Chapters` section with 3-5 TOC headings, slide ranges, and the
   non-structural slides assigned to each chapter.
-- One row per slide with title, purpose, narrative role, content summary, layout,
-  components, primary/supporting claim ids, evidence binding ids or source
-  summary, `content.data.visualIntent`, `visuals[]`, and caveats/unsupported
-  scope.
-- Source Authority, Chapter Writing Batches, Evidence Trace, Boundary / Risk
-  Treatment, and HTML Identity Contract sections.
+- One row/block per slide with title, purpose, narrative role, content summary,
+  layout, components, `sourceLinks`, visual intent, visual brief, render notes,
+  and caveats/unsupported scope.
+- Source Authority, Chapter Map, Slides, Unresolved Inputs, and HTML Contract
+  sections.
 - A low-fidelity layout sketch for every slide when requested by the handoff
   prompt.
 
@@ -138,7 +137,11 @@ Rules for the slide plan:
 - Use one lightweight narrative role when clear: `context`, `tension`,
   `evidence`, `recommendation`, `risk`, `ask`, `appendix`, or `close`.
 - Use exact layout names from the Layout Index and exact component names from
-  the Component Index. Do not invent layout or component names.
+  the Component Index. Use only slots returned by the selected layout inventory.
+  Do not invent layout, slot, or component names.
+- Use `box.children` when several child components support one semantic idea.
+  Do not duplicate a child component both inside `box.children` and as a
+  separate top-level component plan entry.
 - Content summaries must be specific: real claims, numbers, evidence, or actions
   from narrative state and bound sources. Avoid vague descriptions like
   "overview of topic".
@@ -157,7 +160,7 @@ Rules for the slide plan:
   count or merge weak slides instead of creating sparse filler.
 
 Do not write any HTML until the user chooses to proceed from the current
-`deck-plan/` projection. `confirmDeckPlan` is compatibility/provenance only, not
+`deck-plan.md` projection. `confirmDeckPlan` is compatibility/provenance only, not
 a required workflow gate.
 
 ---
@@ -251,7 +254,7 @@ Required contract:
   when the HTML remains valid and every written slide satisfies this contract.
   Do not use filler or hidden overflow to make missing chapters appear complete.
 - Do not treat cached `DECKS.json.slides[]` length mismatches as an HTML identity
-  failure; plan completeness belongs to `deck-plan/` projection Markdown and
+  failure; plan completeness belongs to `deck-plan.md` and
   chapter batches when present.
 
 Example slide identity:

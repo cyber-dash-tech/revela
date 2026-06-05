@@ -11,7 +11,7 @@ Use this skill when the user asks about Revela designs or when generating deck H
 
 1. Call `revela_design_list` to inspect installed designs.
 2. Call `revela_design_read` with `section: "rules"` before writing or patching `decks/*.html`; this records the Codex hook context required for deck writes.
-3. Call `revela_design_inventory` before authoring or repairing `deck-plan/` so planned layout/component names come from the active design. Use `revela_upsert_deck_plan_slide` for slide-plan writes; do not hand-write slide plan Markdown.
+3. Call `revela_design_inventory` before authoring or repairing `deck-plan.md` so planned layout names, slots, component names, and nesting hints come from the active design. Write slide plan Markdown directly, then call `revela_read_deck_plan` for diagnostics.
 4. Read required details with `revela_design_read_layout` and `revela_design_read_component` before writing slide HTML that uses those layouts/components.
 5. When the user asks to switch designs for future work, call `revela_design_activate` with the requested design name, then read the active design again.
 6. For one-off deck generation with a requested design, read that design by name, call `revela_design_inventory` with that name, and pass `designName` to `revela_create_deck_foundation` without changing active design unless the user asked to switch.
@@ -25,7 +25,9 @@ Design changes are visual/artifact-level unless they change claim meaning, evide
 
 ## Inventory-First Planning
 
-Deck planning uses design vocabulary before HTML. Inspect the inventory, choose a valid layout for each slide, and choose valid component names for each planned element. Every component plan must include a semantic `slot` such as `left`, `right`, `top`, `main`, `bottom`, `footer`, or `fullbleed`, plus a non-empty kebab-case `position` such as `left-top`, `left-middle`, `right-bottom`, `center`, or `overlay-top-right`.
+Deck planning uses design vocabulary before HTML. Inspect the inventory, choose a valid layout for each slide, and choose valid component names for each planned element. Every top-level component plan must use a `slot` returned by the selected layout's inventory entry, plus a non-empty kebab-case `position` such as `left-top`, `left-middle`, `right-bottom`, `center`, or `overlay-top-right`.
+
+Use `box` as the semantic container when several child components support one idea. Put children under `box.children`; do not repeat those child components as separate top-level component plan entries. `hero` is fullbleed-only, while `page-number` and `brand-watermark` are utilities.
 
 Use `placementNote` for natural-language placement detail when slot and position are not enough. Slot and position are planning anchors; before HTML generation, fetch the actual layout/component definitions and implement the final structure with the design's CSS and markup.
 

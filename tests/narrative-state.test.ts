@@ -390,7 +390,7 @@ describe("narrative state", () => {
 
     expect(result.ok).toBe(true)
     expect(result.result).toMatchObject({ compiled: true, skipped: false, slideCount: 0, slides: [], chapters: [], qualityChecks: [] })
-    expect(result.result.planArtifactPath).toBe("deck-plan/index.md")
+    expect(result.result.planArtifactPath).toBe("deck-plan.md")
     expect(result.result.planningPacket).toMatchObject({
       narrativeHash: result.result.narrativeHash,
       outputPath: "decks/narrative-demo.html",
@@ -400,17 +400,17 @@ describe("narrative state", () => {
       risks: expect.arrayContaining([expect.objectContaining({ text: "Execution risk remains material." })]),
     })
     expect(result.result.deckPlanRequirements).toMatchObject({
-      planArtifactPath: "deck-plan/index.md",
-      slidePlanDir: "deck-plan/slides",
+      planArtifactPath: "deck-plan.md",
+      slidePlanDir: "",
       defaultProfile: expect.stringContaining("12-18 slides"),
       userConfirmations: expect.arrayContaining([expect.stringContaining("target slide count")]),
       authoringRules: expect.arrayContaining([
-        expect.stringContaining("LLM writes deck-plan/index.md and deck-plan/slides/*.md"),
+        expect.stringContaining("LLM writes canonical deck-plan.md"),
         expect.stringContaining("group related central claims"),
         expect.stringContaining("Do not render internal labels"),
-        expect.stringContaining("## Narrative Links"),
+        expect.stringContaining("sourceLinks"),
       ]),
-      requiredSections: expect.arrayContaining(["Source Authority", "Slide Plan", "HTML Identity Contract"]),
+      requiredSections: expect.arrayContaining(["Source Authority", "Slides", "HTML Contract"]),
     })
     expect(Object.values(result.result.deckPlanRequirements?.requiredSections ?? {}).includes("Approval")).toBe(false)
     expect(deck.slides).toHaveLength(1)
@@ -555,7 +555,7 @@ describe("narrative state", () => {
     expect(result.planArtifact.warnings).toContain("Deck plan narrativeHash does not match current narrative state.")
   })
 
-  it("reads the current deck-plan/ projection without regenerating it", async () => {
+  it("reads the current deck-plan.md projection without regenerating it", async () => {
     const workspaceRoot = tempWorkspace("revela-narrative-plan-read-")
     writeDecksState(workspaceRoot, legacyDecisionDeck())
     await runDecksTool({ action: "approveNarrative", approvalNote: "Approved for deck planning." }, workspaceRoot)
@@ -567,17 +567,24 @@ describe("narrative state", () => {
     expect(result.ok).toBe(true)
     expect(result.planArtifact).toMatchObject({
       ok: true,
-      path: "deck-plan/index.md",
+      path: "deck-plan.md",
       approvalStatus: "missing",
       planHash: expect.any(String),
-      sections: expect.arrayContaining(["Source Authority", "Slide Plan", "HTML Identity Contract"]),
+      sections: expect.arrayContaining(["Source Authority", "Slides", "HTML Contract"]),
       missingSections: [],
     })
     expect(result.planArtifact.projection).toMatchObject({
-      path: "deck-plan/index.md",
-      slides: [expect.objectContaining({ id: "slide-demand-proof", links: expect.arrayContaining([expect.objectContaining({ id: expect.stringMatching(/^claim:/), relation: "uses_claim" })]) })],
+      path: "deck-plan.md",
+      slides: [expect.objectContaining({
+        id: "slide-demand-proof",
+        sourceLinks: expect.objectContaining({
+          materials: ["materials/proposal.md"],
+          findings: [expect.stringMatching(/^evidence:/)],
+        }),
+        links: expect.arrayContaining([expect.objectContaining({ id: expect.stringMatching(/^evidence:/), relation: "uses_evidence" })]),
+      })],
       graphNodes: expect.arrayContaining([expect.objectContaining({ id: "deck-plan", type: "deck-plan" }), expect.objectContaining({ id: "slide-demand-proof", type: "deck-plan-slide" })]),
-      graphRelations: expect.arrayContaining([expect.objectContaining({ fromId: "slide-demand-proof", relation: "uses_claim", toId: expect.stringMatching(/^claim:/) })]),
+      graphRelations: expect.arrayContaining([expect.objectContaining({ fromId: "slide-demand-proof", relation: "uses_evidence", toId: expect.stringMatching(/^evidence:/) })]),
     })
   })
 
@@ -907,98 +914,106 @@ function writeDeckPlanProjection(workspaceRoot: string, narrativeHash: string): 
   const claimId = narrative.claims[0]?.id ?? "claim:demand"
   const evidenceId = narrative.evidenceBindings[0]?.id ?? "evidence:demand"
   const riskId = narrative.risks[0]?.id ?? "risk:execution"
-  mkdirSync(join(workspaceRoot, "deck-plan", "slides"), { recursive: true })
-  writeFileSync(join(workspaceRoot, "deck-plan", "index.md"), deckPlanIndexMarkdown(narrativeHash), "utf-8")
-  writeFileSync(join(workspaceRoot, "deck-plan", "slides", "001-demand-proof.md"), deckPlanSlideMarkdown({ claimId, evidenceId, riskId }), "utf-8")
+  writeFileSync(join(workspaceRoot, "deck-plan.md"), deckPlanMarkdown({ narrativeHash, claimId, evidenceId, riskId }), "utf-8")
 }
 
-function deckPlanIndexMarkdown(narrativeHash: string): string {
+function deckPlanMarkdown({ narrativeHash, evidenceId, riskId }: { narrativeHash: string; claimId: string; evidenceId: string; riskId: string }): string {
   return `---
 id: deck-plan
 narrativeHash: ${narrativeHash}
 outputPath: decks/narrative-demo.html
+designName: summit
 ---
 
 # Revela Deck Plan
 
+## Goal
+
+- Approve phased expansion.
+
+## Audience
+
+- Executive decision makers.
+
+## Design
+
+- Design: summit
+
 ## Source Authority
 
-- Meaning: canonical narrative state.
-- Plan: this markdown file.
-
-## Audience / Goal / Decision
-
-- Audience: Executive decision makers.
-- Goal: Approve phased expansion.
-
-## Deck Parameters
-
-- Target slides: 12-18.
-- Language: en.
+- Sources: local materials and research findings.
 
 ## Chapter Map
 
 - Context: slides 1-3.
 - Recommendation: slides 4-8.
 
-## Slide Plan
+## Slides
 
-- Slide 1: Cover.
-- Slide 2: Table of contents.
-- Slide 3: Demand proof.
+  ${deckPlanSlideMarkdown({ evidenceId, riskId })}
 
-## Evidence Trace
+## Unresolved Inputs
 
-- Preserve evidence ids, source trace, support scope, unsupported scope, caveats, and strength.
+- None.
 
-## Boundary / Risk Treatment
-
-- Convert evidence limits into audience-facing decision language.
-
-## Chapter Writing Batches
-
-- Batch 1: structural slides and first chapter.
-- Batch 2: remaining chapters.
-
-## HTML Identity Contract
+## HTML Contract
 
 - Use positive 1-based data-slide-index values that are unique and strictly increase in DOM order.
 `
 }
 
-function deckPlanSlideMarkdown({ claimId, evidenceId, riskId }: { claimId: string; evidenceId: string; riskId: string }): string {
-  return `---
-type: deck-plan-slide
-id: slide-demand-proof
-slideIndex: 3
-title: Demand proof
-chapter: Recommendation
-layout: narrative
-components: box, text-panel
-structural: false
-narrativeRole: evidence
----
+function deckPlanSlideMarkdown({ evidenceId, riskId }: { evidenceId: string; riskId: string }): string {
+  return `### Slide 3 — Demand proof
 
-# Demand proof
+- Id: slide-demand-proof
+- Chapter: Recommendation
+- Role: evidence
+- Structural: false
+- Layout: narrative
+- Components: box, text-panel
 
-## Purpose
+#### Component Plan
 
-Show why demand evidence supports phased expansion.
+##### box
 
-## Narrative Links
+- Slot: left
+- Position: left-top
+- Purpose: Group demand proof.
+- Content:
+  Demand evidence supports phased expansion.
+- Source notes: research summary
+- Render notes: Use box as semantic container.
 
-Claims:
-- [[${claimId}]]
+###### text-panel
 
-Evidence:
+- Slot: left
+- Position: left-middle
+- Purpose: Explain the evidence.
+- Content:
+  Show why demand evidence supports phased expansion.
+- Source notes: source summary
+- Render notes: Keep copy concise.
+
+#### Source Links
+
+Materials:
+- [[materials/proposal.md]]
+
+Findings:
 - [[${evidenceId}]]
 
-Risks:
+Assets:
+- None.
+
+URLs:
+- None.
+
+Caveats:
 - [[${riskId}]]
 
-## Layout Sketch
+#### Caveats
 
-Text panel plus evidence box.
+- Convert evidence limits into audience-facing decision language.
 `
 }
 

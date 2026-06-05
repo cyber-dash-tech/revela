@@ -138,7 +138,7 @@ describe("Codex revela-research skill", () => {
   it("uses tool-backed research before manual evidence authoring", () => {
     expect(codexResearchSkill).toContain("Save useful findings with `revela_research_save`")
     expect(codexResearchSkill).toContain("Do not bind findings into a Narrative Vault")
-    expect(codexResearchSkill).toContain("deck-plan/")
+    expect(codexResearchSkill).toContain("deck-plan.md")
   })
 
   it("marks Codex research as tool-backed in the capability matrix", () => {
@@ -163,8 +163,13 @@ describe("Codex Story removal", () => {
 describe("Codex revela-make-deck skill", () => {
   it("requires deck-plan preflight before HTML generation", () => {
     expect(codexMakeDeckSkill).toContain("revela_design_inventory")
+    expect(codexMakeDeckSkill).toContain("write or repair `deck-plan.md` directly")
+    expect(codexMakeDeckSkill).toContain("Do not use structured upsert tools for normal plan authoring")
     expect(codexMakeDeckSkill).toContain("Call `revela_read_deck_plan` before HTML generation")
-    expect(codexMakeDeckSkill).toContain("revela_upsert_deck_plan_slide")
+    expect(codexMakeDeckSkill).toContain("`revela_read_deck_plan` is QA/diagnostics, not a writer")
+    expect(codexMakeDeckSkill).not.toContain("revela_upsert_deck_plan")
+    expect(codexMakeDeckSkill).not.toContain("revela_upsert_deck_plan_slide")
+    expect(codexMakeDeckSkill).toContain("box.children")
     expect(codexMakeDeckSkill).toContain("Do not require a Narrative Vault")
 
     expect(codexMakeDeckSkill.indexOf("revela_design_inventory")).toBeLessThan(codexMakeDeckSkill.indexOf("revela_read_deck_plan"))
@@ -181,7 +186,7 @@ describe("Codex revela-review-deck skill", () => {
     expect(codexReviewDeckSkill).toContain("revela_review_deck_open")
     expect(codexReviewDeckSkill).toContain("format: \"markdown\"")
     expect(codexReviewDeckSkill).toContain("is read-only")
-    expect(codexReviewDeckSkill).toContain("Content changes that affect the deck argument should update `deck-plan/` first")
+    expect(codexReviewDeckSkill).toContain("Content changes that affect the deck argument should update `deck-plan.md` first")
   })
 
   it("marks Codex Review deck reading as tool-backed in the capability matrix", () => {

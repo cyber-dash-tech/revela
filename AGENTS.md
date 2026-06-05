@@ -2,9 +2,9 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-06-05 for 0.18.0 deck-first workflow migration.
+> Last updated: 2026-06-05 for 0.18.1 deck-plan/design contract upgrade.
 
-## 0.18.0 Migration Override
+## 0.18.1 Migration Override
 
 0.18.0 is a breaking deck-first target. For current development, the default workflow is:
 
@@ -15,11 +15,14 @@ Init -> Research -> Plan --deck -> Make --deck -> Review --deck -> Export
 - Do not generate `revela-narrative/` during init, research, plan, make, review, or export.
 - `/revela story` and `/revela make --brief` are removed from the public workflow.
 - Research saves source-linked findings under `researches/`; it does not bind findings into vault evidence.
-- `deck-plan/` is the main execution plan and may use `[[...]]` links to source materials, material reviews, research findings, assets, and caveats.
+- `deck-plan.md` is the canonical execution plan. Legacy `deck-plan/index.md` and `deck-plan/slides/*.md` remain read-compatible only.
+- Deck-plan slide blocks use `sourceLinks` for materials, findings, assets, URLs, and caveats. Legacy `narrativeLinks` inputs are compatibility-only.
+- Design inventory must expose layout slots and component nesting hints; planned component slots must belong to the selected layout.
+- Component plans support `children`; use `box.children` for semantic groups that contain text, media, charts, tables, stats, quotes, or steps.
 - Review is Artifact QA plus Comment/Apply Fix. Insight/Inspect is removed from the public Review path.
 - Export supports PDF, PPTX, and per-slide PNG.
 
-Older 0.17 Narrative Vault guidance below remains release archaeology until it is fully deleted; when it conflicts with this override, follow the 0.18.0 rules above.
+Older 0.17 Narrative Vault guidance below remains release archaeology until it is fully deleted; when it conflicts with this override, follow the 0.18.1 rules above.
 
 ## Product Baseline
 
@@ -311,7 +314,7 @@ Deferred until after MVP stability:
 
 - `DECKS.json` is no longer target product state. Do not add new workflow authority there; remove or replace existing reads/writes during the file-native migration.
 - Do not require generated deck HTML to match cached `DECKS.json.slides[]` length during chapter-by-chapter authoring; partial artifacts are allowed when written slide identities are valid. The render execution plan should come from `deck-plan/` projection Markdown when present, not from cached `DECKS.json.slides[]`.
-- `deck-plan/` is render-layer projection state. It may link to canonical narrative nodes for coverage and traceability, but it must not be compiled into `NarrativeStateV1` or affect narrative approval hashes.
+- `deck-plan.md` is render-layer projection state. Legacy `deck-plan/` files may be read for compatibility, but new plan writes should use the single Markdown file.
 - Do not patch generated cache files as source. Edit `revela-narrative/**/*.md` for narrative meaning and regenerate compiled projections.
 - Edits to `revela-narrative/**/*.md` trigger plugin-side compile/guard reporting through write/edit/apply_patch hooks.
 - `revela-research-save` writes findings markdown under `researches/{topic}/{filename}.md`; it does not automatically make findings canonical support.

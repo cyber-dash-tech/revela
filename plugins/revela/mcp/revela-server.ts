@@ -55,15 +55,16 @@ const tools = [
   },
   {
     name: "revela_read_deck_plan",
-    description: "Read the file-native deck-plan/ projection and diagnostics.",
+    description: "Read canonical deck-plan.md projection and diagnostics, with legacy deck-plan/ fallback support.",
     inputSchema: objectSchema({ workspaceRoot: stringProp("Optional workspace root.") }),
   },
   {
     name: "revela_upsert_deck_plan_slide",
-    description: "Create or update one structured deck-plan/slides/*.md slide plan with active/requested design vocabulary validation.",
+    description: "Compatibility/repair helper for creating or updating one slide block in canonical deck-plan.md with active/requested design vocabulary validation. Normal planning should write deck-plan.md directly and use revela_read_deck_plan for diagnostics.",
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       designName: stringProp("Optional design name. Defaults to the active design."),
+      outputPath: stringProp("Optional workspace-relative HTML output path."),
       slideIndex: requiredNumberProp("Positive 1-based slide index."),
       id: stringProp("Optional stable slide node id."),
       title: requiredStringProp("Slide title."),
@@ -73,9 +74,10 @@ const tools = [
       layout: requiredStringProp("Design layout name from inventory."),
       components: componentPlanArrayProp(),
       visualIntent: visualIntentProp(),
+      sourceLinks: sourceLinksProp(),
       narrativeLinks: narrativeLinksProp(),
       caveats: arrayProp("Optional caveats to keep visible in the slide plan."),
-    }, ["slideIndex", "title", "chapter", "narrativeRole", "layout", "components", "visualIntent", "narrativeLinks"]),
+    }, ["slideIndex", "title", "chapter", "narrativeRole", "layout", "components", "visualIntent"]),
   },
   {
     name: "revela_create_deck_foundation",
@@ -494,26 +496,33 @@ function arrayObjectProp(description: string) {
 }
 
 function componentPlanArrayProp() {
+  const childSchema: any = {
+    type: "object",
+    properties: {
+      name: { type: "string", description: "Design component name." },
+      slot: { type: "string", description: "Layout semantic slot from design inventory, such as left, right, top, bottom, fullbleed, or a numbered slot." },
+      position: { type: "string", description: "Slot-local kebab-case anchor, such as left-top, center, or overlay-top-right." },
+      purpose: { type: "string", description: "Component communication job." },
+      content: { type: "string", description: "Exact text, data, or structure to render." },
+      claimIds: { type: "array", items: { type: "string" } },
+      evidenceIds: { type: "array", items: { type: "string" } },
+      sourceNotes: { type: "array", items: { type: "string" } },
+      renderNotes: { type: "array", items: { type: "string" } },
+      placementNote: { type: "string" },
+    },
+    required: ["name", "slot", "position", "purpose", "content"],
+    additionalProperties: false,
+  }
+  const componentSchema: any = JSON.parse(JSON.stringify(childSchema))
+  componentSchema.properties.children = {
+    type: "array",
+    description: "Nested child components. Use box as the semantic container for grouped child content.",
+    items: childSchema,
+  }
   return {
     type: "array",
     description: "Structured component plan entries.",
-    items: {
-      type: "object",
-      properties: {
-        name: { type: "string", description: "Design component name." },
-        slot: { type: "string", description: "Layout semantic slot, such as left, right, top, main, bottom, footer, or fullbleed." },
-        position: { type: "string", description: "Slot-local kebab-case anchor, such as left-top, center, or overlay-top-right." },
-        purpose: { type: "string", description: "Component communication job." },
-        content: { type: "string", description: "Exact text, data, or structure to render." },
-        claimIds: { type: "array", items: { type: "string" } },
-        evidenceIds: { type: "array", items: { type: "string" } },
-        sourceNotes: { type: "array", items: { type: "string" } },
-        renderNotes: { type: "array", items: { type: "string" } },
-        placementNote: { type: "string" },
-      },
-      required: ["name", "slot", "position", "purpose", "content"],
-      additionalProperties: false,
-    },
+    items: componentSchema,
   }
 }
 
@@ -545,6 +554,21 @@ function narrativeLinksProp() {
       riskIds: { type: "array", items: { type: "string" } },
       objectionIds: { type: "array", items: { type: "string" } },
       gapIds: { type: "array", items: { type: "string" } },
+    },
+    additionalProperties: false,
+  }
+}
+
+function sourceLinksProp() {
+  return {
+    type: "object",
+    description: "Deck-first source links. Use these instead of narrativeLinks for new plans.",
+    properties: {
+      materials: { type: "array", items: { type: "string" } },
+      findings: { type: "array", items: { type: "string" } },
+      assets: { type: "array", items: { type: "string" } },
+      urls: { type: "array", items: { type: "string" } },
+      caveats: { type: "array", items: { type: "string" } },
     },
     additionalProperties: false,
   }

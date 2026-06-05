@@ -16,7 +16,7 @@ Use this skill when the user asks to research missing deck inputs, gather public
 
 ## Workflow
 
-1. Inspect material intake status, material review files, existing `researches/**/*.md`, and `deck-plan/` when present.
+1. Inspect material intake status, material review files, existing `researches/**/*.md`, and `deck-plan.md` when present.
 2. Identify the smallest research tasks needed for the deck objective: market facts, benchmarks, examples, source quotes, images/logos/screenshots, or caveats.
 3. Use external research only for public facts or user-authorized questions.
 4. Save useful findings with `revela_research_save`.

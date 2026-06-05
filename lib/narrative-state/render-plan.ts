@@ -207,7 +207,7 @@ export function compileDeckPlanFromNarrative(state: DecksState, options: Compile
         compiled: true,
         skipped: false,
         narrativeHash,
-        planArtifactPath: "deck-plan/index.md",
+        planArtifactPath: "deck-plan.md",
         slideCount: 0,
         slides: [],
         chapters: [],
@@ -236,8 +236,8 @@ function buildDeckPlanningPacket(narrative: NarrativeStateV1, narrativeHash: str
 
 function buildDeckPlanRequirements(narrativeHash: string): DeckPlanRequirements {
   return {
-    planArtifactPath: "deck-plan/index.md",
-    slidePlanDir: "deck-plan/slides",
+    planArtifactPath: "deck-plan.md",
+    slidePlanDir: "",
     defaultProfile: "executive decision deck, usually 12-18 slides unless the user confirms otherwise",
     userConfirmations: [
       "Confirm target slide count or acceptable range when it is unclear.",
@@ -245,7 +245,7 @@ function buildDeckPlanRequirements(narrativeHash: string): DeckPlanRequirements 
       "Confirm language, emphasis, or visual style only when needed before writing the plan.",
     ],
     authoringRules: [
-      "LLM writes deck-plan/index.md and deck-plan/slides/*.md from the planning packet; compileDeckPlan does not generate the final slide list.",
+      "LLM writes canonical deck-plan.md from the planning packet; compileDeckPlan does not generate the final slide list.",
       "Use 3-5 chapters for normal executive decks.",
       "Cover every central claim, but group related central claims into chapters instead of giving each claim its own chapter.",
       "Each substantive chapter should have framing, proof, and implication/boundary coverage.",
@@ -254,18 +254,17 @@ function buildDeckPlanRequirements(narrativeHash: string): DeckPlanRequirements 
       "Preserve evidence ids, source trace, supported scope, unsupported scope, caveats, and strength where available.",
       "Do not render internal labels such as Evidence gap:, Unsupported scope:, Caveat:, Missing Data, or Evidence Boundary in executive body copy.",
       "Do not infer plan structure from DECKS.json slides[]; it is compatibility cache only.",
-      "Use ## Narrative Links in slide files for [[claim-id]], [[evidence-id]], [[risk-id]], [[objection-id]], or [[gap-id]] references; do not use canonical ## Relations in deck-plan files.",
+      "Use sourceLinks in slide blocks for materials, findings, assets, URLs, and caveats; do not use canonical ## Relations in deck-plan files.",
     ],
     requiredSections: [
+      "Goal",
+      "Audience",
+      "Design",
       "Source Authority",
-      "Audience / Goal / Decision",
-      "Deck Parameters",
       "Chapter Map",
-      "Slide Plan",
-      "Evidence Trace",
-      "Boundary / Risk Treatment",
-      "Chapter Writing Batches",
-      "HTML Identity Contract",
+      "Slides",
+      "Unresolved Inputs",
+      "HTML Contract",
     ],
   }
 }
@@ -274,13 +273,13 @@ export function buildRenderPlanContract(deck: DeckSpec, chapters: DeckPlanChapte
   return {
     sourceAuthority: {
       meaning: "revela-narrative/ canonical narrative state",
-      renderPlan: "deck-plan/ projection workspace plus compileDeckPlan planning packet",
+      renderPlan: "deck-plan.md plus compileDeckPlan planning packet",
       state: "DECKS.json compatibility/render state only; slides[] is cached projection data",
       htmlIdentity: "positive 1-based data-slide-index values, unique and strictly increasing in DOM order",
     },
     renderRules: [
       "Do not infer deck structure, slide count, or chapter substance from DECKS.json slides[].",
-      "Use the compileDeckPlan planning packet plus deck-plan/ projection Markdown as the render-plan contract.",
+      "Use the compileDeckPlan planning packet plus deck-plan.md as the render-plan contract.",
       "Render chapter divider slides with the toc component when slideKind is chapter-divider.",
       "Chapter divider and global TOC slides are structural wayfinding and do not count toward central-claim substance.",
       "Each central claim chapter needs non-structural framing, proof, and implication/boundary slides unless the current deck-plan projection explicitly says otherwise.",

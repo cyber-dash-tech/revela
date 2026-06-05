@@ -121,6 +121,27 @@ describe("runtime facade", () => {
     expect(result.projection?.diagnostics.some((item) => item.code === "stale_narrative_hash")).toBe(false)
   })
 
+  it("reads hand-written deck-plan.md and reports design/source diagnostics", () => {
+    const root = tempWorkspace("revela-runtime-deck-plan-direct-diagnostics-")
+    writeFileSync(join(root, "deck-plan.md"), directInvalidDeckPlanMarkdown(), "utf-8")
+
+    const result = readDeckPlan({ workspaceRoot: root })
+    const codes = result.projection?.diagnostics.map((item) => item.code) ?? []
+
+    expect(result.ok).toBe(true)
+    expect(result.projection?.designName).toBe("summit")
+    expect(result.projection?.slides[0]).toMatchObject({
+      slideIndex: 1,
+      layout: "unknown-layout",
+      sourceLinks: expect.objectContaining({ materials: [], findings: [], assets: [], urls: [], caveats: [] }),
+    })
+    expect(codes).toContain("slide_source_link_missing")
+    expect(codes).toContain("slide_layout_unknown")
+    expect(codes).toContain("slide_component_plan_unknown")
+    expect(codes).toContain("slide_component_slot_invalid")
+    expect(codes).toContain("slide_component_children_invalid")
+  })
+
   it("upserts one structured deck-plan slide and reads its component plan", () => {
     const root = tempWorkspace("revela-runtime-deck-plan-upsert-")
     writeMinimalVault(root)
@@ -128,8 +149,8 @@ describe("runtime facade", () => {
     const result = upsertDeckPlanSlide(validDeckPlanSlideInput(root))
 
     expect(result.ok).toBe(true)
-    expect(result.path).toBe("deck-plan/slides/001-pilot-proof.md")
-    expect(existsSync(join(root, "deck-plan", "index.md"))).toBe(true)
+    expect(result.path).toBe("deck-plan.md")
+    expect(existsSync(join(root, "deck-plan.md"))).toBe(true)
     const read = readDeckPlan({ workspaceRoot: root })
     expect(read.ok).toBe(true)
     expect(read.projection?.slides).toHaveLength(1)
@@ -151,10 +172,16 @@ describe("runtime facade", () => {
       sourceNotes: ["Proposal"],
       renderNotes: ["Use concise heading and body copy."],
     })
-    expect(read.markdown).toContain("Slide 1: [[slide-pilot-proof]]")
+    expect(read.projection?.slides[0].sourceLinks).toMatchObject({
+      findings: ["researches/pilot.md"],
+      urls: ["https://example.com/pilot"],
+      caveats: ["Intent evidence does not prove market demand."],
+    })
+    expect(read.markdown).toContain("### Slide 1")
+    expect(read.markdown).toContain("#### Source Links")
   })
 
-  it("re-upserting the same slideIndex updates the existing slide file", () => {
+  it("re-upserting the same slideIndex updates the existing slide block", () => {
     const root = tempWorkspace("revela-runtime-deck-plan-upsert-update-")
     writeMinimalVault(root)
     upsertDeckPlanSlide(validDeckPlanSlideInput(root))
@@ -173,8 +200,7 @@ describe("runtime facade", () => {
 
     expect(result.ok).toBe(true)
     expect(result.updated).toBe(true)
-    expect(existsSync(join(root, "deck-plan", "slides", "001-pilot-proof.md"))).toBe(false)
-    expect(existsSync(join(root, "deck-plan", "slides", "001-pilot-decision.md"))).toBe(true)
+    expect(existsSync(join(root, "deck-plan.md"))).toBe(true)
     const read = readDeckPlan({ workspaceRoot: root })
     expect(read.projection?.slides).toHaveLength(1)
     expect(read.projection?.slides[0].title).toBe("Pilot Decision")
@@ -203,6 +229,13 @@ describe("runtime facade", () => {
     })
     expect(missingPosition.ok).toBe(false)
     expect(missingPosition.diagnostics).toContainEqual(expect.objectContaining({ severity: "error", code: "slide_component_plan_incomplete" }))
+
+    const invalidSlot = upsertDeckPlanSlide({
+      ...validDeckPlanSlideInput(root),
+      components: [{ ...validDeckPlanSlideInput(root).components[0], slot: "top" }],
+    })
+    expect(invalidSlot.ok).toBe(false)
+    expect(invalidSlot.diagnostics).toContainEqual(expect.objectContaining({ severity: "error", code: "slide_component_slot_invalid" }))
 
     const missingVisualComponent = upsertDeckPlanSlide({
       ...validDeckPlanSlideInput(root),
@@ -839,6 +872,105 @@ outputPath: decks/runtime-demo.html
 `, "utf-8")
 }
 
+function directInvalidDeckPlanMarkdown(): string {
+  return `---
+id: deck-plan
+designName: summit
+---
+
+# Deck Plan
+
+## Goal
+
+- Test direct authoring diagnostics.
+
+## Audience
+
+- Executive committee.
+
+## Design
+
+- Design: summit
+
+## Source Authority
+
+- Sources should stay explicit.
+
+## Chapter Map
+
+- Diagnostics: slides 1-2.
+
+## Slides
+
+### Slide 1 - Missing Source Links
+
+- Id: slide-missing-source
+- Chapter: Diagnostics
+- Role: Show source diagnostics.
+- Structural: false
+- Layout: unknown-layout
+- Components: text-panel
+
+#### Component Plan
+
+##### text-panel
+
+- Slot: left
+- Position: left-top
+- Purpose: Explain the missing source.
+- Content:
+  This slide intentionally has no source links.
+
+### Slide 2 - Invalid Components
+
+- Id: slide-invalid-components
+- Chapter: Diagnostics
+- Role: Show design diagnostics.
+- Structural: false
+- Layout: narrative
+- Components: text-panel, unknown-widget
+
+#### Component Plan
+
+##### text-panel
+
+- Slot: top
+- Position: top-left
+- Purpose: Use an invalid slot and child.
+- Content:
+  Text panels cannot contain children.
+
+###### stat-card
+
+- Slot: top
+- Position: top-right
+- Purpose: Invalid child for text-panel.
+- Content:
+  42
+
+##### unknown-widget
+
+- Slot: left
+- Position: left-bottom
+- Purpose: Unknown component.
+- Content:
+  Unknown component.
+
+#### Source Links
+
+Caveats:
+- [[Needs manual verification.]]
+
+## Unresolved Inputs
+
+- None.
+
+## HTML Contract
+
+- Use positive 1-based data-slide-index values.
+`
+}
+
 function validDeckPlanSlideInput(root: string) {
   return {
     workspaceRoot: root,
@@ -863,9 +995,10 @@ function validDeckPlanSlideInput(root: string) {
       placementNote: "Keep this as the primary reading path.",
     }],
     visualIntent: { kind: "copy-led", component: "text-panel", rationale: "The slide should privilege the decision sentence." },
-    narrativeLinks: {
-      claimIds: ["claim-pilot"],
-      evidenceIds: ["evidence-pilot"],
+    sourceLinks: {
+      findings: ["researches/pilot.md"],
+      urls: ["https://example.com/pilot"],
+      caveats: ["Intent evidence does not prove market demand."],
     },
     caveats: ["Intent evidence does not prove market demand."],
   }

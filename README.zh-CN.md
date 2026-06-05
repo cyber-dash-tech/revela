@@ -10,7 +10,7 @@
 
 Revela 可在 [OpenCode](https://opencode.ai) 和 Codex 中使用，把来源材料、调研、数据和用户意图转成可信、可追踪、可直接用于决策沟通的 deck artifact。
 
-它的 deck-first workspace 会审阅本地资料、保存 source-linked research、生成明确的 `deck-plan/`、产出 HTML deck，并支持 Review 与 PDF/PPTX/PNG 导出。
+它的 deck-first workspace 会审阅本地资料、保存 source-linked research、生成明确的 `deck-plan.md`、产出 HTML deck，并支持 Review 与 PDF/PPTX/PNG 导出。
 
 ## 安装
 

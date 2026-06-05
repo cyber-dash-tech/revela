@@ -18,7 +18,7 @@ OpenCode remains the release-compatible surface while the Codex adapter is built
 ## Product Goals
 
 - Make Revela usable in Codex with the same product promise: turn source materials, research, data, and user intent into trusted, traceable, presentation-ready decision artifacts.
-- Preserve the current file-native architecture: `revela-narrative/` for canonical meaning, `deck-plan/` for render planning, `decks/*.html` for artifacts, `researches/` for findings, and `assets/` for media.
+- Preserve the current file-native architecture: local materials and `researches/` for source inputs, `deck-plan.md` for render planning, `decks/*.html` for artifacts, and `assets/` for media.
 - Keep existing OpenCode `/revela ...` commands working.
 - Avoid duplicating compiler, QA, export, design, or state logic inside the Codex plugin.
 
@@ -53,7 +53,7 @@ Codex support is built as small adapter modules around existing Revela capabilit
 5. MCP server
    - Purpose: expose shared runtime functions to Codex as tools over stdio JSON-RPC.
    - Main surfaces: `bin/revela.ts`, `plugins/revela/mcp/revela-server.ts`, `plugins/revela/mcp/runtime-resolver.ts`, `plugins/revela/.mcp.json`.
-   - Enables: Codex tool calls such as `revela_prepare_local_materials`, `revela_extract_document_materials`, `revela_research_save`, `revela_read_deck_plan`, `revela_upsert_deck_plan_slide`, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_review_deck_open`, `revela_review_deck_read`, `revela_export_pdf`, `revela_export_pptx`, `revela_export_png`, `revela_design_list`, `revela_design_read`, `revela_design_activate`, `revela_domain_list`, `revela_domain_read`, and `revela_domain_activate`.
+   - Enables: Codex tool calls such as `revela_prepare_local_materials`, `revela_extract_document_materials`, `revela_research_save`, `revela_read_deck_plan`, `revela_upsert_deck_plan_slide` as a compatibility/repair helper, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_review_deck_open`, `revela_review_deck_read`, `revela_export_pdf`, `revela_export_pptx`, `revela_export_png`, `revela_design_list`, `revela_design_read`, `revela_design_inventory`, `revela_design_activate`, `revela_domain_list`, `revela_domain_read`, and `revela_domain_activate`.
    - Does not own: product workflow policy, broad orchestration, or OpenCode tool replacement. Prefer `revela mcp` as the stable entry; plugin `.mcp.json` is a wrapper for Codex plugin installation.
 
 6. Codex hooks
@@ -127,7 +127,7 @@ The next Review server batch should add a Codex-safe prompt bridge before exposi
 - `codex-exec` / Codex SDK bridge: the first direct Codex Review server path. Browser Comment/Apply Fix actions start a short-lived Codex job, preferably `codex exec --json --ephemeral -C <workspace>` or the SDK equivalent, wait for structured output, then close the process/thread.
 - `codex-app-server` bridge: a later deep-integration path for Codex App/CLI parity, current-thread steering, streamed events, and richer approval handling.
 
-Use the `codex-exec` / SDK bridge as the MVP implementation route for interactive Codex Review. It is simpler than the app-server protocol, matches Codex's non-interactive CLI/SDK strengths, and avoids depending on a current interactive session. Review read diagnostics remain read-only. Comment/Apply Fix may patch artifacts for pure visual edits, while meaning changes must update `deck-plan/` before artifacts are remade.
+Use the `codex-exec` / SDK bridge as the MVP implementation route for interactive Codex Review. It is simpler than the app-server protocol, matches Codex's non-interactive CLI/SDK strengths, and avoids depending on a current interactive session. Review read diagnostics remain read-only. Comment/Apply Fix may patch artifacts for pure visual edits, while meaning changes must update `deck-plan.md` before artifacts are remade.
 
 Review event-stream reliability remains a follow-up for the `codex-exec` bridge. Raw Codex JSONL events such as `{"type":"turn.started"}` are start/progress signals only, not terminal completion. The `/api/comment-events` SSE stream should send heartbeat comments while requests are pending, and the Review server should use an idle timeout appropriate for long-running Codex jobs so quiet streams are not closed by Bun's default idle timeout. Frontend fallback polling must still surface terminal `completed`, `failed`, or `timeout` request states when SSE disconnects. Deck-version updates remain authoritative for preview refresh, but they must not be confused with Codex job completion.
 

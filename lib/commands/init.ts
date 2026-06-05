@@ -12,7 +12,7 @@ export function buildInitPrompt({
 Goal:
 - Discover local source materials and prepare them for deck planning.
 - Do not create or update revela-narrative/.
-- Treat local files, extraction read views, material reviews, saved research, assets, deck-plan/, and decks/*.html as the product workspace.
+- Treat local files, extraction read views, material reviews, saved research, assets, deck-plan.md, and decks/*.html as the product workspace.
 - End with a concise intake report and the next command: /revela research when external support is needed, or /revela plan --deck when enough inputs exist.
 
 Current state:

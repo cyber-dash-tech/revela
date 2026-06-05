@@ -9,10 +9,11 @@ import type { VaultRelation, WorkspaceGraphNodeType } from "../narrative-vault/t
 import type { DeckPlanChapter, DeckPlanQualityCheck, RenderPlanContract, RenderPlanSlideMetadata } from "./render-plan"
 
 export const DECK_PLAN_DIR = "deck-plan"
+export const DECK_PLAN_MARKDOWN_PATH = "deck-plan.md"
 export const DECK_PLAN_INDEX_PATH = "deck-plan/index.md"
 export const DECK_PLAN_SLIDES_DIR = "deck-plan/slides"
 export const LEGACY_DECK_PLAN_ARTIFACT_PATH = "decks/deck-plan.md"
-export const DECK_PLAN_ARTIFACT_PATH = DECK_PLAN_INDEX_PATH
+export const DECK_PLAN_ARTIFACT_PATH = DECK_PLAN_MARKDOWN_PATH
 
 export interface DeckPlanArtifactInput {
   deck: DeckSpec
@@ -65,6 +66,7 @@ export interface DeckPlanProjection {
   frontmatter: Record<string, string | string[] | boolean>
   sections: string[]
   narrativeHash?: string
+  designName?: string
   outputPath?: string
   slides: DeckPlanSlideProjection[]
   graphNodes: Array<{ id: string; type: WorkspaceGraphNodeType; file: string }>
@@ -88,6 +90,7 @@ export interface DeckPlanSlideProjection {
   frontmatter: Record<string, string | string[] | boolean>
   sections: string[]
   links: DeckPlanNarrativeLink[]
+  sourceLinks: DeckPlanSourceLinks
   caveats: string[]
 }
 
@@ -102,6 +105,7 @@ export interface DeckPlanSlideComponentPlan {
   sourceNotes: string[]
   renderNotes: string[]
   placementNote?: string
+  children?: DeckPlanSlideComponentPlan[]
 }
 
 export interface DeckPlanSlideUpsertComponentInput {
@@ -115,9 +119,20 @@ export interface DeckPlanSlideUpsertComponentInput {
   sourceNotes?: string[]
   renderNotes?: string[]
   placementNote?: string
+  children?: DeckPlanSlideUpsertComponentInput[]
+}
+
+export interface DeckPlanSourceLinks {
+  materials: string[]
+  findings: string[]
+  assets: string[]
+  urls: string[]
+  caveats: string[]
 }
 
 export interface DeckPlanSlideUpsertInput {
+  designName?: string
+  outputPath?: string
   slideIndex: number
   id?: string
   title: string
@@ -132,7 +147,8 @@ export interface DeckPlanSlideUpsertInput {
     rationale?: string
     brief?: string
   } | string
-  narrativeLinks: {
+  sourceLinks?: Partial<DeckPlanSourceLinks>
+  narrativeLinks?: {
     claimIds?: string[]
     evidenceIds?: string[]
     riskIds?: string[]
@@ -166,15 +182,14 @@ export interface DeckPlanProjectionDiagnostic {
 }
 
 export const REQUIRED_DECK_PLAN_SECTIONS = [
+  "Goal",
+  "Audience",
+  "Design",
   "Source Authority",
-  "Audience / Goal / Decision",
-  "Deck Parameters",
   "Chapter Map",
-  "Slide Plan",
-  "Evidence Trace",
-  "Boundary / Risk Treatment",
-  "Chapter Writing Batches",
-  "HTML Identity Contract",
+  "Slides",
+  "Unresolved Inputs",
+  "HTML Contract",
 ]
 
 export function writeDeckPlanArtifact(workspaceRoot: string, input: DeckPlanArtifactInput): { path: string; absolutePath: string } {
@@ -186,17 +201,17 @@ export function writeDeckPlanArtifact(workspaceRoot: string, input: DeckPlanArti
 
 export function readDeckPlanArtifact(workspaceRoot: string, expected?: { narrativeHash?: string; knownNodeIds?: Set<string> }): DeckPlanReadResult {
   const projection = readDeckPlanProjection(workspaceRoot, expected)
-  const absolutePath = projection?.absolutePath ?? join(workspaceRoot, DECK_PLAN_INDEX_PATH)
+  const absolutePath = projection?.absolutePath ?? join(workspaceRoot, DECK_PLAN_MARKDOWN_PATH)
   if (!existsSync(absolutePath)) {
     return {
       ok: false,
-      path: DECK_PLAN_INDEX_PATH,
+      path: DECK_PLAN_MARKDOWN_PATH,
       absolutePath,
       approvalStatus: "missing",
       sections: [],
       missingSections: REQUIRED_DECK_PLAN_SECTIONS,
       warnings: [],
-      reason: `Deck plan file is missing: ${DECK_PLAN_INDEX_PATH}. Write the LLM-authored deck-plan/ projection before HTML generation.`,
+      reason: `Deck plan file is missing: ${DECK_PLAN_MARKDOWN_PATH}. Write the LLM-authored deck plan before HTML generation.`,
     }
   }
   const markdown = projection?.markdown ?? readFileSync(absolutePath, "utf-8")
@@ -222,7 +237,7 @@ export function readDeckPlanArtifact(workspaceRoot: string, expected?: { narrati
   }
   return {
     ok: true,
-    path: projection?.path ?? DECK_PLAN_INDEX_PATH,
+    path: projection?.path ?? DECK_PLAN_MARKDOWN_PATH,
     absolutePath,
     markdown,
     planHash,
@@ -237,9 +252,10 @@ export function readDeckPlanArtifact(workspaceRoot: string, expected?: { narrati
 
 export function readDeckPlanProjection(workspaceRoot: string, expected?: { narrativeHash?: string; knownNodeIds?: Set<string> }): DeckPlanProjection | undefined {
   const root = join(workspaceRoot, DECK_PLAN_DIR)
+  const singlePath = join(workspaceRoot, DECK_PLAN_MARKDOWN_PATH)
   const indexPath = join(workspaceRoot, DECK_PLAN_INDEX_PATH)
   const legacyPath = join(workspaceRoot, LEGACY_DECK_PLAN_ARTIFACT_PATH)
-  const absolutePath = existsSync(indexPath) ? indexPath : existsSync(legacyPath) ? legacyPath : ""
+  const absolutePath = existsSync(singlePath) ? singlePath : existsSync(indexPath) ? indexPath : existsSync(legacyPath) ? legacyPath : ""
   if (!absolutePath) return undefined
   const markdown = readFileSync(absolutePath, "utf-8")
   const parsed = parseVaultFrontmatter(markdown)
@@ -247,7 +263,8 @@ export function readDeckPlanProjection(workspaceRoot: string, expected?: { narra
   const sections = parseMarkdownSections(markdown)
   const path = relativePath(workspaceRoot, absolutePath)
   const id = stringField(parsed.frontmatter, "id") || "deck-plan"
-  const slides = existsSync(join(root, "slides")) ? readDeckPlanSlideFiles(workspaceRoot, expected?.knownNodeIds) : []
+  const isSingleFile = relativePath(workspaceRoot, absolutePath) === DECK_PLAN_MARKDOWN_PATH
+  const slides = isSingleFile ? readDeckPlanSlidesFromSingleFile(workspaceRoot, absolutePath, markdown, expected?.knownNodeIds) : existsSync(join(root, "slides")) ? readDeckPlanSlideFiles(workspaceRoot, expected?.knownNodeIds) : []
   const diagnostics: DeckPlanProjectionDiagnostic[] = []
   const narrativeHash = stringField(parsed.frontmatter, "narrativeHash") || narrativeHashFromMarkdown(markdown)
   if (expected?.narrativeHash && narrativeHash && narrativeHash !== expected.narrativeHash) diagnostics.push({ severity: "warning", code: "stale_narrative_hash", message: "Deck plan narrativeHash does not match current narrative state.", file: path, nodeId: id })
@@ -274,7 +291,8 @@ export function readDeckPlanProjection(workspaceRoot: string, expected?: { narra
     frontmatter: parsed.frontmatter,
     sections,
     narrativeHash,
-    outputPath: stringField(parsed.frontmatter, "outputPath"),
+    designName: stringField(parsed.frontmatter, "designName") || stringField(parsed.frontmatter, "design"),
+    outputPath: stringField(parsed.frontmatter, "outputPath") || stringField(parsed.frontmatter, "output"),
     slides,
     graphNodes,
     graphRelations,
@@ -312,36 +330,209 @@ export function deckPlanBodyHash(markdown: string): string {
 export function upsertDeckPlanSlideArtifact(
   workspaceRoot: string,
   input: DeckPlanSlideUpsertInput,
-  options: { narrativeHash?: string; knownNodeIds?: Set<string>; designLayouts: string[]; designComponents: string[] },
+  options: { narrativeHash?: string; knownNodeIds?: Set<string>; designLayouts: string[]; designComponents: string[]; layoutSlots?: Record<string, string[]>; componentNesting?: Record<string, { acceptsChildren: boolean; allowedChildren?: string[] }> },
 ): DeckPlanSlideUpsertResult {
   const diagnostics = validateDeckPlanSlideUpsert(input, options)
   if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) return { ok: false, diagnostics }
 
-  mkdirSync(join(workspaceRoot, DECK_PLAN_SLIDES_DIR), { recursive: true })
-  ensureDeckPlanIndex(workspaceRoot, options.narrativeHash)
-
   const existing = readDeckPlanProjection(workspaceRoot, { narrativeHash: options.narrativeHash, knownNodeIds: options.knownNodeIds })
   const existingSlide = existing?.slides.find((slide) => slide.slideIndex === input.slideIndex)
   const id = input.id?.trim() || existingSlide?.id || `slide-${slugify(input.title)}`
-  const filename = `${String(input.slideIndex).padStart(3, "0")}-${slugify(input.title)}.md`
-  const path = `${DECK_PLAN_SLIDES_DIR}/${filename}`
-  const absolutePath = join(workspaceRoot, path)
-  const markdown = renderDeckPlanSlideMarkdown({ ...input, id })
-
-  writeFileSync(absolutePath, markdown, "utf-8")
-  if (existingSlide && existingSlide.absolutePath !== absolutePath && existsSync(existingSlide.absolutePath)) {
-    try {
-      rmSync(existingSlide.absolutePath)
-    } catch {
-      // Empty stale files are ignored by readers only when removed; if removal fails,
-      // duplicate slideIndex diagnostics will surface on the next read.
-    }
-  }
-
-  updateDeckPlanIndex(workspaceRoot, options.narrativeHash)
+  const nextSlide = projectionFromSlideInput(workspaceRoot, { ...input, id }, existingSlide)
+  const slides = [...(existing?.slides.filter((slide) => slide.slideIndex !== input.slideIndex) ?? []), nextSlide]
+    .sort((a, b) => (a.slideIndex ?? Number.MAX_SAFE_INTEGER) - (b.slideIndex ?? Number.MAX_SAFE_INTEGER))
+  const designName = input.designName || existing?.designName
+  const outputPath = input.outputPath || existing?.outputPath
+  writeDeckPlanSingleFile(workspaceRoot, {
+    title: "Deck Plan",
+    designName,
+    outputPath,
+    slides,
+  })
   const projection = readDeckPlanProjection(workspaceRoot, { narrativeHash: options.narrativeHash, knownNodeIds: options.knownNodeIds })
   const slide = projection?.slides.find((item) => item.slideIndex === input.slideIndex)
-  return { ok: true, path, absolutePath, updated: Boolean(existingSlide), slide, diagnostics: [...diagnostics, ...(projection?.diagnostics ?? [])] }
+  return { ok: true, path: DECK_PLAN_MARKDOWN_PATH, absolutePath: join(workspaceRoot, DECK_PLAN_MARKDOWN_PATH), updated: Boolean(existingSlide), slide, diagnostics: [...diagnostics, ...(projection?.diagnostics ?? [])] }
+}
+
+function projectionFromSlideInput(workspaceRoot: string, input: DeckPlanSlideUpsertInput & { id: string }, existing?: DeckPlanSlideProjection): DeckPlanSlideProjection {
+  const sourceLinks = sourceLinksForInput(input)
+  const caveats = uniqueStrings([...(input.caveats ?? []), ...sourceLinks.caveats])
+  const componentPlan = input.components.map(componentInputToPlan)
+  const slide: DeckPlanSlideProjection = {
+    path: DECK_PLAN_MARKDOWN_PATH,
+    absolutePath: join(workspaceRoot, DECK_PLAN_MARKDOWN_PATH),
+    id: input.id,
+    slideIndex: input.slideIndex,
+    title: input.title,
+    chapter: input.chapter,
+    layout: input.layout,
+    components: uniqueStrings(componentPlan.flatMap(flattenComponentNames)),
+    componentPlan,
+    structural: input.structural ?? false,
+    narrativeRole: input.narrativeRole,
+    markdown: "",
+    frontmatter: existing?.frontmatter ?? {},
+    sections: [],
+    links: sourceLinksToNarrativeLinks(sourceLinks, input.narrativeLinks ? sourceLinksToNarrativeLinks(sourceLinksFromNarrativeLinks(input.narrativeLinks)) : []),
+    sourceLinks,
+    caveats,
+  }
+  slide.markdown = renderDeckPlanSlideBlock(slide, input.visualIntent)
+  return slide
+}
+
+function componentInputToPlan(component: DeckPlanSlideUpsertComponentInput): DeckPlanSlideComponentPlan {
+  return normalizeComponentPlan({
+    name: component.name?.trim() || "",
+    slot: component.slot?.trim() || "",
+    position: component.position?.trim() || "",
+    purpose: component.purpose?.trim() || "",
+    content: component.content?.trim() || "",
+    claimIds: uniqueStrings(component.claimIds ?? []),
+    evidenceIds: uniqueStrings(component.evidenceIds ?? []),
+    sourceNotes: (component.sourceNotes ?? []).map((item) => item.trim()).filter(Boolean),
+    renderNotes: (component.renderNotes ?? []).map((item) => item.trim()).filter(Boolean),
+    placementNote: component.placementNote?.trim(),
+    children: component.children?.map(componentInputToPlan),
+  })
+}
+
+function flattenComponentNames(component: DeckPlanSlideComponentPlan): string[] {
+  return [component.name, ...(component.children ?? []).flatMap(flattenComponentNames)].filter(Boolean)
+}
+
+function writeDeckPlanSingleFile(workspaceRoot: string, input: {
+  title: string
+  goal?: string
+  audience?: string
+  designName?: string
+  outputPath?: string
+  sourceAuthority?: string[]
+  unresolvedInputs?: string[]
+  slides: DeckPlanSlideProjection[]
+}): { path: string; absolutePath: string } {
+  const absolutePath = join(workspaceRoot, DECK_PLAN_MARKDOWN_PATH)
+  const lines: string[] = []
+  lines.push("---")
+  lines.push("type: deck-plan")
+  lines.push("version: 0.18.1")
+  if (input.designName) lines.push(`designName: ${yamlScalar(input.designName)}`)
+  if (input.outputPath) lines.push(`outputPath: ${yamlScalar(input.outputPath)}`)
+  lines.push("---")
+  lines.push("")
+  lines.push(`# ${input.title || "Deck Plan"}`)
+  lines.push("")
+  lines.push("## Goal")
+  lines.push("")
+  lines.push(input.goal || "To be specified from user intent and source materials.")
+  lines.push("")
+  lines.push("## Audience")
+  lines.push("")
+  lines.push(input.audience || "To be specified.")
+  lines.push("")
+  lines.push("## Design")
+  lines.push("")
+  lines.push(`- Design: ${input.designName || "active design"}`)
+  if (input.outputPath) lines.push(`- Output path: ${input.outputPath}`)
+  lines.push("")
+  lines.push("## Source Authority")
+  lines.push("")
+  const sourceAuthority = input.sourceAuthority?.filter(Boolean) ?? ["Local materials, reviewed findings, workspace assets, explicit URLs, and user intent are the source context.", "Deck-plan is the render execution plan for HTML deck generation."]
+  for (const item of sourceAuthority) lines.push(`- ${item}`)
+  lines.push("")
+  lines.push("## Chapter Map")
+  lines.push("")
+  const chapterMap = new Map<string, number[]>()
+  for (const slide of input.slides) chapterMap.set(slide.chapter || "Unassigned", [...(chapterMap.get(slide.chapter || "Unassigned") ?? []), slide.slideIndex ?? 0].filter(Boolean))
+  for (const [chapter, indexes] of chapterMap) lines.push(`- ${chapter}: slides ${formatSlideRange(indexes)}`)
+  if (chapterMap.size === 0) lines.push("- No slides planned yet.")
+  lines.push("")
+  lines.push("## Slides")
+  lines.push("")
+  for (const slide of input.slides) {
+    lines.push(renderDeckPlanSlideBlock(slide))
+    lines.push("")
+  }
+  lines.push("## Unresolved Inputs")
+  lines.push("")
+  const unresolved = input.unresolvedInputs?.filter(Boolean) ?? []
+  if (unresolved.length === 0) lines.push("- None.")
+  else for (const item of unresolved) lines.push(`- ${item}`)
+  lines.push("")
+  lines.push("## HTML Contract")
+  lines.push("")
+  lines.push("- Render one `<section class=\"slide\" data-slide-index=\"N\">` per planned slide.")
+  lines.push("- Use positive 1-based slide indexes, unique indexes, DOM order, and one direct `.slide-canvas` child per slide.")
+  lines.push("")
+  writeFileSync(absolutePath, lines.join("\n"), "utf-8")
+  return { path: DECK_PLAN_MARKDOWN_PATH, absolutePath }
+}
+
+function renderDeckPlanSlideBlock(slide: DeckPlanSlideProjection, visualIntent?: DeckPlanSlideUpsertInput["visualIntent"]): string {
+  const lines: string[] = []
+  lines.push(`### Slide ${slide.slideIndex ?? "?"} — ${slide.title}`)
+  lines.push("")
+  lines.push(`- Id: ${slide.id}`)
+  lines.push(`- Chapter: ${slide.chapter || "Unassigned"}`)
+  lines.push(`- Role: ${slide.narrativeRole || "Not specified"}`)
+  lines.push(`- Structural: ${slide.structural ? "true" : "false"}`)
+  lines.push(`- Layout: ${slide.layout || "unspecified"}`)
+  lines.push(`- Components: ${slide.components.join(", ") || "none"}`)
+  lines.push("")
+  lines.push("#### Visual Intent")
+  lines.push("")
+  if (visualIntent) lines.push(renderVisualIntent(visualIntent))
+  else lines.push("- Brief: Not specified.")
+  lines.push("")
+  lines.push("#### Component Plan")
+  lines.push("")
+  for (const component of slide.componentPlan) lines.push(renderComponentPlanMarkdown(component, 5))
+  lines.push("#### Source Links")
+  lines.push("")
+  lines.push(renderSourceLinksMarkdown(slide.sourceLinks))
+  lines.push("")
+  lines.push("#### Caveats")
+  lines.push("")
+  if (slide.caveats.length === 0) lines.push("- None.")
+  else for (const caveat of slide.caveats) lines.push(`- ${caveat}`)
+  lines.push("")
+  return lines.join("\n")
+}
+
+function renderComponentPlanMarkdown(component: DeckPlanSlideComponentPlan, headingLevel: number): string {
+  const lines: string[] = []
+  lines.push(`${"#".repeat(headingLevel)} ${component.name}`)
+  lines.push("")
+  lines.push(`- Slot: ${component.slot}`)
+  lines.push(`- Position: ${component.position}`)
+  if (component.placementNote) lines.push(`- Placement note: ${component.placementNote}`)
+  lines.push(`- Purpose: ${component.purpose}`)
+  lines.push("- Content:")
+  lines.push(...indentMultiline(component.content))
+  lines.push(`- Claim ids: ${formatCsv(component.claimIds)}`)
+  lines.push(`- Evidence ids: ${formatCsv(component.evidenceIds)}`)
+  lines.push(`- Source notes: ${formatListValue(component.sourceNotes)}`)
+  lines.push(`- Render notes: ${formatListValue(component.renderNotes)}`)
+  lines.push("")
+  for (const child of component.children ?? []) lines.push(renderComponentPlanMarkdown(child, headingLevel + 1))
+  return lines.join("\n")
+}
+
+function renderSourceLinksMarkdown(sourceLinks: DeckPlanSourceLinks): string {
+  const lines: string[] = []
+  for (const [label, values] of [
+    ["Materials", sourceLinks.materials],
+    ["Findings", sourceLinks.findings],
+    ["Assets", sourceLinks.assets],
+    ["URLs", sourceLinks.urls],
+    ["Caveats", sourceLinks.caveats],
+  ] as const) {
+    lines.push(`${label}:`)
+    if (values.length === 0) lines.push("- None.")
+    else for (const value of values) lines.push(value.includes("/") && !/^https?:\/\//i.test(value) ? `- [[${value}]]` : `- ${value}`)
+    lines.push("")
+  }
+  return lines.join("\n").trim()
 }
 
 function readDeckPlanSlideFiles(workspaceRoot: string, knownNodeIds?: Set<string>): DeckPlanSlideProjection[] {
@@ -357,7 +548,8 @@ function readDeckPlanSlideFiles(workspaceRoot: string, knownNodeIds?: Set<string
     const path = relativePath(workspaceRoot, absolutePath)
     const id = stringField(parsed.frontmatter, "id") || fileId(entry)
     const componentPlan = parseDeckPlanComponentPlan(split.sections["component-plan"] ?? "")
-    const links = parseDeckPlanNarrativeLinks(split.sections["narrative-links"] ?? parsed.body, knownNodeIds)
+    const sourceLinks = parseDeckPlanSourceLinks(split.sections["source-links"] ?? "")
+    const links = sourceLinksToNarrativeLinks(sourceLinks, parseDeckPlanNarrativeLinks(split.sections["narrative-links"] ?? parsed.body, knownNodeIds))
     const caveats = parseBulletText(split.sections["caveats"] ?? "")
     slides.push({
       path,
@@ -375,10 +567,78 @@ function readDeckPlanSlideFiles(workspaceRoot: string, knownNodeIds?: Set<string
       frontmatter: parsed.frontmatter,
       sections: parseMarkdownSections(markdown),
       links,
+      sourceLinks,
       caveats,
     })
   }
   return slides.sort((a, b) => (a.slideIndex ?? Number.MAX_SAFE_INTEGER) - (b.slideIndex ?? Number.MAX_SAFE_INTEGER) || a.path.localeCompare(b.path))
+}
+
+function readDeckPlanSlidesFromSingleFile(workspaceRoot: string, absolutePath: string, markdown: string, knownNodeIds?: Set<string>): DeckPlanSlideProjection[] {
+  const path = relativePath(workspaceRoot, absolutePath)
+  const body = parseVaultFrontmatter(markdown).body
+  const matches = [...body.matchAll(/^[ \t]*###\s+Slide\s+(\d+)\s+(?:—|-)\s+(.+?)\s*$/gm)]
+  const slides: DeckPlanSlideProjection[] = []
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i]
+    const start = match.index ?? 0
+    const nextSlide = i + 1 < matches.length ? matches[i + 1].index ?? body.length : body.length
+    const headingEnd = body.indexOf("\n", start)
+    const searchStart = headingEnd === -1 ? start + match[0].length : headingEnd + 1
+    const nextSection = body.slice(searchStart).search(/^[ \t]*##\s+(?!#)/m)
+    const end = Math.min(nextSlide, nextSection === -1 ? body.length : searchStart + nextSection)
+    const block = body.slice(start, end).trim()
+    const slideIndex = Number(match[1])
+    const title = match[2].trim()
+    const fields = parseSlideBlockFields(block)
+    const id = fields.id || `slide-${slugify(title)}`
+    const sourceLinks = normalizeSourceLinks(parseDeckPlanSourceLinks(singleFileSubsection(block, "Source Links")))
+    const narrativeLinks = parseDeckPlanNarrativeLinks(singleFileSubsection(block, "Narrative Links") || block, knownNodeIds)
+    const links = sourceLinksToNarrativeLinks(sourceLinks, narrativeLinks)
+    const caveats = uniqueStrings([...parseBulletText(singleFileSubsection(block, "Caveats")), ...sourceLinks.caveats])
+    const componentPlan = parseDeckPlanComponentPlan(singleFileSubsection(block, "Component Plan"))
+    slides.push({
+      path,
+      absolutePath,
+      id,
+      slideIndex,
+      title,
+      chapter: fields.chapter || "",
+      layout: fields.layout || "",
+      components: parseCsv(fields.components || componentPlan.map((component) => component.name).join(", ")),
+      componentPlan,
+      structural: fields.structural === "true" || fields.structural === "yes",
+      narrativeRole: fields.role || fields.narrativeRole || "",
+      markdown: block,
+      frontmatter: {},
+      sections: parseMarkdownSections(block),
+      links,
+      sourceLinks,
+      caveats,
+    })
+  }
+  return slides.sort((a, b) => (a.slideIndex ?? Number.MAX_SAFE_INTEGER) - (b.slideIndex ?? Number.MAX_SAFE_INTEGER))
+}
+
+function parseSlideBlockFields(block: string): Record<string, string> {
+  const fields: Record<string, string> = {}
+  for (const rawLine of block.split(/\r?\n/)) {
+    const match = /^-\s+([A-Za-z][A-Za-z ]+):\s*(.*)$/.exec(rawLine.trim())
+    if (!match) continue
+    const key = match[1].trim().replace(/\s+/g, "")
+    fields[key[0].toLowerCase() + key.slice(1)] = cleanPlanValue(match[2])
+  }
+  return fields
+}
+
+function singleFileSubsection(block: string, heading: string): string {
+  const re = new RegExp(`^[ \\t]*####\\s+${heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`, "mi")
+  const match = re.exec(block)
+  if (!match || match.index === undefined) return ""
+  const start = match.index + match[0].length
+  const rest = block.slice(start)
+  const next = rest.search(/^[ \t]*####\s+/m)
+  return (next === -1 ? rest : rest.slice(0, next)).trim()
 }
 
 function parseDeckPlanNarrativeLinks(section: string, knownNodeIds?: Set<string>): DeckPlanNarrativeLink[] {
@@ -397,6 +657,84 @@ function parseDeckPlanNarrativeLinks(section: string, knownNodeIds?: Set<string>
     }
   }
   return uniqueLinks(links)
+}
+
+function emptySourceLinks(): DeckPlanSourceLinks {
+  return { materials: [], findings: [], assets: [], urls: [], caveats: [] }
+}
+
+function normalizeSourceLinks(input?: Partial<DeckPlanSourceLinks>): DeckPlanSourceLinks {
+  return {
+    materials: uniqueStrings(input?.materials ?? []),
+    findings: uniqueStrings(input?.findings ?? []),
+    assets: uniqueStrings(input?.assets ?? []),
+    urls: uniqueStrings(input?.urls ?? []),
+    caveats: uniqueStrings(input?.caveats ?? []),
+  }
+}
+
+function sourceLinksFromNarrativeLinks(input?: DeckPlanSlideUpsertInput["narrativeLinks"]): DeckPlanSourceLinks {
+  const links = emptySourceLinks()
+  for (const id of input?.evidenceIds ?? []) {
+    if (/^https?:\/\//i.test(id)) links.urls.push(id)
+    else if (id.startsWith("assets/")) links.assets.push(id)
+    else if (id.startsWith("researches/")) links.findings.push(id)
+    else if (id.startsWith("materials/") || id.startsWith("sources/")) links.materials.push(id)
+    else links.findings.push(id)
+  }
+  for (const id of input?.claimIds ?? []) {
+    if (id.startsWith("researches/")) links.findings.push(id)
+    else if (id.startsWith("assets/")) links.assets.push(id)
+    else links.materials.push(id)
+  }
+  links.caveats.push(...(input?.riskIds ?? []), ...(input?.objectionIds ?? []), ...(input?.gapIds ?? []))
+  return normalizeSourceLinks(links)
+}
+
+function sourceLinksForInput(input: DeckPlanSlideUpsertInput): DeckPlanSourceLinks {
+  return normalizeSourceLinks({
+    ...sourceLinksFromNarrativeLinks(input.narrativeLinks),
+    ...(input.sourceLinks ?? {}),
+    caveats: [...(sourceLinksFromNarrativeLinks(input.narrativeLinks).caveats ?? []), ...(input.sourceLinks?.caveats ?? []), ...(input.caveats ?? [])],
+  })
+}
+
+function parseDeckPlanSourceLinks(section: string): DeckPlanSourceLinks {
+  const links = emptySourceLinks()
+  let group: keyof DeckPlanSourceLinks | undefined
+  for (const rawLine of section.replace(/\r\n/g, "\n").split("\n")) {
+    const heading = /^\s*([A-Za-z][A-Za-z\s/-]*):\s*$/.exec(rawLine)
+    if (heading) {
+      const normalized = heading[1].trim().toLowerCase()
+      if (normalized.includes("material")) group = "materials"
+      else if (normalized.includes("finding") || normalized.includes("research")) group = "findings"
+      else if (normalized.includes("asset") || normalized.includes("media")) group = "assets"
+      else if (normalized.includes("url") || normalized.includes("link")) group = "urls"
+      else if (normalized.includes("caveat") || normalized.includes("risk") || normalized.includes("gap")) group = "caveats"
+      else group = undefined
+      continue
+    }
+    const bullet = rawLine.replace(/^\s*[-*]\s+/, "").trim()
+    if (!bullet || bullet.toLowerCase() === "none.") continue
+    const wikilink = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/.exec(bullet)?.[1]?.trim()
+    const value = wikilink || bullet
+    if (group) links[group].push(value)
+    else if (/^https?:\/\//i.test(value)) links.urls.push(value)
+    else if (value.startsWith("assets/")) links.assets.push(value)
+    else if (value.startsWith("researches/")) links.findings.push(value)
+    else links.materials.push(value)
+  }
+  return normalizeSourceLinks(links)
+}
+
+function sourceLinksToNarrativeLinks(sourceLinks: DeckPlanSourceLinks, compatibility: DeckPlanNarrativeLink[] = []): DeckPlanNarrativeLink[] {
+  const links: DeckPlanNarrativeLink[] = []
+  for (const id of sourceLinks.materials) links.push({ id, relation: "uses_evidence", group: "materials" })
+  for (const id of sourceLinks.findings) links.push({ id, relation: "uses_evidence", group: "findings" })
+  for (const id of sourceLinks.assets) links.push({ id, relation: "uses_evidence", group: "assets" })
+  for (const id of sourceLinks.urls) links.push({ id, relation: "uses_evidence", group: "urls" })
+  for (const id of sourceLinks.caveats) links.push({ id, relation: "mentions_gap", group: "caveats" })
+  return uniqueLinks([...links, ...compatibility])
 }
 
 function parseBulletText(section: string): string[] {
@@ -432,7 +770,7 @@ function inferredLinkGroup(id: string, knownNodeIds?: Set<string>): string {
 
 function deckPlanIndexDiagnostics(slides: DeckPlanSlideProjection[]): DeckPlanProjectionDiagnostic[] {
   const diagnostics: DeckPlanProjectionDiagnostic[] = []
-  if (slides.length === 0) diagnostics.push({ severity: "warning", code: "deck_plan_slides_missing", message: "deck-plan/slides contains no slide plan Markdown files." })
+  if (slides.length === 0) diagnostics.push({ severity: "warning", code: "deck_plan_slides_missing", message: "deck-plan.md contains no slide blocks." })
   const seen = new Map<number, DeckPlanSlideProjection>()
   let previous = 0
   for (const slide of slides) {
@@ -468,24 +806,30 @@ function slideDiagnostics(slide: DeckPlanSlideProjection, knownNodeIds?: Set<str
   return diagnostics
 }
 
-export function deckPlanDesignDiagnostics(projection: DeckPlanProjection | undefined, inventory: { layouts: string[]; components: string[] }): DeckPlanProjectionDiagnostic[] {
+export function deckPlanDesignDiagnostics(projection: DeckPlanProjection | undefined, inventory: { layouts: string[]; components: string[]; layoutSlots?: Record<string, string[]>; componentNesting?: Record<string, { acceptsChildren: boolean; allowedChildren?: string[] }> }): DeckPlanProjectionDiagnostic[] {
   if (!projection) return []
   const layouts = new Set(inventory.layouts)
   const components = new Set(inventory.components)
   const diagnostics: DeckPlanProjectionDiagnostic[] = []
   for (const slide of projection.slides) {
     if (slide.layout && !layouts.has(slide.layout)) diagnostics.push({ severity: "warning", code: "slide_layout_unknown", message: `Deck-plan slide ${slide.id} uses layout '${slide.layout}' outside the active design inventory.`, file: slide.path, nodeId: slide.id })
-    for (const component of slide.components) {
-      if (!components.has(component)) diagnostics.push({ severity: "warning", code: "slide_component_unknown", message: `Deck-plan slide ${slide.id} uses component '${component}' outside the active design inventory.`, file: slide.path, nodeId: slide.id })
-    }
-    for (const component of slide.componentPlan) {
-      if (component.name && !components.has(component.name)) diagnostics.push({ severity: "warning", code: "slide_component_plan_unknown", message: `Deck-plan slide ${slide.id} component plan uses '${component.name}' outside the active design inventory.`, file: slide.path, nodeId: slide.id })
-    }
+    for (const component of slide.componentPlan) diagnostics.push(...componentDesignDiagnostics(slide, component, inventory, components))
   }
   return diagnostics
 }
 
-function validateDeckPlanSlideUpsert(input: DeckPlanSlideUpsertInput, options: { designLayouts: string[]; designComponents: string[] }): DeckPlanProjectionDiagnostic[] {
+function componentDesignDiagnostics(slide: DeckPlanSlideProjection, component: DeckPlanSlideComponentPlan, inventory: { layoutSlots?: Record<string, string[]>; componentNesting?: Record<string, { acceptsChildren: boolean; allowedChildren?: string[] }> }, components: Set<string>): DeckPlanProjectionDiagnostic[] {
+  const diagnostics: DeckPlanProjectionDiagnostic[] = []
+  if (component.name && !components.has(component.name)) diagnostics.push({ severity: "warning", code: "slide_component_plan_unknown", message: `Deck-plan slide ${slide.id} component plan uses '${component.name}' outside the active design inventory.`, file: slide.path, nodeId: slide.id })
+  const allowedSlots = slide.layout ? inventory.layoutSlots?.[slide.layout] : undefined
+  if (component.slot && allowedSlots && allowedSlots.length > 0 && !allowedSlots.includes(component.slot)) diagnostics.push({ severity: "warning", code: "slide_component_slot_invalid", message: `Deck-plan slide ${slide.id} component '${component.name}' uses slot '${component.slot}' outside layout '${slide.layout}' slots: ${allowedSlots.join(", ")}.`, file: slide.path, nodeId: slide.id })
+  const nesting = inventory.componentNesting?.[component.name]
+  if ((component.children?.length ?? 0) > 0 && nesting && !nesting.acceptsChildren) diagnostics.push({ severity: "warning", code: "slide_component_children_invalid", message: `Deck-plan slide ${slide.id} component '${component.name}' does not accept children.`, file: slide.path, nodeId: slide.id })
+  for (const child of component.children ?? []) diagnostics.push(...componentDesignDiagnostics(slide, child, inventory, components))
+  return diagnostics
+}
+
+function validateDeckPlanSlideUpsert(input: DeckPlanSlideUpsertInput, options: { designLayouts: string[]; designComponents: string[]; layoutSlots?: Record<string, string[]>; componentNesting?: Record<string, { acceptsChildren: boolean; allowedChildren?: string[] }> }): DeckPlanProjectionDiagnostic[] {
   const diagnostics: DeckPlanProjectionDiagnostic[] = []
   const nodeId = input.id?.trim() || `slide-${input.slideIndex}`
   if (!Number.isInteger(input.slideIndex) || input.slideIndex < 1) diagnostics.push(errorDiagnostic("slide_index_invalid", "slideIndex must be a positive 1-based integer.", nodeId))
@@ -496,25 +840,54 @@ function validateDeckPlanSlideUpsert(input: DeckPlanSlideUpsertInput, options: {
   if (!Array.isArray(input.components) || input.components.length === 0) diagnostics.push(errorDiagnostic("slide_components_missing", "At least one component plan entry is required.", nodeId))
   const componentNames = new Set<string>()
   const positions = new Set<string>()
+  const allowedSlots = options.layoutSlots?.[input.layout]
   for (const component of input.components ?? []) {
-    const name = component.name?.trim()
-    if (name) componentNames.add(name)
-    if (!name) diagnostics.push(errorDiagnostic("slide_component_name_missing", "Every component requires name.", nodeId))
-    else if (!options.designComponents.includes(name)) diagnostics.push(errorDiagnostic("slide_component_unknown", `Component '${name}' is not in the selected design inventory.`, nodeId))
-    for (const key of ["slot", "position", "purpose", "content"] as const) {
-      if (!String(component[key] || "").trim()) diagnostics.push(errorDiagnostic("slide_component_plan_incomplete", `Component '${name || "unnamed"}' is missing ${key}.`, nodeId))
-    }
-    if (component.position && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(component.position)) diagnostics.push(errorDiagnostic("slide_component_position_invalid", `Component '${name || "unnamed"}' position must be a non-empty kebab-case anchor.`, nodeId))
-    const positionKey = `${component.slot?.trim() || ""}:${component.position?.trim() || ""}`
-    if (component.slot?.trim() && component.position?.trim()) {
-      if (positions.has(positionKey)) diagnostics.push(errorDiagnostic("slide_component_position_duplicate", `Duplicate component slot/position '${positionKey}' makes the plan ambiguous.`, nodeId))
-      positions.add(positionKey)
-    }
+    validateComponentInput(component, { nodeId, componentNames, positions, options, allowedSlots, parentName: undefined, topLevel: true, diagnostics })
   }
   const visual = normalizeVisualIntent(input.visualIntent)
   if (visual.component && !componentNames.has(visual.component)) diagnostics.push(errorDiagnostic("slide_visual_component_missing", `visualIntent.component '${visual.component}' is not present in component plan.`, nodeId))
-  if (!input.structural && !((input.narrativeLinks?.claimIds?.length ?? 0) > 0 || (input.narrativeLinks?.evidenceIds?.length ?? 0) > 0)) diagnostics.push({ severity: "warning", code: "slide_narrative_link_missing", message: "Non-structural slides should include at least one claim or evidence narrative link.", nodeId })
+  const sourceLinks = sourceLinksForInput(input)
+  if (!input.structural && linksCount(sourceLinks) === 0) diagnostics.push({ severity: "warning", code: "slide_source_link_missing", message: "Non-structural slides should include at least one material, finding, asset, URL, or caveat source link.", nodeId })
   return diagnostics
+}
+
+function validateComponentInput(component: DeckPlanSlideUpsertComponentInput, context: {
+  nodeId: string
+  componentNames: Set<string>
+  positions: Set<string>
+  options: { designComponents: string[]; componentNesting?: Record<string, { acceptsChildren: boolean; allowedChildren?: string[] }> }
+  allowedSlots?: string[]
+  parentName?: string
+  topLevel: boolean
+  diagnostics: DeckPlanProjectionDiagnostic[]
+}): void {
+    const name = component.name?.trim()
+    if (name) context.componentNames.add(name)
+    if (!name) context.diagnostics.push(errorDiagnostic("slide_component_name_missing", "Every component requires name.", context.nodeId))
+    else if (!context.options.designComponents.includes(name)) context.diagnostics.push(errorDiagnostic("slide_component_unknown", `Component '${name}' is not in the selected design inventory.`, context.nodeId))
+    for (const key of ["slot", "position", "purpose", "content"] as const) {
+      if (!String(component[key] || "").trim()) context.diagnostics.push(errorDiagnostic("slide_component_plan_incomplete", `Component '${name || "unnamed"}' is missing ${key}.`, context.nodeId))
+    }
+    if (context.topLevel && component.slot && context.allowedSlots && context.allowedSlots.length > 0 && !context.allowedSlots.includes(component.slot.trim())) context.diagnostics.push(errorDiagnostic("slide_component_slot_invalid", `Component '${name || "unnamed"}' slot '${component.slot}' is not valid for this layout. Allowed slots: ${context.allowedSlots.join(", ")}.`, context.nodeId))
+    if (component.position && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(component.position)) context.diagnostics.push(errorDiagnostic("slide_component_position_invalid", `Component '${name || "unnamed"}' position must be a non-empty kebab-case anchor.`, context.nodeId))
+    const positionKey = `${component.slot?.trim() || ""}:${component.position?.trim() || ""}`
+    if (component.slot?.trim() && component.position?.trim()) {
+      if (context.positions.has(positionKey)) context.diagnostics.push(errorDiagnostic("slide_component_position_duplicate", `Duplicate component slot/position '${positionKey}' makes the plan ambiguous.`, context.nodeId))
+      context.positions.add(positionKey)
+    }
+    const children = component.children ?? []
+    const nesting = name ? context.options.componentNesting?.[name] : undefined
+    if (children.length > 0 && nesting && !nesting.acceptsChildren) context.diagnostics.push(errorDiagnostic("slide_component_children_invalid", `Component '${name}' does not accept children. Use box as the semantic container.`, context.nodeId))
+    if (children.length > 0 && nesting?.allowedChildren) {
+      for (const child of children) {
+        if (child.name && !nesting.allowedChildren.includes(child.name)) context.diagnostics.push(errorDiagnostic("slide_component_child_invalid", `Component '${name}' cannot contain child '${child.name}'.`, context.nodeId))
+      }
+    }
+    for (const child of children) validateComponentInput(child, { ...context, parentName: name, topLevel: false })
+}
+
+function linksCount(sourceLinks: DeckPlanSourceLinks): number {
+  return sourceLinks.materials.length + sourceLinks.findings.length + sourceLinks.assets.length + sourceLinks.urls.length + sourceLinks.caveats.length
 }
 
 function errorDiagnostic(code: string, message: string, nodeId?: string): DeckPlanProjectionDiagnostic {
@@ -524,22 +897,33 @@ function errorDiagnostic(code: string, message: string, nodeId?: string): DeckPl
 function parseDeckPlanComponentPlan(section: string): DeckPlanSlideComponentPlan[] {
   const components: DeckPlanSlideComponentPlan[] = []
   let current: DeckPlanSlideComponentPlan | undefined
+  let currentChild: DeckPlanSlideComponentPlan | undefined
   let capture: "content" | undefined
   const flush = () => {
+    if (currentChild && current) {
+      current.children = [...(current.children ?? []), normalizeComponentPlan(currentChild)]
+      currentChild = undefined
+    }
     if (current) components.push({
-      ...current,
-      content: current.content.trim(),
-      claimIds: uniqueStrings(current.claimIds),
-      evidenceIds: uniqueStrings(current.evidenceIds),
-      sourceNotes: current.sourceNotes.filter(Boolean),
-      renderNotes: current.renderNotes.filter(Boolean),
+      ...normalizeComponentPlan(current),
+      children: current.children,
     })
   }
-  for (const rawLine of section.replace(/\r\n/g, "\n").split("\n")) {
-    const heading = /^###\s+(.+?)\s*$/.exec(rawLine)
-    if (heading) {
+  const target = () => currentChild ?? current
+  const startComponent = (name: string, child: boolean) => {
+    if (child && current) {
+      if (currentChild) current.children = [...(current.children ?? []), normalizeComponentPlan(currentChild)]
+      currentChild = blankComponentPlan(name)
+    } else {
       flush()
-      current = { name: heading[1].trim(), slot: "", position: "", purpose: "", content: "", claimIds: [], evidenceIds: [], sourceNotes: [], renderNotes: [] }
+      current = blankComponentPlan(name)
+      currentChild = undefined
+    }
+  }
+  for (const rawLine of section.replace(/\r\n/g, "\n").split("\n")) {
+    const heading = /^(#{3,6})\s+(.+?)\s*$/.exec(rawLine)
+    if (heading) {
+      startComponent(heading[2].trim(), heading[1].length > 5)
       capture = undefined
       continue
     }
@@ -550,23 +934,44 @@ function parseDeckPlanComponentPlan(section: string): DeckPlanSlideComponentPlan
       capture = undefined
       const key = field[1].toLowerCase()
       const value = field[2].trim()
-      if (key === "slot") current.slot = value
-      else if (key === "position") current.position = value
-      else if (key === "placement note") current.placementNote = value
-      else if (key === "purpose") current.purpose = value
+      const item = target()
+      if (!item) continue
+      if (key === "slot") item.slot = value
+      else if (key === "position") item.position = value
+      else if (key === "placement note") item.placementNote = value
+      else if (key === "purpose") item.purpose = value
       else if (key === "content") {
-        current.content = cleanPlanValue(value)
+        item.content = cleanPlanValue(value)
         capture = value ? undefined : "content"
-      } else if (key === "claim ids") current.claimIds = parseCsv(value)
-      else if (key === "evidence ids") current.evidenceIds = parseCsv(value)
-      else if (key === "source notes") current.sourceNotes = parseListValue(value)
-      else if (key === "render notes") current.renderNotes = parseListValue(value)
+      } else if (key === "claim ids") item.claimIds = parseCsv(value)
+      else if (key === "evidence ids") item.evidenceIds = parseCsv(value)
+      else if (key === "source notes") item.sourceNotes = parseListValue(value)
+      else if (key === "render notes") item.renderNotes = parseListValue(value)
       continue
     }
-    if (capture === "content" && rawLine.trim()) current.content += `${current.content ? "\n" : ""}${rawLine.replace(/^\s{2}/, "")}`
+    if (capture === "content" && rawLine.trim()) {
+      const item = target()
+      if (item) item.content += `${item.content ? "\n" : ""}${rawLine.replace(/^\s{2}/, "")}`
+    }
   }
   flush()
   return components
+}
+
+function blankComponentPlan(name: string): DeckPlanSlideComponentPlan {
+  return { name, slot: "", position: "", purpose: "", content: "", claimIds: [], evidenceIds: [], sourceNotes: [], renderNotes: [] }
+}
+
+function normalizeComponentPlan(component: DeckPlanSlideComponentPlan): DeckPlanSlideComponentPlan {
+  return {
+    ...component,
+    content: component.content.trim(),
+    claimIds: uniqueStrings(component.claimIds),
+    evidenceIds: uniqueStrings(component.evidenceIds),
+    sourceNotes: component.sourceNotes.filter(Boolean),
+    renderNotes: component.renderNotes.filter(Boolean),
+    children: component.children?.map(normalizeComponentPlan),
+  }
 }
 
 function renderDeckPlanSlideMarkdown(input: DeckPlanSlideUpsertInput & { id: string }): string {
@@ -611,23 +1016,7 @@ function renderDeckPlanSlideMarkdown(input: DeckPlanSlideUpsertInput & { id: str
     lines.push(`- Render notes: ${formatListValue(component.renderNotes)}`)
     lines.push("")
   }
-  lines.push("## Narrative Links")
-  lines.push("")
-  lines.push("Claims:")
-  for (const id of input.narrativeLinks?.claimIds ?? []) lines.push(`- [[${id}]]`)
-  lines.push("")
-  lines.push("Evidence:")
-  for (const id of input.narrativeLinks?.evidenceIds ?? []) lines.push(`- [[${id}]]`)
-  lines.push("")
-  lines.push("Risks:")
-  for (const id of input.narrativeLinks?.riskIds ?? []) lines.push(`- [[${id}]]`)
-  lines.push("")
-  lines.push("Objections:")
-  for (const id of input.narrativeLinks?.objectionIds ?? []) lines.push(`- [[${id}]]`)
-  lines.push("")
-  lines.push("Gaps:")
-  for (const id of input.narrativeLinks?.gapIds ?? []) lines.push(`- [[${id}]]`)
-  lines.push("")
+  lines.push(renderSourceLinksMarkdown(sourceLinksForInput(input)).replace(/^####/gm, "##"))
   lines.push("## Caveats")
   lines.push("")
   const caveats = input.caveats?.filter((item) => item.trim()) ?? []
@@ -666,8 +1055,8 @@ function renderMinimalDeckPlanIndex(narrativeHash: string | undefined, slides: D
   lines.push("")
   lines.push("## Source Authority")
   lines.push("")
-  lines.push("- Meaning: `revela-narrative/` remains canonical.")
-  lines.push("- Render planning: `deck-plan/` is an execution projection, not approval state.")
+  lines.push("- Sources: local materials, reviewed findings, workspace assets, URLs, and user intent.")
+  lines.push("- Render planning: `deck-plan.md` is the execution blueprint for HTML deck generation.")
   lines.push("")
   lines.push("## Audience / Goal / Decision")
   lines.push("")
@@ -685,7 +1074,7 @@ function renderMinimalDeckPlanIndex(narrativeHash: string | undefined, slides: D
   lines.push("")
   lines.push("## Slide Plan")
   lines.push("")
-  if (slides.length === 0) lines.push("- No slide files yet.")
+  if (slides.length === 0) lines.push("- No slide blocks yet.")
   else for (const slide of slides) lines.push(`- Slide ${slide.slideIndex}: [[${slide.id}]] - ${slide.title} (${slide.path}); layout ${slide.layout || "unspecified"}; components ${slide.components.join(", ") || "none"}.`)
   lines.push("")
   lines.push("## Evidence Trace")

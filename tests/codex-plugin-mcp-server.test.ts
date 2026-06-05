@@ -30,7 +30,10 @@ describe("Codex plugin MCP server", () => {
 
     expect(text.stdout).toContain("\"serverInfo\"")
     expect(text.stdout).toContain("revela_doctor")
+    expect(text.stdout).toContain("revela_read_deck_plan")
+    expect(text.stdout).not.toContain("revela_upsert_deck_plan\\\"")
     expect(text.stdout).toContain("revela_upsert_deck_plan_slide")
+    expect(text.stdout).toContain("Compatibility/repair helper")
     expect(text.stdout).toContain("revela_research_save")
     expect(text.stdout).toContain("revela_export_png")
     expect(text.stdout).toContain("revela_review_deck_read")
@@ -401,6 +404,8 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("\\\"layouts\\\"")
     expect(text.stdout).toContain("\\\"components\\\"")
     expect(text.stdout).toContain("\\\"name\\\": \\\"test-layout\\\"")
+    expect(text.stdout).toContain("\\\"slots\\\"")
+    expect(text.stdout).toContain("\\\"nesting\\\"")
     expect(text.stdout).toContain("\\\"qa\\\": true")
     expect(text.stdout).toContain("Layout: test-layout")
     expect(text.stdout).toContain("Component: test-card")
@@ -447,7 +452,11 @@ describe("Codex plugin MCP server", () => {
             renderNotes: ["Use concise heading and body copy."],
           }],
           visualIntent: { kind: "copy-led", component: "text-panel" },
-          narrativeLinks: { claimIds: ["claim-pilot"], evidenceIds: ["evidence-pilot"] },
+          sourceLinks: {
+            findings: ["researches/pilot.md"],
+            urls: ["https://example.com/pilot"],
+            caveats: ["Intent evidence only."],
+          },
           caveats: ["Intent evidence only."],
         },
       },
@@ -474,7 +483,7 @@ describe("Codex plugin MCP server", () => {
           layout: "narrative",
           components: [{ name: "missing-component", slot: "left", position: "left-top", purpose: "Bad.", content: "Bad." }],
           visualIntent: { kind: "copy-led", component: "missing-component" },
-          narrativeLinks: {},
+          sourceLinks: {},
         },
       },
     }))
@@ -483,12 +492,13 @@ describe("Codex plugin MCP server", () => {
     child.kill()
 
     expect(text.stdout).toContain("\\\"ok\\\": true")
-    expect(text.stdout).toContain("deck-plan/slides/001-pilot-proof.md")
+    expect(text.stdout).toContain("deck-plan.md")
     expect(text.stdout).toContain("\\\"componentPlan\\\"")
+    expect(text.stdout).toContain("\\\"sourceLinks\\\"")
     expect(text.stdout).toContain("\\\"slot\\\": \\\"left\\\"")
     expect(text.stdout).toContain("\\\"position\\\": \\\"left-top\\\"")
     expect(text.stdout).toContain("\\\"ok\\\": false")
-    expect(readFileSync(join(root, "deck-plan", "slides", "001-pilot-proof.md"), "utf-8")).toContain("## Component Plan")
+    expect(readFileSync(join(root, "deck-plan.md"), "utf-8")).toContain("#### Component Plan")
   })
 
   it("reads bundled design inventory, layouts, components, and validation without seeding user config", async () => {
@@ -532,6 +542,10 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("\\\"ok\\\": true")
     expect(text.stdout).toContain("\\\"name\\\": \\\"summit\\\"")
     expect(text.stdout).toContain("\\\"name\\\": \\\"narrative\\\"")
+    expect(text.stdout).toContain("\\\"slots\\\"")
+    expect(text.stdout).toContain("\\\"left\\\"")
+    expect(text.stdout).toContain("\\\"nesting\\\"")
+    expect(text.stdout).toContain("\\\"acceptsChildren\\\"")
     expect(text.stdout).toContain("Layout: narrative")
     expect(text.stdout).toContain("Component: text-panel")
     expect(text.stdout).toContain("\\\"hasDesignMd\\\": true")

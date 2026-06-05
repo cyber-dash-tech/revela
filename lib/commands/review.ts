@@ -72,9 +72,9 @@ export function buildDeckPlanPrompt({
   return `Create or update a Revela deck plan.
 
 Goal:
-- Build deck-plan/index.md and deck-plan/slides/*.md directly from the user's goal, reviewed local materials, saved research findings, and active design vocabulary.
+- Build canonical deck-plan.md directly from the user's goal, reviewed local materials, saved research findings, and active design vocabulary.
 - Do not create, read, repair, or require revela-narrative/.
-- Use [[...]] links in deck-plan files to reference source material paths, material review files, research finding files, or asset paths. These are source links, not narrative graph links.
+- Use sourceLinks in deck-plan.md to reference material paths, material review files, research findings, asset paths, URLs, and caveats. These are source links, not narrative graph links.
 - Use "unresolved inputs", "research tasks", "source limitations", or "caveats"; do not use the product concept of research gaps.
 - Do not write HTML during planning.
 
@@ -84,17 +84,17 @@ ${workspaceRoot ? `- Current workspace root: \`${workspaceRoot}\`` : ""}
 
 Workflow:
 1. Call material intake tools as needed: prepare/check local materials, read extracted read views, and record material reviews for sources you rely on.
-2. Inspect existing researches/**/*.md, assets/, and deck-plan/ when present. Save new external findings with revela-research-save.
+2. Inspect existing researches/**/*.md, assets/, and deck-plan.md when present. Save new external findings with revela-research-save.
 3. Ask only for missing high-impact intent: audience, objective, decision/action, language, rough slide count, or source priority.
 4. Read active design inventory/rules before selecting layouts/components.
-5. Write deck-plan/index.md with deck objective, audience, output format, chapter outline, source authority, unresolved inputs, and slide file list.
-6. Write one deck-plan/slides/*.md file per slide with positive 1-based slideIndex, title, chapter, purpose, layout, component plan, visual intent, source links, caveats, and speaker/content notes.
+5. Write deck-plan.md with deck objective, audience, output format, chapter outline, source authority, unresolved inputs, and an ordered slide plan.
+6. For every slide block, include positive 1-based slideIndex, title, chapter, purpose, layout, component plan, visual intent, sourceLinks, caveats, and speaker/content notes.
 7. Include Cover, Table of Contents, and Closing slides unless the user explicitly asks for a non-standard artifact.
 8. Run/read deck-plan diagnostics after writing and report technical issues separately from source limitations.
 
 Report:
 - Start with "Deck plan: drafted" or "Deck plan: updated".
-- List plan paths, chapter ranges, slide count, source/research files used, unresolved inputs, and the next command /revela make --deck.
+- List deck-plan.md, chapter ranges, slide count, source/research files used, unresolved inputs, and the next command /revela make --deck.
 - Do not ask for approval gates; users decide whether to proceed.`
 }
 
@@ -107,12 +107,12 @@ export function buildDeckMakePrompt({
 }): string {
   const state = exists
     ? "Legacy/cache state exists. Do not treat it as workflow authority."
-    : "No legacy/cache state exists. Continue from deck-plan/ and artifact files."
+    : "No legacy/cache state exists. Continue from deck-plan.md and artifact files."
 
-  return `Generate a Revela HTML deck from deck-plan/.
+  return `Generate a Revela HTML deck from deck-plan.md.
 
 Goal:
-- Read the current deck-plan/ projection and generate or update decks/*.html.
+- Read the current deck-plan.md projection and generate or update decks/*.html.
 - Do not create, compile, or require revela-narrative/.
 - Use the deck-render prompt mode for design, layout, components, HTML, QA, and export preflight.
 - Preserve source links and caveats from deck-plan in slide source notes or speaker notes where appropriate.
@@ -122,8 +122,8 @@ Current state:
 ${workspaceRoot ? `- Current workspace root: \`${workspaceRoot}\`` : ""}
 
 Workflow:
-1. Read deck-plan/ and treat it as the execution blueprint.
-2. If deck-plan/ is missing or structurally invalid, stop and tell the user to run /revela plan --deck.
+1. Read deck-plan.md and treat it as the execution blueprint.
+2. If deck-plan.md is missing or structurally invalid, stop and tell the user to run /revela plan --deck.
 3. For a new deck, call revela-deck-foundation before adding slide content.
 4. Read active design rules and needed layouts/components before patching HTML.
 5. Generate chapter by chapter. Keep the HTML valid after every write and preserve existing completed slides.
@@ -132,7 +132,7 @@ Workflow:
 
 Report:
 - Start with "Deck handoff: generated" or "Deck handoff: updated".
-- Include output path, slide count, deck-plan path, current chapters generated, Artifact QA status, and next command /revela review --deck or /revela export --deck pdf|pptx|png.
+- Include output path, slide count, deck-plan.md path, current chapters generated, Artifact QA status, and next command /revela review --deck or /revela export --deck pdf|pptx|png.
 - Report unresolved inputs as source limitations, not workflow blockers.`
 }
 
@@ -152,7 +152,7 @@ export function buildDeckPrompt({
 Goal:
 - Treat this as the explicit transition from canonical narrative state to user-directed deck planning.
 - Use the deck-render prompt mode for design, layout, component, HTML, QA, and deck artifact rules.
-- Default behavior is two-stage: first generate or update \`deck-plan/index.md\` plus \`deck-plan/slides/*.md\` with low-fidelity layout sketches and narrative wikilinks, then proceed only when the user chooses to continue.
+- Default behavior is two-stage: first generate or update \`deck-plan.md\` with ordered slide blocks, low-fidelity layout notes, sourceLinks, and caveats, then proceed only when the user chooses to continue.
 - Every deck plan must include Cover, Table of Contents, and Closing slides. The TOC must show 3-5 chapter headings that match the deck's slide groups.
 - Do not write or overwrite \`decks/*.html\` until the user chooses to proceed from the current deck-plan projection.
 - Do not treat legacy \`writeReadiness.status\`, old review snapshots, approval fields, or existing HTML decks as workflow permission.
@@ -169,12 +169,12 @@ Workflow:
 4. Call \`revela-decks\` action \`compileDeckPlan\`. This returns a claim/evidence planning packet plus deck-plan authoring requirements; it must not write HTML and does not generate the final slide list. Do not infer render structure from \`DECKS.json.slides[]\`.
 5. If \`compileDeckPlan\` returns \`skipped\`, report the reason and ask the user whether to continue manually, repair narrative files, or provide missing intent.
 6. If target slide count, audience, language, output purpose, or visual style is unclear, ask the user for the smallest needed confirmation before writing the plan.
-7. Write \`deck-plan/index.md\` and one file per planned slide under \`deck-plan/slides/*.md\` from the planning packet and requirements. The index must identify the chapter structure first: 3-5 chapter headings, each chapter's slide range, and which non-structural slides belong to each chapter. Each slide file must include frontmatter with positive 1-based \`slideIndex\` and \`## Narrative Links\` using plain wikilinks to canonical claim/evidence/risk/objection/gap ids. Include a low-fidelity ASCII/text layout sketch for every slide; do not generate visual images or HTML mockups.
+7. Write \`deck-plan.md\` directly from the planning packet and requirements. Do not use structured upsert tools for normal plan authoring. It must identify the chapter structure first: 3-5 chapter headings, each chapter's slide range, and which non-structural slides belong to each chapter. Each slide block must include positive 1-based \`slideIndex\`, layout, component plan, \`sourceLinks\` for materials/findings/assets/URLs/caveats, and low-fidelity render notes. Do not generate visual images or HTML mockups during planning.
 8. Stop after presenting the plan unless the user already asked to proceed. Ask whether to continue, revise the plan, or run more research. Do not require an Approval block or \`confirmDeckPlan\` gate; \`confirmDeckPlan\` is compatibility/provenance only.
 9. Ask for or confirm visual design only after the narrative deck plan exists. For a new deck HTML file, call \`revela-deck-foundation\` first to create the active-design foundation shell; it must not create narrative slide content, choose layouts/components, or read/write \`${DECKS_STATE_FILE}\`.
 10. Fetch active design rules plus required layouts/components with \`revela-designs read\` as needed before patching slides into the foundation shell. Fetch chart rules before ECharts.
-11. Do not update cached \`DECKS.json\` slide specs for plan authoring. Use \`deck-plan/\` files and artifact files as the execution surface.
-12. Call \`revela-decks\` action \`readDeckPlan\` before artifact review or HTML writing; use it to inspect the current deck-plan projection without regenerating it. Treat stale hashes, missing links, or incomplete coverage as advisory diagnostics unless the user asks to stop.
+11. Do not update cached \`DECKS.json\` slide specs for plan authoring. Use \`deck-plan.md\` and artifact files as the execution surface.
+12. Call \`revela-decks\` action \`readDeckPlan\` before artifact review or HTML writing; use it as QA/diagnostics for the current deck-plan projection, not as a writer or regeneration step. Treat stale hashes, missing links, or incomplete coverage as advisory diagnostics unless the user asks to stop.
 13. Run artifact diagnostics when useful, but do not treat \`writeReadiness\`, cached slide specs, unconfirmed plans, missing research, or stale coverage as workflow blockers.
 14. Write \`decks/*.html\` when the user chooses to proceed and all deck HTML contract requirements can be satisfied. For new files, patch slide sections between the \`revela-slides\` markers created by \`revela-deck-foundation\`. Generate the artifact chapter by chapter instead of drafting all content slides in one broad pass. Partial decks are allowed during chapter-by-chapter authoring when written slide sections have unique, increasing 1-based \`data-slide-index\` values and valid canvases; do not pad missing planned chapters with filler to match cached \`DECKS.json.slides[]\` length. Keep the HTML file valid after every write, preserve already-written slides, and update one chapter's slide sections at a time.
 15. For each chapter, make every content slide carry a distinct claim, evidence item, comparison, risk, or action. If a chapter lacks enough substance for its allocated slides, merge weak slides or reduce the slide count instead of creating sparse filler.
@@ -185,11 +185,11 @@ Deck plan report format:
 - Include narrative readiness status and narrative hash when available.
 - Include Markdown QA repair cards and vault diagnostic warnings when returned by \`read(summary: true)\`; user decides whether to repair before planning unless the file is malformed or unsafe to write.
 - Include whether \`compileDeckPlan\` prepared the planning packet or skipped.
-- Include the plan artifact paths \`deck-plan/index.md\` and \`deck-plan/slides/*.md\`, and explain that the LLM-authored plan is advisory render-layer projection state.
+- Include the plan artifact path \`deck-plan.md\`, and explain that the LLM-authored plan is advisory render-layer projection state.
 - Include the required Source Authority and remind that \`DECKS.json.slides[]\` is cache/compatibility data, not the render contract.
 - Include \`Required structure: Cover + Table of Contents + Closing\` and do not omit any of those slides.
 - Include a \`Chapters\` section before the slide list. It must list 3-5 TOC headings, their slide ranges, and the non-structural slides assigned to each chapter.
-- For every slide file, include: slide index, title, purpose, narrative role, low-fidelity layout sketch, layout, components, primary/supporting claim ids, evidence binding ids or source summary, visual intent, visual brief, caveats/unsupported scope, and \`## Narrative Links\`.
+- For every slide block, include: slide index, title, purpose, narrative role, low-fidelity layout note, layout, components, sourceLinks, visual intent, visual brief, caveats/unsupported scope, and render notes.
 - Use this sketch style or similarly simple ASCII boxes:
 
 \`\`\`text
@@ -220,27 +220,27 @@ Caveats / unsupported scope:
 Report format before any HTML write:
 - Start with \`Deck handoff: <status>\`.
 - Include which deck-plan projection and narrative hash are guiding artifact work.
-- State that \`revela-decks readDeckPlan\` was called and the current \`deck-plan/\` Chapter Writing Batches are being followed.
+- State that \`revela-decks readDeckPlan\` was called and the current \`deck-plan.md\` slide order/chapter groups are being followed.
 - For new HTML files, state that \`revela-deck-foundation\` created the foundation shell and identify the output path/design before slide content is patched.
 - Include the chapter currently being generated and confirm already-written slides are being preserved.
 - If technical artifact checks cannot be satisfied, list those blockers separately from narrative/deck-plan diagnostics.
 - After writing HTML, read the appended \`Artifact QA\` report from the tool output. If it failed, fix hard errors before considering the deck ready for Review.
 
 Rules:
-- \`compileDeckPlan\` prepares the canonical narrative claim/evidence packet and deck-plan requirements. The LLM authors \`deck-plan/index.md\` and \`deck-plan/slides/*.md\` from that packet and asks the user for page count, audience, language, output purpose, or visual style when unclear.
-- \`deck-plan/\` is the execution blueprint for HTML generation when present. It must be read before writing HTML and followed chapter by chapter; \`DECKS.json.slides[]\` is compatibility/cache data, not the HTML slide-count authority.
+- \`compileDeckPlan\` prepares compatibility planning context when available. The LLM authors \`deck-plan.md\` from user intent, source materials, research findings, and active design vocabulary.
+- \`deck-plan.md\` is the execution blueprint for HTML generation when present. It must be read before writing HTML and followed chapter by chapter; legacy \`deck-plan/\` files are read-compatible fallback inputs only. \`DECKS.json.slides[]\` is compatibility/cache data, not the HTML slide-count authority.
 - \`revela-deck-foundation\` is the file-native foundation helper for new deck shells. Use it before adding slides to a new \`decks/*.html\` file; do not use \`DECKS.json\` or \`revela-decks\` to create the shell.
 - Visual intent is part of the deck-plan projection. During HTML generation, satisfy the planned component/visual brief using fetched design components; do not collapse planned visuals into prose-only bullets.
 - Cached deck slide specs in \`DECKS.json\` are legacy projections only. Canonical narrative remains the authority for audience, decision, claims, evidence boundaries, objections, and risks.
 - Cover, Table of Contents, and Closing are mandatory deck structure. TOC chapter headings must match the chapter grouping used for generation.
 - Do not generate the complete deck content in one broad pass. Work chapter by chapter while keeping the artifact valid after each write.
 - Applying evidence candidates or rewriting canonical claims requires explicit user instruction.
-- If the user requests slide order, layout, component, or visual-intent changes that do not alter meaning, update only the \`deck-plan/\` projection or artifact-level plan content.
+- If the user requests slide order, layout, component, or visual-intent changes that do not alter meaning, update only \`deck-plan.md\` or artifact-level plan content.
 - If the user requests claim, evidence, caveat, decision, or recommendation meaning changes, update canonical narrative first, then report alignment diagnostics before compiling a new deck plan.
 - Do not store secrets, credentials, tokens, or sensitive personal information.
 - Artifact QA requires each slide to render exactly 1920x1080px, not merely any 16:9 ratio. It also checks component compliance, text overflow/clipping, page scrollbars, and whether normal QA-enabled content slides have enough claim/evidence/source substance.
 
-Start now by reading canonical narrative files, reporting diagnostics, compiling the planning packet, then writing or updating the \`deck-plan/\` projection with low-fidelity layout sketches and narrative wikilinks. Do not create ${DECKS_STATE_FILE} as workflow state.`
+Start now by reading canonical narrative files, reporting diagnostics, compiling the planning packet, then writing or updating \`deck-plan.md\` with low-fidelity layout sketches and sourceLinks. Do not create ${DECKS_STATE_FILE} as workflow state.`
 }
 
 export function buildDeckReviewPrompt({
@@ -257,8 +257,8 @@ export function buildDeckReviewPrompt({
   return `Review Revela deck/artifact write readiness.
 
 Goal:
-- Review the current deck artifact and \`deck-plan/\` projection directly. ${DECKS_STATE_FILE}, when present, is legacy/cache state only.
-- When \`deck-plan/\` exists, treat it as the deck execution blueprint for slide order, chapter batches, visual intent, and evidence trace.
+- Review the current deck artifact and \`deck-plan.md\` directly. ${DECKS_STATE_FILE}, when present, is legacy/cache state only.
+- When \`deck-plan.md\` exists, treat it as the deck execution blueprint for slide order, chapter batches, visual intent, and evidence trace.
 - Treat this as artifact diagnostics, not workflow permission. Narrative, research, and deck-plan gaps are warnings unless they are malformed/unsafe files.
 - Do not create or update ${DECKS_STATE_FILE}; use file-native sources and explicit artifact paths.
 - Use technical blockers only for missing/ambiguous deck files, invalid HTML contract, invalid slide identity, canvas/overflow/export failures, malformed vault frontmatter, or unsafe writes.
@@ -282,7 +282,7 @@ Workspace boundary rules:
 
 Workflow:
 1. Resolve the deck artifact from an explicit user path or discover \`decks/*.html\` when unambiguous.
-2. Read \`deck-plan/\` with \`readDeckPlan\` when present and report stale hashes, missing links, missing coverage, or slide-index issues as diagnostics.
+2. Read \`deck-plan.md\` with \`readDeckPlan\` when present and report stale hashes, missing links, missing coverage, or slide-index issues as diagnostics.
 3. Run HTML contract and Artifact QA checks for the artifact when the user is preparing to write, review, or export.
 4. Report evidence/source/narrative risks as diagnostics. Do not bind evidence, rewrite narrative, or update cached slide specs unless the user explicitly asks.
 5. If a technical blocker exists, report the exact blocker and smallest repair. Otherwise say the user can proceed and list residual diagnostics.

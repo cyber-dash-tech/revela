@@ -5,7 +5,7 @@
 | Help / product guidance | `/revela` and prompt injection | Plugin manifest, default prompts, skills | MVP |
 | Init workspace | `/revela init`, OpenCode tools | `revela-init` skill + local material prepare/extract/review/intake tools | MVP |
 | Research workflow | `/revela research`, research-save tool | `revela-research` skill + `revela_research_save`; findings stay source-linked until used by deck-plan | Tool-backed MVP |
-| Deck planning | `/revela plan --deck`, deck-plan prompt | `revela-make-deck` skill + `revela_read_deck_plan` + `revela_upsert_deck_plan_slide` | MVP |
+| Deck planning | `/revela plan --deck`, deck-plan prompt | `revela-make-deck` skill writes `deck-plan.md` directly after `revela_design_inventory`; `revela_read_deck_plan` provides QA/diagnostics; `revela_upsert_deck_plan_slide` remains a compatibility/repair helper only | MVP |
 | Make deck | `/revela make --deck`, deck-render prompt | `revela-make-deck` skill + create foundation + design reads + artifact QA | MVP |
 | Deck foundation | `revela-deck-foundation` OpenCode tool | `revela_create_deck_foundation` MCP tool | MVP |
 | Artifact QA | post-write hook and `revela-qa` tool | `revela_run_deck_qa` MCP tool + hook reminders | MVP |

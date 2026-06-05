@@ -96,7 +96,7 @@ describe("DECKS.json state readiness", () => {
     expect(reviewed.result.issues).toContainEqual(expect.objectContaining({
       type: "slide_plan_unconfirmed",
       severity: "warning",
-      suggestedAction: expect.stringContaining("deck-plan/"),
+      suggestedAction: expect.stringContaining("deck-plan.md"),
     }))
   })
 
@@ -160,7 +160,7 @@ describe("DECKS.json state readiness", () => {
       coverageStatus: expect.any(String),
       missingClaimIds: ["claim:required"],
     })
-    expect(reviewed.result.diagnostics?.nextActions).toContain("Review missingClaimIds in artifactCoverage and decide whether to revise deck-plan/ or continue with the current artifact.")
+    expect(reviewed.result.diagnostics?.nextActions).toContain("Review missingClaimIds in artifactCoverage and decide whether to revise deck-plan.md or continue with the current artifact.")
   })
 
   it("reports stale artifact coverage as a diagnostic", () => {

@@ -20,7 +20,7 @@ Current state:
 ${workspaceRoot ? `- Current workspace root: \`${workspaceRoot}\`` : ""}
 
 Workflow:
-1. Inspect material intake registry/check output, material review files, existing researches/**/*.md, and deck-plan/ when present.
+1. Inspect material intake registry/check output, material review files, existing researches/**/*.md, and deck-plan.md when present.
 2. Identify the smallest research tasks needed for the deck: missing market facts, benchmarks, examples, source quotes, images/logos/screenshots, or caveats.
 3. Use external research only for public facts or user-authorized questions. Do not invent URLs, quotes, page references, numbers, or licenses.
 4. Save every useful finding with source URLs/paths, quote/snippet, what it supports, what it does not support, caveat, date checked, and optional image leads.
