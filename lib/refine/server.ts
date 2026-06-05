@@ -1288,8 +1288,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .visual-move-handle::before { content: ""; position: absolute; inset: 4px; border-top: 2px solid #111827; border-left: 2px solid #111827; transform: rotate(45deg); }
     .visual-resize-handle { position: absolute; z-index: 3; width: 14px; height: 14px; border: 2px solid #111827; border-radius: 4px; background: #fbfaf7; box-shadow: 0 6px 16px rgba(31,41,51,.22); transform: translate(-50%, -50%); pointer-events: none; display: none; }
     .visual-resize-handle[data-mode="text-width"] { width: 10px; height: 28px; border-radius: 999px; cursor: ew-resize; }
-    .visual-edit-toolbar { position: absolute; top: 14px; left: 50%; z-index: 6; display: none; align-items: center; gap: 8px; transform: translateX(-50%); padding: 8px 10px; border: 1px solid rgba(148,163,184,.42); border-radius: 999px; background: rgba(17,24,39,.88); color: #fbfaf7; box-shadow: 0 16px 40px rgba(31,41,51,.26); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); font-size: 12px; font-weight: 800; }
-    .visual-edit-toolbar.active { display: inline-flex; }
+    .visual-edit-toolbar { position: absolute; top: 14px; left: 50%; z-index: 6; display: inline-flex; align-items: center; gap: 8px; transform: translateX(-50%); padding: 8px 10px; border: 1px solid rgba(148,163,184,.42); border-radius: 999px; background: rgba(17,24,39,.78); color: #fbfaf7; box-shadow: 0 16px 40px rgba(31,41,51,.22); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); font-size: 12px; font-weight: 800; }
+    .visual-edit-toolbar.active { background: rgba(17,24,39,.9); box-shadow: 0 16px 40px rgba(31,41,51,.28); }
     .visual-edit-toolbar button { width: auto; min-width: 0; padding: 7px 10px; border-radius: 999px; border-color: rgba(255,255,255,.2); background: rgba(255,255,255,.12); color: #fff; box-shadow: none; font-size: 12px; }
     .visual-edit-toolbar .save-visual { background: #fbfaf7; color: #111827; }
     .deck-nav { position: absolute; left: 50%; bottom: 18px; z-index: 4; display: inline-flex; align-items: center; gap: 8px; transform: translateX(-50%); padding: 7px; border: 1px solid rgba(148,163,184,.42); border-radius: 999px; background: rgba(15,23,42,.76); box-shadow: 0 16px 44px rgba(15,23,42,.24); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); pointer-events: auto; }
@@ -1633,6 +1633,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           restoreEditorWidth();
           bindEvents();
           setMode(state.mode);
+          updateVisualToolbar();
           setStatus('Review ready. Ctrl/Cmd + click deck elements to reference them.');
           initFrame();
           loadReviewComments();
@@ -2079,7 +2080,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function updateVisualToolbar() {
         const count = state.visualChanges.length;
         els.visualEditToolbar.classList.toggle('active', count > 0);
-        els.visualEditCount.textContent = count + ' unsaved visual change' + (count === 1 ? '' : 's');
+        els.visualEditCount.textContent = count === 0 ? 'No unsaved visual changes' : count + ' unsaved visual change' + (count === 1 ? '' : 's');
         els.visualUndo.disabled = count === 0 || state.savingVisualChanges;
         els.visualReset.disabled = count === 0 || state.savingVisualChanges;
         els.visualSave.disabled = count === 0 || state.savingVisualChanges;
