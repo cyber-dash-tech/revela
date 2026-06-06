@@ -16,13 +16,19 @@ import type { MediaAssetRecord, MediaPurpose } from "../media/types"
 import { addCommentRequestEvent, completeCommentRequest, createCommentRequest, failCommentRequest, getCommentRequest, subscribeCommentRequestEvents } from "./comment-requests"
 import { createOpenCodeReviewPromptBridge, type ReviewPromptBridge } from "./prompt-bridge"
 import { suppressReviewApplyFixArtifactQa } from "./qa-suppression"
-import { createReviewComment, listReviewComments, markReviewCommentApplied, markReviewCommentApplying, markReviewCommentFailed, markReviewCommentQueued, readReviewComment, type ReviewCommentRecord } from "./review-comments"
+import { createReviewComment, deleteReviewComment, listReviewComments, markReviewCommentApplied, markReviewCommentApplying, markReviewCommentFailed, markReviewCommentQueued, markReviewCommentStopped, readReviewComment, type ReviewCommentRecord } from "./review-comments"
 import { annotateVisualEditTargets, applyVisualTargetChanges, type VisualEditTarget } from "./visual-targets"
 
 const TOKEN_BYTES = 24
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000
 const IDLE_STOP_MS = 30 * 60 * 1000
+export const REVIEW_REF_LABEL_MAX_DISPLAY_CHARS = 32
 export const LIVE_EDITOR_IDLE_MS = 10 * 1000
+
+export function displayReviewReferenceLabel(label: string): string {
+  const text = String(label || "")
+  return text.length > REVIEW_REF_LABEL_MAX_DISPLAY_CHARS ? text.slice(0, REVIEW_REF_LABEL_MAX_DISPLAY_CHARS - 1) + "…" : text
+}
 
 interface EditAsset {
   id: string
@@ -52,6 +58,20 @@ interface EditSession {
 
 export type RefineMode = "edit" | "inspect"
 export type ReviewShellSurface = "legacy" | "codex"
+
+function lucideIcon(name: "image" | "list" | "play" | "plus" | "refresh-cw" | "send" | "square" | "trash-2", className = "composer-icon"): string {
+  const paths: Record<typeof name, string> = {
+    image: '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>',
+    list: '<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>',
+    play: '<polygon points="6 3 20 12 6 21 6 3"/>',
+    plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    "refresh-cw": '<path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/>',
+    send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+    square: '<rect width="14" height="14" x="5" y="5" rx="2"/>',
+    "trash-2": '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>',
+  }
+  return `<svg class="lucide lucide-${name} ${className}" data-lucide="${name}" viewBox="0 0 24 24" aria-hidden="true">${paths[name]}</svg>`
+}
 
 export interface RefineServerHandle {
   baseUrl: string
@@ -224,6 +244,20 @@ async function handleRequest(req: Request): Promise<Response> {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
     return handleReviewCommentApply(decodeURIComponent(applyMatch[1]), req, session.value)
+  }
+
+  const stopMatch = url.pathname.match(/^\/api\/comments\/([^/]+)\/stop$/)
+  if (stopMatch && req.method === "POST") {
+    const session = validateSession(url.searchParams.get("token"))
+    if (!session.ok) return session.response
+    return handleReviewCommentStop(decodeURIComponent(stopMatch[1]), session.value)
+  }
+
+  const deleteMatch = url.pathname.match(/^\/api\/comments\/([^/]+)$/)
+  if (deleteMatch && req.method === "DELETE") {
+    const session = validateSession(url.searchParams.get("token"))
+    if (!session.ok) return session.response
+    return handleReviewCommentDelete(decodeURIComponent(deleteMatch[1]), session.value)
   }
 
   if (url.pathname === "/api/comment-result" && req.method === "GET") {
@@ -828,6 +862,30 @@ async function handleReviewCommentApply(commentId: string, req: Request, session
   return enqueueOrStartPersistedReviewCommentApply(session, comment, body)
 }
 
+function handleReviewCommentStop(commentId: string, session: EditSession): Response {
+  const comment = readReviewComment(session.workspaceRoot, commentId)
+  if (!comment || comment.deckFile !== session.file) return jsonResponse({ ok: false, error: "Review comment not found" }, 404)
+  session.applyQueue = (session.applyQueue ?? []).filter((id) => id !== comment.id)
+  if (session.activeApplyCommentId === comment.id) session.activeApplyCommentId = undefined
+  const stopped = markReviewCommentStopped(session.workspaceRoot, comment.id) ?? comment
+  session.lastActiveAt = Date.now()
+  scheduleIdleStop()
+  if (comment.status === "queued") drainPersistedReviewCommentApplyQueue(session)
+  return jsonResponse({ ok: true, status: "stopped", comment: stopped, deckVersion: readDeckVersion(session).version })
+}
+
+function handleReviewCommentDelete(commentId: string, session: EditSession): Response {
+  const comment = readReviewComment(session.workspaceRoot, commentId)
+  if (!comment || comment.deckFile !== session.file) return jsonResponse({ ok: false, error: "Review comment not found" }, 404)
+  if (comment.status === "applying") return jsonResponse({ ok: false, error: "Stop the applying comment before deleting it." }, 409)
+  session.applyQueue = (session.applyQueue ?? []).filter((id) => id !== comment.id)
+  const deleted = deleteReviewComment(session.workspaceRoot, comment.id)
+  if (!deleted) return jsonResponse({ ok: false, error: "Review comment not found" }, 404)
+  session.lastActiveAt = Date.now()
+  scheduleIdleStop()
+  return jsonResponse({ ok: true, deleted: true, commentId: comment.id, deckVersion: readDeckVersion(session).version })
+}
+
 async function enqueueOrStartPersistedReviewCommentApply(session: EditSession, comment: ReviewCommentRecord, body: any = {}): Promise<Response> {
   session.applyQueue = session.applyQueue ?? []
   if (session.activeApplyCommentId === comment.id) {
@@ -963,16 +1021,16 @@ async function applyCommentPayload(
   }).then((result) => {
     if (result.ok) {
       completeCommentRequest(requestId)
-      if (persistedCommentId) markReviewCommentApplied(session.workspaceRoot, persistedCommentId)
+      if (persistedCommentId && readReviewComment(session.workspaceRoot, persistedCommentId)?.status === "applying") markReviewCommentApplied(session.workspaceRoot, persistedCommentId)
     } else {
       failCommentRequest(requestId, result.error, result.raw)
-      if (persistedCommentId) markReviewCommentFailed(session.workspaceRoot, persistedCommentId, result.error, result.raw)
+      if (persistedCommentId && readReviewComment(session.workspaceRoot, persistedCommentId)?.status === "applying") markReviewCommentFailed(session.workspaceRoot, persistedCommentId, result.error, result.raw)
     }
     onSettled?.()
   }).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)
     failCommentRequest(requestId, message)
-    if (persistedCommentId) markReviewCommentFailed(session.workspaceRoot, persistedCommentId, message)
+    if (persistedCommentId && readReviewComment(session.workspaceRoot, persistedCommentId)?.status === "applying") markReviewCommentFailed(session.workspaceRoot, persistedCommentId, message)
     onSettled?.()
   })
 
@@ -1263,7 +1321,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
   const encodedToken = JSON.stringify(token)
   const encodedDefaultMode = JSON.stringify(defaultMode)
   const encodedSurface = JSON.stringify(surface)
-  const activityLabel = surface === "codex" ? "Codex Activity" : "Activity"
+  const sendButtonHtml = `${lucideIcon("send")}<span class="sr-only">Leave Comment</span>`
+  const encodedSendButtonHtml = JSON.stringify(sendButtonHtml)
+  const activityLabel = "Comments"
   const bodyClass = surface === "codex" ? "codex-review" : "legacy-review"
   return `<!doctype html>
 <html lang="en">
@@ -1283,6 +1343,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .resize-handle::before { content: ""; position: absolute; left: 50%; top: 50%; width: 4px; height: 44px; border-radius: 999px; transform: translate(-50%, -50%); background: rgba(148,163,184,.34); box-shadow: 0 1px 2px rgba(15,23,42,.06); transition: background .16s ease, height .16s ease, box-shadow .16s ease; }
     .resize-handle:hover::before, body.resizing .resize-handle::before { height: 52px; background: #94a3b8; box-shadow: 0 0 0 4px rgba(148,163,184,.16); }
     iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+    .comment-highlight-layer { position: absolute; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; }
+    .comment-highlight-box { position: absolute; display: none; border: 2px solid #a9793f; border-radius: 6px; background: rgba(169,121,63,.18); box-shadow: 0 0 0 3px rgba(255,253,248,.72), 0 10px 28px rgba(31,41,51,.18); }
     .hitbox { position: absolute; inset: 0; z-index: 2; cursor: crosshair; background: transparent; }
     .visual-move-handle { position: absolute; z-index: 4; width: 16px; height: 16px; border: 2px solid #111827; border-radius: 999px; background: #fbfaf7; box-shadow: 0 6px 16px rgba(31,41,51,.22); transform: translate(-50%, -50%); pointer-events: none; display: none; }
     .visual-move-handle::before { content: ""; position: absolute; inset: 4px; border-top: 2px solid #111827; border-left: 2px solid #111827; transform: rotate(45deg); }
@@ -1297,7 +1359,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .deck-nav button:hover:not(:disabled) { background: rgba(255,255,255,.22); }
     .deck-nav button:disabled { opacity: .38; }
     .deck-nav-status { min-width: 76px; color: #e2e8f0; font-size: 12px; font-weight: 900; text-align: center; font-variant-numeric: tabular-nums; }
-    aside { position: relative; display: flex; flex-direction: column; gap: 16px; padding: 20px; background: linear-gradient(180deg, #fbfaf7 0%, #f2eee6 100%); overflow: auto; border-left: 1px solid #d8d2c6; font-family: Garamond, "Iowan Old Style", Georgia, serif; }
+    aside { position: relative; display: flex; flex-direction: column; gap: 16px; padding: 20px; background: linear-gradient(180deg, #fbfaf7 0%, #f2eee6 100%); overflow: hidden; border-left: 1px solid #d8d2c6; font-family: Garamond, "Iowan Old Style", Georgia, serif; }
     aside button, aside input, aside select, aside textarea, aside .comment-editor { font-family: inherit; }
     h1 { margin: 0; font-size: 18px; line-height: 1.2; letter-spacing: -.01em; color: #0f172a; }
     .wordmark { font-family: Garamond, "Iowan Old Style", Georgia, serif; font-size: 21px; letter-spacing: .08em; font-weight: 600; }
@@ -1306,38 +1368,50 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .tab { width: auto; min-width: 112px; padding: 10px 18px; border: 1px solid transparent; border-bottom: 0; border-radius: 13px 13px 0 0; background: transparent; color: #5f594f; box-shadow: none; font-weight: 900; }
     .tab:hover:not(:disabled) { background: rgba(255,253,248,.58); }
     .tab.active { position: relative; top: 1px; background: #fbfaf7; border-color: #d8d2c6; color: #111827; box-shadow: 0 -7px 16px rgba(31,41,51,.05); }
-    .tab-panel { display: none; flex-direction: column; gap: 12px; padding-top: 12px; }
+    .tab-panel { display: none; flex-direction: column; gap: 12px; min-height: 0; padding-top: 12px; }
     .tab-panel.active { display: flex; }
+    #editPanel { flex: 1 1 auto; min-height: 0; }
     #inspectTab, #inspectPanel { display: none !important; }
     .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
     .selection-summary { padding: 10px 12px; border: 1px solid #d8d2c6; border-radius: 14px; background: #fbfaf7; color: #3f3a33; font-size: 13px; line-height: 1.45; box-shadow: 0 8px 22px rgba(31,41,51,.05); }
     .selection-summary strong { display: block; margin-bottom: 7px; color: #756f66; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; }
     .selection-chips { display: flex; flex-wrap: wrap; gap: 6px; }
     .label { color: #756f66; font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
-    .comment-editor { width: 100%; min-height: 164px; max-height: 42vh; overflow: auto; padding: 13px 14px; border: 1px solid #d8d2c6; border-radius: 14px; background: #fffdf8; color: #111827; font: inherit; line-height: 1.5; outline: none; white-space: pre-wrap; box-shadow: 0 10px 24px rgba(31,41,51,.06); }
+    .comment-composer { position: relative; display: flex; flex-direction: column; gap: 10px; padding-top: 10px; border-top: 1px solid #d8d2c6; }
+    .comment-input-box { position: relative; display: flex; flex-direction: column; min-height: 166px; border: 1px solid #d8d2c6; border-radius: 18px; background: #fffdf8; box-shadow: 0 12px 30px rgba(31,41,51,.08); }
+    .comment-input-box:focus-within { border-color: #a9793f; box-shadow: 0 0 0 3px rgba(169,121,63,.14), 0 12px 30px rgba(31,41,51,.09); }
+    .comment-editor { width: 100%; min-height: 132px; max-height: 30vh; overflow: auto; padding: 13px 14px; border: 1px solid #d8d2c6; border-radius: 14px; background: #fffdf8; color: #111827; font: inherit; line-height: 1.5; outline: none; white-space: pre-wrap; box-shadow: 0 10px 24px rgba(31,41,51,.06); }
     .comment-editor:focus { border-color: #a9793f; box-shadow: 0 0 0 3px rgba(169,121,63,.14), 0 10px 24px rgba(31,41,51,.07); }
+    .comment-input-box .comment-editor { min-height: 116px; padding: 14px 56px 8px 14px; border: 0; border-radius: 18px 18px 0 0; background: transparent; box-shadow: none; }
+    .comment-input-box .comment-editor:focus { outline: none; box-shadow: none; }
     .comment-editor:empty::before { content: attr(data-placeholder); color: #a79d8e; pointer-events: none; }
-    .ref-chip { display: inline-flex; align-items: center; margin: 0 2px; padding: 1px 7px; border-radius: 999px; background: var(--ref-bg, #e0f2fe); color: var(--ref-text, #075985); border: 1px solid var(--ref-border, #7dd3fc); font-weight: 800; white-space: nowrap; }
-    .activity-panel { display: flex; flex-direction: column; gap: 8px; padding-top: 2px; }
-    .comment-thread { display: flex; flex-direction: column; gap: 8px; max-height: 24vh; overflow: auto; }
-    .comment-thread:empty { display: none; }
-    .comment-bubble { border: 1px solid #d8d2c6; border-radius: 14px; padding: 10px 12px; background: #fffdf8; color: #3f3a33; font-size: 13px; line-height: 1.45; box-shadow: 0 8px 22px rgba(31,41,51,.05); }
-    .comment-bubble.sending { border-color: #c8b88f; background: #f7f0df; }
-    .comment-bubble.open { border-color: #d8d2c6; background: #fffdf8; }
-    .comment-bubble.queued { border-color: #c8b88f; background: #f7f0df; }
-    .comment-bubble.applying { border-color: #c8b88f; background: #f7f0df; }
-    .comment-bubble.applied { border-color: #9dac8a; background: #f0f2e8; }
-    .comment-bubble.updated { border-color: #9dac8a; background: #f0f2e8; }
-    .comment-bubble.stale { border-color: #c6a96a; background: #f8efd7; }
-    .comment-bubble.failed { border-color: #c58f82; background: #f7eae5; }
-    .comment-bubble-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .ref-chip { display: inline-flex; align-items: center; max-width: 32ch; overflow: hidden; text-overflow: ellipsis; margin: 0 2px; padding: 1px 7px; border-radius: 999px; background: var(--ref-bg, #e0f2fe); color: var(--ref-text, #075985); border: 1px solid var(--ref-border, #7dd3fc); font-weight: 800; white-space: nowrap; }
+    .activity-panel { display: flex; flex: 1 1 auto; flex-direction: column; gap: 8px; min-height: 0; padding-top: 2px; }
+    .comment-thread { display: flex; flex: 1 1 auto; flex-direction: column; gap: 9px; min-height: 160px; overflow-y: auto; overflow-x: hidden; padding: 1px 2px 1px 1px; }
+    .comment-thread:empty::before { content: "No activity yet. Leave a comment to start."; display: block; padding: 14px; border: 1px dashed rgba(168,153,132,.5); border-radius: 16px; color: #756f66; font-size: 12px; line-height: 1.45; background: linear-gradient(180deg, rgba(255,253,248,.74), rgba(247,243,234,.52)); box-shadow: inset 0 1px 0 rgba(255,255,255,.8); }
+    .comment-bubble { position: relative; display: flex; flex: 0 0 132px; flex-direction: column; min-height: 132px; max-height: 132px; overflow: hidden; border: 1px solid #d8d2c6; border-radius: 15px; padding: 11px 12px 10px 14px; background: linear-gradient(180deg, #fffdf8 0%, #faf6ed 100%); color: #3f3a33; font-size: 13px; line-height: 1.45; box-shadow: 0 10px 26px rgba(31,41,51,.06), inset 3px 0 0 var(--comment-accent, #d8d2c6); transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; cursor: pointer; }
+    .comment-bubble:hover { transform: translateY(-1px); box-shadow: 0 14px 30px rgba(31,41,51,.09), inset 3px 0 0 var(--comment-accent, #d8d2c6); }
+    .comment-bubble.active { border-color: #a9793f; box-shadow: 0 0 0 3px rgba(169,121,63,.16), 0 14px 30px rgba(31,41,51,.1), inset 3px 0 0 #a9793f; }
+    .comment-bubble.sending { --comment-accent: #b48b52; border-color: #c8b88f; background: linear-gradient(180deg, #fff8e8 0%, #f7f0df 100%); }
+    .comment-bubble.open { --comment-accent: #b9aa94; border-color: #d8d2c6; background: linear-gradient(180deg, #fffdf8 0%, #faf6ed 100%); }
+    .comment-bubble.queued { --comment-accent: #c38b3a; border-color: #c8b88f; background: linear-gradient(180deg, #fff8e8 0%, #f7f0df 100%); }
+    .comment-bubble.applying { --comment-accent: #6f91b8; border-color: #9fb6cf; background: linear-gradient(180deg, #f8fbff 0%, #eef4f9 100%); box-shadow: 0 15px 34px rgba(31,41,51,.11), inset 3px 0 0 var(--comment-accent); }
+    .comment-bubble.applied { --comment-accent: #8aa06a; border-color: #9dac8a; background: linear-gradient(180deg, #f8faef 0%, #f0f2e8 100%); }
+    .comment-bubble.updated { --comment-accent: #6f8f4e; border-color: #9dac8a; background: linear-gradient(180deg, #f8faef 0%, #eef3e4 100%); }
+    .comment-bubble.stale { --comment-accent: #c6932f; border-color: #c6a96a; background: linear-gradient(180deg, #fff7e2 0%, #f8efd7 100%); }
+    .comment-bubble.failed { --comment-accent: #b65b4d; border-color: #c58f82; background: linear-gradient(180deg, #fff1ec 0%, #f7eae5 100%); }
+    .comment-bubble-text { flex: 1 1 auto; min-height: 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
     .comment-bubble-state { margin-top: 8px; color: #8a6231; font-size: 12px; font-weight: 800; }
     .comment-bubble-meta { margin-bottom: 6px; color: #756f66; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; }
-    .comment-actions { margin-top: 9px; display: flex; gap: 8px; }
-    .comment-actions button { width: auto; min-width: 86px; padding: 8px 10px; border-radius: 10px; font-size: 12px; box-shadow: none; }
-    .comment-progress { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; color: #5f574d; font-size: 12px; }
-    .comment-progress-line { display: flex; gap: 6px; align-items: flex-start; }
-    .comment-progress-line::before { content: ""; width: 6px; height: 6px; margin-top: 6px; border-radius: 999px; background: #b48b52; flex: 0 0 auto; }
+    .comment-actions { position: absolute; right: 9px; bottom: 9px; display: flex; gap: 6px; }
+    .comment-action-button { display: inline-flex; align-items: center; justify-content: center; width: 30px; min-width: 30px; height: 30px; min-height: 30px; padding: 0; border-radius: 999px; border-color: rgba(168,153,132,.55); background: rgba(255,253,248,.86); color: #3f3a33; box-shadow: 0 6px 14px rgba(31,41,51,.08); }
+    .comment-action-button:hover:not(:disabled) { background: #efe7da; color: #111827; transform: translateY(-1px); }
+    .comment-action-button.danger { color: #8f4638; }
+    .comment-action-button.stop { color: #6f473c; }
+    .comment-action-icon { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .comment-progress { margin-top: 7px; display: flex; flex-direction: column; gap: 4px; color: #5f574d; font-size: 12px; }
+    .comment-progress-line { display: flex; gap: 8px; align-items: flex-start; padding: 7px 8px; border: 1px solid rgba(180,139,82,.2); border-radius: 10px; background: rgba(255,255,255,.42); }
+    .comment-progress-line::before { content: ""; width: 7px; height: 7px; margin-top: 5px; border-radius: 999px; background: #b48b52; box-shadow: 0 0 0 4px rgba(180,139,82,.12); flex: 0 0 auto; animation: progress-pulse 1.2s ease-in-out infinite; }
     .comment-raw { margin-top: 8px; color: #6f473c; font-size: 12px; }
     .comment-raw summary { cursor: pointer; font-weight: 800; }
     .comment-raw pre { margin: 6px 0 0; max-height: 160px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: rgba(255,255,255,.55); border: 1px solid rgba(143,70,56,.22); border-radius: 8px; padding: 8px; }
@@ -1348,6 +1422,16 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .codex-log-meta { display: flex; justify-content: space-between; gap: 8px; color: #6b7280; font-size: 11px; font-weight: 800; text-transform: uppercase; }
     .codex-log-message { margin-top: 4px; color: #374151; white-space: pre-wrap; overflow-wrap: anywhere; }
     .codex-log-detail { margin: 5px 0 0; max-height: 120px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: #111827; background: rgba(17,24,39,.05); border-radius: 6px; padding: 6px; }
+    .codex-log-modal { position: fixed; inset: 0; z-index: 80; display: none; align-items: center; justify-content: center; padding: 24px; }
+    .codex-log-modal.open { display: flex; }
+    .codex-log-backdrop { position: absolute; inset: 0; background: rgba(15,23,42,.42); }
+    .codex-log-dialog { position: relative; z-index: 1; display: flex; flex-direction: column; width: min(860px, calc(100vw - 48px)); max-height: min(720px, calc(100vh - 48px)); overflow: hidden; border: 1px solid #d8d2c6; border-radius: 16px; background: #fbfaf7; box-shadow: 0 28px 70px rgba(15,23,42,.34); }
+    .codex-log-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #d8d2c6; }
+    .codex-log-title { margin: 0; color: #111827; font-size: 15px; line-height: 1.25; font-weight: 900; }
+    .codex-log-close { display: inline-flex; align-items: center; justify-content: center; width: 32px; min-width: 32px; height: 32px; padding: 0; border-radius: 999px; box-shadow: none; }
+    .codex-log-modal .codex-log-list { margin: 0; padding: 14px; max-height: none; overflow: auto; }
+    .codex-log-modal .codex-log-entry { background: #fffdf8; }
+    .codex-log-modal .codex-log-detail { max-height: 260px; }
     .comment-bubble.updated .comment-bubble-state { color: #556b3f; }
     .comment-bubble.stale .comment-bubble-state { color: #8a6231; }
     .comment-bubble.failed .comment-bubble-state { color: #8f4638; }
@@ -1378,7 +1462,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .asset-card.is-saving .asset-save { z-index: 1; }
     .asset-card.is-saved-candidate .asset-thumb { opacity: .72; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes progress-pulse { 0%, 100% { transform: scale(.85); opacity: .68; } 50% { transform: scale(1.16); opacity: 1; } }
     @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    @media (prefers-reduced-motion: reduce) { .comment-bubble, .comment-progress-line::before, .skeleton-line, .spinner { animation: none !important; transition: none !important; } .comment-bubble:hover { transform: none; } }
     .asset-search { display: grid; grid-template-columns: minmax(0, 1fr) 118px; gap: 8px; }
     .asset-search input, .asset-search select { min-width: 0; padding: 10px 11px; border: 1px solid #d8d2c6; border-radius: 12px; background: #fffdf8; color: #111827; font: inherit; font-size: 12px; font-weight: 700; outline: none; }
     .asset-search input:focus, .asset-search select:focus { border-color: #a9793f; box-shadow: 0 0 0 3px rgba(169,121,63,.14); }
@@ -1389,8 +1475,14 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .asset-card[draggable="true"] { cursor: grab; }
     .asset-card[draggable="true"]:active { cursor: grabbing; }
     .asset-thumb { width: 100%; height: 100%; display: block; background: #eee8dc; object-fit: contain; }
-    .asset-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .asset-search-toggle { width: auto; min-width: 32px; height: 28px; padding: 0 9px; border-radius: 999px; box-shadow: 0 6px 14px rgba(31,41,51,.08); font-size: 16px; line-height: 1; }
+    .composer-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 50px; padding: 8px 10px 10px 10px; }
+    .asset-menu-wrap { position: static; min-width: 0; }
+    .asset-menu-toggle { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; min-width: 42px; padding: 0; border-radius: 999px; background: transparent; box-shadow: none; color: #5f594f; }
+    .asset-menu-toggle:hover:not(:disabled) { background: #efe7da; color: #111827; }
+    .local-assets-menu { position: absolute; left: 0; right: 0; bottom: calc(100% + 10px); z-index: 11; display: none; width: 100%; padding: 10px; border: 1px solid #d8d2c6; border-radius: 16px; background: #fbfaf7; box-shadow: 0 18px 44px rgba(31,41,51,.18); }
+    .local-assets-menu.open { display: block; }
+    .local-assets-menu-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .asset-search-toggle { display: inline-flex; align-items: center; justify-content: center; width: 32px; min-width: 32px; height: 32px; padding: 0; border-radius: 999px; box-shadow: 0 6px 14px rgba(31,41,51,.08); }
     .asset-search-view { position: absolute; inset: 0; z-index: 12; display: flex; flex-direction: column; gap: 14px; padding: 20px; background: linear-gradient(180deg, #fbfaf7 0%, #f2eee6 100%); overflow: auto; transform: translateX(105%); transition: transform .2s ease; box-shadow: -18px 0 44px rgba(31,41,51,.16); }
     .asset-search-view.open { transform: translateX(0); }
     .asset-search-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -1401,10 +1493,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .asset-save { position: absolute; left: 7px; right: 7px; bottom: 7px; width: auto; padding: 7px 8px; border-radius: 10px; font-size: 11px; background: rgba(17,24,39,.9); color: #fbfaf7; box-shadow: 0 8px 16px rgba(31,41,51,.2); opacity: .96; }
     .asset-save.saved { background: rgba(77,97,56,.94); color: #fbfaf7; cursor: default; }
     .asset-empty { grid-column: 1 / -1; margin: 0; color: #756f66; font-size: 12px; line-height: 1.45; }
-    .edit-assets { padding: 10px; border: 1px solid #d8d2c6; border-radius: 16px; background: #f7f3ea; }
-    .edit-assets .panel { gap: 8px; }
-    .edit-assets .asset-grid { grid-template-columns: repeat(auto-fill, 64px); align-items: start; max-height: 176px; overflow: auto; }
-    .edit-assets .asset-thumb { width: 64px; height: 64px; }
+    .local-assets-menu .asset-grid { grid-template-columns: repeat(auto-fill, 64px); align-items: start; max-height: 220px; overflow: auto; }
+    .local-assets-menu .asset-thumb { width: 64px; height: 64px; }
     .drop-active .hitbox { background: rgba(169,121,63,.1); outline: 2px dashed rgba(169,121,63,.48); outline-offset: -10px; }
     button { width: 100%; padding: 12px 14px; border: 1px solid #d8d2c6; border-radius: 12px; background: #ebe4d8; color: #111827; font-weight: 800; cursor: pointer; box-shadow: 0 8px 16px rgba(31,41,51,.08); }
     button:hover:not(:disabled) { background: #e3dacb; }
@@ -1412,14 +1502,17 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .primary-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; border-radius: 14px; border-color: #111827; background: linear-gradient(135deg, #111827 0%, #1f2937 100%); color: #fbfaf7; font-size: 14px; letter-spacing: .01em; box-shadow: 0 12px 24px rgba(31,41,51,.24); transition: transform .14s ease, box-shadow .14s ease, filter .14s ease; }
     .primary-action:hover:not(:disabled) { background: linear-gradient(135deg, #0f1720 0%, #283241 100%); transform: translateY(-1px); box-shadow: 0 16px 30px rgba(31,41,51,.28); filter: saturate(1.02); }
     .primary-action:active:not(:disabled) { transform: translateY(0); box-shadow: 0 9px 20px rgba(31,41,51,.22); }
-    .send-icon { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+    .composer-send { position: absolute; right: 10px; bottom: 10px; width: 42px; min-width: 42px; height: 42px; min-height: 42px; padding: 0; border-radius: 999px; }
+    .composer-send:disabled { opacity: .44; }
+    .composer-send .spinner + span { display: none; }
+    .composer-icon { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .status { min-height: 20px; color: #5f594f; font-size: 13px; line-height: 1.45; }
     @media (max-width: 900px) { .app { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; } .resize-handle { display: none; } aside { max-height: 48vh; } .deck-nav { bottom: 10px; } }
   </style>
 </head>
 <body class="${bodyClass}">
   <main class="app">
-    <section class="preview"><iframe id="deck" src="/deck?token=${encodeURIComponent(token)}"></iframe><div id="hitbox" class="hitbox" aria-label="Deck element selection layer"></div><div id="visualMoveHandle" class="visual-move-handle" aria-hidden="true"></div><div id="visualResizeHandle" class="visual-resize-handle" aria-hidden="true"></div><div id="visualEditToolbar" class="visual-edit-toolbar" aria-live="polite"><span id="visualEditCount">No unsaved visual changes</span><button id="visualUndo" type="button">Undo</button><button id="visualReset" type="button">Reset</button><button id="visualSave" class="save-visual" type="button">Save Changes</button></div><nav class="deck-nav" aria-label="Deck navigation"><button id="deckPrev" type="button" title="Previous slide (ArrowLeft / ArrowUp / PageUp)">Previous</button><div id="deckCounter" class="deck-nav-status" aria-live="polite">-- / --</div><button id="deckNext" type="button" title="Next slide (ArrowRight / ArrowDown / Space / PageDown)">Next</button></nav></section>
+    <section class="preview"><iframe id="deck" src="/deck?token=${encodeURIComponent(token)}"></iframe><div id="commentHighlightLayer" class="comment-highlight-layer" aria-hidden="true"></div><div id="hitbox" class="hitbox" aria-label="Deck element selection layer"></div><div id="visualMoveHandle" class="visual-move-handle" aria-hidden="true"></div><div id="visualResizeHandle" class="visual-resize-handle" aria-hidden="true"></div><div id="visualEditToolbar" class="visual-edit-toolbar" aria-live="polite"><span id="visualEditCount">No unsaved visual changes</span><button id="visualUndo" type="button">Undo</button><button id="visualReset" type="button">Reset</button><button id="visualSave" class="save-visual" type="button">Save Changes</button></div><nav class="deck-nav" aria-label="Deck navigation"><button id="deckPrev" type="button" title="Previous slide (ArrowLeft / ArrowUp / PageUp)">Previous</button><div id="deckCounter" class="deck-nav-status" aria-live="polite">-- / --</div><button id="deckNext" type="button" title="Next slide (ArrowRight / ArrowDown / Space / PageDown)">Next</button></nav></section>
     <div id="resizeHandle" class="resize-handle" role="separator" aria-label="Resize editor panel" aria-orientation="vertical" title="Drag to resize editor. Double-click to reset."></div>
     <aside>
       <div>
@@ -1431,18 +1524,23 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         <button id="inspectTab" class="tab" type="button" role="tab">Insight</button>
       </div>
       <div id="editPanel" class="tab-panel">
-        <div class="panel">
+        <div class="activity-panel"><div class="label">${activityLabel}</div><div id="commentThread" class="comment-thread" aria-live="polite"></div></div>
+        <div class="comment-composer">
           <div class="label">Describe the change</div>
-          <div id="comment" class="comment-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Cmd/Ctrl-click slide elements to add @refs, then describe the exact edit."></div>
-        </div>
-        <div class="edit-assets" aria-label="Comment assets">
-          <div class="panel">
-            <div class="asset-tools"><div class="label">Local Assets</div><button id="assetSearchToggle" class="asset-search-toggle" type="button" aria-expanded="false" aria-controls="assetSearchView" title="Search assets">+</button></div>
-            <div id="editSavedAssets" class="asset-grid"><p class="asset-empty">No local assets yet. Click + to search assets.</p></div>
+          <div class="comment-input-box">
+            <div id="comment" class="comment-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Cmd/Ctrl-click slide elements to add @refs, then describe the exact edit."></div>
+            <div class="composer-actions">
+              <div class="asset-menu-wrap">
+                <button id="localAssetToggle" class="asset-menu-toggle" type="button" aria-label="Local Assets" title="Local Assets" aria-expanded="false" aria-controls="localAssetMenu">${lucideIcon("image")}</button>
+                <div id="localAssetMenu" class="local-assets-menu" aria-hidden="true">
+                  <div class="local-assets-menu-head"><div class="label">Local Assets</div><button id="assetSearchToggle" class="asset-search-toggle" type="button" aria-label="Search assets" aria-expanded="false" aria-controls="assetSearchView" title="Search assets">${lucideIcon("plus")}</button></div>
+                  <div id="editSavedAssets" class="asset-grid"><p class="asset-empty">No local assets yet. Click + to search assets.</p></div>
+                </div>
+              </div>
+            </div>
+            <button id="send" class="primary-action composer-send" type="button" aria-label="Leave Comment" title="Leave Comment" disabled>${sendButtonHtml}</button>
           </div>
         </div>
-        <button id="send" class="primary-action" disabled><svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94L14.7 6.3z"/></svg><span>Leave Comment</span></button>
-        <div class="activity-panel"><div class="label">${activityLabel}</div><div id="commentThread" class="comment-thread" aria-live="polite"></div></div>
       </div>
       <div id="inspectPanel" class="tab-panel">
         <div class="panel">
@@ -1470,11 +1568,22 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       <div id="status" class="status"></div>
     </aside>
   </main>
+  <div id="codexLogModal" class="codex-log-modal" aria-hidden="true">
+    <div id="codexLogBackdrop" class="codex-log-backdrop"></div>
+    <section class="codex-log-dialog" role="dialog" aria-modal="true" aria-labelledby="codexLogTitle">
+      <div class="codex-log-head">
+        <h2 id="codexLogTitle" class="codex-log-title">Codex execution log</h2>
+        <button id="codexLogClose" class="codex-log-close" type="button" aria-label="Close execution log">×</button>
+      </div>
+      <div id="codexLogBody" class="codex-log-list"></div>
+    </section>
+  </div>
   <script>
     (() => {
       const token = ${encodedToken};
       const defaultMode = ${encodedDefaultMode};
       const reviewSurface = ${encodedSurface};
+      const sendButtonHtml = ${encodedSendButtonHtml};
       const codexReview = reviewSurface === 'codex';
       const COMMENT_STALE_MS = 60000;
       const EDITOR_WIDTH_KEY = 'revela-edit-editor-width';
@@ -1500,6 +1609,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         hoverEl: null,
         hoverOutline: null,
         referenceOutlines: [],
+        activeCommentId: '',
+        activeCommentElements: [],
+        commentHighlightOutlines: [],
         nextReferenceId: 1,
         nextCommentId: 1,
         initializedDoc: null,
@@ -1538,6 +1650,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       };
       const els = {
         frame: null,
+        commentHighlightLayer: null,
         hitbox: null,
         resizeHandle: null,
         visualMoveHandle: null,
@@ -1564,6 +1677,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         inspectLanguage: null,
         inspectCards: null,
         inspectStale: null,
+        localAssetToggle: null,
+        localAssetMenu: null,
         assetSearchToggle: null,
         assetSearchBack: null,
         assetSearchView: null,
@@ -1573,6 +1688,11 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         assetShuffleButton: null,
         assetResults: null,
         editSavedAssets: null,
+        codexLogModal: null,
+        codexLogBackdrop: null,
+        codexLogClose: null,
+        codexLogTitle: null,
+        codexLogBody: null,
         status: null,
       };
 
@@ -1588,6 +1708,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function boot() {
         try {
           els.frame = document.getElementById('deck');
+          els.commentHighlightLayer = document.getElementById('commentHighlightLayer');
           els.hitbox = document.getElementById('hitbox');
           els.resizeHandle = document.getElementById('resizeHandle');
           els.visualMoveHandle = document.getElementById('visualMoveHandle');
@@ -1613,6 +1734,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           els.inspectButton = document.getElementById('inspectButton');
           els.inspectCards = document.getElementById('inspectCards');
           els.inspectStale = document.getElementById('inspectStale');
+          els.localAssetToggle = document.getElementById('localAssetToggle');
+          els.localAssetMenu = document.getElementById('localAssetMenu');
           els.assetSearchToggle = document.getElementById('assetSearchToggle');
           els.assetSearchBack = document.getElementById('assetSearchBack');
           els.assetSearchView = document.getElementById('assetSearchView');
@@ -1622,11 +1745,16 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           els.assetShuffleButton = document.getElementById('assetShuffleButton');
           els.assetResults = document.getElementById('assetResults');
           els.editSavedAssets = document.getElementById('editSavedAssets');
+          els.codexLogModal = document.getElementById('codexLogModal');
+          els.codexLogBackdrop = document.getElementById('codexLogBackdrop');
+          els.codexLogClose = document.getElementById('codexLogClose');
+          els.codexLogTitle = document.getElementById('codexLogTitle');
+          els.codexLogBody = document.getElementById('codexLogBody');
           els.status = document.getElementById('status');
 
           els.inspectLanguage = document.getElementById('inspectLanguage');
 
-          if (!els.frame || !els.hitbox || !els.resizeHandle || !els.visualMoveHandle || !els.visualResizeHandle || !els.visualEditToolbar || !els.visualEditCount || !els.visualUndo || !els.visualReset || !els.visualSave || !els.deckPrev || !els.deckNext || !els.deckCounter || !els.selectionSummary || !els.selectionChips || !els.editTab || !els.inspectTab || !els.editPanel || !els.inspectPanel || !els.comment || !els.commentThread || !els.send || !els.inspectComment || !els.inspectButton || !els.inspectLanguage || !els.inspectCards || !els.inspectStale || !els.assetSearchToggle || !els.assetSearchBack || !els.assetSearchView || !els.assetQuery || !els.assetPurpose || !els.assetSearchButton || !els.assetShuffleButton || !els.assetResults || !els.editSavedAssets || !els.status) {
+          if (!els.frame || !els.commentHighlightLayer || !els.hitbox || !els.resizeHandle || !els.visualMoveHandle || !els.visualResizeHandle || !els.visualEditToolbar || !els.visualEditCount || !els.visualUndo || !els.visualReset || !els.visualSave || !els.deckPrev || !els.deckNext || !els.deckCounter || !els.selectionSummary || !els.selectionChips || !els.editTab || !els.inspectTab || !els.editPanel || !els.inspectPanel || !els.comment || !els.commentThread || !els.send || !els.inspectComment || !els.inspectButton || !els.inspectLanguage || !els.inspectCards || !els.inspectStale || !els.localAssetToggle || !els.localAssetMenu || !els.assetSearchToggle || !els.assetSearchBack || !els.assetSearchView || !els.assetQuery || !els.assetPurpose || !els.assetSearchButton || !els.assetShuffleButton || !els.assetResults || !els.editSavedAssets || !els.codexLogModal || !els.codexLogBackdrop || !els.codexLogClose || !els.codexLogTitle || !els.codexLogBody || !els.status) {
             throw new Error('Editor boot failed: required DOM nodes are missing.');
           }
 
@@ -1648,8 +1776,14 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         if (state.bound) return;
         state.bound = true;
         els.frame.addEventListener('load', initFrame);
+        window.addEventListener('resize', renderActiveCommentHighlights);
         document.addEventListener('keydown', (event) => {
           if (event.key === 'Escape') {
+            if (els.codexLogModal.classList.contains('open')) {
+              closeCodexLogModal();
+              return;
+            }
+            closeLocalAssetMenu();
             clearHover();
             return;
           }
@@ -1661,6 +1795,12 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             event.preventDefault();
             prevDeckSlide();
           }
+        });
+        document.addEventListener('click', (event) => {
+          if (!els.localAssetMenu.classList.contains('open')) return;
+          const target = event.target;
+          if (target instanceof Node && (els.localAssetMenu.contains(target) || els.localAssetToggle.contains(target))) return;
+          closeLocalAssetMenu();
         });
         els.comment.addEventListener('input', () => {
           saveCommentRange();
@@ -1692,6 +1832,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           win.scrollBy({ top: event.deltaY, left: event.deltaX, behavior: 'auto' });
           renderHoverOutline(state.hoverEl);
           renderReferenceOutlines();
+          renderActiveCommentHighlights();
         }, { passive: false });
         els.resizeHandle.addEventListener('pointerdown', startEditorResize);
         els.resizeHandle.addEventListener('dblclick', resetEditorWidth);
@@ -1702,10 +1843,13 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         els.deckNext.addEventListener('click', nextDeckSlide);
         els.send.addEventListener('click', sendComment);
         els.inspectButton.addEventListener('click', inspectCurrentSelection);
+        els.localAssetToggle.addEventListener('click', toggleLocalAssetMenu);
         els.assetSearchToggle.addEventListener('click', toggleAssetSearchPanel);
         els.assetSearchBack.addEventListener('click', closeAssetSearchPanel);
         els.assetSearchButton.addEventListener('click', () => searchAssets(false));
         els.assetShuffleButton.addEventListener('click', () => searchAssets(true));
+        els.codexLogBackdrop.addEventListener('click', closeCodexLogModal);
+        els.codexLogClose.addEventListener('click', closeCodexLogModal);
         els.assetQuery.addEventListener('keydown', (event) => {
           if (event.key === 'Enter') {
             event.preventDefault();
@@ -1737,6 +1881,20 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         return state.mode === 'inspect' ? els.inspectComment : els.comment;
       }
 
+      function toggleLocalAssetMenu() {
+        setLocalAssetMenuOpen(!els.localAssetMenu.classList.contains('open'));
+      }
+
+      function closeLocalAssetMenu() {
+        setLocalAssetMenuOpen(false);
+      }
+
+      function setLocalAssetMenuOpen(open) {
+        els.localAssetMenu.classList.toggle('open', open);
+        els.localAssetMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
+        els.localAssetToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+
       function toggleAssetSearchPanel() {
         const open = !els.assetSearchView.classList.contains('open');
         setAssetSearchOpen(open);
@@ -1747,10 +1905,11 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function setAssetSearchOpen(open) {
+        if (open) closeLocalAssetMenu();
         els.assetSearchView.classList.toggle('open', open);
         els.assetSearchView.setAttribute('aria-hidden', open ? 'false' : 'true');
         els.assetSearchToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-        els.assetSearchToggle.textContent = '+';
+        els.assetSearchToggle.innerHTML = '${lucideIcon("plus")}';
         if (open) els.assetQuery.focus();
       }
 
@@ -2142,15 +2301,19 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           state.assetDropTarget = null;
           state.assetDropOutline = createOutline(doc, '#a9793f', 'rgba(169,121,63,.16)');
           state.referenceOutlines = [];
+          state.commentHighlightOutlines.forEach((outline) => outline.remove());
+          state.commentHighlightOutlines = [];
           doc.addEventListener('scroll', () => {
             renderHoverOutline(state.hoverEl);
             renderVisualHandles(state.hoverEl);
             renderReferenceOutlines();
+            renderActiveCommentHighlights();
           }, true);
           const slides = getSlides(doc);
           syncDeckNavigation();
           restoreDeckSlideAfterRefresh();
           updateSendState();
+          renderActiveCommentHighlights();
           if (state.pendingRefreshMessage) {
             state.pendingRefreshMessage = false;
             setStatus('Deck updated. Preview refreshed. Element references were cleared.');
@@ -2235,6 +2398,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           else renderHoverOutline(state.hoverEl);
           renderVisualHandles(state.hoverEl);
           renderReferenceOutlines();
+          renderActiveCommentHighlights();
         } catch (error) {
           reportError(error);
         }
@@ -2315,41 +2479,15 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           const { body, version: nextVersion } = await fetchDeckVersion();
           if (!state.deckVersion) {
             state.deckVersion = nextVersion;
-            markCommentsUpdatedForVersion(nextVersion);
-            markStaleComments();
             return;
           }
           if (state.deckVersion === nextVersion) {
-            markStaleComments();
             return;
           }
           state.deckVersion = nextVersion;
-          markCommentsUpdatedForVersion(nextVersion);
           refreshDeckPreview(body.mtimeMs);
         } catch (error) {
           reportError(error);
-        }
-      }
-
-      async function watchDeckVersionAfterComment(commentId) {
-        const comment = state.pendingComments.find((item) => item.id === commentId);
-        const baseDeckVersion = comment?.baseDeckVersion || state.deckVersion;
-        const started = Date.now();
-        while (Date.now() - started < 15000) {
-          if (pendingCommentStatus(commentId) === 'updated' || pendingCommentStatus(commentId) === 'failed') return;
-          await delay(250);
-          try {
-            const { body, version: nextVersion } = await fetchDeckVersion();
-            if (nextVersion && nextVersion !== baseDeckVersion) {
-              state.deckVersion = nextVersion;
-              markCommentsUpdatedForVersion(nextVersion);
-              refreshDeckPreview(body.mtimeMs);
-              return;
-            }
-          } catch (error) {
-            reportError(error);
-            return;
-          }
         }
       }
 
@@ -2369,6 +2507,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         if (state.assetDropOutline) state.assetDropOutline.style.display = 'none';
         state.referenceOutlines.forEach((outline) => outline.style.display = 'none');
         state.referenceOutlines = [];
+        state.commentHighlightOutlines.forEach((outline) => outline.remove());
+        state.commentHighlightOutlines = [];
         updateSendState();
         els.frame.src = '/deck?token=' + encodeURIComponent(token) + '&v=' + encodeURIComponent(String(version));
         setStatus('Deck changed. Refreshing preview...');
@@ -2481,6 +2621,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         const index = state.pendingComments.findIndex((item) => item.id === next.id);
         if (index >= 0) state.pendingComments[index] = { ...state.pendingComments[index], ...next };
         else state.pendingComments.push(next);
+        if (state.activeCommentId === next.id) state.activeCommentElements = Array.isArray(next.elements) ? next.elements : [];
         state.pendingComments.sort((a, b) => (a.slideIndex || 0) - (b.slideIndex || 0) || (a.createdAt || 0) - (b.createdAt || 0));
         renderCommentThread();
       }
@@ -2502,6 +2643,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           eventLog: [],
           failureRaw: record.lastApplyRaw || '',
           failureMessage: record.lastApplyError || '',
+          stopped: record.status === 'failed' && record.lastApplyError === 'Stopped by user.',
         };
       }
 
@@ -2529,6 +2671,41 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           if (body.commentRequestId || body.requestId) watchCommentProgress(commentId, body.commentRequestId || body.requestId);
         } catch (error) {
           updatePendingCommentStatus(commentId, 'failed', { failureMessage: error instanceof Error ? error.message : String(error) });
+          reportError(error);
+        }
+      }
+
+      async function stopPersistedComment(commentId) {
+        const comment = state.pendingComments.find((item) => item.id === commentId);
+        if (!comment || !canStopPersistedComment(comment.status)) return;
+        try {
+          const res = await fetch('/api/comments/' + encodeURIComponent(commentId) + '/stop?token=' + encodeURIComponent(token), { method: 'POST' });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to stop comment');
+          if (body.comment) upsertPersistedComment(body.comment);
+          updatePendingCommentStatus(commentId, 'failed', { stopped: true, requestId: '', progressEvent: null, failureRaw: 'Stopped by user.', failureMessage: 'Stopped by user.' });
+          setStatus('Stopped comment apply.');
+        } catch (error) {
+          reportError(error);
+        }
+      }
+
+      async function deletePersistedComment(commentId) {
+        const comment = state.pendingComments.find((item) => item.id === commentId);
+        if (!comment || !canDeletePersistedComment(comment.status)) return;
+        try {
+          const res = await fetch('/api/comments/' + encodeURIComponent(commentId) + '?token=' + encodeURIComponent(token), { method: 'DELETE' });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to delete comment');
+          state.pendingComments = state.pendingComments.filter((item) => item.id !== commentId);
+          if (state.activeCommentId === commentId) {
+            state.activeCommentId = '';
+            state.activeCommentElements = [];
+            state.commentHighlightOutlines.forEach((outline) => renderParentBox(outline, null));
+          }
+          renderCommentThread();
+          setStatus('Deleted comment.');
+        } catch (error) {
           reportError(error);
         }
       }
@@ -2720,7 +2897,10 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         state.savedAssets.forEach((asset) => {
           const card = assetCard(asset, true, 0);
           card.draggable = true;
-          card.addEventListener('click', () => addAssetToComment(asset));
+          card.addEventListener('click', () => {
+            addAssetToComment(asset);
+            closeLocalAssetMenu();
+          });
           card.addEventListener('dragstart', (event) => {
             state.draggingAsset = asset;
             event.dataTransfer?.setData('application/revela-asset-id', asset.id || '');
@@ -2788,6 +2968,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         insertPlainText(' ');
         setMode('edit');
         updateSendState();
+        closeLocalAssetMenu();
         setStatus('Asset added to the Edit comment. Describe where or how to use it, then Leave Comment.');
       }
 
@@ -2867,22 +3048,111 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function elementFromPayload(payload) {
+        const resolved = resolveElementFromPayload(payload);
+        return resolved.target;
+      }
+
+      function resolveElementFromPayload(payload) {
         const doc = els.frame.contentDocument;
-        if (!doc || !payload) return null;
+        if (!doc || !payload) return { target: null, matchedSelector: false, strategy: 'none' };
         const slides = getSlides(doc);
         const slide = slides.find((item, index) => {
           const explicit = Number(item.getAttribute('data-slide-index'));
           const slideIndex = Number.isFinite(explicit) && explicit > 0 ? explicit : index + 1;
           return slideIndex === payload.slideIndex;
         });
-        if (!slide) return null;
+        if (!slide) return { target: null, matchedSelector: false, strategy: 'none' };
         if (payload.selector) {
           try {
+            const selected = doc.querySelector(payload.selector);
+            if (selected && (selected === slide || slide.contains(selected))) return { target: selected, matchedSelector: true, strategy: 'selector' };
+          } catch {}
+          try {
             const selected = slide.querySelector(payload.selector);
-            if (selected) return selected;
+            if (selected) return { target: selected, matchedSelector: true, strategy: 'selector' };
           } catch {}
         }
-        return slide;
+        const fallback = resolveElementByFingerprint(slide, payload);
+        if (fallback) return { target: fallback.target, matchedSelector: false, strategy: fallback.strategy, score: fallback.score };
+        return { target: null, matchedSelector: false, strategy: 'missing' };
+      }
+
+      function resolveElementByFingerprint(slide, payload) {
+        const candidates = Array.from(slide.querySelectorAll('*'));
+        if (payload.tagName && String(payload.tagName).toLowerCase() === slide.tagName.toLowerCase()) candidates.unshift(slide);
+        let best = null;
+        candidates.forEach((candidate) => {
+          const match = scoreTargetCandidate(candidate, slide, payload);
+          if (!match) return;
+          if (!best || match.score > best.score) best = match;
+        });
+        return best && best.score >= 55 ? best : null;
+      }
+
+      function scoreTargetCandidate(candidate, slide, payload) {
+        const candidatePayload = targetIdentityPayload(candidate, slide);
+        let score = 0;
+        let strategy = '';
+        const payloadFingerprint = payload.fingerprint || {};
+        const candidateFingerprint = candidatePayload.fingerprint || {};
+        if (payloadFingerprint.contentHash && payloadFingerprint.contentHash === candidateFingerprint.contentHash) {
+          score += 120;
+          strategy = 'fingerprint';
+        }
+        if (payloadFingerprint.textHash && payloadFingerprint.textHash === candidateFingerprint.textHash) {
+          score += 80;
+          strategy = strategy || 'fingerprint';
+        }
+        if (payloadFingerprint.structureHash && payloadFingerprint.structureHash === candidateFingerprint.structureHash) {
+          score += 40;
+          strategy = strategy || 'structure';
+        }
+        if (payloadFingerprint.contextHash && payloadFingerprint.contextHash === candidateFingerprint.contextHash) {
+          score += 20;
+          strategy = strategy || 'fingerprint';
+        }
+        const payloadTag = String(payload.tagName || '').toLowerCase();
+        if (payloadTag && payloadTag === candidatePayload.tagName) score += 32;
+        const payloadText = payload.textNormalized || normalizeTargetText(payload.text);
+        if (payloadText && payloadText === candidatePayload.textNormalized) {
+          score += 72;
+          strategy = strategy || 'text';
+        } else if (payloadText && candidatePayload.textNormalized && (payloadText.includes(candidatePayload.textNormalized) || candidatePayload.textNormalized.includes(payloadText))) {
+          score += 34;
+          strategy = strategy || 'text';
+        }
+        if (payload.semanticKind && payload.semanticKind === candidatePayload.semanticKind) score += 18;
+        const classOverlap = overlapCount(payload.classList, candidatePayload.classList);
+        score += Math.min(24, classOverlap * 8);
+        if (payloadFingerprint.structureHash && payloadFingerprint.structureHash === candidateFingerprint.structureHash && (classOverlap > 0 || partialTextOverlap(payloadText, candidatePayload.textNormalized))) {
+          score += 32;
+          strategy = strategy || 'structure';
+        }
+        const distance = relativeBoxDistance(payload.slideRelativeBox, candidatePayload.slideRelativeBox);
+        if (Number.isFinite(distance)) {
+          const positionScore = Math.max(0, 36 - distance * 72);
+          score += positionScore;
+          if (!strategy && positionScore > 20) strategy = 'relativeBox';
+        }
+        if (payloadTag && payloadTag !== candidatePayload.tagName) score -= 20;
+        return score > 0 ? { target: candidate, score, strategy: strategy || 'relativeBox' } : null;
+      }
+
+      function targetIdentityPayload(el, slide) {
+        const semanticKind = semanticKindForElement(el);
+        const tagName = el.tagName.toLowerCase();
+        const classList = Array.from(el.classList || []);
+        const textNormalized = normalizeTargetText(el.innerText || el.textContent || '');
+        const slideTitle = slide ? ((slide.querySelector('h1,h2,h3,[data-title]') || {}).textContent || '').trim().slice(0, 160) : '';
+        const nearbyText = slide ? (slide.innerText || slide.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 1200) : '';
+        return {
+          tagName,
+          semanticKind,
+          classList,
+          textNormalized,
+          slideRelativeBox: slideRelativeBox(el, slide),
+          fingerprint: fingerprintForTarget({ tagName, semanticKind, classList, textNormalized, slideTitle, nearbyText }),
+        };
       }
 
       function elementFromVisualChange(change) {
@@ -2922,7 +3192,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
       function selectable(node) {
         if (!node || node.nodeType !== 1) return null;
-        if (node === state.hoverOutline || state.referenceOutlines.includes(node)) return null;
+        if (node === state.hoverOutline || node === state.assetDropOutline || state.referenceOutlines.includes(node)) return null;
         return findSlide(node) ? node : null;
       }
 
@@ -3012,39 +3282,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         if (comment.status === 'updated' && status !== 'failed') return;
         comment.status = status;
         if (updates) Object.assign(comment, updates);
-        if (status === 'updated' || status === 'failed') comment.progressEvent = null;
+        if (status === 'updated' || status === 'failed' || status === 'applied') comment.progressEvent = null;
         renderCommentThread();
-      }
-
-      function markCommentsUpdatedForVersion(version) {
-        let changed = false;
-        state.pendingComments.forEach((comment) => {
-          if ((comment.status === 'sent' || comment.status === 'sending' || comment.status === 'applying' || comment.status === 'applied' || comment.status === 'stale') && comment.baseDeckVersion !== version) {
-            comment.status = 'updated';
-            comment.updatedVersion = version;
-            comment.progressEvent = null;
-            changed = true;
-          }
-        });
-        if (changed) {
-          renderCommentThread();
-          setStatus('Deck file updated. Preview will refresh automatically.');
-        }
-      }
-
-      function markStaleComments() {
-        const now = Date.now();
-        let changed = false;
-        state.pendingComments.forEach((comment) => {
-          if (comment.status !== 'sent' && comment.status !== 'sending' && comment.status !== 'applying') return;
-          if (now - comment.createdAt < COMMENT_STALE_MS) return;
-          comment.status = 'stale';
-          changed = true;
-        });
-        if (changed) {
-          renderCommentThread();
-          setStatus('Still waiting for deck file update. The preview will refresh automatically when the file changes.');
-        }
       }
 
       function pendingCommentStatus(id) {
@@ -3066,6 +3305,10 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
               return;
             }
             if (body.status === 'completed') {
+              if (pendingCommentStatus(commentId) === 'applying') {
+                updatePendingCommentStatus(commentId, 'applied', { progressEvent: null });
+              }
+              setStatus('Codex completed.');
               return;
             }
           } catch (error) {
@@ -3115,8 +3358,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           } else if (payload.type === 'completed') {
             closed = true;
             source.close();
-            if (pendingCommentStatus(commentId) !== 'updated') setStatus(payload.message || 'Waiting for deck file update...');
-            watchDeckVersionAfterComment(commentId);
+            setStatus(payload.message || 'Codex completed.');
           } else if (payload.message) {
             setStatus(payload.message);
           }
@@ -3132,6 +3374,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function recordCommentProgress(commentId, event) {
         const comment = state.pendingComments.find((item) => item.id === commentId);
         if (!comment || !event || !event.message) return;
+        if (comment.stopped || comment.status === 'failed' && comment.failureMessage === 'Stopped by user.') return;
         if (codexReview) {
           appendCodexEventLog(comment, event);
         }
@@ -3178,6 +3421,13 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         details.className = 'codex-log';
         const summary = document.createElement('summary');
         summary.textContent = codexLogSummary(log);
+        const list = renderCodexLogEntries(log);
+        details.appendChild(summary);
+        details.appendChild(list);
+        return details;
+      }
+
+      function renderCodexLogEntries(log) {
         const list = document.createElement('div');
         list.className = 'codex-log-list';
         log.forEach((item) => {
@@ -3204,16 +3454,39 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           }
           list.appendChild(row);
         });
-        details.appendChild(summary);
-        details.appendChild(list);
-        return details;
+        return list;
       }
 
-      function renderCommentThread() {
+      function openCodexLogModal(log) {
+        if (!codexReview || !Array.isArray(log) || !log.length) return;
+        els.codexLogTitle.textContent = codexLogSummary(log);
+        els.codexLogBody.replaceChildren(...Array.from(renderCodexLogEntries(log).children));
+        els.codexLogModal.classList.add('open');
+        els.codexLogModal.setAttribute('aria-hidden', 'false');
+        els.codexLogClose.focus();
+      }
+
+      function closeCodexLogModal() {
+        els.codexLogModal.classList.remove('open');
+        els.codexLogModal.setAttribute('aria-hidden', 'true');
+        els.codexLogBody.textContent = '';
+      }
+
+      function renderCommentThread(scrollToBottom = true) {
         els.commentThread.textContent = '';
         state.pendingComments.forEach((comment) => {
           const bubble = document.createElement('div');
-          bubble.className = 'comment-bubble ' + comment.status;
+          bubble.className = 'comment-bubble ' + comment.status + (comment.id === state.activeCommentId ? ' active' : '');
+          bubble.tabIndex = 0;
+          bubble.setAttribute('role', 'button');
+          bubble.setAttribute('aria-pressed', comment.id === state.activeCommentId ? 'true' : 'false');
+          bubble.addEventListener('click', () => selectPersistedComment(comment.id));
+          bubble.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              selectPersistedComment(comment.id);
+            }
+          });
 
           const meta = document.createElement('div');
           meta.className = 'comment-bubble-meta';
@@ -3223,22 +3496,47 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           text.className = 'comment-bubble-text';
           text.textContent = comment.text;
 
+          const refs = renderCommentReferenceChips(comment.elements);
+
           const status = document.createElement('div');
           status.className = 'comment-bubble-state';
           status.textContent = commentStatusLabel(comment.status);
 
           bubble.appendChild(meta);
+          if (refs) bubble.appendChild(refs);
           bubble.appendChild(text);
           bubble.appendChild(status);
           if (comment.persisted && canApplyPersistedComment(comment.status)) {
             const actions = document.createElement('div');
             actions.className = 'comment-actions';
-            const apply = document.createElement('button');
-            apply.type = 'button';
-            apply.textContent = isReapplyStatus(comment.status) ? 'Re-apply' : 'Apply';
+            const apply = commentActionButton(isReapplyStatus(comment.status) ? 'Re-apply' : 'Apply', isReapplyStatus(comment.status) ? '${lucideIcon("refresh-cw", "comment-action-icon")}' : '${lucideIcon("play", "comment-action-icon")}');
             apply.addEventListener('click', () => applyPersistedComment(comment.id));
             actions.appendChild(apply);
             bubble.appendChild(actions);
+          }
+          if (comment.persisted && canStopPersistedComment(comment.status)) {
+            const actions = bubble.querySelector('.comment-actions') || document.createElement('div');
+            actions.className = 'comment-actions';
+            const stop = commentActionButton('Stop', '${lucideIcon("square", "comment-action-icon")}', 'stop');
+            stop.addEventListener('click', () => stopPersistedComment(comment.id));
+            actions.appendChild(stop);
+            if (!actions.parentElement) bubble.appendChild(actions);
+          }
+          if (comment.persisted && canDeletePersistedComment(comment.status)) {
+            const actions = bubble.querySelector('.comment-actions') || document.createElement('div');
+            actions.className = 'comment-actions';
+            const remove = commentActionButton('Delete', '${lucideIcon("trash-2", "comment-action-icon")}', 'danger');
+            remove.addEventListener('click', () => deletePersistedComment(comment.id));
+            actions.appendChild(remove);
+            if (!actions.parentElement) bubble.appendChild(actions);
+          }
+          if (codexReview && Array.isArray(comment.eventLog) && comment.eventLog.length) {
+            const actions = bubble.querySelector('.comment-actions') || document.createElement('div');
+            actions.className = 'comment-actions';
+            const log = commentActionButton('Execution Log', '${lucideIcon("list", "comment-action-icon")}', 'log');
+            log.addEventListener('click', () => openCodexLogModal(comment.eventLog));
+            actions.appendChild(log);
+            if (!actions.parentElement) bubble.appendChild(actions);
           }
           if (comment.progressEvent) {
             const progress = document.createElement('div');
@@ -3260,9 +3558,61 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             details.appendChild(pre);
             bubble.appendChild(details);
           }
-          const codexLog = renderCodexLog(comment.eventLog);
-          if (codexLog) bubble.appendChild(codexLog);
           els.commentThread.appendChild(bubble);
+        });
+        if (scrollToBottom) scrollCommentThreadToBottom();
+      }
+
+      function commentActionButton(label, iconHtml, variant) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'comment-action-button' + (variant ? ' ' + variant : '');
+        button.setAttribute('aria-label', label);
+        button.title = label;
+        button.innerHTML = iconHtml;
+        button.addEventListener('click', (event) => event.stopPropagation());
+        return button;
+      }
+
+      function renderCommentReferenceChips(elements) {
+        if (!Array.isArray(elements) || !elements.length) return null;
+        const wrap = document.createElement('div');
+        wrap.className = 'selection-chips';
+        elements.slice(0, 4).forEach((payload) => {
+          const label = elementDisplayLabel(payload);
+          const chip = document.createElement('span');
+          chip.className = 'ref-chip';
+          chip.title = label;
+          chip.textContent = displayReferenceLabel(label);
+          wrap.appendChild(chip);
+        });
+        if (elements.length > 4) {
+          const more = document.createElement('span');
+          more.className = 'ref-chip';
+          more.textContent = '+' + (elements.length - 4) + ' more';
+          more.title = more.textContent;
+          wrap.appendChild(more);
+        }
+        return wrap;
+      }
+
+      function selectPersistedComment(commentId) {
+        const comment = state.pendingComments.find((item) => item.id === commentId);
+        if (!comment) return;
+        state.activeCommentId = comment.id;
+        state.activeCommentElements = Array.isArray(comment.elements) ? comment.elements : [];
+        if (!state.activeCommentElements.length) setStatus('Comment has no saved deck target.');
+        const slideIndex = comment.slideIndex || slideIndexFromElements(comment.elements);
+        if (Number.isInteger(slideIndex) && slideIndex > 0 && slideIndex !== currentDeckSlideIndex()) {
+          goToDeckSlide(slideIndex - 1);
+        }
+        renderCommentThread(false);
+        requestAnimationFrame(renderActiveCommentHighlights);
+      }
+
+      function scrollCommentThreadToBottom() {
+        requestAnimationFrame(() => {
+          els.commentThread.scrollTop = els.commentThread.scrollHeight;
         });
       }
 
@@ -3270,9 +3620,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         if (status === 'open') return 'Saved comment';
         if (status === 'queued') return 'Queued for apply';
         if (status === 'applying') return 'Applying with Codex...';
-        if (status === 'applied') return 'Codex completed; waiting for deck update';
-        if (status === 'updated') return 'Deck file updated';
-        if (status === 'stale') return 'Still waiting for deck file update';
+        if (status === 'applied' || status === 'updated' || status === 'stale') return 'Codex completed';
         if (status === 'failed') return 'Failed to apply';
         if (status === 'sending') return 'Sending to Review agent...';
         return 'Sent to Review agent';
@@ -3280,6 +3628,14 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
       function canApplyPersistedComment(status) {
         return status === 'open' || status === 'failed' || isReapplyStatus(status);
+      }
+
+      function canStopPersistedComment(status) {
+        return status === 'applying' || status === 'queued';
+      }
+
+      function canDeletePersistedComment(status) {
+        return status !== 'applying';
       }
 
       function isReapplyStatus(status) {
@@ -3290,6 +3646,14 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         if (!Array.isArray(elements)) return null;
         const found = elements.map((item) => item && item.slideIndex).find((value) => Number.isInteger(value) && value > 0);
         return found || null;
+      }
+
+      function currentDeckSlideIndex() {
+        const doc = els.frame.contentDocument;
+        const slides = doc ? getSlides(doc) : [];
+        const currentSlide = slides[state.deckSlideIndex];
+        const explicitSlideIndex = Number(currentSlide?.getAttribute('data-slide-index'));
+        return Number.isFinite(explicitSlideIndex) && explicitSlideIndex > 0 ? explicitSlideIndex : state.deckSlideIndex + 1;
       }
 
       function targetFromPointer(event) {
@@ -3334,6 +3698,28 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         outline.style.height = rect.height + 'px';
       }
 
+      function createCommentHighlightBox() {
+        const box = document.createElement('div');
+        box.className = 'comment-highlight-box';
+        els.commentHighlightLayer.appendChild(box);
+        return box;
+      }
+
+      function renderParentBox(box, target) {
+        if (!box || !target || !target.getBoundingClientRect) {
+          if (box) box.style.display = 'none';
+          return;
+        }
+        const frameRect = els.frame.getBoundingClientRect();
+        const previewRect = els.commentHighlightLayer.getBoundingClientRect();
+        const rect = target.getBoundingClientRect();
+        box.style.display = 'block';
+        box.style.left = (frameRect.left - previewRect.left + rect.left) + 'px';
+        box.style.top = (frameRect.top - previewRect.top + rect.top) + 'px';
+        box.style.width = rect.width + 'px';
+        box.style.height = rect.height + 'px';
+      }
+
       function renderHoverOutline(target) {
         renderBox(state.hoverOutline, target);
       }
@@ -3341,10 +3727,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function renderReferenceOutlines() {
         const doc = els.frame.contentDocument;
         if (!doc || doc.location.href === 'about:blank') return;
-        const slides = getSlides(doc);
-        const currentSlide = slides[state.deckSlideIndex];
-        const explicitSlideIndex = Number(currentSlide?.getAttribute('data-slide-index'));
-        const currentSlideIndex = Number.isFinite(explicitSlideIndex) && explicitSlideIndex > 0 ? explicitSlideIndex : state.deckSlideIndex + 1;
+        const currentSlideIndex = currentDeckSlideIndex();
         while (state.referenceOutlines.length < state.references.length) state.referenceOutlines.push(createOutline(doc, '#7aa6d8', 'rgba(122,166,216,.18)'));
         state.referenceOutlines.forEach((outline, index) => {
           const reference = state.references[index];
@@ -3355,6 +3738,36 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           }
           renderBox(outline, reference?.target);
         });
+      }
+
+      function renderActiveCommentHighlights() {
+        const doc = els.frame.contentDocument;
+        if (!doc || doc.location.href === 'about:blank') return;
+        const elements = Array.isArray(state.activeCommentElements) ? state.activeCommentElements : [];
+        while (state.commentHighlightOutlines.length < elements.length) state.commentHighlightOutlines.push(createCommentHighlightBox());
+        let visible = 0;
+        let missing = 0;
+        const currentSlideIndex = currentDeckSlideIndex();
+        state.commentHighlightOutlines.forEach((outline, index) => {
+          const payload = elements[index];
+          if (!payload || payload.slideIndex !== currentSlideIndex) {
+            renderParentBox(outline, null);
+            return;
+          }
+          const resolved = resolveElementFromPayload(payload);
+          const target = resolved.target;
+          if (!target) {
+            missing += 1;
+            renderParentBox(outline, null);
+            return;
+          }
+          visible += 1;
+          renderParentBox(outline, target);
+        });
+        for (let i = elements.length; i < state.commentHighlightOutlines.length; i++) renderParentBox(state.commentHighlightOutlines[i], null);
+        if (!state.activeCommentId) return;
+        if (visible > 0) setStatus('Highlighted ' + visible + ' comment target' + (visible === 1 ? '' : 's') + '.');
+        else if (missing > 0) setStatus('Comment target is no longer available on this deck version.');
       }
 
       function clearHoverSilently() {
@@ -3372,7 +3785,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
       function updateSendState() {
         if (state.sendingEdit) setButtonLoading(els.send, true, 'Sending...');
-        else setButtonLoading(els.send, false, '<svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94L14.7 6.3z"/></svg><span>Leave Comment</span>', true);
+        else setButtonLoading(els.send, false, sendButtonHtml, true);
         els.send.disabled = state.sendingEdit || !getCommentText().trim();
         if (state.inspecting) setButtonLoading(els.inspectButton, true, 'Getting insight...');
         else setButtonLoading(els.inspectButton, false, 'Get Insight');
@@ -3397,7 +3810,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           chip.style.setProperty('--ref-bg', reference.color.bg);
           chip.style.setProperty('--ref-border', reference.color.border);
           chip.style.setProperty('--ref-text', reference.color.text);
-          chip.textContent = '@' + reference.label;
+          const label = '@' + reference.label;
+          chip.title = label;
+          chip.textContent = displayReferenceLabel(label);
           els.selectionChips.appendChild(chip);
         });
       }
@@ -3660,7 +4075,14 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function escapeHtml(value) { return String(value || '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
 
       function nextReferenceLabel(payload) {
-        return humanElementName(payload) + ' ' + (state.references.length + 1);
+        return elementDisplayLabel(payload);
+      }
+
+      const REF_LABEL_MAX_DISPLAY_CHARS = ${REVIEW_REF_LABEL_MAX_DISPLAY_CHARS};
+
+      function displayReferenceLabel(label) {
+        const text = String(label || '');
+        return text.length > REF_LABEL_MAX_DISPLAY_CHARS ? text.slice(0, REF_LABEL_MAX_DISPLAY_CHARS - 1) + '…' : text;
       }
 
       function insertReferenceChip(reference) {
@@ -3672,7 +4094,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         chip.style.setProperty('--ref-bg', reference.color.bg);
         chip.style.setProperty('--ref-border', reference.color.border);
         chip.style.setProperty('--ref-text', reference.color.text);
-        chip.textContent = '@' + reference.label;
+        const label = '@' + reference.label;
+        chip.title = label;
+        chip.textContent = displayReferenceLabel(label);
         const trailingSpace = document.createTextNode(' ');
         const range = getCommentInsertRange();
         if (range) {
@@ -3698,7 +4122,9 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         chip.style.setProperty('--ref-bg', '#dcfce7');
         chip.style.setProperty('--ref-border', '#86efac');
         chip.style.setProperty('--ref-text', '#166534');
-        chip.textContent = '@Asset ' + (asset.id || asset.deckPath || asset.path || 'image');
+        const label = '@Asset ' + (asset.id || asset.deckPath || asset.path || 'image');
+        chip.title = label;
+        chip.textContent = displayReferenceLabel(label);
         const range = getCommentInsertRange();
         if (range) {
           range.insertNode(chip);
@@ -3755,7 +4181,11 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
       function getCommentText(editor) {
         const source = editor || els.comment;
-        return (source.innerText || source.textContent || '').replace(/\\u00a0/g, ' ');
+        const clone = source.cloneNode(true);
+        clone.querySelectorAll('.ref-chip[title]').forEach((chip) => {
+          chip.textContent = chip.getAttribute('title') || chip.textContent || '';
+        });
+        return (clone.innerText || clone.textContent || '').replace(/\\u00a0/g, ' ');
       }
 
       function placeCaretAfter(node) {
@@ -3800,12 +4230,21 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function humanElementName(payload) {
         const tag = payload.tagName || 'element';
         const classes = payload.classList || [];
-        if (/^h[1-6]$/.test(tag)) return 'Heading';
-        if (tag === 'p') return 'Text block';
+        if (payload.semanticKind === 'heading' || /^h[1-6]$/.test(tag)) return 'Heading';
+        if (payload.semanticKind === 'text' || tag === 'p') return 'Text';
+        if (payload.semanticKind === 'source-note') return 'Source';
         if (classes.some((name) => /card/i.test(name))) return 'Card';
-        if (classes.some((name) => /stat|metric|value/i.test(name))) return 'Metric';
-        if (tag === 'img' || tag === 'svg') return 'Visual';
+        if (payload.semanticKind === 'metric' || classes.some((name) => /stat|metric|value/i.test(name))) return 'Metric';
+        if (payload.semanticKind === 'visual' || tag === 'img' || tag === 'svg') return 'Visual';
         return 'Element';
+      }
+
+      function elementDisplayLabel(payload) {
+        if (!payload) return 'Element';
+        if (payload.displayLabel) return payload.displayLabel;
+        const kind = humanElementName(payload);
+        const text = String(payload.text || payload.textNormalized || '').replace(/\\s+/g, ' ').trim().slice(0, 56);
+        return text ? kind + ': ' + text : kind;
       }
 
       function collectPayload(el) {
@@ -3816,20 +4255,114 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         const explicitSlideIndex = slide ? Number(slide.getAttribute('data-slide-index')) : Number.NaN;
         const slideIndex = slide && Number.isFinite(explicitSlideIndex) && explicitSlideIndex > 0 ? explicitSlideIndex : slide ? slides.indexOf(slide) + 1 : undefined;
         const win = els.frame.contentWindow;
+        const tagName = el.tagName.toLowerCase();
+        const classList = Array.from(el.classList || []);
+        const text = (el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 600);
+        const textNormalized = normalizeTargetText(text);
+        const semanticKind = semanticKindForElement(el);
+        const slideTitle = slide ? ((slide.querySelector('h1,h2,h3,[data-title]') || {}).textContent || '').trim().slice(0, 160) : undefined;
+        const nearbyText = slide ? (slide.innerText || slide.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 1200) : undefined;
+        const identity = { tagName, semanticKind, classList, textNormalized, slideTitle, nearbyText };
+        const displayLabel = elementDisplayLabel({ ...identity, text });
         return {
           slideIndex,
-          slideTitle: slide ? ((slide.querySelector('h1,h2,h3,[data-title]') || {}).textContent || '').trim().slice(0, 160) : undefined,
+          slideTitle,
           selector: buildSelector(el, slide),
           domPath: buildDomPath(el, slide),
-          tagName: el.tagName.toLowerCase(),
+          tagName,
           id: el.id || undefined,
-          classList: Array.from(el.classList || []),
-          text: (el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 600),
+          classList,
+          semanticKind,
+          displayLabel,
+          text,
+          textNormalized,
           outerHTMLExcerpt: (el.outerHTML || '').replace(/\\s+/g, ' ').slice(0, 1200),
-          nearbyText: slide ? (slide.innerText || slide.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 1200) : undefined,
+          nearbyText,
           boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+          slideRelativeBox: slideRelativeBox(el, slide),
+          fingerprint: fingerprintForTarget(identity),
           viewport: { width: win ? win.innerWidth : undefined, height: win ? win.innerHeight : undefined },
         };
+      }
+
+      function semanticKindForElement(el) {
+        const tag = el?.tagName ? el.tagName.toLowerCase() : '';
+        const classes = Array.from(el?.classList || []);
+        if (/^h[1-6]$/.test(tag) || el?.matches?.('[data-title]')) return 'heading';
+        if (tag === 'img' || tag === 'svg' || tag === 'canvas' || tag === 'video' || classes.some((name) => /image|media|visual|chart|figure|logo/i.test(name))) return 'visual';
+        if (classes.some((name) => /source|citation|footnote|note/i.test(name))) return 'source-note';
+        if (classes.some((name) => /stat|metric|kpi|value|number/i.test(name))) return 'metric';
+        if (classes.some((name) => /card|box|panel|tile/i.test(name))) return 'card';
+        if (tag === 'p' || tag === 'li' || tag === 'blockquote' || tag === 'span') return 'text';
+        return 'element';
+      }
+
+      function normalizeTargetText(value) {
+        return String(value || '').replace(/\\u00a0/g, ' ').replace(/\\s+/g, ' ').trim().toLowerCase().slice(0, 600);
+      }
+
+      function fingerprintForTarget(input) {
+        const tagName = String(input.tagName || '').toLowerCase();
+        const textNormalized = normalizeTargetText(input.textNormalized);
+        const classList = Array.isArray(input.classList) ? input.classList.map(String).sort() : [];
+        const semanticKind = input.semanticKind || 'element';
+        const context = normalizeTargetText(String(input.slideTitle || '') + ' ' + String(input.nearbyText || '').slice(0, 400));
+        return {
+          textHash: textNormalized ? stableHash(textNormalized) : undefined,
+          contentHash: stableHash(tagName + '|' + textNormalized),
+          structureHash: stableHash(tagName + '|' + semanticKind + '|' + classList.join('.')),
+          contextHash: context ? stableHash(context) : undefined,
+        };
+      }
+
+      function stableHash(value) {
+        let hash = 2166136261;
+        const text = String(value || '');
+        for (let i = 0; i < text.length; i++) {
+          hash ^= text.charCodeAt(i);
+          hash = Math.imul(hash, 16777619);
+        }
+        return (hash >>> 0).toString(16).padStart(8, '0');
+      }
+
+      function slideRelativeBox(el, slide) {
+        if (!el || !slide || !el.getBoundingClientRect || !slide.getBoundingClientRect) return undefined;
+        const rect = el.getBoundingClientRect();
+        const slideRect = slide.getBoundingClientRect();
+        if (!slideRect.width || !slideRect.height) return undefined;
+        return {
+          x: roundRatio((rect.left - slideRect.left) / slideRect.width),
+          y: roundRatio((rect.top - slideRect.top) / slideRect.height),
+          width: roundRatio(rect.width / slideRect.width),
+          height: roundRatio(rect.height / slideRect.height),
+        };
+      }
+
+      function roundRatio(value) {
+        return Math.round(Math.max(-2, Math.min(2, Number(value) || 0)) * 10000) / 10000;
+      }
+
+      function overlapCount(left, right) {
+        const rightSet = new Set(Array.isArray(right) ? right.map(String) : []);
+        return (Array.isArray(left) ? left : []).map(String).filter((item) => rightSet.has(item)).length;
+      }
+
+      function partialTextOverlap(left, right) {
+        if (!left || !right) return false;
+        if (left.includes(right) || right.includes(left)) return true;
+        const leftWords = new Set(String(left).split(' ').filter((word) => word.length > 3));
+        const rightWords = String(right).split(' ').filter((word) => word.length > 3);
+        return rightWords.some((word) => leftWords.has(word));
+      }
+
+      function relativeBoxDistance(left, right) {
+        if (!left || !right) return Number.NaN;
+        const dx = Number(left.x) - Number(right.x);
+        const dy = Number(left.y) - Number(right.y);
+        const dw = Number(left.width) - Number(right.width);
+        const dh = Number(left.height) - Number(right.height);
+        if (![dx, dy, dw, dh].every(Number.isFinite)) return Number.NaN;
+        return Math.sqrt(dx * dx + dy * dy + dw * dw * .35 + dh * dh * .35);
       }
 
       function buildSelector(el, slide) {

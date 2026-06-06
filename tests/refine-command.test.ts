@@ -10,7 +10,7 @@ import { clearCommentRequestsForTests } from "../lib/refine/comment-requests"
 import { ensureRefineDeckOpenForChange, openRefineDeck } from "../lib/refine/open"
 import { createCodexExecReviewPromptBridge } from "../lib/refine/prompt-bridge"
 import { clearReviewApplyFixArtifactQaSuppressionsForTests, shouldSuppressReviewApplyFixArtifactQa } from "../lib/refine/qa-suppression"
-import { renderCodexReviewShell, renderRefineShell, stopRefineServer } from "../lib/refine/server"
+import { displayReviewReferenceLabel, renderCodexReviewShell, renderRefineShell, stopRefineServer } from "../lib/refine/server"
 import { mockFetchWith, readJsonFile, tempWorkspace } from "./helpers/tool-helpers"
 
 const roots: string[] = []
@@ -31,6 +31,12 @@ function workspace(): string {
 }
 
 describe("renderRefineShell", () => {
+  it("truncates Review ref labels to the display maximum", () => {
+    expect(displayReviewReferenceLabel("Heading: Short")).toBe("Heading: Short")
+    expect(displayReviewReferenceLabel("Heading: This reference label is intentionally too long")).toBe("Heading: This reference label i…")
+    expect(displayReviewReferenceLabel("Heading: This reference label is intentionally too long")).toHaveLength(32)
+  })
+
   it("combines edit comments and narrative reading inspect cards behind tabs", () => {
     const html = renderRefineShell("test-token")
 
@@ -55,11 +61,25 @@ describe("renderRefineShell", () => {
     expect(html).not.toContain("id=\"assetsTab\"")
     expect(html).not.toContain("id=\"assetsPanel\"")
     expect(html).toContain("Search Assets")
-    expect(html).toContain("aria-label=\"Comment assets\"")
     expect(html).toContain("<div class=\"label\">Local Assets</div>")
+    expect(html).toContain("id=\"localAssetToggle\"")
+    expect(html).toContain("aria-label=\"Local Assets\"")
+    expect(html).toContain("title=\"Local Assets\"")
+    expect(html).toContain("class=\"lucide lucide-image composer-icon\"")
+    expect(html).toContain("data-lucide=\"image\"")
+    expect(html).toContain(".asset-menu-toggle { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; min-width: 42px")
+    expect(html).not.toContain(">Local Assets</button>")
+    expect(html).toContain("id=\"localAssetMenu\"")
+    expect(html).toContain("class=\"local-assets-menu\"")
+    expect(html).toContain("toggleLocalAssetMenu")
+    expect(html).toContain("closeLocalAssetMenu")
+    expect(html).toContain("setLocalAssetMenuOpen")
     expect(html).toContain("id=\"editSavedAssets\"")
     expect(html).not.toContain("id=\"librarySavedAssets\"")
     expect(html).toContain("id=\"assetSearchToggle\"")
+    expect(html).toContain("aria-label=\"Search assets\"")
+    expect(html).toContain("class=\"lucide lucide-plus composer-icon\"")
+    expect(html).toContain("data-lucide=\"plus\"")
     expect(html).toContain("aria-controls=\"assetSearchView\"")
     expect(html).toContain("id=\"assetSearchView\"")
     expect(html).toContain("class=\"asset-search-view\"")
@@ -81,8 +101,10 @@ describe("renderRefineShell", () => {
     expect(html).toContain("No assets found. Try another query or purpose.")
     expect(html).toContain("grid-template-columns: repeat(4, minmax(0, 1fr))")
     expect(html).toContain(".asset-card.saved { width: 64px; height: 64px")
-    expect(html).toContain(".edit-assets .asset-grid { grid-template-columns: repeat(auto-fill, 64px)")
-    expect(html).toContain(".edit-assets .asset-thumb { width: 64px; height: 64px; }")
+    expect(html).not.toContain("class=\"edit-assets\"")
+    expect(html).toContain(".local-assets-menu { position: absolute; left: 0; right: 0; bottom: calc(100% + 10px)")
+    expect(html).toContain(".local-assets-menu .asset-grid { grid-template-columns: repeat(auto-fill, 64px)")
+    expect(html).toContain(".local-assets-menu .asset-thumb { width: 64px; height: 64px; }")
     expect(html).toContain("card.className = saved ? 'asset-card saved' : 'asset-card'")
     expect(html).toContain("Save to workspace")
     expect(html).toContain("asset-save")
@@ -91,6 +113,12 @@ describe("renderRefineShell", () => {
     expect(html).toContain("addAssetToComment")
     expect(html).toContain("selectedAsset")
     expect(html).toContain("asset-ref-chip")
+    expect(html).toContain(".ref-chip { display: inline-flex; align-items: center; max-width: 32ch; overflow: hidden; text-overflow: ellipsis;")
+    expect(html).toContain("const REF_LABEL_MAX_DISPLAY_CHARS = 32")
+    expect(html).toContain("displayReferenceLabel(label)")
+    expect(html).toContain("text.slice(0, REF_LABEL_MAX_DISPLAY_CHARS - 1) + '…'")
+    expect(html).toContain("chip.title = label")
+    expect(html).toContain("clone.querySelectorAll('.ref-chip[title]')")
     expect(html).toContain("assetDropOutline")
     expect(html).toContain("renderAssetDropTarget")
     expect(html).toContain("insert-into")
@@ -106,12 +134,89 @@ describe("renderRefineShell", () => {
     expect(html).toContain("Re-apply")
     expect(html).toContain("Queued for apply")
     expect(html).toContain("pollQueuedComment")
-    expect(html).toContain("class=\"primary-action\"")
-    expect(html).toContain("class=\"send-icon\"")
-    expect(html).toContain("M14.7 6.3a1 1 0 0 0 0 1.4")
-    expect(html).toContain("Activity")
+    expect(html).toContain(".comment-bubble.applying {")
+    expect(html).toContain(".comment-bubble.applied {")
+    expect(html).not.toContain("completed-no-update")
+    expect(html).not.toContain(".comment-bubble.applying::before")
+    expect(html).not.toContain("rainbow-border")
+    expect(html).toContain("@keyframes progress-pulse")
+    expect(html).toContain("@media (prefers-reduced-motion: reduce)")
+    expect(html).toContain(".comment-bubble:hover")
+    expect(html).toContain(".comment-bubble.active")
+    expect(html).toContain("class=\"primary-action composer-send\"")
+    expect(html).toContain("aria-label=\"Leave Comment\"")
+    expect(html).toContain("title=\"Leave Comment\"")
+    expect(html).toContain("class=\"lucide lucide-send composer-icon\"")
+    expect(html).toContain("data-lucide=\"send\"")
+    expect(html).toContain(".composer-send { position: absolute; right: 10px; bottom: 10px; width: 42px")
+    expect(html).not.toContain("class=\"send-icon\"")
+    expect(html).not.toContain("M14.7 6.3a1 1 0 0 0 0 1.4")
+    expect(html).toContain("Comments")
+    expect(html).toContain("overflow-y: auto")
+    expect(html).toContain("flex: 0 0 132px")
+    expect(html).toContain("className = 'comment-action-button'")
+    expect(html).toContain("aria-label', label")
+    expect(html).toContain("button.addEventListener('click', (event) => event.stopPropagation())")
+    expect(html).toContain("bubble.addEventListener('click', () => selectPersistedComment(comment.id))")
+    expect(html).toContain("selectPersistedComment")
+    expect(html).toContain("state.activeCommentElements = Array.isArray(comment.elements) ? comment.elements : []")
+    expect(html).toContain("elementFromPayload(payload)")
+    expect(html).toContain("resolveElementFromPayload(payload)")
+    expect(html).toContain("doc.querySelector(payload.selector)")
+    expect(html).toContain("selected && (selected === slide || slide.contains(selected))")
+    expect(html).toContain("slide.querySelector(payload.selector)")
+    expect(html).toContain("resolveElementByFingerprint(slide, payload)")
+    expect(html).toContain("payload.fingerprint || {}")
+    expect(html).toContain("payloadFingerprint.contentHash && payloadFingerprint.contentHash === candidateFingerprint.contentHash")
+    expect(html).toContain("payloadText && payloadText === candidatePayload.textNormalized")
+    expect(html).toContain("payloadFingerprint.structureHash && payloadFingerprint.structureHash === candidateFingerprint.structureHash")
+    expect(html).toContain("relativeBoxDistance(payload.slideRelativeBox, candidatePayload.slideRelativeBox)")
+    expect(html).not.toContain("payload.selector && !resolved.matchedSelector")
+    expect(html).toContain("commentHighlightOutlines")
+    expect(html).toContain("id=\"commentHighlightLayer\"")
+    expect(html).toContain("class=\"comment-highlight-layer\"")
+    expect(html).toContain(".comment-highlight-box")
+    expect(html).toContain("createCommentHighlightBox")
+    expect(html).toContain("renderParentBox")
+    expect(html).toContain("frameRect.left - previewRect.left + rect.left")
+    expect(html).toContain("renderActiveCommentHighlights")
+    expect(html).toContain("Comment target is no longer available on this deck version.")
+    expect(html).toContain("renderCommentReferenceChips(comment.elements)")
+    expect(html).toContain("elementDisplayLabel(payload)")
+    expect(html).toContain("displayLabel")
+    expect(html).toContain("semanticKind")
+    expect(html).toContain("textNormalized")
+    expect(html).toContain("slideRelativeBox")
+    expect(html).toContain("fingerprint")
+    expect(html).toContain("textHash")
+    expect(html).toContain("contentHash")
+    expect(html).toContain("structureHash")
+    expect(html).toContain("contextHash")
+    expect(html).toContain("fingerprintForTarget(identity)")
+    expect(html).toContain("stableHash")
+    expect(html).toContain("data-lucide=\"play\"")
+    expect(html).toContain("data-lucide=\"refresh-cw\"")
+    expect(html).toContain("data-lucide=\"square\"")
+    expect(html).toContain("data-lucide=\"trash-2\"")
+    expect(html).toContain("data-lucide=\"list\"")
+    expect(html).toContain("stopPersistedComment")
+    expect(html).toContain("deletePersistedComment")
+    expect(html).toContain("id=\"codexLogModal\"")
+    expect(html).toContain("class=\"codex-log-modal\"")
+    expect(html).toContain("id=\"codexLogBackdrop\"")
+    expect(html).toContain("id=\"codexLogClose\"")
+    expect(html).toContain("id=\"codexLogBody\"")
+    expect(html).toContain("openCodexLogModal")
+    expect(html).toContain("closeCodexLogModal")
+    expect(html).toContain("renderCodexLogEntries")
+    expect(html).toContain("const log = commentActionButton('Execution Log'")
+    expect(html).toContain("log.addEventListener('click', () => openCodexLogModal(comment.eventLog))")
+    expect(html).not.toContain("const codexLog = renderCodexLog(comment.eventLog)")
     expect(html).toContain("id=\"selectionSummary\" class=\"selection-summary sr-only\"")
-    expect(html.indexOf("id=\"send\"")).toBeLessThan(html.indexOf("id=\"commentThread\""))
+    expect(html.indexOf("id=\"commentThread\"")).toBeLessThan(html.indexOf("id=\"comment\""))
+    expect(html.indexOf("id=\"commentThread\"")).toBeLessThan(html.indexOf("id=\"send\""))
+    expect(html).toContain("scrollCommentThreadToBottom")
+    expect(html).toContain("els.commentThread.scrollTop = els.commentThread.scrollHeight")
     expect(html).toContain("Get Insight")
     expect(html).not.toContain("id=\"inspectRefSummary\"")
     expect(html).not.toContain("id=\"inspectQuestion\"")
@@ -147,18 +252,24 @@ describe("renderRefineShell", () => {
     expect(html).not.toContain("Codex Activity")
     expect(html).toContain("pollCommentResult(commentId, requestId)")
     expect(html).toContain("if (event.type === 'completed')")
-    expect(html).toContain("watchDeckVersionAfterComment(commentId)")
-    expect(html).toContain("Date.now() - started < 15000")
-    expect(html).toContain("await delay(250)")
+    expect(html).not.toContain("watchDeckVersionAfterComment")
+    expect(html).not.toContain("markStaleComments")
+    expect(html).not.toContain("markCommentsUpdatedForVersion")
+    expect(html).not.toContain("Still waiting for deck file update")
+    expect(html).not.toContain("Waiting for deck file update")
+    expect(html).toContain("if (pendingCommentStatus(commentId) === 'applying')")
+    expect(html).toContain("updatePendingCommentStatus(commentId, 'applied', { progressEvent: null })")
+    expect(html).toContain("setStatus('Codex completed.')")
     expect(html).toContain("progressEvent: null")
     expect(html).toContain("comment.progressEvent = nextEvent")
-    expect(html).toContain("if (status === 'updated' || status === 'failed') comment.progressEvent = null")
-    expect(html).toContain("comment.updatedVersion = version")
+    expect(html).toContain("if (status === 'updated' || status === 'failed' || status === 'applied') comment.progressEvent = null")
     expect(html).toContain("comment.progressEvent = null")
     expect(html).toContain("line.textContent = comment.progressEvent.message")
     expect(html).not.toContain("progressEvents.push")
     expect(html).toContain("Sent to Review agent")
     expect(html).toContain("Sending to Review agent...")
+    expect(html).toContain("if (status === 'applied' || status === 'updated' || status === 'stale') return 'Codex completed'")
+    expect(html).toContain("return status === 'applied' || status === 'updated' || status === 'stale'")
     expect(html).not.toContain("Sending to OpenCode...")
     expect(html).not.toContain("Sent to OpenCode")
     expect(html).toContain("class=\"spinner\"")
@@ -219,11 +330,14 @@ describe("renderRefineShell", () => {
   it("renders a Codex-specific Review shell with execution logs and Insight SSE", () => {
     const html = renderCodexReviewShell("test-token")
 
-    expect(html).toContain("Codex Activity")
+    expect(html).toContain("Comments")
+    expect(html).not.toContain("Codex Activity")
     expect(html).toContain("const reviewSurface = \"codex\"")
     expect(html).toContain("class=\"codex-review\"")
     expect(html).toContain("/api/inspect-events")
     expect(html).toContain("Codex execution log")
+    expect(html).toContain("codexLogModal")
+    expect(html).toContain("openCodexLogModal")
     expect(html).toContain("renderCodexLog")
   })
 })
@@ -949,6 +1063,108 @@ describe("refine HTTP inspect lifecycle", () => {
     expect(captured.prompt).toContain("Make the title smaller.")
   })
 
+  it("stops an applying persisted Review comment without letting later bridge completion mark it applied", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
+    let resolveBridge: ((value: { ok: true; status: "completed"; raw: string }) => void) | undefined
+    const promptBridge = {
+      kind: "codex-exec" as const,
+      async send() {
+        return await new Promise<{ ok: true; status: "completed"; raw: string }>((resolve) => {
+          resolveBridge = resolve
+        })
+      },
+    }
+    const opened = openRefineDeck("", {
+      workspaceRoot: root,
+      openBrowser: false,
+      promptBridge,
+    })
+    const commentsUrl = new URL(opened.url)
+    commentsUrl.pathname = "/api/comments"
+    const saved = await fetch(commentsUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        comment: "Make the title smaller.",
+        elements: [{ slideIndex: 1, tagName: "H1", text: "Launch" }],
+      }),
+    }).then((item) => item.json()) as any
+    const applyUrl = new URL(opened.url)
+    applyUrl.pathname = `/api/comments/${saved.comment.id}/apply`
+    await fetch(applyUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) })
+
+    const stopUrl = new URL(opened.url)
+    stopUrl.pathname = `/api/comments/${saved.comment.id}/stop`
+    const stoppedResponse = await fetch(stopUrl, { method: "POST" })
+    const stopped = await stoppedResponse.json() as any
+    expect(stoppedResponse.status).toBe(200)
+    expect(stopped).toMatchObject({ ok: true, status: "stopped" })
+    expect(stopped.comment).toMatchObject({ id: saved.comment.id, status: "failed", lastApplyError: "Stopped by user." })
+
+    resolveBridge?.({ ok: true, status: "completed", raw: "patched after stop" })
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    const listed = await fetch(commentsUrl).then((item) => item.json()) as any
+    expect(listed.comments[0]).toMatchObject({ id: saved.comment.id, status: "failed", lastApplyError: "Stopped by user." })
+  })
+
+  it("deletes non-applying persisted Review comments and rejects deleting applying comments", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
+    let resolveBridge: ((value: { ok: true; status: "completed"; raw: string }) => void) | undefined
+    const promptBridge = {
+      kind: "codex-exec" as const,
+      async send() {
+        return await new Promise<{ ok: true; status: "completed"; raw: string }>((resolve) => {
+          resolveBridge = resolve
+        })
+      },
+    }
+    const opened = openRefineDeck("", {
+      workspaceRoot: root,
+      openBrowser: false,
+      promptBridge,
+    })
+    const commentsUrl = new URL(opened.url)
+    commentsUrl.pathname = "/api/comments"
+    const openComment = await fetch(commentsUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        comment: "Open comment.",
+        elements: [{ slideIndex: 1, tagName: "H1", text: "Launch" }],
+      }),
+    }).then((item) => item.json()) as any
+    const applyingComment = await fetch(commentsUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        comment: "Applying comment.",
+        elements: [{ slideIndex: 1, tagName: "H1", text: "Launch" }],
+      }),
+    }).then((item) => item.json()) as any
+    const applyUrl = new URL(opened.url)
+    applyUrl.pathname = `/api/comments/${applyingComment.comment.id}/apply`
+    await fetch(applyUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) })
+
+    const rejectedDeleteUrl = new URL(opened.url)
+    rejectedDeleteUrl.pathname = `/api/comments/${applyingComment.comment.id}`
+    const rejectedDelete = await fetch(rejectedDeleteUrl, { method: "DELETE" })
+    const rejected = await rejectedDelete.json() as any
+    expect(rejectedDelete.status).toBe(409)
+    expect(rejected.error).toContain("Stop the applying comment")
+
+    const deleteUrl = new URL(opened.url)
+    deleteUrl.pathname = `/api/comments/${openComment.comment.id}`
+    const deletedResponse = await fetch(deleteUrl, { method: "DELETE" })
+    const deleted = await deletedResponse.json() as any
+    expect(deletedResponse.status).toBe(200)
+    expect(deleted).toMatchObject({ ok: true, deleted: true, commentId: openComment.comment.id })
+    expect(existsSync(join(root, ".revela", "review-comments", `${openComment.comment.id}.json`))).toBe(false)
+
+    resolveBridge?.({ ok: true, status: "completed", raw: "patched" })
+  })
+
   it("re-applies an already applied persisted Review comment", async () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
@@ -1262,6 +1478,10 @@ describe("refine HTTP inspect lifecycle", () => {
     emit?.({ type: "codex_event", message: "Codex is applying the requested edit...", timestamp: Date.now() })
     const live = await readSseEvents(reader, 1)
     expect(live[0]).toMatchObject({ type: "codex_event", message: "Codex is applying the requested edit..." })
+
+    emit?.({ type: "codex_event", message: "Codex is still working...", detail: "elapsedSeconds=10", timestamp: Date.now() })
+    const heartbeat = await readSseEvents(reader, 1)
+    expect(heartbeat[0]).toMatchObject({ type: "codex_event", message: "Codex is still working...", detail: "elapsedSeconds=10" })
 
     resolveBridge?.({ ok: true, status: "completed", raw: "patched" })
     const terminal = await readSseEvents(reader, 1)
