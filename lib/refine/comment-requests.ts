@@ -13,7 +13,7 @@ export interface PendingCommentRequest {
   raw?: string
 }
 
-const REQUEST_TTL_MS = 120 * 1000
+const REQUEST_TTL_MS = 360 * 1000
 const requests = new Map<string, PendingCommentRequest>()
 const subscribers = new Map<string, Set<(event: ReviewBridgeEvent) => void>>()
 

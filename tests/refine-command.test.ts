@@ -42,20 +42,26 @@ describe("renderRefineShell", () => {
 
     expect(html).toContain("Revela Review")
     expect(html).not.toContain("Select refs, describe the change, then send.")
-    expect(html).toContain("background: linear-gradient(180deg, #fbfaf7 0%, #f2eee6 100%)")
-    expect(html).toContain("border-left: 1px solid #d8d2c6")
-    expect(html).toContain("font-family: Garamond, \"Iowan Old Style\", Georgia, serif")
+    expect(html).toContain("body { margin: 0; background: #f8fafc; color: #111827")
+    expect(html).toContain("aside { position: relative; display: flex; flex-direction: column; gap: 16px; padding: 18px; background: #ffffff")
+    expect(html).toContain("border-left: 1px solid #e2e8f0")
     expect(html).toContain("aside button, aside input, aside select, aside textarea, aside .comment-editor { font-family: inherit; }")
-    expect(html).toContain("background: linear-gradient(135deg, #111827 0%, #1f2937 100%)")
-    expect(html).toContain("border-color: #a9793f")
-    expect(html).toContain("rgba(169,121,63,.14)")
-    expect(html).not.toContain("#2563eb")
-    expect(html).not.toContain("37,99,235")
-    expect(html).not.toContain("#1d4ed8")
+    expect(html).not.toContain("font-family: Garamond, \"Iowan Old Style\", Georgia, serif")
+    expect(html).not.toContain("background: linear-gradient(180deg, #fbfaf7 0%, #f2eee6 100%)")
+    expect(html).not.toContain("background: linear-gradient(135deg, #111827 0%, #1f2937 100%)")
+    expect(html).not.toContain("border-color: #a9793f")
+    expect(html).not.toContain("rgba(169,121,63,.14)")
+    expect(html).toContain("border-color: #93c5fd")
+    expect(html).toContain("rgba(59,130,246,.12)")
+    expect(html).toContain("#2563eb")
+    expect(html).toContain("37,99,235")
+    expect(html).toContain("#1d4ed8")
     expect(html).not.toContain("#4338ca")
-    expect(html).toContain("border-radius: 13px 13px 0 0")
-    expect(html).toContain("border-bottom: 1px solid #d8d2c6")
-    expect(html).toContain("top: 1px")
+    expect(html).toContain(".tabs { display: flex; gap: 4px; padding: 3px; border: 1px solid #e2e8f0; border-radius: 999px; background: #f8fafc; }")
+    expect(html).toContain(".tab.active { position: relative; top: 0; background: #ffffff; border-color: #e2e8f0")
+    expect(html).not.toContain("border-radius: 13px 13px 0 0")
+    expect(html).not.toContain("border-bottom: 1px solid #d8d2c6")
+    expect(html).not.toContain(".tab.active { position: relative; top: 1px")
     expect(html).toContain("id=\"editTab\"")
     expect(html).toContain("id=\"inspectTab\"")
     expect(html).not.toContain("id=\"assetsTab\"")
@@ -1061,6 +1067,50 @@ describe("refine HTTP inspect lifecycle", () => {
       file: "decks/demo.html",
     })
     expect(captured.prompt).toContain("Make the title smaller.")
+  })
+
+  it("marks persisted Review comments applied when Codex completed before a timeout-like bridge result", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
+    const promptBridge = {
+      kind: "codex-exec" as const,
+      async send() {
+        return {
+          ok: true as const,
+          status: "completed" as const,
+          raw: '{"type":"item.completed","item":{"exit_code":0,"status":"completed"}}\ncodex exec timed out after 300000ms.',
+        }
+      },
+    }
+    const opened = openRefineDeck("", {
+      workspaceRoot: root,
+      openBrowser: false,
+      promptBridge,
+    })
+    const commentsUrl = new URL(opened.url)
+    commentsUrl.pathname = "/api/comments"
+    const saved = await fetch(commentsUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        comment: "Make the title smaller.",
+        elements: [{ slideIndex: 1, tagName: "H1", text: "Launch" }],
+      }),
+    }).then((item) => item.json()) as any
+    const applyUrl = new URL(opened.url)
+    applyUrl.pathname = `/api/comments/${saved.comment.id}/apply`
+
+    const response = await fetch(applyUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    })
+    const data = await response.json() as any
+
+    expect(response.status).toBe(200)
+    expect(data).toMatchObject({ ok: true, status: "pending" })
+    const listed = await waitForJson(commentsUrl, (item) => item.comments?.[0]?.status === "applied")
+    expect(listed.comments[0]).toMatchObject({ id: saved.comment.id, status: "applied" })
   })
 
   it("stops an applying persisted Review comment without letting later bridge completion mark it applied", async () => {

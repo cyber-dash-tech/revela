@@ -118,9 +118,32 @@ describe("Codex exec Review prompt bridge", () => {
       action: "comment",
       prompt: "Change this deck.",
       workspaceRoot: "/tmp/revela",
-      timeoutMs: 120_000,
+      timeoutMs: 300_000,
       sandboxMode: "workspace-write",
     })
+  })
+
+  it("keeps the default Insight timeout shorter than Comment apply", async () => {
+    let captured: { timeoutMs: number } | undefined
+    const bridge = createCodexExecReviewPromptBridge({
+      runner: async (input) => {
+        captured = input
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify({ type: "final", content: resultJson() }),
+          stderr: "",
+        }
+      },
+    })
+
+    await bridge.send({
+      action: "inspect",
+      prompt: "Inspect this selection.",
+      workspaceRoot: "/tmp/revela",
+      file: "decks/demo.html",
+    })
+
+    expect(captured).toMatchObject({ timeoutMs: 120_000 })
   })
 
   it("passes through the non-Git workspace safety bypass to codex exec runners", async () => {
@@ -214,10 +237,94 @@ describe("Codex exec Review prompt bridge", () => {
     })
   })
 
+  it("treats a Comment timeout after trusted Codex completion as applied", async () => {
+    const events: string[] = []
+    const stdout = [
+      JSON.stringify({ type: "thread.started", thread_id: "thread-1" }),
+      JSON.stringify({ type: "item.completed", item: { exit_code: 0, status: "completed" } }),
+    ].join("\n")
+    const bridge = createCodexExecReviewPromptBridge({
+      runner: async () => ({ exitCode: 124, stdout, stderr: "codex exec timed out after 300000ms." }),
+    })
+
+    const result = await bridge.send({
+      action: "comment",
+      prompt: "Change this deck.",
+      workspaceRoot: "/tmp/revela",
+      file: "decks/demo.html",
+      onEvent: (event) => events.push(`${event.type}:${event.message}`),
+    })
+
+    expect(result).toMatchObject({ ok: true, status: "completed" })
+    expect(events).toContain("completed:Codex completed.")
+    expect(events).not.toContain("failed:codex exec failed with exit code 124.")
+  })
+
+  it("keeps a Comment timeout failed when Codex did not emit trusted completion", async () => {
+    const bridge = createCodexExecReviewPromptBridge({
+      runner: async () => ({ exitCode: 124, stdout: JSON.stringify({ type: "turn.started" }), stderr: "codex exec timed out after 300000ms." }),
+    })
+
+    const result = await bridge.send({
+      action: "comment",
+      prompt: "Change this deck.",
+      workspaceRoot: "/tmp/revela",
+      file: "decks/demo.html",
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: "failed",
+      error: "codex exec failed with exit code 124.",
+    })
+  })
+
+  it("does not let trusted completion override Comment sandbox write blocks", async () => {
+    const bridge = createCodexExecReviewPromptBridge({
+      runner: async () => ({
+        exitCode: 124,
+        stdout: JSON.stringify({ type: "turn.completed" }),
+        stderr: "patch rejected: writing is blocked by read-only sandbox",
+      }),
+    })
+
+    const result = await bridge.send({
+      action: "comment",
+      prompt: "Change this deck.",
+      workspaceRoot: "/tmp/revela",
+      file: "decks/demo.html",
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: "failed",
+      error: "codex exec could not write the deck because its sandbox blocked file changes.",
+    })
+  })
+
+  it("does not treat trusted completion alone as a valid Insight result", async () => {
+    const bridge = createCodexExecReviewPromptBridge({
+      runner: async () => ({ exitCode: 124, stdout: JSON.stringify({ type: "turn.completed" }), stderr: "codex exec timed out after 120000ms." }),
+    })
+
+    const result = await bridge.send({
+      action: "inspect",
+      prompt: "Inspect this selection.",
+      workspaceRoot: "/tmp/revela",
+      file: "decks/demo.html",
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: "failed",
+      error: "codex exec failed with exit code 124.",
+    })
+  })
+
   it("streams sanitized progress events from codex exec JSONL stdout", async () => {
     const binDir = mkdtempSync(join(tmpdir(), "revela-codex-bin-"))
     const codex = join(binDir, "codex")
-    writeFileSync(codex, "#!/usr/bin/env bash\nprintf '%s\\n' '{\"type\":\"turn_started\"}' '{\"type\":\"exec_command_begin\"}' '{\"type\":\"turn_completed\"}'\n", "utf-8")
+    writeFileSync(codex, "#!/usr/bin/env bash\nprintf '%s\\n' '{\"type\":\"thread.started\",\"thread_id\":\"thread-1\"}' '{\"type\":\"turn.started\"}' '{\"type\":\"exec_command_begin\"}' '{\"type\":\"turn_completed\"}'\n", "utf-8")
     chmodSync(codex, 0o755)
     const previousPath = process.env.PATH
     process.env.PATH = `${binDir}:${previousPath ?? ""}`
@@ -234,13 +341,36 @@ describe("Codex exec Review prompt bridge", () => {
 
       expect(result.ok).toBe(true)
       expect(events).toContain("started:Starting Codex...")
-      expect(events).toContain("codex_event:Codex is reading the deck...")
+      expect(events).toContain("codex_event:Codex started reading the deck...")
       expect(events).toContain("codex_event:Codex is applying the requested edit...")
       expect(events).not.toContain("codex_event:Codex completed.")
       expect(events).toContain("completed:Codex completed.")
     } finally {
       process.env.PATH = previousPath
     }
+  })
+
+  it("streams heartbeat progress while codex exec is still running", async () => {
+    const events: Array<{ type: string; message: string; detail?: string }> = []
+    const bridge = createCodexExecReviewPromptBridge({
+      heartbeatMs: 10,
+      runner: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 35))
+        return { exitCode: 0, stdout: "patched deck", stderr: "" }
+      },
+    })
+
+    const result = await bridge.send({
+      action: "comment",
+      prompt: "Change this deck.",
+      workspaceRoot: "/tmp/revela",
+      file: "decks/demo.html",
+      onEvent: (event) => events.push(event),
+    })
+
+    expect(result.ok).toBe(true)
+    expect(events.some((event) => event.type === "codex_event" && event.message === "Codex is still working..." && event.detail?.startsWith("elapsedSeconds="))).toBe(true)
+    expect(events.at(-1)).toMatchObject({ type: "completed", message: "Codex completed." })
   })
 
   it("streams bounded stderr diagnostics without exposing full output", async () => {

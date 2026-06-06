@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs"
 import { join } from "path"
 import { randomBytes } from "crypto"
 import { workspaceMetaPath } from "../workspace-meta"
@@ -110,6 +110,24 @@ export function markReviewCommentFailed(workspaceRoot: string, id: string, error
     lastApplyError: error,
     ...(raw ? { lastApplyRaw: boundedTail(raw) } : {}),
   }))
+}
+
+export function markReviewCommentStopped(workspaceRoot: string, id: string): ReviewCommentRecord | undefined {
+  return markReviewCommentFailed(workspaceRoot, id, "Stopped by user.", "Stopped by user.")
+}
+
+export function deleteReviewComment(workspaceRoot: string, id: string): boolean {
+  const safeId = normalizeId(id)
+  if (!safeId) return false
+  const path = reviewCommentPath(workspaceRoot, safeId)
+  if (!existsSync(path)) return false
+  unlinkSync(path)
+  const registry = readRegistry(workspaceRoot)
+  writeRegistry(workspaceRoot, {
+    version: 1,
+    commentIds: registry.commentIds.filter((item) => item !== safeId),
+  })
+  return true
 }
 
 function updateReviewComment(
