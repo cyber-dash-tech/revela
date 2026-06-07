@@ -65,7 +65,7 @@ Git marketplace 安装的是 Codex plugin 壳、skills、hooks 和 MCP 配置。
 
 安装后开启一个新的 Codex thread，让 Codex 加载 Revela 的 skills、MCP tools 和 hooks。
 
-Codex 使用五个 Revela skills：`revela-helper` 查看状态和 active design/domain，`revela-research` 调研本地与网络资料、保存到 `researches/`，并产出 design-aware `deck-plan.md` handoff；`revela-make-deck` 基于已有 plan 生成 `decks/*.html`，`revela-review` 打开 Review UI，`revela-export` 导出 PDF/PPTX/PNG。
+Codex 使用七个 Revela skills：`revela-helper` 查看状态和 active design/domain，`revela-design` 创建、验证、激活 custom design，`revela-domain` 创建、验证、激活 custom narrative domain，`revela-research` 调研本地与网络资料、保存到 `researches/`，并产出 design-aware `deck-plan.md` handoff；`revela-make-deck` 基于已有 plan 生成 `decks/*.html`，`revela-review` 打开 Review UI，`revela-export` 导出 PDF/PPTX/PNG。
 
 如果要按发布路径做本地验证，运行 `bun run smoke:mcp-pack`。它会把当前 checkout 打成临时 npm tarball，再通过 `npx` 启动 MCP server，不需要先发布到 registry。
 

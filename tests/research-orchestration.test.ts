@@ -7,12 +7,15 @@ import { buildResearchPrompt } from "../lib/commands/research"
 
 const skill = readFileSync(join(import.meta.dir, "..", "skill", "NARRATIVE_SKILL.md"), "utf-8")
 const codexHelperSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-helper", "SKILL.md"), "utf-8")
+const codexDesignSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-design", "SKILL.md"), "utf-8")
+const codexDomainSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-domain", "SKILL.md"), "utf-8")
 const codexResearchSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-research", "SKILL.md"), "utf-8")
 const codexStorySkillPath = join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-story", "SKILL.md")
 const codexMakeDeckSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-make-deck", "SKILL.md"), "utf-8")
 const codexReviewSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-review", "SKILL.md"), "utf-8")
 const codexCapabilityMatrix = readFileSync(join(import.meta.dir, "..", "docs", "CODEX_PLUGIN_CAPABILITY_MATRIX.md"), "utf-8")
 const codexProductPlan = readFileSync(join(import.meta.dir, "..", "docs", "CODEX_PLUGIN_PRODUCT_PLAN.md"), "utf-8")
+const readme = readFileSync(join(import.meta.dir, "..", "README.md"), "utf-8")
 const plugin = readFileSync(join(import.meta.dir, "..", "plugin.ts"), "utf-8")
 
 describe("primary research orchestration skill", () => {
@@ -147,6 +150,65 @@ describe("Codex revela-helper skill", () => {
     expect(codexHelperSkill).toContain("No `researches/`: run `revela-research`")
     expect(codexHelperSkill).toContain("Research exists but no `deck-plan.md`: continue `revela-research` to the Planning Handoff")
     expect(codexHelperSkill).toContain("Valid `deck-plan.md` but no deck artifact: run `revela-make-deck`")
+    expect(codexHelperSkill).toContain("Custom visual system requested: use `revela-design`")
+    expect(codexHelperSkill).toContain("Custom narrative domain guidance requested: use `revela-domain`")
+    expect(codexHelperSkill).toContain("Do not create, install, or activate designs or domains")
+  })
+})
+
+describe("Codex skill discoverability docs", () => {
+  it("documents design and domain skills in the public Codex skill list", () => {
+    expect(readme).toContain("Codex uses seven Revela skills")
+    expect(readme).toContain("`revela-design` for custom design creation/validation/activation")
+    expect(readme).toContain("`revela-domain` for custom narrative domain creation/validation/activation")
+  })
+})
+
+describe("Codex revela-design skill", () => {
+  it("restores discoverable draft-first design authoring", () => {
+    expect(codexDesignSkill).toContain("name: revela-design")
+    expect(codexDesignSkill).toContain("create, customize, edit, validate, install, activate")
+    expect(codexDesignSkill).toContain("Call `revela_design_list`")
+    expect(codexDesignSkill).toContain("Call `revela_design_read`")
+    expect(codexDesignSkill).toContain("Call `revela_design_draft_create`")
+    expect(codexDesignSkill).toContain("Call `revela_design_draft_validate`")
+    expect(codexDesignSkill).toContain("Call `revela_design_draft_install` only after the draft validates")
+    expect(codexDesignSkill).toContain("Use `revela_design_create` only when the user explicitly requests direct local creation")
+    expect(codexDesignSkill).toContain("Call `revela_design_activate` only when the user asks")
+    expect(codexDesignSkill).toContain("Do not write `deck-plan.md`")
+    expect(codexDesignSkill).toContain("Do not write `decks/*.html`")
+    expect(codexDesignSkill.indexOf("Call `revela_design_draft_create`")).toBeLessThan(codexDesignSkill.indexOf("Call `revela_design_draft_validate`"))
+    expect(codexDesignSkill.indexOf("Call `revela_design_draft_validate`")).toBeLessThan(codexDesignSkill.indexOf("Call `revela_design_draft_install` only after the draft validates"))
+  })
+
+  it("marks Codex design authoring as skill-backed in the capability matrix", () => {
+    expect(codexCapabilityMatrix).toContain("| Design list/read/author/install/activate |")
+    expect(codexCapabilityMatrix).toContain("`revela-design` skill + design MCP tools")
+    expect(codexCapabilityMatrix).toContain("draft create/validate/install")
+  })
+})
+
+describe("Codex revela-domain skill", () => {
+  it("restores discoverable draft-first domain authoring", () => {
+    expect(codexDomainSkill).toContain("name: revela-domain")
+    expect(codexDomainSkill).toContain("create, customize, edit, validate, install, activate")
+    expect(codexDomainSkill).toContain("Call `revela_domain_list`")
+    expect(codexDomainSkill).toContain("Call `revela_domain_read`")
+    expect(codexDomainSkill).toContain("Call `revela_domain_draft_create`")
+    expect(codexDomainSkill).toContain("Call `revela_domain_draft_validate`")
+    expect(codexDomainSkill).toContain("Call `revela_domain_draft_install` only after the draft validates")
+    expect(codexDomainSkill).toContain("Use `revela_domain_create` only when the user explicitly requests direct local creation")
+    expect(codexDomainSkill).toContain("Call `revela_domain_activate` only when the user asks")
+    expect(codexDomainSkill).toContain("Domain guidance is not evidence")
+    expect(codexDomainSkill).toContain("Do not write `researches/**/*.md`, `deck-plan.md`, or `decks/*.html`")
+    expect(codexDomainSkill.indexOf("Call `revela_domain_draft_create`")).toBeLessThan(codexDomainSkill.indexOf("Call `revela_domain_draft_validate`"))
+    expect(codexDomainSkill.indexOf("Call `revela_domain_draft_validate`")).toBeLessThan(codexDomainSkill.indexOf("Call `revela_domain_draft_install` only after the draft validates"))
+  })
+
+  it("marks Codex domain authoring as skill-backed in the capability matrix", () => {
+    expect(codexCapabilityMatrix).toContain("| Domain list/read/author/install/activate |")
+    expect(codexCapabilityMatrix).toContain("`revela-domain` skill + domain MCP tools")
+    expect(codexCapabilityMatrix).toContain("draft create/validate/install")
   })
 })
 

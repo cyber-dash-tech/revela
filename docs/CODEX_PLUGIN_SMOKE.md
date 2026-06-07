@@ -119,8 +119,8 @@ During the smoke, confirm Codex uses the corresponding MCP tools: `revela_doctor
 - Narrative compile passes or reports explicit vault diagnostics.
 - Deck-plan read returns slide projections and diagnostics.
 - Deck foundation creates a valid active-design shell.
-- Domain list/read/activate works before narrative authoring, and domain guidance is treated as framing rather than evidence.
-- Design list/read/activate works before deck generation, and active design guidance is read before selecting layouts/components.
+- Domain list/read/author/install/activate tools are discoverable, and domain guidance is treated as framing rather than evidence.
+- Design list/read/author/install/activate tools are discoverable, and active design guidance is read before selecting layouts/components.
 - Artifact QA passes with `hardErrorCount: 0`.
 - Story reading returns a deterministic map or Markdown view from `revela-narrative/`.
 - Review deck open returns a local Review URL hosted by the MCP process with saved comments and the `codex-exec` Apply bridge.

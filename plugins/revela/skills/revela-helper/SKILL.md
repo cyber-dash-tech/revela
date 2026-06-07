@@ -39,6 +39,8 @@ Report:
 - Active design and active domain.
 - Workspace artifact status: whether `researches/`, `deck-plan.md`, `decks/*.html`, and `assets/` appear available.
 - Recommended next step:
+  - Custom visual system requested: use `revela-design`.
+  - Custom narrative domain guidance requested: use `revela-domain`.
   - No `researches/`: run `revela-research`.
   - Research exists but no `deck-plan.md`: continue `revela-research` to the Planning Handoff.
   - Valid `deck-plan.md` but no deck artifact: run `revela-make-deck`.
@@ -50,3 +52,4 @@ Report:
 - Do not do external web research.
 - Do not generate or repair `deck-plan.md`.
 - Do not generate, review, patch, or export deck artifacts.
+- Do not create, install, or activate designs or domains; route those requests to `revela-design` or `revela-domain`.
