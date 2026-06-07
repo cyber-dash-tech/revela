@@ -272,12 +272,13 @@ describe("parseDesignSections", () => {
 })
 
 describe("Codex make deck design guidance", () => {
-  it("requires design tools before deck planning and HTML generation", () => {
+  it("requires design tools before render preflight and HTML generation", () => {
     const skill = readFileSync(join(process.cwd(), "plugins", "revela", "skills", "revela-make-deck", "SKILL.md"), "utf-8")
 
     expect(skill).toContain("Call `revela_design_list`")
     expect(skill).toContain('Call `revela_design_read` with `section: "rules"`')
     expect(skill).toContain("Call `revela_design_inventory`")
+    expect(skill).toContain("Required: readable `deck-plan.md`")
     expect(skill).toContain("revela_design_read_layout")
     expect(skill).toContain("revela_design_read_component")
     expect(skill).toContain("valid layouts, slots, components")

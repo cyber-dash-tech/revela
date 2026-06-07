@@ -88,7 +88,7 @@ Codex support is built as small adapter modules around existing Revela capabilit
 
 3. Workflow skills
    - Add `revela-helper`, `revela-research`, `revela-make-deck`, `revela-review`, and `revela-export`.
-   - Fold local material init into `revela-research`, design planning/render guidance into `revela-make-deck`, and domain guidance into `revela-research` / `revela-make-deck`.
+   - Fold local material init and design-aware `deck-plan.md` handoff into `revela-research`, keep design-aware rendering in `revela-make-deck`, and domain guidance in `revela-research` / `revela-make-deck`.
    - Skills must refer to Codex MCP tools and normal file edits, not OpenCode-only slash commands or OpenCode tool names.
 
 4. Shared runtime boundary

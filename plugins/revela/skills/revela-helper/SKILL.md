@@ -38,7 +38,11 @@ Report:
 - Runtime/version status from `revela_doctor`.
 - Active design and active domain.
 - Workspace artifact status: whether `researches/`, `deck-plan.md`, `decks/*.html`, and `assets/` appear available.
-- Recommended next step: `revela-research`, `revela-make-deck`, `revela-review`, or `revela-export`.
+- Recommended next step:
+  - No `researches/`: run `revela-research`.
+  - Research exists but no `deck-plan.md`: continue `revela-research` to the Planning Handoff.
+  - Valid `deck-plan.md` but no deck artifact: run `revela-make-deck`.
+  - Existing deck artifact: run `revela-review` or `revela-export` depending on the user goal.
 
 ## Must Not
 

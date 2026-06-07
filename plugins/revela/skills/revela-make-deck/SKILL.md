@@ -1,11 +1,11 @@
 ---
 name: revela-make-deck
-description: Plan and generate Revela HTML deck artifacts in Codex from researches, workspace materials, active design, and deck-plan files.
+description: Generate Revela HTML deck artifacts in Codex from an existing deck-plan.md and active design files.
 ---
 
 # Revela Make Deck
 
-Use this skill when the user asks to plan, make, generate, or update a Revela deck. This skill owns both the Plan phase (`deck-plan.md`) and the Render phase (`decks/*.html`).
+Use this skill when the user asks to make, generate, render, or update a Revela HTML deck from an existing `deck-plan.md`.
 
 ## Contract
 
@@ -14,14 +14,16 @@ Use this skill when the user asks to plan, make, generate, or update a Revela de
 - Active/requested design tools define valid layouts, slots, components, nesting hints, and HTML writing rules.
 - Active/requested domain guidance may inform communication framing, but it is not source evidence.
 - Generated artifacts live under `decks/*.html`.
-- Do not require a Narrative Vault before planning or generating a deck.
-- Do not skip `deck-plan.md` for normal deck generation.
+- Do not require a Narrative Vault before generating a deck.
+- This skill does not own normal plan authoring; `revela-research` owns source preparation and `deck-plan.md` planning handoff.
+- `deck-plan.md` is required for normal deck generation.
 
 ## Preconditions
 
-- Recommended: source-linked `researches/**/*.md` and reviewed workspace materials exist.
-- If research is thin, the user may explicitly ask to continue with limited materials; then record source limitations in `deck-plan.md`.
+- Required: readable `deck-plan.md`.
 - An active or user-requested design must be readable.
+- If `deck-plan.md` is missing, stop and tell the user to run `revela-research` or continue `revela-research` to the Planning Handoff.
+- If `deck-plan.md` is structurally invalid, only repair technical plan diagnostics reported during render preflight.
 
 ## Inputs
 
@@ -29,18 +31,18 @@ Use this skill when the user asks to plan, make, generate, or update a Revela de
 - Reviewed workspace materials and material review records.
 - `assets/`
 - User deck objective, audience, and constraints.
-- Existing `deck-plan.md` when present.
+- Existing `deck-plan.md`.
 - Active/requested design and optional active/requested domain.
 
 ## Required Design Tools
 
-Before Plan phase authoring:
+Before render preflight:
 
 1. Call `revela_design_list`.
 2. Call `revela_design_read` with `section: "rules"` for the active/requested design.
 3. Call `revela_design_inventory`.
 
-Before Render phase HTML writing:
+Before HTML writing:
 
 1. Call `revela_read_deck_plan`.
 2. Read the returned `htmlWritingBatches`.
@@ -48,38 +50,22 @@ Before Render phase HTML writing:
 4. Call `revela_design_read_component` for each component used in the current batch.
 5. Fetch chart rules before creating or modifying ECharts.
 
-## Plan Phase
+## Plan Preflight And Repair
 
-Use this phase when the user asks for a plan, outline, deck-plan, or when a make request lacks a valid `deck-plan.md`.
+Call `revela_read_deck_plan` before HTML generation and treat the result as the render blueprint.
 
-1. Inspect local materials, material reviews, existing research findings, assets, and user intent.
-2. Read active/requested domain guidance only as framing context; never cite it as evidence.
-3. Use design inventory to choose valid layouts, slots, components, and component nesting.
-4. Write or repair `deck-plan.md` directly. Do not use structured upsert tools for normal plan authoring.
-5. Call `revela_read_deck_plan` after writing or repairing `deck-plan.md`.
-6. If diagnostics report layout, slot, component, `children`, or `sourceLinks` issues, patch the Markdown directly and call `revela_read_deck_plan` again.
+Allowed plan repairs are limited to technical diagnostics from `revela_read_deck_plan`:
 
-## Deck Plan Requirements
+- Broken Markdown/frontmatter structure.
+- Invalid or missing `sourceLinks` field structure, without adding new unsupported source links.
+- Layout, slot, component, or `children` names that do not match `revela_design_inventory`.
+- Component nesting fixes such as using `box.children` when the selected component model requires nested semantic groups.
 
-Every normal deck plan should include Cover, Table of Contents, and Closing. Use 3-5 chapter headings, explicit slide ranges, and `---` slide separators under `## Slides`.
-
-Each slide block must include:
-
-- Slide title and role when relevant.
-- `#### Content Plan`
-- `#### Source Links` for materials, findings, assets, URLs, and caveats.
-- `#### Design Plan`
-- Selected layout from design inventory.
-- Component plan using component names from design inventory.
-- Valid slots from the selected layout.
-- Valid component nesting hints, including `box.children` when multiple child components support one semantic idea.
-- Unresolved inputs, source limitations, and user review notes instead of AI-authored caveat/risk judgement.
-
-Do not duplicate the same child as both nested and top-level.
+Do not redesign the argument structure, add new slides, remove supported slides, rewrite claims, or add source links that were not reviewed or saved by `revela-research`. If normal plan authoring is needed, stop and send the user back to `revela-research` Planning Handoff.
 
 ## Render Phase
 
-Use this phase when the user asks to make, generate, render, or update an HTML deck.
+Use this phase when the user asks to make, generate, render, or update an HTML deck and `deck-plan.md` is readable.
 
 1. Call `revela_read_deck_plan` before HTML generation and follow the current projection.
 2. Read `htmlWritingBatches` before any HTML write. `revela_read_deck_plan` is QA/diagnostics, not a writer.
@@ -95,13 +81,15 @@ Use this phase when the user asks to make, generate, render, or update an HTML d
 
 ## Outputs
 
-- Plan-only request: `deck-plan.md`.
-- Make/render request: `deck-plan.md` and `decks/*.html`.
-- QA status and unresolved source/design limitations.
+- `decks/*.html`.
+- Artifact QA status.
+- Unresolved render/design issues and any plan diagnostics that require `revela-research` Planning Handoff.
 
 ## Must Not
 
-- Do not skip `deck-plan.md` for normal decks.
+- Do not skip or synthesize `deck-plan.md` for normal decks.
+- Do not claim ownership of normal plan authoring.
+- Do not write a new `deck-plan.md` when it is missing.
 - Do not use design inventory names, slots, or components that were not returned by the active/requested design tools.
 - Do not use a slot that does not belong to the selected layout.
 - Do not patch more than 5 slide sections in one HTML write.

@@ -1,20 +1,22 @@
 ---
 name: revela-research
-description: Research workspace materials and public sources for a Revela deck objective, using active domain guidance and saving source-linked findings.
+description: Research workspace materials and public sources for a Revela deck objective, using active domain/design guidance to save source-linked findings and hand off deck-plan.md.
 ---
 
 # Revela Research
 
-Use this skill when the user asks to start from a goal, inspect local materials, research missing inputs, gather public support, save findings, or find source-linked examples/assets for a deck.
+Use this skill when the user asks to start from a goal, inspect local materials, research missing inputs, gather public support, save findings, find source-linked examples/assets, or prepare the deck planning handoff.
 
 ## Contract
 
 - Research is the source-preparation workflow for Codex Revela.
-- Research output is saved under `researches/**/*.md` for later `deck-plan.md` use.
+- Research output is saved under `researches/**/*.md` and, when the user goal is a deck and materials are sufficient, handed off as `deck-plan.md`.
 - Local materials are only usable after direct text review or extracted read-view review.
 - Active/requested domain guidance informs audience, decision framing, claim standards, evidence expectations, objection/risk interpretation, and research-gap priority.
 - Domain guidance is not evidence and must never be cited as proof for factual claims.
-- Do not create `deck-plan.md`, deck artifacts, a Narrative Vault, or canonical evidence bindings during research.
+- Active/requested design tools define valid layouts, slots, components, nesting hints, and deck-plan design vocabulary.
+- `deck-plan.md` is the formal research-to-make-deck handoff when a deck objective is sufficiently supported.
+- Do not create deck artifacts, a Narrative Vault, or canonical evidence bindings during research.
 - Do not invent URLs, quotes, page references, numbers, caveats, or licenses.
 
 ## Preconditions
@@ -40,6 +42,13 @@ Use this skill when the user asks to start from a goal, inspect local materials,
 7. Call `revela_check_material_intake` before reporting research readiness.
 8. Use external research only for public facts, user-authorized questions, or gaps not covered by local materials.
 9. Save useful findings with `revela_research_save`.
+10. For deck goals with sufficient materials, run Planning Handoff:
+    - Call `revela_design_list`.
+    - Call `revela_design_read` with `section: "rules"` for the active/requested design.
+    - Call `revela_design_inventory`.
+    - Write `deck-plan.md` directly from reviewed materials, saved findings, assets, user intent, active domain framing, and active design vocabulary.
+    - Call `revela_read_deck_plan` after writing `deck-plan.md`.
+    - If diagnostics report `sourceLinks`, layout, slot, component, or `children` issues, patch `deck-plan.md` directly and call `revela_read_deck_plan` again.
 
 ## Finding Requirements
 
@@ -59,13 +68,33 @@ If a finding is context only, label it as context and do not present it as proof
 
 - `researches/{topic}/{filename}.md`
 - Material review records for reviewed Office/PDF sources.
+- `deck-plan.md` when the user goal is a deck and reviewed materials/findings are sufficient for a traceable plan.
 - Source limitations and unresolved gaps.
 - A clear statement of whether `revela-make-deck` can proceed or whether more research is needed.
+
+## Planning Handoff
+
+Use this final stage only for deck goals. If sources are too thin, report unresolved inputs and source limitations instead of drafting unsupported slides.
+
+Every `deck-plan.md` handoff should include Cover, Table of Contents, Closing, 3-5 chapter headings, explicit slide ranges, and `---` slide separators under `## Slides`.
+
+Each non-structural slide block must include:
+
+- Slide title and role when relevant.
+- `#### Content Plan`
+- `#### Source Links` for materials, findings, assets, URLs, and caveats.
+- `#### Design Plan`
+- Selected layout from design inventory.
+- Component plan using component names from design inventory.
+- Valid slots from the selected layout.
+- Valid component nesting hints, including `box.children` when multiple child components support one semantic idea.
+- Unresolved inputs, source limitations, and user review notes instead of AI-authored caveat/risk judgement.
+
+Do not duplicate the same child as both nested and top-level. Do not add source links that were not reviewed or saved during research.
 
 ## Must Not
 
 - Do not generate `revela-narrative/`.
-- Do not write `deck-plan.md`.
 - Do not write `decks/*.html`.
 - Do not bind findings into a Narrative Vault or canonical evidence graph.
 - Do not treat domain guidance as source evidence.
