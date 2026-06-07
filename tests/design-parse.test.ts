@@ -8,6 +8,7 @@ import {
   generateLayoutIndex,
   extractDesignClasses,
   DEFAULT_PREFIX_EXEMPTIONS,
+  getDesignInventory,
 } from "../lib/design/designs"
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -358,6 +359,27 @@ describe("generateLayoutIndex", () => {
     const result = generateLayoutIndex(layouts)
     expect(result).toContain("Cover Title")
     expect(result).not.toContain("@layout")
+  })
+
+  it("exposes a narrow toc layout in every built-in design inventory", () => {
+    for (const designName of ["starter", "summit", "monet"]) {
+      const design = readFileSync(join(process.cwd(), "designs", designName, "DESIGN.md"), "utf-8")
+      const { layouts } = parseDesignSections(design)
+      const tocLayout = layouts.toc
+      const inventoryLayout = getDesignInventory(designName).layouts.find((layout) => layout.name === "toc")
+
+      expect(tocLayout).toBeDefined()
+      expect(tocLayout.qa).toBe(false)
+      expect(tocLayout.content).toContain("table of contents, agenda, section map, or chapter divider")
+      expect(tocLayout.content).toContain("use one toc component")
+      expect(tocLayout.content).toContain("Do not use this as a general two-column narrative layout")
+      expect(tocLayout.content).toContain("do not replace the TOC structure with a `text-panel`")
+      expect(inventoryLayout).toEqual(expect.objectContaining({
+        name: "toc",
+        qa: false,
+        slots: ["main"],
+      }))
+    }
   })
 })
 

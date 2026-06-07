@@ -157,12 +157,24 @@ function designDirHasPackage(dir: string): boolean {
 function resolveDesignDir(nameInput?: string): string | null {
   const name = normalizeDesignName(nameInput || activeDesign())
   const userDir = join(DESIGNS_DIR, name)
-  if (designDirHasPackage(userDir)) return userDir
-
   const bundledDir = join(SEED_DIR, name)
+  if (designDirHasPackage(userDir)) {
+    if (designDirHasPackage(bundledDir) && isSeededBuiltinCopy(userDir, bundledDir)) return bundledDir
+    return userDir
+  }
+
   if (designDirHasPackage(bundledDir)) return bundledDir
 
   return null
+}
+
+function isSeededBuiltinCopy(userDir: string, bundledDir: string): boolean {
+  const userInfo = parseDesignFile(join(userDir, "DESIGN.md"))
+  const bundledInfo = parseDesignFile(join(bundledDir, "DESIGN.md"))
+  if (!userInfo || !bundledInfo) return false
+  return userInfo.author === bundledInfo.author
+    && userInfo.version === bundledInfo.version
+    && userInfo.description === bundledInfo.description
 }
 
 function readDesignsFromDir(root: string): Map<string, DesignInfo> {

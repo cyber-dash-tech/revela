@@ -251,8 +251,9 @@ describe("starter built-in design", () => {
       "highlight-cols",
       "halves",
       "stacked",
+      "toc",
     ]))
-    expect(Object.keys(parsed.layouts)).toHaveLength(6)
+    expect(Object.keys(parsed.layouts)).toHaveLength(7)
     expect(Object.keys(parsed.components)).toEqual(expect.arrayContaining([
       "box",
       "text-panel",
@@ -346,6 +347,7 @@ describe("summit built-in design", () => {
       "highlight-cols",
       "halves",
       "stacked",
+      "toc",
     ]))
     expect(Object.keys(parsed.components)).toEqual(expect.arrayContaining([
       "box",

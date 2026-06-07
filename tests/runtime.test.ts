@@ -243,6 +243,36 @@ describe("runtime facade", () => {
     expect(read.projection?.slides[0].componentPlan[0].content).toBe("Fund the bounded pilot.")
   })
 
+  it("accepts toc layout/component plans for every built-in design", () => {
+    for (const designName of ["starter", "summit", "monet"]) {
+      const root = tempWorkspace(`revela-runtime-deck-plan-upsert-toc-${designName}-`)
+      writeMinimalVault(root)
+
+      const result = upsertDeckPlanSlide({
+        ...validDeckPlanSlideInput(root),
+        designName,
+        id: `slide-${designName}-toc`,
+        title: "Agenda",
+        chapter: "Opening",
+        narrativeRole: "Structural wayfinding for the deck.",
+        structural: true,
+        layout: "toc",
+        components: [{
+          name: "toc",
+          slot: "main",
+          position: "main",
+          purpose: "Show the chapter sequence.",
+          content: "Agenda sections.",
+        }],
+        visualIntent: { kind: "toc", component: "toc", rationale: "The slide is a structural table of contents." },
+      })
+
+      expect(result.ok).toBe(true)
+      expect(result.diagnostics).not.toContainEqual(expect.objectContaining({ code: "slide_layout_unknown" }))
+      expect(result.diagnostics).not.toContainEqual(expect.objectContaining({ code: "slide_component_slot_invalid" }))
+    }
+  })
+
   it("hard-errors invalid structured deck-plan slide input before writing", () => {
     const root = tempWorkspace("revela-runtime-deck-plan-upsert-invalid-")
     writeMinimalVault(root)

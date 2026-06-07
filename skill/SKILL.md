@@ -156,8 +156,8 @@ Rules for the slide plan:
   evidence table, comparison grid, risk matrix, steps view, chart, or media brief
   into generic bullets unless the user revises the plan.
 - Chapter divider or chapter TOC slides are structural wayfinding and should
-  usually render with the `toc` component; they must not replace framing, proof,
-  and implication coverage in substantive chapters.
+  use `layout: toc` with the `toc` component; they must not replace framing,
+  proof, and implication coverage in substantive chapters.
 - Normal content slides should usually contain 2-4 semantic boxes/cards unless
   intentionally using a focus layout.
 - If a chapter lacks enough substance for its allocated slides, reduce the slide
@@ -183,7 +183,7 @@ For decks with 5 or more slides:
   `htmlWritingBatches`.
 - Do not mix multiple central-claim chapters in the same write.
 - Chapter divider or chapter TOC slides are allowed as structural wayfinding and
-  should usually use the `toc` component.
+  should use `layout: toc` with the `toc` component.
 - Do not use placeholder, blank, repeated thesis, or generic transition slides as
   substitutes for required claim substance.
 - Treat appendix, summary, and closing slides as the final batch unless the

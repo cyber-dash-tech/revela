@@ -422,6 +422,25 @@ Two-row layout for a compact header/summary above a larger evidence, chart, or f
 ```
 <!-- @layout:stacked:end -->
 
+<!-- @layout:toc:start qa=false -->
+#### TOC
+
+Structural wayfinding layout for a table of contents, agenda, section map, or chapter divider. Use with the `toc` component as the primary structure. Do not use this as a general two-column narrative layout, and do not replace the TOC structure with a `text-panel`.
+
+Structural intent:
+- main slot: one `toc` component.
+
+```html
+<section class="slide" slide-qa="false" data-slide-index="N">
+  <div class="slide-canvas">
+    <div class="page" style="padding:0;">
+      <!-- [slot: main] — use one toc component -->
+    </div>
+  </div>
+</section>
+```
+<!-- @layout:toc:end -->
+
 <!-- @design:layouts:end -->
 
 <!-- @design:components:start -->

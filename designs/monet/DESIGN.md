@@ -838,6 +838,25 @@ Every slot accepts 1 or more components, but the layout should preserve a synthe
 - **Dark background variant.** Set CSS variable overrides (`--text-primary` etc.) on `.stacked-grid` to cascade into both slots automatically.
 <!-- @layout:stacked:end -->
 
+<!-- @layout:toc:start qa=false -->
+#### TOC
+
+Editorial wayfinding layout for a table of contents, agenda, section map, or chapter divider. Use with the `toc` component as the primary structure so Monet keeps its print-like chapter list and page-number rhythm. Do not use this as a general two-column narrative layout, and do not replace the TOC structure with a `text-panel`.
+
+Structural intent:
+- main slot: one `toc` component.
+
+```html
+<section class="slide" slide-qa="false" data-slide-index="N">
+  <div class="slide-canvas">
+    <div class="page" style="padding:0;overflow:hidden;">
+      <!-- [slot: main] — use one toc component -->
+    </div>
+  </div>
+</section>
+```
+<!-- @layout:toc:end -->
+
 <!-- @design:layouts:end -->
 
 
