@@ -271,21 +271,18 @@ describe("parseDesignSections", () => {
   })
 })
 
-describe("Codex design skill guidance", () => {
-  it("documents the design creation and validation workflow", () => {
-    const skill = readFileSync(join(process.cwd(), "plugins", "revela", "skills", "revela-design", "SKILL.md"), "utf-8")
+describe("Codex make deck design guidance", () => {
+  it("requires design tools before deck planning and HTML generation", () => {
+    const skill = readFileSync(join(process.cwd(), "plugins", "revela", "skills", "revela-make-deck", "SKILL.md"), "utf-8")
 
-    expect(skill).toContain("revela_design_create")
-    expect(skill).toContain("revela_design_validate")
-    expect(skill).toContain("Interview the user before saving anything")
-    expect(skill).toContain("Do not automatically activate a newly created design")
-    expect(skill).toContain('data-preview-component="<component-name>"')
-    expect(skill).toContain('data-slide-role="cover"')
-    expect(skill).toContain('data-slide-role="closing"')
-    expect(skill).toContain("1920px x 1080px")
-    expect(skill).toContain("width: 1920px")
-    expect(skill).toContain("height: 1080px")
-    expect(skill).toContain("direct `.slide-canvas`")
+    expect(skill).toContain("Call `revela_design_list`")
+    expect(skill).toContain('Call `revela_design_read` with `section: "rules"`')
+    expect(skill).toContain("Call `revela_design_inventory`")
+    expect(skill).toContain("revela_design_read_layout")
+    expect(skill).toContain("revela_design_read_component")
+    expect(skill).toContain("valid layouts, slots, components")
+    expect(skill).toContain("Every slide must have exactly one direct `.slide-canvas` child")
+    expect(skill).toContain("Do not use a slot that does not belong to the selected layout")
   })
 })
 

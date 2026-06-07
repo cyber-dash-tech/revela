@@ -6,10 +6,11 @@ import { NARRATIVE_REVIEWER_PROMPT, NARRATIVE_REVIEWER_SIGNATURE } from "../lib/
 import { buildResearchPrompt } from "../lib/commands/research"
 
 const skill = readFileSync(join(import.meta.dir, "..", "skill", "NARRATIVE_SKILL.md"), "utf-8")
+const codexHelperSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-helper", "SKILL.md"), "utf-8")
 const codexResearchSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-research", "SKILL.md"), "utf-8")
 const codexStorySkillPath = join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-story", "SKILL.md")
 const codexMakeDeckSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-make-deck", "SKILL.md"), "utf-8")
-const codexReviewDeckSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-review-deck", "SKILL.md"), "utf-8")
+const codexReviewSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-review", "SKILL.md"), "utf-8")
 const codexCapabilityMatrix = readFileSync(join(import.meta.dir, "..", "docs", "CODEX_PLUGIN_CAPABILITY_MATRIX.md"), "utf-8")
 const codexProductPlan = readFileSync(join(import.meta.dir, "..", "docs", "CODEX_PLUGIN_PRODUCT_PLAN.md"), "utf-8")
 const plugin = readFileSync(join(import.meta.dir, "..", "plugin.ts"), "utf-8")
@@ -134,11 +135,31 @@ describe("revela research command prompt", () => {
   })
 })
 
+describe("Codex revela-helper skill", () => {
+  it("reports Revela status, active design, and active domain without mutating artifacts", () => {
+    expect(codexHelperSkill).toContain("revela_doctor")
+    expect(codexHelperSkill).toContain("revela_design_list")
+    expect(codexHelperSkill).toContain("revela_domain_list")
+    expect(codexHelperSkill).toContain("active design")
+    expect(codexHelperSkill).toContain("active domain")
+    expect(codexHelperSkill).toContain("must not perform research")
+    expect(codexHelperSkill).toContain("Workspace artifact status")
+  })
+})
+
 describe("Codex revela-research skill", () => {
-  it("uses tool-backed research before manual evidence authoring", () => {
+  it("uses domain-guided material intake and tool-backed research", () => {
+    expect(codexResearchSkill).toContain("Call `revela_domain_list`")
+    expect(codexResearchSkill).toContain("Call `revela_domain_read`")
+    expect(codexResearchSkill).toContain("Call `revela_prepare_local_materials`")
+    expect(codexResearchSkill).toContain("revela_extract_document_materials")
+    expect(codexResearchSkill).toContain("revela_record_material_review")
+    expect(codexResearchSkill).toContain("revela_check_material_intake")
     expect(codexResearchSkill).toContain("Save useful findings with `revela_research_save`")
     expect(codexResearchSkill).toContain("Do not bind findings into a Narrative Vault")
+    expect(codexResearchSkill).toContain("Do not write `deck-plan.md`")
     expect(codexResearchSkill).toContain("deck-plan.md")
+    expect(codexResearchSkill).toContain("Domain guidance is not evidence")
   })
 
   it("marks Codex research as tool-backed in the capability matrix", () => {
@@ -161,34 +182,40 @@ describe("Codex Story removal", () => {
 })
 
 describe("Codex revela-make-deck skill", () => {
-  it("requires deck-plan preflight before HTML generation", () => {
+  it("requires design-aware deck-plan preflight before HTML generation", () => {
+    expect(codexMakeDeckSkill).toContain("Call `revela_design_list`")
+    expect(codexMakeDeckSkill).toContain('Call `revela_design_read` with `section: "rules"`')
     expect(codexMakeDeckSkill).toContain("revela_design_inventory")
-    expect(codexMakeDeckSkill).toContain("write or repair `deck-plan.md` directly")
+    expect(codexMakeDeckSkill).toContain("Write or repair `deck-plan.md` directly")
     expect(codexMakeDeckSkill).toContain("Do not use structured upsert tools for normal plan authoring")
     expect(codexMakeDeckSkill).toContain("Call `revela_read_deck_plan` before HTML generation")
     expect(codexMakeDeckSkill).toContain("Read `htmlWritingBatches`")
+    expect(codexMakeDeckSkill).toContain("revela_design_read_layout")
+    expect(codexMakeDeckSkill).toContain("revela_design_read_component")
     expect(codexMakeDeckSkill).toContain("at most 5 slide sections")
     expect(codexMakeDeckSkill).toContain("`revela_read_deck_plan` is QA/diagnostics, not a writer")
     expect(codexMakeDeckSkill).not.toContain("revela_upsert_deck_plan")
     expect(codexMakeDeckSkill).not.toContain("revela_upsert_deck_plan_slide")
     expect(codexMakeDeckSkill).toContain("box.children")
     expect(codexMakeDeckSkill).toContain("Do not require a Narrative Vault")
+    expect(codexMakeDeckSkill).toContain("domain guidance")
+    expect(codexMakeDeckSkill).toContain("design inventory")
 
     expect(codexMakeDeckSkill.indexOf("revela_design_inventory")).toBeLessThan(codexMakeDeckSkill.indexOf("revela_read_deck_plan"))
     expect(codexMakeDeckSkill.indexOf("revela_read_deck_plan")).toBeLessThan(codexMakeDeckSkill.indexOf("revela_create_deck_foundation"))
   })
 })
 
-describe("Codex revela-review-deck skill", () => {
+describe("Codex revela-review skill", () => {
   it("opens the Review UI by default and keeps diagnostics explicit", () => {
-    expect(codexReviewDeckSkill).toContain("For a plain review request, call `revela_review_deck_open`")
-    expect(codexReviewDeckSkill).toContain("Use `revela_review_deck_read`, normally with `format: \"markdown\"`, only when the user explicitly asks")
-    expect(codexReviewDeckSkill).toContain("Review UI is QA + Leave Comment / Apply. Insight/Inspect is removed.")
-    expect(codexReviewDeckSkill).toContain("Do not call `revela_run_deck_qa` separately for a normal Review UI open")
-    expect(codexReviewDeckSkill).toContain("revela_review_deck_open")
-    expect(codexReviewDeckSkill).toContain("format: \"markdown\"")
-    expect(codexReviewDeckSkill).toContain("is read-only")
-    expect(codexReviewDeckSkill).toContain("Content changes that affect the deck argument should update `deck-plan.md` first")
+    expect(codexReviewSkill).toContain("For a plain review request, call `revela_review_deck_open`")
+    expect(codexReviewSkill).toContain("Use `revela_review_deck_read`, normally with `format: \"markdown\"`, only when the user explicitly asks")
+    expect(codexReviewSkill).toContain("Review UI is QA + Leave Comment / Apply. Insight/Inspect is removed")
+    expect(codexReviewSkill).toContain("Do not call `revela_run_deck_qa` separately for a normal Review UI open")
+    expect(codexReviewSkill).toContain("revela_review_deck_open")
+    expect(codexReviewSkill).toContain("format: \"markdown\"")
+    expect(codexReviewSkill).toContain("is read-only")
+    expect(codexReviewSkill).toContain("Content changes that affect the deck argument should update `deck-plan.md` first")
   })
 
   it("marks Codex Review deck reading as tool-backed in the capability matrix", () => {

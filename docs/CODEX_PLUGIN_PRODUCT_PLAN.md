@@ -46,8 +46,9 @@ Codex support is built as small adapter modules around existing Revela capabilit
 
 4. Workflow skills
    - Purpose: give Codex workflow guidance that replaces OpenCode prompt injection for Codex sessions.
-   - Main surfaces: `plugins/revela/skills/revela-init`, `revela-research`, `revela-make-deck`, `revela-review-deck`, `revela-export`, `revela-design`, and `revela-domain`.
-   - Enables: file-native Init, Research, Plan Deck, Make Deck, Review Deck, Export, Design, and Domain workflows in Codex.
+   - Main surfaces: `plugins/revela/skills/revela-helper`, `revela-research`, `revela-make-deck`, `revela-review`, and `revela-export`.
+   - Enables: file-native helper/status, Research, Plan Deck, Make Deck, Review Deck, and Export workflows in Codex.
+   - Cross-cutting design/domain guidance is read through MCP tools inside these workflows: research uses domain tools, and make-deck uses design tools.
    - Does not own: hidden workflow state, approval gates, OpenCode slash-command parity, or direct mutation of canonical compiled caches.
 
 5. MCP server
@@ -86,7 +87,8 @@ Codex support is built as small adapter modules around existing Revela capabilit
    - Add minimal assets and install-surface metadata.
 
 3. Workflow skills
-   - Add `revela-init`, `revela-research`, `revela-make-deck`, `revela-review-deck`, `revela-export`, `revela-design`, and `revela-domain`.
+   - Add `revela-helper`, `revela-research`, `revela-make-deck`, `revela-review`, and `revela-export`.
+   - Fold local material init into `revela-research`, design planning/render guidance into `revela-make-deck`, and domain guidance into `revela-research` / `revela-make-deck`.
    - Skills must refer to Codex MCP tools and normal file edits, not OpenCode-only slash commands or OpenCode tool names.
 
 4. Shared runtime boundary

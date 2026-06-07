@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-698%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-709%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="560" />
@@ -64,6 +64,8 @@ The Git marketplace install provides the Codex plugin shell, skills, hooks, and 
 You do not need to run `bun install` inside the Codex marketplace clone.
 
 Start a new Codex thread after installing so Codex loads the Revela skills, MCP tools, and hooks.
+
+Codex uses five Revela skills: `revela-helper` for status and active design/domain, `revela-research` for local and web research saved under `researches/`, `revela-make-deck` for design-aware `deck-plan.md` plus `decks/*.html`, `revela-review` for the Review UI, and `revela-export` for PDF/PPTX/PNG.
 
 For release-aligned local validation, run `bun run smoke:mcp-pack`. It packs the current checkout to a temporary npm tarball and starts the MCP server through `npx`, matching the published Codex launcher path without requiring a registry publish.
 

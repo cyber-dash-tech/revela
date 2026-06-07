@@ -2,7 +2,7 @@
 
 [English](README.md) | **中文**
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-698%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-709%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="560" />
@@ -64,6 +64,8 @@ Git marketplace 安装的是 Codex plugin 壳、skills、hooks 和 MCP 配置。
 不需要在 Codex marketplace clone 里运行 `bun install`。
 
 安装后开启一个新的 Codex thread，让 Codex 加载 Revela 的 skills、MCP tools 和 hooks。
+
+Codex 使用五个 Revela skills：`revela-helper` 查看状态和 active design/domain，`revela-research` 调研本地与网络资料并保存到 `researches/`，`revela-make-deck` 基于 design 工具生成 `deck-plan.md` 和 `decks/*.html`，`revela-review` 打开 Review UI，`revela-export` 导出 PDF/PPTX/PNG。
 
 如果要按发布路径做本地验证，运行 `bun run smoke:mcp-pack`。它会把当前 checkout 打成临时 npm tarball，再通过 `npx` 启动 MCP server，不需要先发布到 registry。
 
