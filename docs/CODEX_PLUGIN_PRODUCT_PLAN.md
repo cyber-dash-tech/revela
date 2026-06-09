@@ -18,7 +18,7 @@ OpenCode remains the release-compatible surface while the Codex adapter is built
 ## Product Goals
 
 - Make Revela usable in Codex with the same product promise: turn source materials, research, data, and user intent into trusted, traceable, presentation-ready decision artifacts.
-- Preserve the current file-native architecture: local materials and `researches/` for source inputs, `deck-plan.md` for render planning, `decks/*.html` for artifacts, and `assets/` for media.
+- Preserve the current file-native architecture: `spec.md` for demand capture, local materials and `researches/` for source inputs, `deck-plan.md` for render planning, `decks/*.html` for artifacts, and `assets/` for media.
 - Keep existing OpenCode `/revela ...` commands working.
 - Avoid duplicating compiler, QA, export, design, or state logic inside the Codex plugin.
 
@@ -46,9 +46,9 @@ Codex support is built as small adapter modules around existing Revela capabilit
 
 4. Workflow skills
    - Purpose: give Codex workflow guidance that replaces OpenCode prompt injection for Codex sessions.
-   - Main surfaces: `plugins/revela/skills/revela-helper`, `revela-design`, `revela-domain`, `revela-research`, `revela-make-deck`, `revela-review`, and `revela-export`.
-   - Enables: file-native helper/status, Design authoring, Domain authoring, Research, Plan Deck, Make Deck, Review Deck, and Export workflows in Codex.
-   - Cross-cutting design/domain guidance is read through MCP tools inside these workflows: design/domain skills author packages, research uses domain/design tools, and make-deck uses design tools.
+   - Main surfaces: `plugins/revela/skills/revela`, `revela-spec`, `revela-helper`, `revela-design`, `revela-domain`, `revela-research`, `revela-make-deck`, `revela-review`, and `revela-export`.
+   - Enables: workflow routing, file-native helper/status, Spec, Design authoring, Domain authoring, Research, Plan Deck, Make Deck, Review Deck, and Export workflows in Codex.
+   - Cross-cutting design/domain guidance is read through MCP tools inside these workflows: router/spec inspect active guidance, design/domain skills author packages, research uses domain/design tools, and make-deck uses design tools.
    - Does not own: hidden workflow state, approval gates, OpenCode slash-command parity, or direct mutation of canonical compiled caches.
 
 5. MCP server
@@ -87,8 +87,8 @@ Codex support is built as small adapter modules around existing Revela capabilit
    - Add minimal assets and install-surface metadata.
 
 3. Workflow skills
-   - Add `revela-helper`, `revela-design`, `revela-domain`, `revela-research`, `revela-make-deck`, `revela-review`, and `revela-export`.
-   - Fold design/domain package authoring into dedicated skills, local material init and design-aware `deck-plan.md` handoff into `revela-research`, and design-aware rendering into `revela-make-deck`.
+   - Add `revela`, `revela-spec`, `revela-helper`, `revela-design`, `revela-domain`, `revela-research`, `revela-make-deck`, `revela-review`, and `revela-export`.
+   - Fold workflow routing into `revela`, demand discovery into `revela-spec`, design/domain package authoring into dedicated skills, local material init and design-aware `deck-plan.md` handoff into `revela-research`, and design-aware rendering into `revela-make-deck`.
    - Skills must refer to Codex MCP tools and normal file edits, not OpenCode-only slash commands or OpenCode tool names.
 
 4. Shared runtime boundary

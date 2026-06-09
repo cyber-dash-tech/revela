@@ -22,7 +22,7 @@ Use this skill when the user asks to make, generate, render, or update a Revela 
 
 - Required: readable `deck-plan.md`.
 - An active or user-requested design must be readable.
-- If `deck-plan.md` is missing, stop and tell the user to run `revela-research` or continue `revela-research` to the Planning Handoff.
+- If `deck-plan.md` is missing, stop and tell the user to run `revela` for routing, `revela-spec` for missing requirements, or `revela-research` for the Planning Handoff.
 - If `deck-plan.md` is structurally invalid, only repair technical plan diagnostics reported during render preflight.
 
 ## Inputs
@@ -61,7 +61,7 @@ Allowed plan repairs are limited to technical diagnostics from `revela_read_deck
 - Layout, slot, component, or `children` names that do not match `revela_design_inventory`.
 - Component nesting fixes such as using `box.children` when the selected component model requires nested semantic groups.
 
-Do not redesign the argument structure, add new slides, remove supported slides, rewrite claims, or add source links that were not reviewed or saved by `revela-research`. If normal plan authoring is needed, stop and send the user back to `revela-research` Planning Handoff.
+Do not redesign the argument structure, add new slides, remove supported slides, rewrite claims, or add source links that were not reviewed or saved by `revela-research`. If normal plan authoring is needed, stop and send the user back to `revela` routing or `revela-research` Planning Handoff.
 
 ## Render Phase
 

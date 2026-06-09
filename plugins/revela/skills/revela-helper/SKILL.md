@@ -1,6 +1,6 @@
 ---
 name: revela-helper
-description: Explain Revela, inspect the current Revela workspace status, and report active design/domain guidance in Codex.
+description: Explain Revela, inspect the current Revela workspace status, and report active design/domain guidance in Codex. Use the revela router for workflow routing when the user wants to start or continue work.
 ---
 
 # Revela Helper
@@ -10,8 +10,9 @@ Use this skill when the user asks what Revela is, what the current workspace sta
 ## Contract
 
 - This is a read-only helper and orientation surface.
+- `revela` is the main workflow router; this skill explains status and capabilities.
 - It may inspect runtime, design, domain, and workspace artifact status.
-- It must not perform research, write files, create `deck-plan.md`, generate decks, open Review UI, or export artifacts.
+- It must not perform research, write files, create `spec.md`, create `deck-plan.md`, generate decks, open Review UI, or export artifacts.
 - Keep the answer short and operational.
 
 ## Preconditions
@@ -21,7 +22,7 @@ Use this skill when the user asks what Revela is, what the current workspace sta
 ## Inputs
 
 - User questions about Revela, current status, active design/domain, or next workflow step.
-- Optional workspace context such as existing `researches/`, `deck-plan.md`, `decks/*.html`, and `assets/`.
+- Optional workspace context such as existing `spec.md`, `researches/`, `deck-plan.md`, `decks/*.html`, and `assets/`.
 
 ## Required Tools
 
@@ -37,11 +38,12 @@ Report:
 - What Revela does: trusted, traceable, deck-first decision artifacts from local materials, research, data, and user intent.
 - Runtime/version status from `revela_doctor`.
 - Active design and active domain.
-- Workspace artifact status: whether `researches/`, `deck-plan.md`, `decks/*.html`, and `assets/` appear available.
+- Workspace artifact status: whether `spec.md`, `researches/`, `deck-plan.md`, `decks/*.html`, and `assets/` appear available.
 - Recommended next step:
   - Custom visual system requested: use `revela-design`.
   - Custom narrative domain guidance requested: use `revela-domain`.
-  - No `researches/`: run `revela-research`.
+  - No `spec.md` or unclear objective: run `revela-spec`.
+  - `spec.md` exists but no `researches/`: run `revela-research`.
   - Research exists but no `deck-plan.md`: continue `revela-research` to the Planning Handoff.
   - Valid `deck-plan.md` but no deck artifact: run `revela-make-deck`.
   - Existing deck artifact: run `revela-review` or `revela-export` depending on the user goal.
@@ -50,6 +52,7 @@ Report:
 
 - Do not write or patch files.
 - Do not do external web research.
+- Do not generate or repair `spec.md`.
 - Do not generate or repair `deck-plan.md`.
 - Do not generate, review, patch, or export deck artifacts.
 - Do not create, install, or activate designs or domains; route those requests to `revela-design` or `revela-domain`.

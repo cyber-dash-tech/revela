@@ -65,7 +65,7 @@ You do not need to run `bun install` inside the Codex marketplace clone.
 
 Start a new Codex thread after installing so Codex loads the Revela skills, MCP tools, and hooks.
 
-Codex uses seven Revela skills: `revela-helper` for status and active design/domain, `revela-design` for custom design creation/validation/activation, `revela-domain` for custom narrative domain creation/validation/activation, `revela-research` for local and web research saved under `researches/` plus the design-aware `deck-plan.md` handoff, `revela-make-deck` for generating `decks/*.html` from an existing plan, `revela-review` for the Review UI, and `revela-export` for PDF/PPTX/PNG.
+Codex uses nine Revela skills: `revela` for routing the next workflow step, `revela-spec` for writing root-level `spec.md`, `revela-helper` for status and active design/domain, `revela-design` for custom design creation/validation/activation, `revela-domain` for custom narrative domain creation/validation/activation, `revela-research` for local and web research saved under `researches/` plus the design-aware `deck-plan.md` handoff, `revela-make-deck` for generating `decks/*.html` from an existing plan, `revela-review` for the Review UI, and `revela-export` for PDF/PPTX/PNG.
 
 For release-aligned local validation, run `bun run smoke:mcp-pack`. It packs the current checkout to a temporary npm tarball and starts the MCP server through `npx`, matching the published Codex launcher path without requiring a registry publish.
 

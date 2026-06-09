@@ -1,6 +1,6 @@
 ---
 name: revela-research
-description: Research workspace materials and public sources for a Revela deck objective, using active domain/design guidance to save source-linked findings and hand off deck-plan.md.
+description: Research from an existing or emerging Revela spec.md and public/workspace sources, using active domain/design guidance to save source-linked findings and hand off deck-plan.md.
 ---
 
 # Revela Research
@@ -10,6 +10,7 @@ Use this skill when the user asks to start from a goal, inspect local materials,
 ## Contract
 
 - Research is the source-preparation workflow for Codex Revela.
+- Prefer root-level `spec.md` as the demand contract. If it is missing or the objective is unclear, route to `revela-spec` unless the user gave enough intent to research immediately.
 - Research output is saved under `researches/**/*.md` and, when the user goal is a deck and materials are sufficient, handed off as `deck-plan.md`.
 - Local materials are only usable after direct text review or extracted read-view review.
 - Active/requested domain guidance informs audience, decision framing, claim standards, evidence expectations, objection/risk interpretation, and research-gap priority.
@@ -21,11 +22,12 @@ Use this skill when the user asks to start from a goal, inspect local materials,
 
 ## Preconditions
 
-- The user provides at least one of: objective, topic, audience, decision/action, source materials, or deck intent.
+- The user provides at least one of: existing `spec.md`, objective, topic, audience, decision/action, source materials, or deck intent.
 - If intent is unclear, inspect the workspace first and ask only the smallest missing high-impact questions.
 
 ## Inputs
 
+- Root-level `spec.md` when present.
 - User objective, constraints, audience, decision/action, and language preference when available.
 - Workspace materials, extracted material read views, existing `researches/**/*.md`, existing `deck-plan.md`, and `assets/`.
 - Active or user-requested domain guidance.
@@ -35,14 +37,15 @@ Use this skill when the user asks to start from a goal, inspect local materials,
 
 1. Call `revela_domain_list`.
 2. Call `revela_domain_read` for the active domain or user-requested domain.
-3. Call `revela_prepare_local_materials`.
-4. For Office/PDF sources, read the provided `allowedReadPath` / `read_view_path`; if missing, call `revela_extract_document_materials`.
-5. Read original text/Markdown/CSV files or extracted read views before treating a material as usable.
-6. Call `revela_record_material_review` for each reviewed Office/PDF source.
-7. Call `revela_check_material_intake` before reporting research readiness.
-8. Use external research only for public facts, user-authorized questions, or gaps not covered by local materials.
-9. Save useful findings with `revela_research_save`.
-10. For deck goals with sufficient materials, run Planning Handoff:
+3. Read `spec.md` when present and use it to scope material review, findings, and deck-plan handoff.
+4. Call `revela_prepare_local_materials`.
+5. For Office/PDF sources, read the provided `allowedReadPath` / `read_view_path`; if missing, call `revela_extract_document_materials`.
+6. Read original text/Markdown/CSV files or extracted read views before treating a material as usable.
+7. Call `revela_record_material_review` for each reviewed Office/PDF source.
+8. Call `revela_check_material_intake` before reporting research readiness.
+9. Use external research only for public facts, user-authorized questions, or gaps not covered by local materials or `spec.md`.
+10. Save useful findings with `revela_research_save`.
+11. For deck goals with sufficient materials, run Planning Handoff:
     - Call `revela_design_list`.
     - Call `revela_design_read` with `section: "rules"` for the active/requested design.
     - Call `revela_design_inventory`.
@@ -95,6 +98,7 @@ Do not duplicate the same child as both nested and top-level. Do not add source 
 ## Must Not
 
 - Do not generate `revela-narrative/`.
+- Do not write `spec.md`; route demand changes to `revela-spec`.
 - Do not write `decks/*.html`.
 - Do not bind findings into a Narrative Vault or canonical evidence graph.
 - Do not treat domain guidance as source evidence.

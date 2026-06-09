@@ -6,6 +6,8 @@ import { NARRATIVE_REVIEWER_PROMPT, NARRATIVE_REVIEWER_SIGNATURE } from "../lib/
 import { buildResearchPrompt } from "../lib/commands/research"
 
 const skill = readFileSync(join(import.meta.dir, "..", "skill", "NARRATIVE_SKILL.md"), "utf-8")
+const codexRouterSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela", "SKILL.md"), "utf-8")
+const codexSpecSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-spec", "SKILL.md"), "utf-8")
 const codexHelperSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-helper", "SKILL.md"), "utf-8")
 const codexDesignSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-design", "SKILL.md"), "utf-8")
 const codexDomainSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-domain", "SKILL.md"), "utf-8")
@@ -138,6 +140,59 @@ describe("revela research command prompt", () => {
   })
 })
 
+describe("Codex revela router skill", () => {
+  it("routes by user intent and file-native workspace state without mutating artifacts", () => {
+    expect(codexRouterSkill).toContain("name: revela")
+    expect(codexRouterSkill).toContain("Route Revela requests to the right specialist workflow")
+    expect(codexRouterSkill).toContain("Call `revela_doctor`")
+    expect(codexRouterSkill).toContain("Call `revela_design_list`")
+    expect(codexRouterSkill).toContain("Call `revela_domain_list`")
+    expect(codexRouterSkill).toContain("non-mutating router")
+    expect(codexRouterSkill).toContain("No `spec.md`, unclear objective")
+    expect(codexRouterSkill).toContain("use `revela-spec`")
+    expect(codexRouterSkill).toContain("`spec.md` exists but source support")
+    expect(codexRouterSkill).toContain("use `revela-research`")
+    expect(codexRouterSkill).toContain("Valid `deck-plan.md` exists")
+    expect(codexRouterSkill).toContain("use `revela-make-deck`")
+    expect(codexRouterSkill).toContain("use `revela-review`")
+    expect(codexRouterSkill).toContain("use `revela-export`")
+    expect(codexRouterSkill).toContain("Do not write or patch files")
+    expect(codexRouterSkill).toContain("Do not create or repair `spec.md` or `deck-plan.md`")
+  })
+
+  it("marks Codex routing as skill-backed in the capability matrix", () => {
+    expect(codexCapabilityMatrix).toContain("| Workflow routing |")
+    expect(codexCapabilityMatrix).toContain("`revela` router skill")
+    expect(codexCapabilityMatrix).toContain("`spec.md`, `researches/`, `deck-plan.md`, and deck artifacts")
+  })
+})
+
+describe("Codex revela-spec skill", () => {
+  it("writes only the root demand contract before research or deck planning", () => {
+    expect(codexSpecSkill).toContain("name: revela-spec")
+    expect(codexSpecSkill).toContain("write a root-level spec.md")
+    expect(codexSpecSkill).toContain("`spec.md` is the canonical demand and task specification")
+    expect(codexSpecSkill).toContain("Call `revela_doctor`")
+    expect(codexSpecSkill).toContain("Call `revela_domain_list`")
+    expect(codexSpecSkill).toContain("Call `revela_design_list`")
+    expect(codexSpecSkill).toContain("Call `revela_prepare_local_materials`")
+    expect(codexSpecSkill).toContain("## Objective")
+    expect(codexSpecSkill).toContain("## Audience")
+    expect(codexSpecSkill).toContain("## Acceptance Criteria")
+    expect(codexSpecSkill).toContain("## Recommended Next Step")
+    expect(codexSpecSkill).toContain("Root-level `spec.md`")
+    expect(codexSpecSkill).toContain("Do not write `researches/**/*.md`")
+    expect(codexSpecSkill).toContain("Do not write `deck-plan.md`")
+    expect(codexSpecSkill).toContain("Do not write `decks/*.html`")
+  })
+
+  it("marks Codex spec discovery as skill-backed in the capability matrix", () => {
+    expect(codexCapabilityMatrix).toContain("| Spec / requirements discovery |")
+    expect(codexCapabilityMatrix).toContain("`revela-spec` skill writes root-level `spec.md`")
+    expect(codexCapabilityMatrix).toContain("objective, audience, output, constraints, gaps, acceptance criteria")
+  })
+})
+
 describe("Codex revela-helper skill", () => {
   it("reports Revela status, active design, and active domain without mutating artifacts", () => {
     expect(codexHelperSkill).toContain("revela_doctor")
@@ -146,8 +201,10 @@ describe("Codex revela-helper skill", () => {
     expect(codexHelperSkill).toContain("active design")
     expect(codexHelperSkill).toContain("active domain")
     expect(codexHelperSkill).toContain("must not perform research")
+    expect(codexHelperSkill).toContain("`revela` is the main workflow router")
     expect(codexHelperSkill).toContain("Workspace artifact status")
-    expect(codexHelperSkill).toContain("No `researches/`: run `revela-research`")
+    expect(codexHelperSkill).toContain("No `spec.md` or unclear objective: run `revela-spec`")
+    expect(codexHelperSkill).toContain("`spec.md` exists but no `researches/`: run `revela-research`")
     expect(codexHelperSkill).toContain("Research exists but no `deck-plan.md`: continue `revela-research` to the Planning Handoff")
     expect(codexHelperSkill).toContain("Valid `deck-plan.md` but no deck artifact: run `revela-make-deck`")
     expect(codexHelperSkill).toContain("Custom visual system requested: use `revela-design`")
@@ -158,7 +215,9 @@ describe("Codex revela-helper skill", () => {
 
 describe("Codex skill discoverability docs", () => {
   it("documents design and domain skills in the public Codex skill list", () => {
-    expect(readme).toContain("Codex uses seven Revela skills")
+    expect(readme).toContain("Codex uses nine Revela skills")
+    expect(readme).toContain("`revela` for routing the next workflow step")
+    expect(readme).toContain("`revela-spec` for writing root-level `spec.md`")
     expect(readme).toContain("`revela-design` for custom design creation/validation/activation")
     expect(readme).toContain("`revela-domain` for custom narrative domain creation/validation/activation")
   })
@@ -214,8 +273,10 @@ describe("Codex revela-domain skill", () => {
 
 describe("Codex revela-research skill", () => {
   it("uses domain-guided material intake, tool-backed research, and deck-plan handoff", () => {
+    expect(codexResearchSkill).toContain("Prefer root-level `spec.md` as the demand contract")
     expect(codexResearchSkill).toContain("Call `revela_domain_list`")
     expect(codexResearchSkill).toContain("Call `revela_domain_read`")
+    expect(codexResearchSkill).toContain("Read `spec.md` when present")
     expect(codexResearchSkill).toContain("Call `revela_prepare_local_materials`")
     expect(codexResearchSkill).toContain("revela_extract_document_materials")
     expect(codexResearchSkill).toContain("revela_record_material_review")
@@ -231,6 +292,7 @@ describe("Codex revela-research skill", () => {
     expect(codexResearchSkill).toContain("If diagnostics report `sourceLinks`, layout, slot, component, or `children` issues")
     expect(codexResearchSkill).toContain("`researches/{topic}/{filename}.md`")
     expect(codexResearchSkill).toContain("deck-plan.md")
+    expect(codexResearchSkill).toContain("Do not write `spec.md`; route demand changes to `revela-spec`")
     expect(codexResearchSkill).toContain("Do not write `decks/*.html`")
     expect(codexResearchSkill).toContain("Domain guidance is not evidence")
 
@@ -241,6 +303,7 @@ describe("Codex revela-research skill", () => {
 
   it("marks Codex research as tool-backed in the capability matrix", () => {
     expect(codexCapabilityMatrix).toContain("| Research workflow |")
+    expect(codexCapabilityMatrix).toContain("`revela-research` skill reads `spec.md` when present")
     expect(codexCapabilityMatrix).toContain("`revela_research_save`; for deck goals, Planning Handoff reads active design inventory and writes validated `deck-plan.md`")
     expect(codexCapabilityMatrix).toContain("Tool-backed MVP")
     expect(codexCapabilityMatrix).toContain("Codex subagent packaging later")
@@ -264,7 +327,7 @@ describe("Codex revela-make-deck skill", () => {
     expect(codexMakeDeckSkill).toContain('Call `revela_design_read` with `section: "rules"`')
     expect(codexMakeDeckSkill).toContain("revela_design_inventory")
     expect(codexMakeDeckSkill).toContain("Required: readable `deck-plan.md`")
-    expect(codexMakeDeckSkill).toContain("If `deck-plan.md` is missing, stop and tell the user to run `revela-research`")
+    expect(codexMakeDeckSkill).toContain("If `deck-plan.md` is missing, stop and tell the user to run `revela` for routing")
     expect(codexMakeDeckSkill).toContain("This skill does not own normal plan authoring")
     expect(codexMakeDeckSkill).toContain("Allowed plan repairs are limited to technical diagnostics from `revela_read_deck_plan`")
     expect(codexMakeDeckSkill).toContain("Do not redesign the argument structure")
