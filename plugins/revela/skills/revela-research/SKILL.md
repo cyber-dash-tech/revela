@@ -55,17 +55,36 @@ Use this skill when the user asks to start from a goal, inspect local materials,
 
 ## Finding Requirements
 
-Each saved finding should include:
+Saved research should use stable, reusable Markdown blocks. Evidence findings use:
+
+```md
+## Finding: <stable-id>
+
+Source: <source name and date when known>
+URL: <source URL when available>
+Location: <page/slide/sheet/section when known>
+Quote/Snippet: <short exact quote or compact snippet; note when no exact quote is available>
+Supports: <narrow support scope or intended slide/source context>
+Evidence boundary: <internal guardrail; what this finding does not prove>
+Strength: <strong|directional|weak|context-only>
+Deck use: <where this belongs in deck planning>
+Display note: <optional short user-facing scope note for captions/source notes>
+```
+
+Use `## Analysis: <stable-id>` for user/LLM analytical frameworks, `## Implementation Note: <stable-id>` for render/data/API contracts, `## Asset Lead: <stable-id>` for image/logo/media leads, and `## Gaps` for missing or insufficient source support.
+
+Each saved evidence finding should include:
 
 - Source URL or workspace path.
 - Quote/snippet or explicit note when no exact quote is available.
 - What it supports.
-- What it does not support.
-- Caveat or limitation.
+- `Evidence boundary` for internal support limits, unsupported scope, or uncertainty.
+- `Deck use` for likely planning placement.
+- Optional `Display note` for short audience-facing scope text.
 - Date checked.
 - Optional image/logo/screenshot leads with known source and license/attribution status.
 
-If a finding is context only, label it as context and do not present it as proof.
+If a finding is context only, label it as context and do not present it as proof. Internal boundaries must not be mechanically copied into deck text; use `Display note` for default visible caption/source-note scope, and expose `Evidence boundary` only when needed to avoid a misleading audience conclusion.
 
 ## Outputs
 
@@ -85,12 +104,15 @@ Each non-structural slide block must include:
 
 - Slide title and role when relevant.
 - `#### Content Plan`
-- `#### Source Links` for materials, findings, assets, URLs, and caveats.
+- `#### Source Links` for materials, finding-level references when available, assets, URLs, and caveats.
 - `#### Design Plan`
 - Selected layout from design inventory.
 - Component plan using component names from design inventory.
 - Valid slots from the selected layout.
 - Valid component nesting hints, including `box.children` when multiple child components support one semantic idea.
+- Use `Display note` for short visible caption/source-note scope.
+- Keep `Evidence boundary` internal unless it is required to avoid a misleading audience conclusion.
+- `Analysis` and `Implementation Note` entries may support deck structure or rendering, but must not be cited as external factual proof.
 - Unresolved inputs, source limitations, and user review notes instead of AI-authored caveat/risk judgement.
 
 Do not duplicate the same child as both nested and top-level. Do not add source links that were not reviewed or saved during research.

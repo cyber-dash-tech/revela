@@ -289,12 +289,12 @@ const tools = [
   },
   {
     name: "revela_research_save",
-    description: "Save source-linked research findings under researches/{topic}/{filename}.md for deck-plan use.",
+    description: "Save source-linked research findings under researches/{topic}/{filename}.md for deck-plan use. Prefer structured blocks: ## Finding: <stable-id> for evidence, ## Analysis: <stable-id> for analytical frameworks, ## Implementation Note: <stable-id> for render/data/API contracts, ## Asset Lead: <stable-id> for media leads, and ## Gaps for missing support.",
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       topic: requiredStringProp("Research topic key."),
       filename: requiredStringProp("Findings filename without extension."),
-      content: requiredStringProp("Structured Markdown findings content."),
+      content: requiredStringProp("Structured Markdown findings content. Evidence findings should preserve source, quote/snippet, support scope or Supports, Evidence boundary or unsupported scope, Strength, Deck use, and optional Display note. Analysis and Implementation Note entries may support planning or rendering but are not external factual proof."),
       sources: arrayProp("Source URLs or workspace files for YAML frontmatter."),
     }, ["topic", "filename", "content"]),
   },

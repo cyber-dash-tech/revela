@@ -6,7 +6,8 @@ export default tool({
     "Save a research findings file to the workspace researches/ directory. " +
     "Creates researches/{topic}/{filename}.md with YAML frontmatter. " +
     "Each research axis gets its own file (e.g. 'market-data', 'catl-profile'). " +
-    "Content should use ## Data / ## Cases / ## Images / ## Gaps sections.",
+    "Content should use structured blocks such as ## Finding: <stable-id>, ## Analysis: <stable-id>, " +
+    "## Implementation Note: <stable-id>, ## Asset Lead: <stable-id>, and ## Gaps.",
   args: {
     topic: tool.schema
       .string()
@@ -23,10 +24,11 @@ export default tool({
     content: tool.schema
       .string()
       .describe(
-        "Structured markdown findings. Use these sections (omit empty ones):\n" +
-        "## Data — key stats and data points, each with [Source: url]\n" +
-        "## Cases — company/entity profiles, 1-2 sentences each with [Source: url]\n" +
-        "## Images — image URLs: '{description}: {url} | Alt: {text} | Use: logo|screenshot|portrait'\n" +
+        "Structured markdown findings. Prefer stable cards:\n" +
+        "## Finding: <stable-id> — evidence with Source, URL/path, Quote/Snippet, Supports, Evidence boundary, Strength, Deck use, and optional Display note\n" +
+        "## Analysis: <stable-id> — LLM/user analytical frameworks; not external factual proof\n" +
+        "## Implementation Note: <stable-id> — render/data/API contracts; not market evidence\n" +
+        "## Asset Lead: <stable-id> — image/logo/media leads with source, license/attribution status, alt text, and deck use\n" +
         "## Gaps — topics not found or insufficiently covered",
       ),
     sources: tool.schema

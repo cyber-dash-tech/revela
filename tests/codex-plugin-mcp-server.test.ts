@@ -63,6 +63,15 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("revela_extract_document_materials")
     expect(text.stdout).toContain("revela_record_material_review")
     expect(text.stdout).toContain("revela_check_material_intake")
+    expect(text.stdout).toContain("## Finding: <stable-id>")
+    expect(text.stdout).toContain("## Analysis: <stable-id>")
+    expect(text.stdout).toContain("## Implementation Note: <stable-id>")
+    expect(text.stdout).toContain("## Asset Lead: <stable-id>")
+    expect(text.stdout).toContain("source, quote/snippet, support scope or Supports")
+    expect(text.stdout).toContain("Evidence boundary or unsupported scope")
+    expect(text.stdout).toContain("Strength")
+    expect(text.stdout).toContain("Deck use")
+    expect(text.stdout).toContain("Display note")
   })
 
   it("reports the package version through the doctor tool", async () => {
