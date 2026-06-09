@@ -145,7 +145,7 @@ describe("renderRefineShell", () => {
     expect(html).not.toContain("completed-no-update")
     expect(html).not.toContain(".comment-bubble.applying::before")
     expect(html).not.toContain("rainbow-border")
-    expect(html).toContain("@keyframes progress-pulse")
+    expect(html).toContain("@keyframes comment-aurora-flow")
     expect(html).toContain("@media (prefers-reduced-motion: reduce)")
     expect(html).toContain(".comment-bubble:hover")
     expect(html).toContain(".comment-bubble.active")
@@ -159,7 +159,7 @@ describe("renderRefineShell", () => {
     expect(html).not.toContain("M14.7 6.3a1 1 0 0 0 0 1.4")
     expect(html).toContain("Comments")
     expect(html).toContain("overflow-y: auto")
-    expect(html).toContain("flex: 0 0 132px")
+    expect(html).toContain("flex: 0 0 150px")
     expect(html).toContain("className = 'comment-action-button'")
     expect(html).toContain("aria-label', label")
     expect(html).toContain("button.addEventListener('click', (event) => event.stopPropagation())")
@@ -345,6 +345,25 @@ describe("renderRefineShell", () => {
     expect(html).toContain("codexLogModal")
     expect(html).toContain("openCodexLogModal")
     expect(html).toContain("renderCodexLog")
+  })
+
+  it("scopes the apply lock overlay to the preview while keeping comment drafts editable", () => {
+    const html = renderCodexReviewShell("test-token")
+    const previewStart = html.indexOf("<section class=\"preview\">")
+    const overlayStart = html.indexOf("id=\"applyLockOverlay\"")
+    const previewEnd = html.indexOf("</section>", previewStart)
+    const asideStart = html.indexOf("<aside>")
+
+    expect(previewStart).toBeGreaterThan(-1)
+    expect(overlayStart).toBeGreaterThan(previewStart)
+    expect(overlayStart).toBeLessThan(previewEnd)
+    expect(overlayStart).toBeLessThan(asideStart)
+    expect(html).toContain(".apply-lock-overlay { position: absolute;")
+    expect(html).toContain("<strong>Applying deck edit...</strong><span>Preview is locked until Codex finishes.</span>")
+    expect(html).toContain("els.comment.setAttribute('contenteditable', 'true')")
+    expect(html).toContain("els.inspectComment.setAttribute('contenteditable', 'true')")
+    expect(html).not.toContain("els.comment.setAttribute('contenteditable', locked ? 'false' : 'true')")
+    expect(html).toContain("if (isApplyLocked() && !isTextInputTarget(event.target))")
   })
 })
 
@@ -1113,7 +1132,7 @@ describe("refine HTTP inspect lifecycle", () => {
     expect(listed.comments[0]).toMatchObject({ id: saved.comment.id, status: "applied" })
   })
 
-  it("stops an applying persisted Review comment without letting later bridge completion mark it applied", async () => {
+  it("rejects stopping an applying persisted Review comment while the apply lock is active", async () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1></div></section>', "utf-8")
     let resolveBridge: ((value: { ok: true; status: "completed"; raw: string }) => void) | undefined
@@ -1148,14 +1167,13 @@ describe("refine HTTP inspect lifecycle", () => {
     stopUrl.pathname = `/api/comments/${saved.comment.id}/stop`
     const stoppedResponse = await fetch(stopUrl, { method: "POST" })
     const stopped = await stoppedResponse.json() as any
-    expect(stoppedResponse.status).toBe(200)
-    expect(stopped).toMatchObject({ ok: true, status: "stopped" })
-    expect(stopped.comment).toMatchObject({ id: saved.comment.id, status: "failed", lastApplyError: "Stopped by user." })
+    expect(stoppedResponse.status).toBe(409)
+    expect(stopped).toMatchObject({ ok: false, code: "apply_locked" })
 
     resolveBridge?.({ ok: true, status: "completed", raw: "patched after stop" })
     await new Promise((resolve) => setTimeout(resolve, 10))
     const listed = await fetch(commentsUrl).then((item) => item.json()) as any
-    expect(listed.comments[0]).toMatchObject({ id: saved.comment.id, status: "failed", lastApplyError: "Stopped by user." })
+    expect(listed.comments[0]).toMatchObject({ id: saved.comment.id, status: "applied" })
   })
 
   it("deletes non-applying persisted Review comments and rejects deleting applying comments", async () => {
@@ -1202,17 +1220,21 @@ describe("refine HTTP inspect lifecycle", () => {
     const rejectedDelete = await fetch(rejectedDeleteUrl, { method: "DELETE" })
     const rejected = await rejectedDelete.json() as any
     expect(rejectedDelete.status).toBe(409)
-    expect(rejected.error).toContain("Stop the applying comment")
+    expect(rejected).toMatchObject({ ok: false, code: "apply_locked" })
 
     const deleteUrl = new URL(opened.url)
     deleteUrl.pathname = `/api/comments/${openComment.comment.id}`
     const deletedResponse = await fetch(deleteUrl, { method: "DELETE" })
     const deleted = await deletedResponse.json() as any
-    expect(deletedResponse.status).toBe(200)
-    expect(deleted).toMatchObject({ ok: true, deleted: true, commentId: openComment.comment.id })
-    expect(existsSync(join(root, ".revela", "review-comments", `${openComment.comment.id}.json`))).toBe(false)
-
+    expect(deletedResponse.status).toBe(409)
+    expect(deleted).toMatchObject({ ok: false, code: "apply_locked" })
     resolveBridge?.({ ok: true, status: "completed", raw: "patched" })
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    const unlockedDeleteResponse = await fetch(deleteUrl, { method: "DELETE" })
+    const unlockedDeleted = await unlockedDeleteResponse.json() as any
+    expect(unlockedDeleteResponse.status).toBe(200)
+    expect(unlockedDeleted).toMatchObject({ ok: true, deleted: true, commentId: openComment.comment.id })
+    expect(existsSync(join(root, ".revela", "review-comments", `${openComment.comment.id}.json`))).toBe(false)
   })
 
   it("re-applies an already applied persisted Review comment", async () => {
@@ -1266,7 +1288,7 @@ describe("refine HTTP inspect lifecycle", () => {
     expect(calls[1].prompt).toContain("Make the title smaller.")
   })
 
-  it("queues persisted Review comment applies while another apply is active", async () => {
+  it("rejects persisted Review comment applies while another apply is active", async () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "demo.html"), '<section class="slide" data-slide-index="1"><div class="slide-canvas"><h1>Launch</h1><p>Body</p></div></section>', "utf-8")
     const calls: any[] = []
@@ -1321,24 +1343,34 @@ describe("refine HTTP inspect lifecycle", () => {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({}),
-    }).then((item) => item.json()) as any
-    expect(secondApply).toMatchObject({ ok: true, status: "queued", queuePosition: 1 })
-    expect(secondApply.comment).toMatchObject({ id: secondSaved.comment.id, status: "queued" })
+    })
+    const secondApplyBody = await secondApply.json() as any
+    expect(secondApply.status).toBe(409)
+    expect(secondApplyBody).toMatchObject({ ok: false, code: "apply_locked" })
     expect(calls).toHaveLength(1)
 
     const duplicateSecondApply = await fetch(secondApplyUrl, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({}),
-    }).then((item) => item.json()) as any
-    expect(duplicateSecondApply).toMatchObject({ ok: true, status: "queued", queuePosition: 1 })
+    })
+    const duplicateSecondApplyBody = await duplicateSecondApply.json() as any
+    expect(duplicateSecondApply.status).toBe(409)
+    expect(duplicateSecondApplyBody).toMatchObject({ ok: false, code: "apply_locked" })
     expect(calls).toHaveLength(1)
 
     resolvers[0]?.({ ok: true, status: "completed", raw: "patched title" })
-    const listed = await waitForJson(commentsUrl, (item) => item.comments?.find((comment: any) => comment.id === secondSaved.comment.id)?.status === "applying")
+    const listed = await waitForJson(commentsUrl, (item) => item.comments?.find((comment: any) => comment.id === firstSaved.comment.id)?.status === "applied")
     const secondRecord = listed.comments.find((comment: any) => comment.id === secondSaved.comment.id)
-    expect(secondRecord).toMatchObject({ status: "applying" })
-    expect(secondRecord.lastApplyRequestId).toBeTruthy()
+    expect(secondRecord).toMatchObject({ status: "open" })
+    expect(calls).toHaveLength(1)
+
+    const unlockedSecondApply = await fetch(secondApplyUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    }).then((item) => item.json()) as any
+    expect(unlockedSecondApply).toMatchObject({ ok: true, status: "pending" })
     expect(calls).toHaveLength(2)
     expect(calls[1].prompt).toContain("Tighten the body copy.")
 

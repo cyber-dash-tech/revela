@@ -224,6 +224,7 @@ async function handleRequest(req: Request): Promise<Response> {
   if (url.pathname === "/api/comment" && req.method === "POST") {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
+    if (session.value.activeApplyCommentId) return applyLockedResponse()
     return handleComment(req, session.value)
   }
 
@@ -236,6 +237,7 @@ async function handleRequest(req: Request): Promise<Response> {
   if (url.pathname === "/api/comments" && req.method === "POST") {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
+    if (session.value.activeApplyCommentId) return applyLockedResponse()
     return handleReviewCommentCreate(req, session.value)
   }
 
@@ -243,6 +245,7 @@ async function handleRequest(req: Request): Promise<Response> {
   if (applyMatch && req.method === "POST") {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
+    if (session.value.activeApplyCommentId) return applyLockedResponse()
     return handleReviewCommentApply(decodeURIComponent(applyMatch[1]), req, session.value)
   }
 
@@ -250,6 +253,7 @@ async function handleRequest(req: Request): Promise<Response> {
   if (stopMatch && req.method === "POST") {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
+    if (session.value.activeApplyCommentId) return applyLockedResponse()
     return handleReviewCommentStop(decodeURIComponent(stopMatch[1]), session.value)
   }
 
@@ -257,6 +261,7 @@ async function handleRequest(req: Request): Promise<Response> {
   if (deleteMatch && req.method === "DELETE") {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
+    if (session.value.activeApplyCommentId) return applyLockedResponse()
     return handleReviewCommentDelete(decodeURIComponent(deleteMatch[1]), session.value)
   }
 
@@ -299,6 +304,7 @@ async function handleRequest(req: Request): Promise<Response> {
   if (url.pathname === "/api/visual-changes" && req.method === "POST") {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
+    if (session.value.activeApplyCommentId) return applyLockedResponse()
     return handleVisualChanges(req, session.value)
   }
 
@@ -311,6 +317,7 @@ async function handleRequest(req: Request): Promise<Response> {
   if (url.pathname === "/api/assets/save" && req.method === "POST") {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
+    if (session.value.activeApplyCommentId) return applyLockedResponse()
     return handleAssetSave(req, session.value)
   }
 
@@ -321,6 +328,14 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   return textResponse("Not found", 404)
+}
+
+function applyLockedResponse(): Response {
+  return jsonResponse({
+    ok: false,
+    code: "apply_locked",
+    error: "Wait for the current apply to finish before making another change.",
+  }, 409)
 }
 
 async function handleAssetSearch(url: URL, session: EditSession): Promise<Response> {
@@ -888,17 +903,7 @@ function handleReviewCommentDelete(commentId: string, session: EditSession): Res
 
 async function enqueueOrStartPersistedReviewCommentApply(session: EditSession, comment: ReviewCommentRecord, body: any = {}): Promise<Response> {
   session.applyQueue = session.applyQueue ?? []
-  if (session.activeApplyCommentId === comment.id) {
-    const current = readReviewComment(session.workspaceRoot, comment.id) ?? comment
-    return jsonResponse({
-      ok: true,
-      requestId: current.lastApplyRequestId,
-      commentRequestId: current.lastApplyRequestId,
-      deckVersion: readDeckVersion(session).version,
-      status: "pending",
-      comment: current,
-    })
-  }
+  if (session.activeApplyCommentId) return applyLockedResponse()
 
   const queuedIndex = session.applyQueue.indexOf(comment.id)
   if (queuedIndex >= 0) {
@@ -908,20 +913,6 @@ async function enqueueOrStartPersistedReviewCommentApply(session: EditSession, c
       deckVersion: readDeckVersion(session).version,
       status: "queued",
       queuePosition: queuedIndex + 1,
-      comment: queued,
-    })
-  }
-
-  if (session.activeApplyCommentId) {
-    session.applyQueue.push(comment.id)
-    const queued = markReviewCommentQueued(session.workspaceRoot, comment.id) ?? comment
-    session.lastActiveAt = Date.now()
-    scheduleIdleStop()
-    return jsonResponse({
-      ok: true,
-      deckVersion: readDeckVersion(session).version,
-      status: "queued",
-      queuePosition: session.applyQueue.length,
       comment: queued,
     })
   }
@@ -1387,31 +1378,31 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .comment-editor:empty::before { content: attr(data-placeholder); color: #94a3b8; pointer-events: none; }
     .ref-chip { display: inline-flex; align-items: center; max-width: 32ch; overflow: hidden; text-overflow: ellipsis; margin: 0 2px; padding: 1px 7px; border-radius: 999px; background: var(--ref-bg, #eff6ff); color: var(--ref-text, #1d4ed8); border: 1px solid var(--ref-border, #bfdbfe); font-weight: 800; white-space: nowrap; }
     .activity-panel { display: flex; flex: 1 1 auto; flex-direction: column; gap: 8px; min-height: 0; padding-top: 2px; }
-    .comment-thread { display: flex; flex: 1 1 auto; flex-direction: column; gap: 9px; min-height: 160px; overflow-y: auto; overflow-x: hidden; padding: 1px 2px 1px 1px; }
+    .comment-thread { display: flex; flex: 1 1 auto; flex-direction: column; gap: 16px; min-height: 160px; overflow-y: auto; overflow-x: hidden; padding: 12px 14px; }
     .comment-thread:empty::before { content: "No activity yet. Leave a comment to start."; display: block; padding: 14px; border: 1px dashed #cbd5e1; border-radius: 16px; color: #64748b; font-size: 12px; line-height: 1.45; background: #f8fafc; box-shadow: none; }
-    .comment-bubble { position: relative; display: flex; flex: 0 0 132px; flex-direction: column; min-height: 132px; max-height: 132px; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 15px; padding: 11px 12px 10px 14px; background: #ffffff; color: #334155; font-size: 13px; line-height: 1.45; box-shadow: 0 1px 2px rgba(15,23,42,.04), inset 3px 0 0 var(--comment-accent, #e2e8f0); transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; cursor: pointer; }
-    .comment-bubble:hover { transform: translateY(-1px); border-color: #cbd5e1; box-shadow: 0 8px 20px rgba(15,23,42,.07), inset 3px 0 0 var(--comment-accent, #e2e8f0); }
-    .comment-bubble.active { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(59,130,246,.12), 0 8px 20px rgba(15,23,42,.08), inset 3px 0 0 #2563eb; }
-    .comment-bubble.sending { --comment-accent: #3b82f6; border-color: #bfdbfe; background: #f8fbff; }
-    .comment-bubble.open { --comment-accent: #cbd5e1; border-color: #e2e8f0; background: #ffffff; }
-    .comment-bubble.queued { --comment-accent: #f59e0b; border-color: #fde68a; background: #fffdf4; }
-    .comment-bubble.applying { --comment-accent: #2563eb; border-color: #bfdbfe; background: #f8fbff; box-shadow: 0 8px 22px rgba(37,99,235,.1), inset 3px 0 0 var(--comment-accent); }
-    .comment-bubble.applied { --comment-accent: #16a34a; border-color: #bbf7d0; background: #f8fefb; }
-    .comment-bubble.updated { --comment-accent: #15803d; border-color: #bbf7d0; background: #f7fef9; }
-    .comment-bubble.stale { --comment-accent: #d97706; border-color: #fed7aa; background: #fffaf0; }
-    .comment-bubble.failed { --comment-accent: #dc2626; border-color: #fecaca; background: #fffafa; }
+    .comment-bubble { position: relative; display: flex; flex: 0 0 150px; flex-direction: column; min-height: 150px; max-height: 150px; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 15px; padding: 14px 15px 13px 16px; background: #ffffff; color: #334155; font-size: 13px; line-height: 1.45; box-shadow: 0 1px 2px rgba(15,23,42,.04); transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; cursor: pointer; }
+    .comment-bubble:hover { transform: translateY(-1px); border-color: #cbd5e1; box-shadow: 0 8px 20px rgba(15,23,42,.07); }
+    .comment-bubble.active { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(59,130,246,.12), 0 8px 20px rgba(15,23,42,.08); }
+    .comment-bubble.sending { border-color: #bfdbfe; background: #f8fbff; }
+    .comment-bubble.open { border-color: #e2e8f0; background: #ffffff; }
+    .comment-bubble.queued { border-color: #fde68a; background: #fffdf4; }
+    .comment-bubble.applying { border: 2px solid transparent; padding: 13px 14px 12px 15px; background: linear-gradient(#f8fbff, #f8fbff) padding-box, conic-gradient(from var(--comment-aurora-angle), #10b981, #14b8a6, #22d3ee, #2563eb, #7c3aed, #d946ef, #10b981) border-box; box-shadow: 0 0 0 1px rgba(20,184,166,.14), 0 0 18px rgba(6,182,212,.26), 0 0 28px rgba(124,58,237,.18), 0 8px 22px rgba(15,23,42,.08); animation: comment-aurora-flow 2.8s linear infinite; }
+    .comment-bubble.applying.active { border-color: transparent; box-shadow: 0 0 0 3px rgba(6,182,212,.16), 0 0 22px rgba(20,184,166,.26), 0 0 32px rgba(124,58,237,.2), 0 8px 22px rgba(15,23,42,.09); }
+    .comment-bubble.applied { border-color: #bbf7d0; background: #f8fefb; }
+    .comment-bubble.updated { border-color: #bbf7d0; background: #f7fef9; }
+    .comment-bubble.stale { border-color: #fed7aa; background: #fffaf0; }
+    .comment-bubble.failed { border-color: #fecaca; background: #fffafa; }
     .comment-bubble-text { flex: 1 1 auto; min-height: 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .comment-bubble-state { margin-top: 8px; align-self: flex-start; padding: 2px 7px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 11px; font-weight: 800; }
+    .comment-bubble-state { margin-top: 8px; align-self: flex-start; padding: 0; background: transparent; color: #475569; font-size: 11px; font-weight: 800; }
     .comment-bubble-meta { margin-bottom: 6px; color: #64748b; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
-    .comment-actions { position: absolute; right: 9px; bottom: 9px; display: flex; gap: 6px; }
+    .comment-actions { position: absolute; right: 11px; bottom: 11px; display: flex; gap: 6px; }
     .comment-action-button { display: inline-flex; align-items: center; justify-content: center; width: 30px; min-width: 30px; height: 30px; min-height: 30px; padding: 0; border-radius: 999px; border-color: #e2e8f0; background: rgba(255,255,255,.92); color: #475569; box-shadow: 0 1px 2px rgba(15,23,42,.06); }
     .comment-action-button:hover:not(:disabled) { background: #f1f5f9; color: #111827; transform: translateY(-1px); }
     .comment-action-button.danger { color: #dc2626; }
     .comment-action-button.stop { color: #b45309; }
     .comment-action-icon { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
     .comment-progress { margin-top: 7px; display: flex; flex-direction: column; gap: 4px; color: #475569; font-size: 12px; }
-    .comment-progress-line { display: flex; gap: 8px; align-items: flex-start; padding: 7px 8px; border: 1px solid #dbeafe; border-radius: 10px; background: #eff6ff; }
-    .comment-progress-line::before { content: ""; width: 7px; height: 7px; margin-top: 5px; border-radius: 999px; background: #2563eb; box-shadow: 0 0 0 4px rgba(37,99,235,.12); flex: 0 0 auto; animation: progress-pulse 1.2s ease-in-out infinite; }
+    .comment-progress-line { display: flex; gap: 8px; align-items: flex-start; padding: 0; border: 0; background: transparent; }
     .comment-raw { margin-top: 8px; color: #b91c1c; font-size: 12px; }
     .comment-raw summary { cursor: pointer; font-weight: 800; }
     .comment-raw pre { margin: 6px 0 0; max-height: 160px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: #f8fafc; border: 1px solid #fecaca; border-radius: 8px; padding: 8px; }
@@ -1433,12 +1424,12 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .codex-log-modal .codex-log-list { margin: 0; padding: 14px; max-height: none; overflow: auto; }
     .codex-log-modal .codex-log-entry { background: transparent; }
     .codex-log-modal .codex-log-detail { max-height: 260px; }
-    .comment-bubble.updated .comment-bubble-state { background: #dcfce7; color: #166534; }
-    .comment-bubble.applied .comment-bubble-state { background: #dcfce7; color: #166534; }
-    .comment-bubble.applying .comment-bubble-state { background: #dbeafe; color: #1d4ed8; }
-    .comment-bubble.queued .comment-bubble-state { background: #fef3c7; color: #92400e; }
-    .comment-bubble.stale .comment-bubble-state { background: #ffedd5; color: #9a3412; }
-    .comment-bubble.failed .comment-bubble-state { background: #fee2e2; color: #991b1b; }
+    .comment-bubble.updated .comment-bubble-state { color: #166534; }
+    .comment-bubble.applied .comment-bubble-state { color: #166534; }
+    .comment-bubble.applying .comment-bubble-state { color: #0f766e; }
+    .comment-bubble.queued .comment-bubble-state { color: #92400e; }
+    .comment-bubble.stale .comment-bubble-state { color: #9a3412; }
+    .comment-bubble.failed .comment-bubble-state { color: #991b1b; }
     .inspect-actions { display: flex; flex-direction: column; gap: 8px; }
     .inspect-options { display: flex; flex-direction: column; gap: 5px; }
     .inspect-options label { color: #64748b; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
@@ -1465,10 +1456,11 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .asset-card.is-saving::after { content: ""; position: absolute; inset: 0; background: rgba(15,23,42,.32); }
     .asset-card.is-saving .asset-save { z-index: 1; }
     .asset-card.is-saved-candidate .asset-thumb { opacity: .72; }
+    @property --comment-aurora-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes progress-pulse { 0%, 100% { transform: scale(.85); opacity: .68; } 50% { transform: scale(1.16); opacity: 1; } }
+    @keyframes comment-aurora-flow { to { --comment-aurora-angle: 360deg; } }
     @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-    @media (prefers-reduced-motion: reduce) { .comment-bubble, .comment-progress-line::before, .skeleton-line, .spinner { animation: none !important; transition: none !important; } .comment-bubble:hover { transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .comment-bubble, .skeleton-line, .spinner { animation: none !important; transition: none !important; } .comment-bubble:hover { transform: none; } }
     .asset-search { display: grid; grid-template-columns: minmax(0, 1fr) 118px; gap: 8px; }
     .asset-search input, .asset-search select { min-width: 0; padding: 10px 11px; border: 1px solid #dbe3ef; border-radius: 12px; background: #ffffff; color: #111827; font: inherit; font-size: 12px; font-weight: 700; outline: none; }
     .asset-search input:focus, .asset-search select:focus { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
@@ -1511,12 +1503,17 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .composer-send .spinner + span { display: none; }
     .composer-icon { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .status { min-height: 20px; color: #64748b; font-size: 13px; line-height: 1.45; }
+    .apply-lock-overlay { position: absolute; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; padding: 24px; background: rgba(248,250,252,.52); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); pointer-events: auto; }
+    .apply-lock-overlay.open { display: flex; }
+    .apply-lock-card { width: min(320px, calc(100% - 48px)); padding: 16px 18px; border: 1px solid rgba(20,184,166,.26); border-radius: 16px; background: rgba(255,255,255,.94); color: #0f172a; box-shadow: 0 24px 70px rgba(15,23,42,.2), 0 0 36px rgba(6,182,212,.16); text-align: center; }
+    .apply-lock-card strong { display: block; margin-bottom: 4px; font-size: 13px; font-weight: 900; }
+    .apply-lock-card span { color: #64748b; font-size: 12px; line-height: 1.4; }
     @media (max-width: 900px) { .app { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; } .resize-handle { display: none; } aside { max-height: 48vh; min-width: 0; border-left: 0; border-top: 1px solid #e2e8f0; } .deck-nav { bottom: 10px; } .asset-search { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body class="${bodyClass}">
   <main class="app">
-    <section class="preview"><iframe id="deck" src="/deck?token=${encodeURIComponent(token)}"></iframe><div id="commentHighlightLayer" class="comment-highlight-layer" aria-hidden="true"></div><div id="hitbox" class="hitbox" aria-label="Deck element selection layer"></div><div id="visualMoveHandle" class="visual-move-handle" aria-hidden="true"></div><div id="visualResizeHandle" class="visual-resize-handle" aria-hidden="true"></div><div id="visualEditToolbar" class="visual-edit-toolbar" aria-live="polite"><span id="visualEditCount">No unsaved visual changes</span><button id="visualUndo" type="button">Undo</button><button id="visualReset" type="button">Reset</button><button id="visualSave" class="save-visual" type="button">Save Changes</button></div><nav class="deck-nav" aria-label="Deck navigation"><button id="deckPrev" type="button" title="Previous slide (ArrowLeft / ArrowUp / PageUp)">Previous</button><div id="deckCounter" class="deck-nav-status" aria-live="polite">-- / --</div><button id="deckNext" type="button" title="Next slide (ArrowRight / ArrowDown / Space / PageDown)">Next</button></nav></section>
+    <section class="preview"><iframe id="deck" src="/deck?token=${encodeURIComponent(token)}"></iframe><div id="commentHighlightLayer" class="comment-highlight-layer" aria-hidden="true"></div><div id="hitbox" class="hitbox" aria-label="Deck element selection layer"></div><div id="visualMoveHandle" class="visual-move-handle" aria-hidden="true"></div><div id="visualResizeHandle" class="visual-resize-handle" aria-hidden="true"></div><div id="visualEditToolbar" class="visual-edit-toolbar" aria-live="polite"><span id="visualEditCount">No unsaved visual changes</span><button id="visualUndo" type="button">Undo</button><button id="visualReset" type="button">Reset</button><button id="visualSave" class="save-visual" type="button">Save Changes</button></div><nav class="deck-nav" aria-label="Deck navigation"><button id="deckPrev" type="button" title="Previous slide (ArrowLeft / ArrowUp / PageUp)">Previous</button><div id="deckCounter" class="deck-nav-status" aria-live="polite">-- / --</div><button id="deckNext" type="button" title="Next slide (ArrowRight / ArrowDown / Space / PageDown)">Next</button></nav><div id="applyLockOverlay" class="apply-lock-overlay" aria-hidden="true"><div class="apply-lock-card"><strong>Applying deck edit...</strong><span>Preview is locked until Codex finishes.</span></div></div></section>
     <div id="resizeHandle" class="resize-handle" role="separator" aria-label="Resize editor panel" aria-orientation="vertical" title="Drag to resize editor. Double-click to reset."></div>
     <aside>
       <div>
@@ -1692,6 +1689,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         assetShuffleButton: null,
         assetResults: null,
         editSavedAssets: null,
+        applyLockOverlay: null,
         codexLogModal: null,
         codexLogBackdrop: null,
         codexLogClose: null,
@@ -1749,6 +1747,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           els.assetShuffleButton = document.getElementById('assetShuffleButton');
           els.assetResults = document.getElementById('assetResults');
           els.editSavedAssets = document.getElementById('editSavedAssets');
+          els.applyLockOverlay = document.getElementById('applyLockOverlay');
           els.codexLogModal = document.getElementById('codexLogModal');
           els.codexLogBackdrop = document.getElementById('codexLogBackdrop');
           els.codexLogClose = document.getElementById('codexLogClose');
@@ -1758,7 +1757,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
           els.inspectLanguage = document.getElementById('inspectLanguage');
 
-          if (!els.frame || !els.commentHighlightLayer || !els.hitbox || !els.resizeHandle || !els.visualMoveHandle || !els.visualResizeHandle || !els.visualEditToolbar || !els.visualEditCount || !els.visualUndo || !els.visualReset || !els.visualSave || !els.deckPrev || !els.deckNext || !els.deckCounter || !els.selectionSummary || !els.selectionChips || !els.editTab || !els.inspectTab || !els.editPanel || !els.inspectPanel || !els.comment || !els.commentThread || !els.send || !els.inspectComment || !els.inspectButton || !els.inspectLanguage || !els.inspectCards || !els.inspectStale || !els.localAssetToggle || !els.localAssetMenu || !els.assetSearchToggle || !els.assetSearchBack || !els.assetSearchView || !els.assetQuery || !els.assetPurpose || !els.assetSearchButton || !els.assetShuffleButton || !els.assetResults || !els.editSavedAssets || !els.codexLogModal || !els.codexLogBackdrop || !els.codexLogClose || !els.codexLogTitle || !els.codexLogBody || !els.status) {
+          if (!els.frame || !els.commentHighlightLayer || !els.hitbox || !els.resizeHandle || !els.visualMoveHandle || !els.visualResizeHandle || !els.visualEditToolbar || !els.visualEditCount || !els.visualUndo || !els.visualReset || !els.visualSave || !els.deckPrev || !els.deckNext || !els.deckCounter || !els.selectionSummary || !els.selectionChips || !els.editTab || !els.inspectTab || !els.editPanel || !els.inspectPanel || !els.comment || !els.commentThread || !els.send || !els.inspectComment || !els.inspectButton || !els.inspectLanguage || !els.inspectCards || !els.inspectStale || !els.localAssetToggle || !els.localAssetMenu || !els.assetSearchToggle || !els.assetSearchBack || !els.assetSearchView || !els.assetQuery || !els.assetPurpose || !els.assetSearchButton || !els.assetShuffleButton || !els.assetResults || !els.editSavedAssets || !els.applyLockOverlay || !els.codexLogModal || !els.codexLogBackdrop || !els.codexLogClose || !els.codexLogTitle || !els.codexLogBody || !els.status) {
             throw new Error('Editor boot failed: required DOM nodes are missing.');
           }
 
@@ -1787,8 +1786,17 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
               closeCodexLogModal();
               return;
             }
+            if (isApplyLocked()) {
+              event.preventDefault();
+              setStatus(applyLockStatus());
+              return;
+            }
             closeLocalAssetMenu();
             clearHover();
+            return;
+          }
+          if (isApplyLocked() && !isTextInputTarget(event.target)) {
+            event.preventDefault();
             return;
           }
           if (isTextInputTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
@@ -1830,6 +1838,10 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           if (event.ctrlKey || event.metaKey) event.preventDefault();
         });
         els.hitbox.addEventListener('wheel', (event) => {
+          if (isApplyLocked()) {
+            event.preventDefault();
+            return;
+          }
           const win = els.frame.contentWindow;
           if (!win) return;
           event.preventDefault();
@@ -1885,7 +1897,38 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         return state.mode === 'inspect' ? els.inspectComment : els.comment;
       }
 
+      function isApplyLocked() {
+        return state.pendingComments.some((comment) => comment && comment.status === 'applying');
+      }
+
+      function applyLockStatus() {
+        return 'Wait for the current apply to finish before making another change.';
+      }
+
+      function updateApplyLockUi() {
+        const locked = isApplyLocked();
+        els.applyLockOverlay.classList.toggle('open', locked);
+        els.applyLockOverlay.setAttribute('aria-hidden', locked ? 'false' : 'true');
+        els.comment.setAttribute('contenteditable', 'true');
+        els.inspectComment.setAttribute('contenteditable', 'true');
+        els.localAssetToggle.disabled = locked;
+        els.assetSearchToggle.disabled = locked;
+        els.assetSearchBack.disabled = locked;
+        els.assetQuery.disabled = locked;
+        els.assetPurpose.disabled = locked;
+        if (locked) {
+          closeLocalAssetMenu();
+          closeAssetSearchPanel();
+          clearHoverSilently();
+        }
+        updateDeckNavControls();
+        updateVisualToolbar();
+        updateAssetShuffleState();
+        updateSendState();
+      }
+
       function toggleLocalAssetMenu() {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         setLocalAssetMenuOpen(!els.localAssetMenu.classList.contains('open'));
       }
 
@@ -1900,6 +1943,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function toggleAssetSearchPanel() {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         const open = !els.assetSearchView.classList.contains('open');
         setAssetSearchOpen(open);
       }
@@ -1927,6 +1971,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function startEditorResize(event) {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         event.preventDefault();
         const currentWidth = Number.parseFloat(getComputedStyle(document.querySelector('.app')).getPropertyValue('--editor-width')) || DEFAULT_EDITOR_WIDTH;
         state.resizeDrag = { startX: event.clientX, startWidth: currentWidth };
@@ -2072,6 +2117,12 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function renderVisualHandles(target) {
+        if (isApplyLocked()) {
+          state.hoverVisualTarget = null;
+          renderVisualMoveHandle(null);
+          renderVisualResizeHandle(null);
+          return;
+        }
         state.hoverVisualTarget = target && (isDirectResizable(target) || isDirectMovable(target)) ? target : null;
         renderVisualMoveHandle(state.hoverVisualTarget);
         renderVisualResizeHandle(state.hoverVisualTarget);
@@ -2090,6 +2141,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function startVisualMove(event) {
+        if (isApplyLocked()) return false;
         const target = state.hoverVisualTarget;
         if (!target || !isDirectMovable(target)) return false;
         event.preventDefault();
@@ -2148,6 +2200,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function startVisualResize(event) {
+        if (isApplyLocked()) return false;
         const target = state.hoverVisualTarget;
         if (!target || !isDirectResizable(target)) return false;
         event.preventDefault();
@@ -2218,6 +2271,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function undoVisualChange() {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         const change = state.visualChanges.pop();
         if (!change) return;
         const target = elementFromVisualChange(change);
@@ -2229,6 +2283,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function resetVisualChanges() {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         while (state.visualChanges.length) {
           const change = state.visualChanges.pop();
           const target = change ? elementFromVisualChange(change) : null;
@@ -2242,14 +2297,16 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
       function updateVisualToolbar() {
         const count = state.visualChanges.length;
+        const locked = isApplyLocked();
         els.visualEditToolbar.classList.toggle('active', count > 0);
         els.visualEditCount.textContent = count === 0 ? 'No unsaved visual changes' : count + ' unsaved visual change' + (count === 1 ? '' : 's');
-        els.visualUndo.disabled = count === 0 || state.savingVisualChanges;
-        els.visualReset.disabled = count === 0 || state.savingVisualChanges;
-        els.visualSave.disabled = count === 0 || state.savingVisualChanges;
+        els.visualUndo.disabled = locked || count === 0 || state.savingVisualChanges;
+        els.visualReset.disabled = locked || count === 0 || state.savingVisualChanges;
+        els.visualSave.disabled = locked || count === 0 || state.savingVisualChanges;
       }
 
       async function saveVisualChanges() {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         if (!state.visualChanges.length || state.savingVisualChanges) return;
         state.savingVisualChanges = true;
         updateVisualToolbar();
@@ -2352,16 +2409,19 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function updateDeckNavControls() {
         const total = state.deckSlideCount;
         const current = total > 0 ? state.deckSlideIndex + 1 : 0;
+        const locked = isApplyLocked();
         els.deckCounter.textContent = total > 0 ? current + ' / ' + total : '-- / --';
-        els.deckPrev.disabled = total <= 1 || state.deckSlideIndex <= 0;
-        els.deckNext.disabled = total <= 1 || state.deckSlideIndex >= total - 1;
+        els.deckPrev.disabled = locked || total <= 1 || state.deckSlideIndex <= 0;
+        els.deckNext.disabled = locked || total <= 1 || state.deckSlideIndex >= total - 1;
       }
 
       function prevDeckSlide() {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         goToDeckSlide(state.deckSlideIndex - 1);
       }
 
       function nextDeckSlide() {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         goToDeckSlide(state.deckSlideIndex + 1);
       }
 
@@ -2519,6 +2579,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function onHover(event) {
+        if (isApplyLocked()) return clearHoverSilently();
         try {
           initFrame();
           const directTarget = visualTargetFromPointer(event);
@@ -2538,6 +2599,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function onClick(event) {
+        if (isApplyLocked()) return;
         try {
           initFrame();
           const target = selectable(targetFromPointer(event));
@@ -2554,6 +2616,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function onPointerDown(event) {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         if (!event.ctrlKey && !event.metaKey && pointerIsOnVisualMoveHandle(event)) {
           if (startVisualMove(event)) return;
         }
@@ -2572,6 +2635,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       async function sendComment() {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         syncReferencesFromComment(false, els.comment);
         syncSelectedAssetFromComment();
         const text = getCommentText().trim();
@@ -2652,6 +2716,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       async function applyPersistedComment(commentId) {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         const comment = state.pendingComments.find((item) => item.id === commentId);
         if (!comment || comment.status === 'applying' || comment.status === 'queued') return;
         updatePendingCommentStatus(commentId, 'applying', { baseDeckVersion: state.deckVersion || comment.baseDeckVersion, progressEvent: null, eventLog: [], failureRaw: '', failureMessage: '' });
@@ -2680,6 +2745,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       async function stopPersistedComment(commentId) {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         const comment = state.pendingComments.find((item) => item.id === commentId);
         if (!comment || !canStopPersistedComment(comment.status)) return;
         try {
@@ -2695,6 +2761,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       async function deletePersistedComment(commentId) {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         const comment = state.pendingComments.find((item) => item.id === commentId);
         if (!comment || !canDeletePersistedComment(comment.status)) return;
         try {
@@ -2748,6 +2815,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       async function searchAssets(nextBatch) {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         const query = (els.assetQuery.value || '').trim();
         if (!query || state.assetSearchBusy) return;
         const key = query + '\u0000' + (els.assetPurpose.value || 'illustration');
@@ -2794,7 +2862,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function updateAssetShuffleState() {
-        els.assetShuffleButton.disabled = state.assetSearchBusy || !state.assetCandidates.length;
+        els.assetSearchButton.disabled = isApplyLocked() || state.assetSearchBusy;
+        els.assetShuffleButton.disabled = isApplyLocked() || state.assetSearchBusy || !state.assetCandidates.length;
       }
 
       function renderAssetCandidates() {
@@ -2823,6 +2892,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       async function saveCandidate(index) {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         const candidate = state.assetCandidates[index];
         if (!candidate) return;
         state.assetSavingIndex = index;
@@ -2963,6 +3033,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function addAssetToComment(asset) {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         if (!asset) return;
         state.selectedAsset = asset;
         removeAssetChip();
@@ -2977,6 +3048,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function onAssetDragOver(event) {
+        if (isApplyLocked()) return;
         if (!state.draggingAsset) return;
         event.preventDefault();
         if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
@@ -2991,6 +3063,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       async function onAssetDrop(event) {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         const asset = state.draggingAsset || findSavedAsset(event.dataTransfer?.getData('application/revela-asset-id'));
         if (!asset) return;
         event.preventDefault();
@@ -3171,6 +3244,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       async function sendAssetPlacement(asset, placement) {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         const modeText = placement.targetMode === 'replace'
           ? 'replace the image at the drop target'
           : placement.targetMode === 'insert-into'
@@ -3201,6 +3275,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function toggleReference(target) {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         if (!target) {
           setStatus('No selectable deck element found under pointer.');
           return;
@@ -3478,6 +3553,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
 
       function renderCommentThread(scrollToBottom = true) {
         els.commentThread.textContent = '';
+        const locked = isApplyLocked();
         state.pendingComments.forEach((comment) => {
           const bubble = document.createElement('div');
           bubble.className = 'comment-bubble ' + comment.status + (comment.id === state.activeCommentId ? ' active' : '');
@@ -3510,7 +3586,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           if (refs) bubble.appendChild(refs);
           bubble.appendChild(text);
           bubble.appendChild(status);
-          if (comment.persisted && canApplyPersistedComment(comment.status)) {
+          if (!locked && comment.persisted && canApplyPersistedComment(comment.status)) {
             const actions = document.createElement('div');
             actions.className = 'comment-actions';
             const apply = commentActionButton(isReapplyStatus(comment.status) ? 'Re-apply' : 'Apply', isReapplyStatus(comment.status) ? '${lucideIcon("refresh-cw", "comment-action-icon")}' : '${lucideIcon("play", "comment-action-icon")}');
@@ -3518,7 +3594,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             actions.appendChild(apply);
             bubble.appendChild(actions);
           }
-          if (comment.persisted && canStopPersistedComment(comment.status)) {
+          if (!locked && comment.persisted && canStopPersistedComment(comment.status)) {
             const actions = bubble.querySelector('.comment-actions') || document.createElement('div');
             actions.className = 'comment-actions';
             const stop = commentActionButton('Stop', '${lucideIcon("square", "comment-action-icon")}', 'stop');
@@ -3526,7 +3602,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             actions.appendChild(stop);
             if (!actions.parentElement) bubble.appendChild(actions);
           }
-          if (comment.persisted && canDeletePersistedComment(comment.status)) {
+          if (!locked && comment.persisted && canDeletePersistedComment(comment.status)) {
             const actions = bubble.querySelector('.comment-actions') || document.createElement('div');
             actions.className = 'comment-actions';
             const remove = commentActionButton('Delete', '${lucideIcon("trash-2", "comment-action-icon")}', 'danger');
@@ -3564,6 +3640,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           }
           els.commentThread.appendChild(bubble);
         });
+        updateApplyLockUi();
         if (scrollToBottom) scrollCommentThreadToBottom();
       }
 
@@ -3788,12 +3865,13 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       function updateSendState() {
+        const locked = isApplyLocked();
         if (state.sendingEdit) setButtonLoading(els.send, true, 'Sending...');
         else setButtonLoading(els.send, false, sendButtonHtml, true);
-        els.send.disabled = state.sendingEdit || !getCommentText().trim();
+        els.send.disabled = locked || state.sendingEdit || !getCommentText().trim();
         if (state.inspecting) setButtonLoading(els.inspectButton, true, 'Getting insight...');
         else setButtonLoading(els.inspectButton, false, 'Get Insight');
-        els.inspectButton.disabled = state.inspecting || state.references.length === 0;
+        els.inspectButton.disabled = locked || state.inspecting || state.references.length === 0;
       }
 
       function setButtonLoading(button, loading, label, html) {
@@ -3840,6 +3918,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       async function inspectCurrentSelection() {
+        if (isApplyLocked()) return setStatus(applyLockStatus());
         if (!state.references.length || state.inspecting) return;
         const snapshot = collectReferenceSnapshot();
         const comment = getInspectComment();
