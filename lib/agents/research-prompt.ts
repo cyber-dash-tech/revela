@@ -133,6 +133,19 @@ Strength: {strong|directional|weak|context-only}
 Deck use: {where this belongs in deck planning}
 Display note: {optional short audience-facing scope note for captions/source notes}
 
+## Synthesis: <stable-id>
+
+Question answered: {research question this synthesis resolves}
+Basis: {finding ids, source files, or URLs used}
+Interpretation: {what the evidence means when read together}
+So what: {why this matters for the audience or decision}
+Decision implication: {what should change in the recommendation, story, or slide argument}
+Confidence: {high|medium|low}
+Alternative reading: {plausible competing interpretation or contradiction}
+Evidence boundary: {internal guardrail; what this synthesis must not overclaim}
+Deck use: {where this belongs in deck planning}
+Display note: {optional short user-facing scope note}
+
 ## Analysis: <stable-id>
 
 Basis: {user/LLM analytical framework or synthesis basis}
@@ -169,6 +182,8 @@ Content rules:
 - Use \`Evidence boundary\` for internal support limits, unsupported scope, estimates, rankings, market sizes, forecasts, and conflicting sources.
 - Use \`Display note\` only for short user-facing scope text that may appear in captions or source notes.
 - Do not mechanically copy \`Evidence boundary\` into deck copy; expose it only when needed to avoid a misleading audience conclusion.
+- For deck goals, turn related findings into \`Synthesis\` before planning slides. Findings are evidence basis; synthesis carries Interpretation, So what, Decision implication, and Audience takeaway material.
+- Do not mechanically copy finding bullets into deck copy. Use \`Synthesis\` to write slide claims and takeaways, then keep findings in source notes, captions, evidence charts, or speaker notes.
 - Preserve raw numbers and direct quotes — do not summarize prematurely
 - Use tables for comparative data when 3+ entities are compared
 - Include publication dates where available
@@ -204,6 +219,7 @@ Gaps:
 - **Avoid** repeated extraction or deep reading for files that are clearly irrelevant to this axis
 - **Always** include source attribution on every evidence finding
 - **Always** preserve source trace: URL or filename, location when available, compact quote/snippet when available, Evidence boundary, Strength, Deck use, and Display note where relevant
+- **Always** write synthesis when multiple findings answer the same deck question or when a finding needs interpretation before it can become a slide argument
 - **Always** use tables for comparative data (more useful than bullets for presentations)
 - **Preserve** raw data — the primary agent will select what to include in slides
 - **Note** data freshness — include publication dates where available

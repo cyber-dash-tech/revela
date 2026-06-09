@@ -142,6 +142,30 @@ describe("runtime facade", () => {
     expect(codes).toContain("slide_component_children_invalid")
   })
 
+  it("reports synthesis-thin diagnostics for sourced slides without argument fields", () => {
+    const root = tempWorkspace("revela-runtime-deck-plan-synthesis-thin-")
+    writeFileSync(join(root, "deck-plan.md"), synthesisThinDeckPlanMarkdown(), "utf-8")
+
+    const result = readDeckPlan({ workspaceRoot: root })
+    const codes = result.projection?.diagnostics.map((item) => item.code) ?? []
+
+    expect(result.ok).toBe(true)
+    expect(codes).toContain("slide_synthesis_thin")
+    expect(codes).toContain("slide_finding_copy_risk")
+  })
+
+  it("does not report synthesis-thin diagnostics when sourced slides include argument fields", () => {
+    const root = tempWorkspace("revela-runtime-deck-plan-synthesis-")
+    writeFileSync(join(root, "deck-plan.md"), synthesisReadyDeckPlanMarkdown(), "utf-8")
+
+    const result = readDeckPlan({ workspaceRoot: root })
+    const codes = result.projection?.diagnostics.map((item) => item.code) ?? []
+
+    expect(result.ok).toBe(true)
+    expect(codes).not.toContain("slide_synthesis_thin")
+    expect(codes).not.toContain("slide_finding_copy_risk")
+  })
+
   it("upserts one structured deck-plan slide and reads its component plan", () => {
     const root = tempWorkspace("revela-runtime-deck-plan-upsert-")
     writeMinimalVault(root)
@@ -1026,6 +1050,151 @@ designName: summit
 
 Caveats:
 - [[Needs manual verification.]]
+
+## Unresolved Inputs
+
+- None.
+
+## HTML Contract
+
+- Use positive 1-based data-slide-index values.
+`
+}
+
+function synthesisThinDeckPlanMarkdown(): string {
+  return `---
+id: deck-plan
+designName: summit
+---
+
+# Deck Plan
+
+## Goal
+
+- Test synthesis-thin authoring diagnostics.
+
+## Audience
+
+- Executive committee.
+
+## Design
+
+- Design: summit
+
+## Source Authority
+
+- Sources should stay explicit.
+
+## Chapter Map
+
+- Decision: slide 1.
+
+## Slides
+
+---
+slideIndex: 1
+id: slide-synthesis-thin
+title: Synthesis Thin
+chapter: Decision
+role: Repeat a finding without interpretation.
+structural: false
+layout: narrative
+components: text-panel
+---
+
+#### Content Plan
+
+- Finding: Pilot reduced cycle time.
+- Source: researches/pilot/ops.md
+
+#### Source Links
+
+Findings:
+- [[researches/pilot/ops.md#finding-cycle-time]]
+
+#### Design Plan
+
+##### text-panel
+
+- Slot: body
+- Position: main
+- Purpose: Present the finding.
+- Content:
+  Pilot reduced cycle time.
+
+## Unresolved Inputs
+
+- None.
+
+## HTML Contract
+
+- Use positive 1-based data-slide-index values.
+`
+}
+
+function synthesisReadyDeckPlanMarkdown(): string {
+  return `---
+id: deck-plan
+designName: summit
+---
+
+# Deck Plan
+
+## Goal
+
+- Test synthesis-ready authoring diagnostics.
+
+## Audience
+
+- Executive committee.
+
+## Design
+
+- Design: summit
+
+## Source Authority
+
+- Sources should stay explicit.
+
+## Chapter Map
+
+- Decision: slide 1.
+
+## Slides
+
+---
+slideIndex: 1
+id: slide-synthesis-ready
+title: Synthesis Ready
+chapter: Decision
+role: Explain the decision implication.
+structural: false
+layout: narrative
+components: text-panel
+---
+
+#### Content Plan
+
+- Claim: The sourced evidence supports a bounded pilot rather than a broad rollout.
+- Reasoning: The finding shows operational lift in a pilot setting, while the synthesis keeps external market demand outside the claim.
+- Audience takeaway: Approve the pilot now and hold rollout decisions for market validation.
+- Evidence basis: [[researches/pilot/ops.md#synthesis-pilot-scope]]
+- Boundary handling: State the market-demand boundary in the source note, not the main headline.
+
+#### Source Links
+
+Findings:
+- [[researches/pilot/ops.md#synthesis-pilot-scope]]
+
+#### Design Plan
+
+##### text-panel
+
+- Slot: body
+- Position: main
+- Purpose: Present the synthesized decision implication.
+- Content:
+  Use the claim, reasoning, and audience takeaway from the Content Plan.
 
 ## Unresolved Inputs
 

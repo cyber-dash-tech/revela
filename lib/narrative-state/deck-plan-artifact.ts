@@ -905,6 +905,7 @@ function htmlWritingInstruction(): string {
 function slideDiagnostics(slide: DeckPlanSlideProjection, knownNodeIds?: Set<string>): DeckPlanProjectionDiagnostic[] {
   const diagnostics: DeckPlanProjectionDiagnostic[] = []
   if (!slide.structural && linksCount(slide.sourceLinks) === 0) diagnostics.push({ severity: "warning", code: "slide_source_link_missing", message: `Non-structural deck-plan slide ${slide.id} has no material, finding, asset, or URL source link.`, file: slide.path, nodeId: slide.id })
+  if (!slide.structural && linksCount(slide.sourceLinks) > 0) diagnostics.push(...slideSynthesisDiagnostics(slide))
   if (!slide.layout) diagnostics.push({ severity: "warning", code: "slide_layout_missing", message: `Deck-plan slide ${slide.id} is missing a layout.`, file: slide.path, nodeId: slide.id })
   if (slide.components.length === 0) diagnostics.push({ severity: "warning", code: "slide_components_missing", message: `Deck-plan slide ${slide.id} has no component names in frontmatter.`, file: slide.path, nodeId: slide.id })
   if (slide.componentPlan.length === 0) diagnostics.push({ severity: "warning", code: "slide_component_plan_missing", message: `Deck-plan slide ${slide.id} is missing structured ## Component Plan entries.`, file: slide.path, nodeId: slide.id })
@@ -919,6 +920,36 @@ function slideDiagnostics(slide: DeckPlanSlideProjection, knownNodeIds?: Set<str
     }
   }
   return diagnostics
+}
+
+function slideSynthesisDiagnostics(slide: DeckPlanSlideProjection): DeckPlanProjectionDiagnostic[] {
+  const diagnostics: DeckPlanProjectionDiagnostic[] = []
+  const contentPlan = singleFileSubsection(slide.markdown, "Content Plan")
+  const missing = ["Claim", "Reasoning", "Audience takeaway"].filter((field) => !hasPlanField(contentPlan, field))
+  if (missing.length > 0) diagnostics.push({
+    severity: "warning",
+    code: "slide_synthesis_thin",
+    message: `Non-structural deck-plan slide ${slide.id} has source links but lacks synthesis fields in Content Plan: ${missing.join(", ")}.`,
+    file: slide.path,
+    nodeId: slide.id,
+  })
+  if (contentPlanContainsFindingCopy(contentPlan)) diagnostics.push({
+    severity: "warning",
+    code: "slide_finding_copy_risk",
+    message: `Deck-plan slide ${slide.id} appears to use raw finding text in Content Plan; use synthesis for the claim, reasoning, and audience takeaway, and keep findings as evidence/source context.`,
+    file: slide.path,
+    nodeId: slide.id,
+  })
+  return diagnostics
+}
+
+function hasPlanField(markdown: string, field: string): boolean {
+  const escaped = field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  return new RegExp(`^\\s*[-*]?\\s*${escaped}\\s*:`, "im").test(markdown)
+}
+
+function contentPlanContainsFindingCopy(markdown: string): boolean {
+  return /^\s*[-*]?\s*(Finding|Quote\/Snippet|Source|URL)\s*:/im.test(markdown)
 }
 
 export function deckPlanDesignDiagnostics(projection: DeckPlanProjection | undefined, inventory: { layouts: string[]; components: string[]; layoutSlots?: Record<string, string[]>; componentNesting?: Record<string, { acceptsChildren: boolean; allowedChildren?: string[] }> }): DeckPlanProjectionDiagnostic[] {

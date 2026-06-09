@@ -71,6 +71,23 @@ Deck use: <where this belongs in deck planning>
 Display note: <optional short user-facing scope note for captions/source notes>
 ```
 
+Use synthesis blocks to turn multiple findings into decision-relevant interpretation before deck planning:
+
+```md
+## Synthesis: <stable-id>
+
+Question answered: <research question this synthesis resolves>
+Basis: <finding ids, source files, or URLs used>
+Interpretation: <what the evidence means when read together>
+So what: <why this matters for the audience or decision>
+Decision implication: <what should change in the recommendation, story, or slide argument>
+Confidence: <high|medium|low>
+Alternative reading: <plausible competing interpretation or contradiction>
+Evidence boundary: <internal guardrail; what this synthesis must not overclaim>
+Deck use: <where this belongs in deck planning>
+Display note: <optional short user-facing scope note>
+```
+
 Use `## Analysis: <stable-id>` for user/LLM analytical frameworks, `## Implementation Note: <stable-id>` for render/data/API contracts, `## Asset Lead: <stable-id>` for image/logo/media leads, and `## Gaps` for missing or insufficient source support.
 
 Each saved evidence finding should include:
@@ -85,6 +102,8 @@ Each saved evidence finding should include:
 - Optional image/logo/screenshot leads with known source and license/attribution status.
 
 If a finding is context only, label it as context and do not present it as proof. Internal boundaries must not be mechanically copied into deck text; use `Display note` for default visible caption/source-note scope, and expose `Evidence boundary` only when needed to avoid a misleading audience conclusion.
+
+Do not use raw findings as the default deck argument. For deck goals, synthesize findings first; findings provide evidence basis, while `Synthesis` provides the interpretation, decision implication, and audience takeaway that should drive `deck-plan.md`.
 
 ## Outputs
 
@@ -104,12 +123,14 @@ Each non-structural slide block must include:
 
 - Slide title and role when relevant.
 - `#### Content Plan`
+- In `#### Content Plan`: `Claim`, `Reasoning`, `Audience takeaway`, `Evidence basis`, and `Boundary handling`.
 - `#### Source Links` for materials, finding-level references when available, assets, URLs, and caveats.
 - `#### Design Plan`
 - Selected layout from design inventory.
 - Component plan using component names from design inventory.
 - Valid slots from the selected layout.
 - Valid component nesting hints, including `box.children` when multiple child components support one semantic idea.
+- Base slide arguments on `Synthesis` blocks when available; use finding text as evidence/source context, not as default body copy.
 - Use `Display note` for short visible caption/source-note scope.
 - Keep `Evidence boundary` internal unless it is required to avoid a misleading audience conclusion.
 - `Analysis` and `Implementation Note` entries may support deck structure or rendering, but must not be cited as external factual proof.

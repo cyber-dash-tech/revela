@@ -11,6 +11,7 @@ Use this skill when the user asks to make, generate, render, or update a Revela 
 
 - Deck execution planning comes from canonical `deck-plan.md`.
 - Local materials, material reviews, `researches/`, `assets/`, and user intent provide source context.
+- Slide argument copy comes from `deck-plan.md` `Claim`, `Reasoning`, and `Audience takeaway` fields when present; raw findings are evidence/source context, not default body copy.
 - Active/requested design tools define valid layouts, slots, components, nesting hints, and HTML writing rules.
 - Active/requested domain guidance may inform communication framing, but it is not source evidence.
 - Generated artifacts live under `decks/*.html`.
@@ -63,6 +64,8 @@ Allowed plan repairs are limited to technical diagnostics from `revela_read_deck
 
 Do not redesign the argument structure, add new slides, remove supported slides, rewrite claims, or add source links that were not reviewed or saved by `revela-research`. If normal plan authoring is needed, stop and send the user back to `revela` routing or `revela-research` Planning Handoff.
 
+If a non-structural slide plan has source links but lacks `Claim`, `Reasoning`, or `Audience takeaway`, treat it as synthesis-thin: do not fill the gap by copying raw findings into slide body copy. Report that the plan needs `revela-research` Planning Handoff repair.
+
 ## Render Phase
 
 Use this phase when the user asks to make, generate, render, or update an HTML deck and `deck-plan.md` is readable.
@@ -70,14 +73,15 @@ Use this phase when the user asks to make, generate, render, or update an HTML d
 1. Call `revela_read_deck_plan` before HTML generation and follow the current projection.
 2. Read `htmlWritingBatches` before any HTML write. `revela_read_deck_plan` is QA/diagnostics, not a writer.
 3. For new HTML files, call `revela_create_deck_foundation`.
-4. Generate one `htmlWritingBatches` entry at a time.
-5. A single HTML write/edit/apply_patch may add or rewrite at most 5 slide sections.
-6. If a chapter is longer than 5 slides, use the consecutive batch parts returned by `revela_read_deck_plan`.
-7. Patch slides into the foundation between Revela slide markers.
-8. Preserve positive 1-based `data-slide-index` values.
-9. Every slide must have exactly one direct `.slide-canvas` child.
-10. Keep the HTML valid after each write.
-11. After every HTML write, call `revela_run_deck_qa` and repair hard errors before continuing, review, or export.
+4. Use the deck-plan's `Claim`, `Reasoning`, and `Audience takeaway` as the primary slide copy. Keep finding text in source notes, captions, evidence charts, or speaker notes unless the plan explicitly calls for a direct evidence quote.
+5. Generate one `htmlWritingBatches` entry at a time.
+6. A single HTML write/edit/apply_patch may add or rewrite at most 5 slide sections.
+7. If a chapter is longer than 5 slides, use the consecutive batch parts returned by `revela_read_deck_plan`.
+8. Patch slides into the foundation between Revela slide markers.
+9. Preserve positive 1-based `data-slide-index` values.
+10. Every slide must have exactly one direct `.slide-canvas` child.
+11. Keep the HTML valid after each write.
+12. After every HTML write, call `revela_run_deck_qa` and repair hard errors before continuing, review, or export.
 
 ## Outputs
 

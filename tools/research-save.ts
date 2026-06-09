@@ -6,7 +6,7 @@ export default tool({
     "Save a research findings file to the workspace researches/ directory. " +
     "Creates researches/{topic}/{filename}.md with YAML frontmatter. " +
     "Each research axis gets its own file (e.g. 'market-data', 'catl-profile'). " +
-    "Content should use structured blocks such as ## Finding: <stable-id>, ## Analysis: <stable-id>, " +
+    "Content should use structured blocks such as ## Finding: <stable-id>, ## Synthesis: <stable-id>, ## Analysis: <stable-id>, " +
     "## Implementation Note: <stable-id>, ## Asset Lead: <stable-id>, and ## Gaps.",
   args: {
     topic: tool.schema
@@ -26,6 +26,7 @@ export default tool({
       .describe(
         "Structured markdown findings. Prefer stable cards:\n" +
         "## Finding: <stable-id> — evidence with Source, URL/path, Quote/Snippet, Supports, Evidence boundary, Strength, Deck use, and optional Display note\n" +
+        "## Synthesis: <stable-id> — interpretation across findings with Basis, Interpretation, So what, Decision implication, Confidence, Alternative reading, Evidence boundary, Deck use, and optional Display note\n" +
         "## Analysis: <stable-id> — LLM/user analytical frameworks; not external factual proof\n" +
         "## Implementation Note: <stable-id> — render/data/API contracts; not market evidence\n" +
         "## Asset Lead: <stable-id> — image/logo/media leads with source, license/attribution status, alt text, and deck use\n" +

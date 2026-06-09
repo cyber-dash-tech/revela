@@ -254,6 +254,8 @@ function buildDeckPlanRequirements(narrativeHash: string): DeckPlanRequirements 
       "Chapter divider or chapter TOC slides should use layout: toc with the toc component as structural wayfinding.",
       "Do not create filler slides, repeated thesis pages, or generic bridge slides.",
       "Preserve evidence ids, source trace, source limitations, unresolved inputs, and user review notes where available.",
+      "For non-structural slides, write Content Plan fields for Claim, Reasoning, Audience takeaway, Evidence basis, and Boundary handling before design details.",
+      "Use synthesized interpretation for slide arguments; do not mechanically copy raw research findings into executive body copy.",
       "Do not render internal labels such as Evidence gap:, Unsupported scope:, Caveat:, Missing Data, or Evidence Boundary in executive body copy.",
       "Do not infer plan structure from DECKS.json slides[]; it is compatibility cache only.",
       "Use sourceLinks in slide blocks for materials, findings, assets, and URLs; do not use canonical ## Relations in deck-plan files.",

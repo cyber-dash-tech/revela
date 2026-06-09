@@ -407,6 +407,8 @@ describe("narrative state", () => {
       authoringRules: expect.arrayContaining([
         expect.stringContaining("LLM writes canonical deck-plan.md"),
         expect.stringContaining("group related central claims"),
+        expect.stringContaining("Claim, Reasoning, Audience takeaway"),
+        expect.stringContaining("do not mechanically copy raw research findings"),
         expect.stringContaining("Do not render internal labels"),
         expect.stringContaining("sourceLinks"),
       ]),
