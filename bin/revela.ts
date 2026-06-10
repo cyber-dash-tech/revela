@@ -32,6 +32,8 @@ else {
     else if (command === "design-use") result = runtime.designActivate(required(options, ["name"]))
     else if (command === "design-create") result = runtime.designCreate(required(options, ["name", "designMd", "previewHtml"]))
     else if (command === "design-validate") result = runtime.designValidate(required(options, ["name"]))
+    else if (command === "design-pack") result = runtime.designPack(required(options, ["name"]))
+    else if (command === "design-install-archive") result = runtime.designInstallArchive(required(options, ["archivePath"]))
     else if (command === "domain-list") result = runtime.domainList()
     else if (command === "domain-read") result = runtime.domainRead(options)
     else if (command === "domain-use") result = runtime.domainActivate(required(options, ["name"]))

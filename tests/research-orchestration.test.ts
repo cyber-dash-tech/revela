@@ -232,12 +232,16 @@ describe("Codex skill discoverability docs", () => {
 describe("Codex revela-design skill", () => {
   it("restores discoverable draft-first design authoring", () => {
     expect(codexDesignSkill).toContain("name: revela-design")
-    expect(codexDesignSkill).toContain("create, customize, edit, validate, install, activate")
+    expect(codexDesignSkill).toContain("description: Create, edit, validate, package, share, install, activate")
+    expect(codexDesignSkill).toContain("create, customize, edit, validate, package, share, install, activate")
     expect(codexDesignSkill).toContain("Call `revela_design_list`")
     expect(codexDesignSkill).toContain("Call `revela_design_read`")
     expect(codexDesignSkill).toContain("Call `revela_design_draft_create`")
     expect(codexDesignSkill).toContain("Call `revela_design_draft_validate`")
     expect(codexDesignSkill).toContain("Call `revela_design_draft_install` only after the draft validates")
+    expect(codexDesignSkill).toContain("Call `revela_design_pack`")
+    expect(codexDesignSkill).toContain("Call `revela_design_install_archive`")
+    expect(codexDesignSkill).toContain("Optional assets must live under `assets/**`")
     expect(codexDesignSkill).toContain("Use `revela_design_create` only when the user explicitly requests direct local creation")
     expect(codexDesignSkill).toContain("Call `revela_design_activate` only when the user asks")
     expect(codexDesignSkill).toContain("Do not write `deck-plan.md`")
@@ -247,9 +251,11 @@ describe("Codex revela-design skill", () => {
   })
 
   it("marks Codex design authoring as skill-backed in the capability matrix", () => {
-    expect(codexCapabilityMatrix).toContain("| Design list/read/author/install/activate |")
+    expect(codexCapabilityMatrix).toContain("| Design list/read/author/install/share/activate |")
     expect(codexCapabilityMatrix).toContain("`revela-design` skill + design MCP tools")
     expect(codexCapabilityMatrix).toContain("draft create/validate/install")
+    expect(codexCapabilityMatrix).toContain("`revela_design_pack` shares `.tar`/`.tar.gz` archives")
+    expect(codexCapabilityMatrix).toContain("`revela_design_install_archive` installs them")
   })
 })
 

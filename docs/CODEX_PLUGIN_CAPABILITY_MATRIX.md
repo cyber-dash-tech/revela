@@ -14,7 +14,7 @@
 | PDF export | `/revela export --deck pdf`, `revela-pdf` tool | `revela_export_pdf` MCP tool | MVP |
 | PPTX export | `/revela export --deck pptx`, `revela-pptx` tool | `revela_export_pptx` MCP tool | MVP |
 | PNG export | `/revela export --deck png`, runtime PNG export | `revela_export_png` MCP tool | MVP |
-| Design list/read/author/install/activate | `/revela design`, `revela-designs` and `revela-designs-author` tools | `revela-design` skill + design MCP tools, defaulting to draft create/validate/install; design reads also surface through `revela`, `revela-helper`, `revela-spec`, `revela-research`, and `revela-make-deck` | MVP |
+| Design list/read/author/install/share/activate | `/revela design`, `revela-designs` and `revela-designs-author` tools | `revela-design` skill + design MCP tools, defaulting to draft create/validate/install; `revela_design_pack` shares `.tar`/`.tar.gz` archives and `revela_design_install_archive` installs them; design reads also surface through `revela`, `revela-helper`, `revela-spec`, `revela-research`, and `revela-make-deck` | MVP |
 | Domain list/read/author/install/activate | `/revela domain`, `revela-domains` tool | `revela-domain` skill + domain MCP tools, defaulting to draft create/validate/install; domain reads also surface through `revela`, `revela-helper`, `revela-spec`, and `revela-research` | MVP |
 | Review deck UI and diagnostics | `/revela review --deck`, local Review server | `revela-review` skill + `revela_review_deck_open` QA/Comment UI + `revela_review_deck_read` aggregate diagnostics tool | Tool-backed MVP |
 | OpenCode prompt transform | `experimental.chat.system.transform` | Not applicable; skills provide guidance | Not ported |

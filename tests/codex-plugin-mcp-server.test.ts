@@ -51,6 +51,8 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("revela_design_draft_create")
     expect(text.stdout).toContain("revela_design_draft_validate")
     expect(text.stdout).toContain("revela_design_draft_install")
+    expect(text.stdout).toContain("revela_design_pack")
+    expect(text.stdout).toContain("revela_design_install_archive")
     expect(text.stdout).toContain("revela_domain_list")
     expect(text.stdout).toContain("revela_domain_read")
     expect(text.stdout).toContain("revela_domain_activate")
@@ -680,6 +682,76 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("\\\"ok\\\": true")
     expect(text.stdout).toContain(".revela/drafts/designs")
     expect(text.stdout).toContain("\\\"sourcePath\\\"")
+    expect(text.stdout).toContain("test-layout")
+  })
+
+  it("packages and installs design archives with assets through MCP tools", async () => {
+    const home = tempWorkspace("revela-mcp-design-archive-home-")
+    const root = tempWorkspace("revela-mcp-design-archive-workspace-")
+    const name = `mcp-archive-design-${Date.now()}`
+    const child = spawn("bun", [serverPath], {
+      env: { ...process.env, HOME: home },
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "revela_design_draft_create",
+        arguments: {
+          workspaceRoot: root,
+          name,
+          base: "starter",
+          designMd: validDesignMd(name),
+          previewHtml: validPreviewHtml(),
+          assets: [{
+            path: "assets/cover-background.png",
+            contentBase64: Buffer.from("mcp fake png bytes", "utf-8").toString("base64"),
+          }],
+        },
+      },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "revela_design_pack", arguments: { workspaceRoot: root, name, source: "draft", overwrite: true } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: {
+        name: "revela_design_install_archive",
+        arguments: { archivePath: join(root, ".revela", "design-archives", `${name}.tar.gz`) },
+      },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: { name: "revela_design_inventory", arguments: { name } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 6,
+      method: "tools/call",
+      params: { name: "revela_design_read", arguments: { name } },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":6") && item.stdout.includes("assets/cover-background.png"))
+    child.kill()
+
+    expect(text.stdout).toContain("\\\"ok\\\": true")
+    expect(text.stdout).toContain(`${name}.tar.gz`)
+    expect(text.stdout).toContain("\\\"archivePath\\\"")
+    expect(text.stdout).toContain("\\\"assets\\\"")
+    expect(text.stdout).toContain("\\\"kind\\\": \\\"cover-background\\\"")
     expect(text.stdout).toContain("test-layout")
   })
 

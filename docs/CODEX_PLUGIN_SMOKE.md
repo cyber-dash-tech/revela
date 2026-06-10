@@ -111,7 +111,7 @@ Use Revela to export the deck to PDF.
 Use Revela to export the deck to PPTX.
 ```
 
-During the smoke, confirm Codex uses the corresponding MCP tools: `revela_doctor`, `revela_domain_activate`, `revela_design_activate`, `revela_markdown_qa`, `revela_compile_narrative`, `revela_research_targets`, `revela_research_save`, `revela_evaluate_research_findings`, `revela_bind_research_findings`, `revela_story_read`, `revela_read_deck_plan`, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_review_deck_open`, `revela_review_deck_read`, `revela_export_pdf`, and `revela_export_pptx`.
+During the smoke, confirm Codex uses the corresponding MCP tools: `revela_doctor`, `revela_domain_activate`, `revela_design_activate`, `revela_design_pack`, `revela_design_install_archive`, `revela_markdown_qa`, `revela_compile_narrative`, `revela_research_targets`, `revela_research_save`, `revela_evaluate_research_findings`, `revela_bind_research_findings`, `revela_story_read`, `revela_read_deck_plan`, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_review_deck_open`, `revela_review_deck_read`, `revela_export_pdf`, and `revela_export_pptx`.
 
 ## Expected Result
 

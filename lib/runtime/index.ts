@@ -11,11 +11,15 @@ import {
   getDesignLayout,
   getDesignSection,
   getDesignSkillMd,
+  installDesignArchive,
   installDesignDraftPackage,
+  listDesignAssets,
   listDesigns,
+  packDesignPackage,
   seedBuiltinDesigns,
   validateDesignDraftPackage,
   validateDesignPackage,
+  type DesignPackageAssetInput,
 } from "../design/designs"
 import { createDeckFoundation as createDeckFoundationShell } from "../deck-html/foundation"
 import { activeDomain, activateDomain, createDomainDraftPackage, createDomainPackage, getDomainSkillMd, installDomainDraftPackage, listDomains, seedBuiltinDomains, validateDomainDraftPackage, validateDomainPackage } from "../domain/domains"
@@ -85,6 +89,7 @@ export interface RuntimeDesignCreateInput {
   base?: string
   designMd: string
   previewHtml: string
+  assets?: DesignPackageAssetInput[]
   overwrite?: boolean
 }
 
@@ -101,6 +106,21 @@ export interface RuntimeDomainDraftCreateInput extends RuntimeDomainCreateInput,
 export interface RuntimeDraftInstallInput extends RuntimeWorkspaceInput {
   name: string
   overwrite?: boolean
+}
+
+export interface RuntimeDesignPackInput extends RuntimeWorkspaceInput {
+  name: string
+  source?: "draft" | "installed"
+  outputPath?: string
+  format?: "tar.gz" | "tar"
+  overwrite?: boolean
+}
+
+export interface RuntimeDesignArchiveInstallInput {
+  archivePath: string
+  name?: string
+  overwrite?: boolean
+  activate?: boolean
 }
 
 export interface RuntimeNameInput {
@@ -296,6 +316,7 @@ export function designRead(input: RuntimeDesignReadInput = {}) {
       name,
       section: input.section,
       markdown,
+      assets: listDesignAssets(name),
     }
     if (input.section === "rules") recordDesignRulesRead(root(input.workspaceRoot), name, markdown)
     return result
@@ -304,6 +325,7 @@ export function designRead(input: RuntimeDesignReadInput = {}) {
     ok: true,
     name,
     markdown: getDesignSkillMd(name),
+    assets: listDesignAssets(name),
   }
 }
 
@@ -341,6 +363,7 @@ export function designCreate(input: RuntimeDesignCreateInput) {
     base: input.base,
     designMd: requiredString(input?.designMd, "designMd"),
     previewHtml: requiredString(input?.previewHtml, "previewHtml"),
+    assets: input.assets,
     overwrite: input.overwrite ?? false,
   })
 }
@@ -356,6 +379,7 @@ export function designDraftCreate(input: RuntimeDesignDraftCreateInput) {
     base: input.base,
     designMd: requiredString(input?.designMd, "designMd"),
     previewHtml: requiredString(input?.previewHtml, "previewHtml"),
+    assets: input.assets,
     overwrite: input.overwrite ?? false,
   })
 }
@@ -371,6 +395,31 @@ export function designDraftInstall(input: RuntimeDraftInstallInput) {
     name: requiredName(input, "design draft"),
     overwrite: input.overwrite ?? false,
   })
+}
+
+export function designPack(input: RuntimeDesignPackInput) {
+  return packDesignPackage({
+    workspaceRoot: root(input.workspaceRoot),
+    name: requiredName(input, "design"),
+    source: input.source,
+    outputPath: input.outputPath,
+    format: input.format,
+    overwrite: input.overwrite ?? false,
+  })
+}
+
+export function designInstallArchive(input: RuntimeDesignArchiveInstallInput) {
+  seedBuiltinDesigns()
+  const installed = installDesignArchive({
+    archivePath: requiredString(input?.archivePath, "archivePath"),
+    name: input.name,
+    overwrite: input.overwrite ?? false,
+  })
+  if (input.activate) {
+    activateDesign(installed.name)
+    return { ...installed, activated: true, activeDesign: installed.name }
+  }
+  return { ...installed, activated: false }
 }
 
 export interface DesignRulesReadinessResult {

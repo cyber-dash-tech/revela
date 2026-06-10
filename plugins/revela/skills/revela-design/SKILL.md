@@ -1,17 +1,19 @@
 ---
 name: revela-design
-description: Create, edit, validate, install, activate, inspect, or list Revela design packages in Codex using design MCP tools.
+description: Create, edit, validate, package, share, install, activate, inspect, or list Revela design packages in Codex using design MCP tools.
 ---
 
 # Revela Design
 
-Use this skill when the user asks to create, customize, edit, validate, install, activate, inspect, list, or switch a Revela design.
+Use this skill when the user asks to create, customize, edit, validate, package, share, install, activate, inspect, list, or switch a Revela design.
 
 ## Contract
 
 - Designs define deck visual systems: rules, foundation, layouts, components, chart rules, and preview coverage.
+- Designs may include package-owned `assets/**` such as cover or closing backgrounds; design tools surface these as design elements, not source evidence.
 - Default authoring is workspace draft first, then validate, then install only when appropriate.
 - Direct user-level creation is reserved for explicit create/install-now requests.
+- Shareable design archives are `.tar` or `.tar.gz`; install archives only from trusted local paths.
 - Do not use domain tools for visual design work.
 - Do not generate deck HTML while authoring a design.
 
@@ -34,6 +36,14 @@ For new or edited designs:
 7. Call `revela_design_draft_install` only after the draft validates and the user intent is to install it.
 8. Call `revela_design_activate` only when the user asks to make it active.
 
+For sharing or installing design archives:
+
+1. Call `revela_design_draft_validate` or `revela_design_validate` before packaging.
+2. Call `revela_design_pack` to create a `.tar.gz` archive from a workspace draft or installed design.
+3. Call `revela_design_install_archive` to install a local `.tar` or `.tar.gz` archive.
+4. After archive installation, call `revela_design_inventory` or `revela_design_read` to confirm the design and assets are readable.
+5. Call `revela_design_activate` only when the user asks to make the installed design active, or use `activate: true` on archive install when the request is explicit.
+
 Use `revela_design_create` only when the user explicitly requests direct local creation outside the workspace draft workflow. Follow it with `revela_design_validate`.
 
 ## Design Package Requirements
@@ -41,6 +51,7 @@ Use `revela_design_create` only when the user explicitly requests direct local c
 - Use a kebab-case design name.
 - `DESIGN.md` must include valid frontmatter and complete design marker sections.
 - Include design rules, foundation guidance, at least one layout, and at least one component.
+- Optional assets must live under `assets/**`; reference them as package-relative paths like `assets/cover-background.png`.
 - `preview.html` must use the fixed Revela preview canvas contract and visibly preview the design.
 - Preview must include cover and closing examples and showcase every component.
 - Preserve source inspiration and limitations explicitly; do not copy copyrighted design text or assets into the package.
@@ -48,6 +59,8 @@ Use `revela_design_create` only when the user explicitly requests direct local c
 ## Outputs
 
 - Design draft path/status or installed design name.
+- Archive path/status when packaging or installing a shareable design.
+- Asset metadata surfaced by read/inventory tools when `assets/**` exists.
 - Validation result and any remaining diagnostics.
 - Whether the design was activated.
 - Next step, usually `revela-research` for planning with the design or `revela-make-deck` when a valid `deck-plan.md` already exists.

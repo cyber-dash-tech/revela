@@ -28,6 +28,8 @@ type RuntimeModule = {
   designDraftCreate(input: any): any
   designDraftValidate(input: any): any
   designDraftInstall(input: any): any
+  designPack(input: any): any
+  designInstallArchive(input: any): any
   domainList(): any
   domainRead(input?: any): any
   domainActivate(input: any): any
@@ -175,6 +177,7 @@ const tools = [
       base: stringProp("Optional base design used as structural scaffold."),
       designMd: requiredStringProp("Complete DESIGN.md content."),
       previewHtml: requiredStringProp("Complete preview.html content."),
+      assets: designAssetsProp(),
       overwrite: booleanProp("Whether to replace an existing local design package. Defaults to false."),
     }, ["name", "designMd", "previewHtml"]),
   },
@@ -192,6 +195,7 @@ const tools = [
       base: stringProp("Optional base design used as structural scaffold."),
       designMd: requiredStringProp("Complete DESIGN.md content."),
       previewHtml: requiredStringProp("Complete preview.html content."),
+      assets: designAssetsProp(),
       overwrite: booleanProp("Whether to replace an existing workspace draft. Defaults to false."),
     }, ["name", "designMd", "previewHtml"]),
   },
@@ -211,6 +215,28 @@ const tools = [
       name: requiredStringProp("Design draft name to install."),
       overwrite: booleanProp("Whether to replace an existing user-level design package. Defaults to false."),
     }, ["name"]),
+  },
+  {
+    name: "revela_design_pack",
+    description: "Package an installed or workspace-draft Revela design as a shareable .tar or .tar.gz archive.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root. Used for draft source lookup and default output path."),
+      name: requiredStringProp("Design name in kebab-case."),
+      source: enumProp(["draft", "installed"], "Package a workspace draft or installed design. Defaults to draft when a matching draft exists."),
+      outputPath: stringProp("Optional archive output path. Defaults to .revela/design-archives/{name}.tar.gz under the workspace."),
+      format: enumProp(["tar.gz", "tar"], "Archive format. Defaults to tar.gz."),
+      overwrite: booleanProp("Whether to replace an existing archive. Defaults to false."),
+    }, ["name"]),
+  },
+  {
+    name: "revela_design_install_archive",
+    description: "Install a local .tar or .tar.gz Revela design archive into the user-level design registry.",
+    inputSchema: objectSchema({
+      archivePath: requiredStringProp("Local path to a .tar, .tar.gz, or .tgz design archive."),
+      name: stringProp("Optional installed design name override."),
+      overwrite: booleanProp("Whether to replace an existing user-level design package. Defaults to false."),
+      activate: booleanProp("Whether to activate the design after installation. Defaults to false."),
+    }, ["archivePath"]),
   },
   {
     name: "revela_domain_list",
@@ -410,6 +436,8 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_design_draft_create") return r.designDraftCreate(args)
   if (name === "revela_design_draft_validate") return r.designDraftValidate(args)
   if (name === "revela_design_draft_install") return r.designDraftInstall(args)
+  if (name === "revela_design_pack") return r.designPack(args)
+  if (name === "revela_design_install_archive") return r.designInstallArchive(args)
   if (name === "revela_domain_list") return r.domainList()
   if (name === "revela_domain_read") return r.domainRead(args)
   if (name === "revela_domain_activate") return r.domainActivate(args)
@@ -490,6 +518,24 @@ function arrayObjectProp(description: string) {
         rationale: { type: "string" },
       },
       required: ["kind", "rationale"],
+      additionalProperties: false,
+    },
+  }
+}
+
+function designAssetsProp() {
+  return {
+    type: "array",
+    description: "Optional design-owned assets to write under assets/**. Each item must use path plus content, contentBase64, or sourcePath.",
+    items: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Package-relative asset path. Must start with assets/." },
+        content: { type: "string", description: "UTF-8 text asset content." },
+        contentBase64: { type: "string", description: "Base64-encoded binary asset content." },
+        sourcePath: { type: "string", description: "Local file path to copy into the design asset." },
+      },
+      required: ["path"],
       additionalProperties: false,
     },
   }

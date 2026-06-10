@@ -7,8 +7,9 @@ import { DECKS_STATE_FILE } from "../lib/decks-state"
 import { seedBuiltinDesigns } from "../lib/design/designs"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
-import { bindResearchFindings, checkDesignRulesReadiness, checkMaterialIntake, designCreate, designDraftCreate, designDraftInstall, designDraftValidate, designList, designRead, designValidate, doctor, domainCreate, domainDraftCreate, domainDraftInstall, domainDraftValidate, domainList, domainValidate, evaluateResearchFindings, extractMaterial, prepareLocalMaterials, readDeckPlan, recordMaterialReview, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead, upsertDeckPlanSlide } from "../lib/runtime"
+import { bindResearchFindings, checkDesignRulesReadiness, checkMaterialIntake, designCreate, designDraftCreate, designDraftInstall, designDraftValidate, designInstallArchive, designList, designPack, designRead, designValidate, doctor, domainCreate, domainDraftCreate, domainDraftInstall, domainDraftValidate, domainList, domainValidate, evaluateResearchFindings, extractMaterial, prepareLocalMaterials, readDeckPlan, recordMaterialReview, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead, upsertDeckPlanSlide } from "../lib/runtime"
 import { stopRefineServer } from "../lib/refine/server"
+import { writeTarArchive } from "../lib/design/archive"
 import pkg from "../package.json"
 import { tempWorkspace } from "./helpers/tool-helpers"
 import { zipSync, strToU8 } from "fflate"
@@ -648,6 +649,48 @@ sources:
     } finally {
       if (installed) rmSync(installed, { recursive: true, force: true })
     }
+  })
+
+  it("packages and installs design archives with package-owned assets", () => {
+    const root = tempWorkspace("revela-runtime-design-archive-")
+    const name = `runtime-archive-design-${Date.now()}`
+    const draft = designDraftCreate({
+      workspaceRoot: root,
+      name,
+      base: "starter",
+      designMd: validDesignMd(name, "Archive"),
+      previewHtml: validPreviewHtml("Archive").replace("Cover", "Cover assets/cover-background.png"),
+      assets: [{
+        path: "assets/cover-background.png",
+        contentBase64: Buffer.from("fake png bytes", "utf-8").toString("base64"),
+      }],
+    })
+    let installed = ""
+
+    try {
+      const packed = designPack({ workspaceRoot: root, name, source: "draft", overwrite: true })
+      const installedResult = designInstallArchive({ archivePath: packed.archivePath, overwrite: true })
+      installed = installedResult.path
+      const read = designRead({ name })
+
+      expect(draft.assets).toEqual([expect.objectContaining({ path: "assets/cover-background.png", kind: "cover-background" })])
+      expect(packed).toMatchObject({ ok: true, name, format: "tar.gz" })
+      expect(packed.archivePath).toEndWith(`${name}.tar.gz`)
+      expect(existsSync(packed.archivePath)).toBe(true)
+      expect(packed.files).toContain("assets/cover-background.png")
+      expect(installedResult).toMatchObject({ ok: true, name, overwritten: false })
+      expect(installedResult.assets).toEqual([expect.objectContaining({ path: "assets/cover-background.png", mimeType: "image/png" })])
+      expect(existsSync(join(installedResult.path, "assets", "cover-background.png"))).toBe(true)
+      expect(read.assets).toEqual([expect.objectContaining({ path: "assets/cover-background.png", bytes: "fake png bytes".length })])
+    } finally {
+      if (installed) rmSync(installed, { recursive: true, force: true })
+    }
+  })
+
+  it("rejects design archives with path traversal entries", () => {
+    const root = tempWorkspace("revela-runtime-design-archive-invalid-")
+    const archivePath = join(root, "bad.tar")
+    expect(() => writeTarArchive([{ path: "../DESIGN.md", bytes: Buffer.from("bad") }], archivePath, false)).toThrow("Invalid archive path")
   })
 
   it("blocks invalid design draft installs", () => {

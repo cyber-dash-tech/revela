@@ -9,6 +9,7 @@
 import {
   cpSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -16,9 +17,10 @@ import {
   statSync,
   writeFileSync,
 } from "fs"
-import { dirname, join, resolve, basename } from "path"
+import { dirname, join, resolve, basename, relative, sep } from "path"
 import { tmpdir } from "os"
 import { parseFrontmatter } from "../frontmatter"
+import { collectDirectoryEntries, extractEntriesToDirectory, normalizePackageArchiveEntries, readTarArchive, writeTarArchive } from "./archive"
 import {
   DESIGNS_DIR,
   DEFAULT_DESIGN,
@@ -50,6 +52,7 @@ export interface CreateDesignPackageArgs {
   base?: string
   designMd: string
   previewHtml: string
+  assets?: DesignPackageAssetInput[]
   overwrite?: boolean
 }
 
@@ -62,6 +65,7 @@ export interface CreateDesignPackageResult {
   name: string
   path: string
   files: string[]
+  assets: DesignPackageAssetInfo[]
   base?: string
   overwritten: boolean
 }
@@ -86,7 +90,50 @@ export interface ValidateDesignPackageResult {
   sections: string[]
   layouts: string[]
   components: string[]
+  assets: DesignPackageAssetInfo[]
   errors: string[]
+}
+
+export interface DesignPackageAssetInput {
+  path: string
+  content?: string
+  contentBase64?: string
+  sourcePath?: string
+}
+
+export interface DesignPackageAssetInfo {
+  path: string
+  kind: "cover-background" | "closing-background" | "background" | "logo" | "asset"
+  mimeType: string
+  bytes: number
+}
+
+export interface PackDesignPackageArgs {
+  workspaceRoot?: string
+  name: string
+  source?: "draft" | "installed"
+  outputPath?: string
+  format?: "tar.gz" | "tar"
+  overwrite?: boolean
+}
+
+export interface PackDesignPackageResult {
+  ok: true
+  name: string
+  archivePath: string
+  format: "tar.gz" | "tar"
+  files: string[]
+  assets: DesignPackageAssetInfo[]
+}
+
+export interface InstallDesignArchiveArgs {
+  archivePath: string
+  name?: string
+  overwrite?: boolean
+}
+
+export interface InstallDesignArchiveResult extends CreateDesignPackageResult {
+  archivePath: string
 }
 
 export interface DesignPreviewInfo {
@@ -283,6 +330,7 @@ export function createDesignPackage(args: CreateDesignPackageArgs): CreateDesign
   mkdirSync(target, { recursive: true })
   writeFileSync(join(target, "DESIGN.md"), `${designMd}\n`, "utf-8")
   writeFileSync(join(target, "preview.html"), `${previewHtml}\n`, "utf-8")
+  writeDesignAssets(target, args.assets)
 
   const validation = validateDesignPackage(name)
   if (!validation.ok) {
@@ -293,7 +341,8 @@ export function createDesignPackage(args: CreateDesignPackageArgs): CreateDesign
     ok: true,
     name,
     path: target,
-    files: ["DESIGN.md", "preview.html"],
+    files: listDesignPackageFiles(target),
+    assets: listDesignAssetsInDir(target),
     base: args.base,
     overwritten: existed,
   }
@@ -321,6 +370,7 @@ export function createDesignDraftPackage(args: CreateDesignDraftArgs): CreateDes
   mkdirSync(target, { recursive: true })
   writeFileSync(join(target, "DESIGN.md"), `${designMd}\n`, "utf-8")
   writeFileSync(join(target, "preview.html"), `${previewHtml}\n`, "utf-8")
+  writeDesignAssets(target, args.assets)
 
   const validation = validateDesignDraftPackage(args.workspaceRoot, name)
   if (!validation.ok) {
@@ -331,7 +381,8 @@ export function createDesignDraftPackage(args: CreateDesignDraftArgs): CreateDes
     ok: true,
     name,
     path: target,
-    files: ["DESIGN.md", "preview.html"],
+    files: listDesignPackageFiles(target),
+    assets: listDesignAssetsInDir(target),
     base: args.base,
     overwritten: existed,
   }
@@ -378,8 +429,71 @@ export function installDesignDraftPackage(args: InstallDesignDraftArgs): Install
     name,
     path: target,
     sourcePath,
-    files: ["DESIGN.md", "preview.html"],
+    files: listDesignPackageFiles(target),
+    assets: listDesignAssetsInDir(target),
     overwritten: existed,
+  }
+}
+
+/** Package an installed design or workspace draft as a shareable .tar or .tar.gz archive. */
+export function packDesignPackage(args: PackDesignPackageArgs): PackDesignPackageResult {
+  const name = normalizeDesignName(args.name)
+  const source = args.source ?? (args.workspaceRoot && designDraftExists(args.workspaceRoot, name) ? "draft" : "installed")
+  const sourceDir = source === "draft" ? designDraftDir(args.workspaceRoot || process.cwd(), name) : resolveDesignDir(name)
+  if (!sourceDir || !existsSync(sourceDir)) throw new Error(`Design ${source} '${name}' is not available`)
+  const validation = source === "draft" ? validateDesignDraftPackage(args.workspaceRoot || process.cwd(), name) : validateDesignPackage(name)
+  if (!validation.ok) throw new Error(`Design ${source} is invalid: ${validation.errors.join("; ")}`)
+
+  const format = args.format ?? "tar.gz"
+  const archivePath = resolve(args.outputPath || join(args.workspaceRoot || process.cwd(), ".revela", "design-archives", `${name}.${format}`))
+  if (existsSync(archivePath) && !args.overwrite) throw new Error(`Archive already exists: ${archivePath}`)
+  const entries = collectDirectoryEntries(sourceDir, name)
+  writeTarArchive(entries, archivePath, format === "tar.gz")
+  return {
+    ok: true,
+    name,
+    archivePath,
+    format,
+    files: listDesignPackageFiles(sourceDir),
+    assets: listDesignAssetsInDir(sourceDir),
+  }
+}
+
+/** Install a .tar or .tar.gz design archive into the user-level design registry. */
+export function installDesignArchive(args: InstallDesignArchiveArgs): InstallDesignArchiveResult {
+  const archivePath = resolve(args.archivePath)
+  if (!existsSync(archivePath)) throw new Error(`Archive does not exist: ${archivePath}`)
+  if (!archivePath.endsWith(".tar") && !archivePath.endsWith(".tar.gz") && !archivePath.endsWith(".tgz")) {
+    throw new Error("Design archive must be .tar, .tar.gz, or .tgz")
+  }
+
+  const entries = normalizePackageArchiveEntries(readTarArchive(archivePath))
+  const tmp = join(tmpdir(), `revela-design-install-${Date.now()}`)
+  try {
+    extractEntriesToDirectory(entries, tmp)
+    const info = parseDesignFile(join(tmp, "DESIGN.md"))
+    const name = normalizeDesignName(args.name || info?.name || basename(archivePath).replace(/\.tar\.gz$|\.tgz$|\.tar$/i, ""))
+    const validation = validateDesignPackageAt(name, tmp)
+    if (!validation.ok) throw new Error(`Design archive is invalid: ${validation.errors.join("; ")}`)
+
+    const target = join(DESIGNS_DIR, name)
+    const existed = existsSync(target)
+    if (existed && !args.overwrite) throw new Error(`Design '${name}' already exists. Pass overwrite=true to replace it.`)
+
+    mkdirSync(DESIGNS_DIR, { recursive: true })
+    if (existed) rmSync(target, { recursive: true, force: true })
+    cpSync(tmp, target, { recursive: true })
+    return {
+      ok: true,
+      name,
+      path: target,
+      archivePath,
+      files: listDesignPackageFiles(target),
+      assets: listDesignAssetsInDir(target),
+      overwritten: existed,
+    }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
   }
 }
 
@@ -451,10 +565,12 @@ function validateDesignPackageAt(nameInput: string, dir: string): ValidateDesign
   let sections: string[] = []
   let layouts: string[] = []
   let components: string[] = []
+  let assets: DesignPackageAssetInfo[] = []
 
   if (!existsSync(dir)) errors.push(`Design directory does not exist: ${dir}`)
   if (!hasDesignMd) errors.push("DESIGN.md is missing")
   if (!hasPreview) errors.push("preview.html is missing")
+  if (existsSync(dir)) assets = listDesignAssetsInDir(dir)
 
   if (hasDesignMd) {
     const info = parseDesignFile(mdPath)
@@ -501,12 +617,114 @@ function validateDesignPackageAt(nameInput: string, dir: string): ValidateDesign
     sections,
     layouts,
     components,
+    assets,
     errors,
   }
 }
 
 function designDraftDir(workspaceRoot: string, name: string): string {
   return resolve(workspaceRoot, ".revela", "drafts", "designs", name)
+}
+
+function designDraftExists(workspaceRoot: string, name: string): boolean {
+  const dir = designDraftDir(workspaceRoot, name)
+  return existsSync(dir) && statSync(dir).isDirectory() && existsSync(join(dir, "DESIGN.md"))
+}
+
+function writeDesignAssets(targetDir: string, assets?: DesignPackageAssetInput[]): void {
+  if (!assets || assets.length === 0) return
+  for (const asset of assets) {
+    const rel = normalizeAssetPath(asset.path)
+    const target = resolve(targetDir, rel)
+    if (target !== resolve(targetDir) && !target.startsWith(resolve(targetDir) + sep)) {
+      throw new Error(`Asset path escapes design package: ${asset.path}`)
+    }
+    let bytes: Buffer
+    if (asset.contentBase64 !== undefined) bytes = Buffer.from(asset.contentBase64, "base64")
+    else if (asset.content !== undefined) bytes = Buffer.from(asset.content, "utf-8")
+    else if (asset.sourcePath !== undefined) {
+      const source = resolve(asset.sourcePath)
+      if (!existsSync(source) || !statSync(source).isFile()) throw new Error(`Asset source file does not exist: ${asset.sourcePath}`)
+      bytes = readFileSync(source)
+    } else {
+      throw new Error(`Asset '${asset.path}' requires content, contentBase64, or sourcePath`)
+    }
+    mkdirSync(dirname(target), { recursive: true })
+    writeFileSync(target, bytes as any)
+  }
+}
+
+function normalizeAssetPath(pathInput: string): string {
+  const normalized = pathInput.replace(/\\/g, "/").replace(/^\.\/+/, "")
+  if (!normalized.startsWith("assets/")) throw new Error(`Design asset paths must start with assets/: ${pathInput}`)
+  if (normalized.includes("\0") || normalized.startsWith("/") || normalized.split("/").some((part) => !part || part === "." || part === "..")) {
+    throw new Error(`Invalid design asset path: ${pathInput}`)
+  }
+  return normalized
+}
+
+function listDesignPackageFiles(dir: string): string[] {
+  if (!existsSync(dir)) return []
+  const root = resolve(dir)
+  const files: string[] = []
+  walk(root)
+  return files.sort()
+
+  function walk(current: string): void {
+    for (const entry of readdirSync(current).sort()) {
+      if (entry === ".DS_Store" || entry.startsWith(".")) continue
+      const abs = join(current, entry)
+      const stat = lstatSync(abs)
+      if (stat.isSymbolicLink()) continue
+      if (stat.isDirectory()) {
+        walk(abs)
+        continue
+      }
+      if (!stat.isFile()) continue
+      files.push(relative(root, abs).split(sep).join("/"))
+    }
+  }
+}
+
+function listDesignAssetsInDir(dir: string): DesignPackageAssetInfo[] {
+  const files = listDesignPackageFiles(dir).filter((file) => file.startsWith("assets/"))
+  return files.map((file) => {
+    const abs = join(dir, ...file.split("/"))
+    return {
+      path: file,
+      kind: inferAssetKind(file),
+      mimeType: mimeTypeForDesignAsset(file),
+      bytes: statSync(abs).size,
+    }
+  })
+}
+
+export function listDesignAssets(nameInput?: string): DesignPackageAssetInfo[] {
+  const name = normalizeDesignName(nameInput || activeDesign())
+  const designDir = resolveDesignDir(name)
+  if (!designDir) throw new Error(`Design '${name}' is not installed`)
+  return listDesignAssetsInDir(designDir)
+}
+
+function inferAssetKind(path: string): DesignPackageAssetInfo["kind"] {
+  const lower = path.toLowerCase()
+  if (lower.includes("cover") && lower.includes("background")) return "cover-background"
+  if ((lower.includes("closing") || lower.includes("close")) && lower.includes("background")) return "closing-background"
+  if (lower.includes("background") || lower.includes("/bg-") || lower.includes("-bg.")) return "background"
+  if (lower.includes("logo")) return "logo"
+  return "asset"
+}
+
+function mimeTypeForDesignAsset(path: string): string {
+  const lower = path.toLowerCase()
+  if (lower.endsWith(".png")) return "image/png"
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg"
+  if (lower.endsWith(".webp")) return "image/webp"
+  if (lower.endsWith(".gif")) return "image/gif"
+  if (lower.endsWith(".svg")) return "image/svg+xml"
+  if (lower.endsWith(".css")) return "text/css"
+  if (lower.endsWith(".json")) return "application/json"
+  return "application/octet-stream"
 }
 
 // ---------------------------------------------------------------------------
@@ -553,6 +771,7 @@ export interface DesignInventory {
   sections: string[]
   layouts: DesignInventoryLayout[]
   components: DesignInventoryComponent[]
+  assets: DesignPackageAssetInfo[]
   hasMarkers: boolean
 }
 
@@ -690,6 +909,7 @@ export function getDesignInventory(designName?: string): DesignInventory {
       description: designBlockDescription(content),
       nesting: inferComponentNesting(componentName),
     })),
+    assets: listDesignAssetsInDir(designDir),
     hasMarkers,
   }
 }
