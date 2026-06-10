@@ -4,7 +4,7 @@
 | --- | --- | --- | --- |
 | Workflow routing | `/revela` and prompt injection | `revela` router skill + `revela_doctor`, active design/domain reads, and workspace artifact status across `spec.md`, `researches/`, `deck-plan.md`, and deck artifacts | MVP |
 | Help / product guidance | `/revela` and prompt injection | `revela-helper` skill + `revela_doctor`, active design/domain reads, and workspace artifact status | MVP |
-| Spec / requirements discovery | Intent capture inside `/revela init` and planning prompts | `revela-spec` skill writes root-level `spec.md` with objective, audience, output, constraints, gaps, acceptance criteria, and recommended next step | MVP |
+| Spec / requirements discovery | Intent capture inside `/revela init` and planning prompts | `revela-spec` skill writes root-level `spec.md` with objective, audience, output, language, domain/use-case framing, design, constraints, gaps, acceptance criteria, and recommended next step | MVP |
 | Init workspace | `/revela init`, OpenCode tools | Folded into `revela-research`: local material prepare/extract/review/intake before findings | MVP |
 | Research workflow | `/revela research`, research-save tool | `revela-research` skill reads `spec.md` when present + active domain read + `revela_research_save`; for deck goals, Planning Handoff reads active design inventory and writes validated `deck-plan.md` | Tool-backed MVP |
 | Deck planning | `/revela plan --deck`, deck-plan prompt | Folded into `revela-research` Planning Handoff: `deck-plan.md` is written after `revela_design_list`, `revela_design_read`, and `revela_design_inventory`; `revela_read_deck_plan` provides QA/diagnostics | MVP |

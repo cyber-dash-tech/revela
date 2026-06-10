@@ -178,6 +178,12 @@ describe("Codex revela-spec skill", () => {
     expect(codexSpecSkill).toContain("Call `revela_prepare_local_materials`")
     expect(codexSpecSkill).toContain("## Objective")
     expect(codexSpecSkill).toContain("## Audience")
+    expect(codexSpecSkill).toContain("## Language")
+    expect(codexSpecSkill).toContain("## Domain / Use Case")
+    expect(codexSpecSkill).toContain("## Design")
+    expect(codexSpecSkill).toContain("output language, terminology preference, and localization notes")
+    expect(codexSpecSkill).toContain("active or requested domain, business/use-case context, and decision context")
+    expect(codexSpecSkill).toContain("active or requested design, visual direction, and brand/style constraints")
     expect(codexSpecSkill).toContain("## Acceptance Criteria")
     expect(codexSpecSkill).toContain("## Recommended Next Step")
     expect(codexSpecSkill).toContain("Root-level `spec.md`")
@@ -189,7 +195,7 @@ describe("Codex revela-spec skill", () => {
   it("marks Codex spec discovery as skill-backed in the capability matrix", () => {
     expect(codexCapabilityMatrix).toContain("| Spec / requirements discovery |")
     expect(codexCapabilityMatrix).toContain("`revela-spec` skill writes root-level `spec.md`")
-    expect(codexCapabilityMatrix).toContain("objective, audience, output, constraints, gaps, acceptance criteria")
+    expect(codexCapabilityMatrix).toContain("objective, audience, output, language, domain/use-case framing, design, constraints, gaps, acceptance criteria")
   })
 })
 

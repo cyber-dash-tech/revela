@@ -48,11 +48,20 @@ Use this skill to turn user intent and available workspace context into a concis
 - `## Audience`
 - `## Decision Or Action`
 - `## Output`
+- `## Language`
+- `## Domain / Use Case`
+- `## Design`
 - `## Constraints`
 - `## Available Materials`
 - `## Known Gaps`
 - `## Acceptance Criteria`
 - `## Recommended Next Step`
+
+Section expectations:
+
+- `## Language`: output language, terminology preference, and localization notes.
+- `## Domain / Use Case`: active or requested domain, business/use-case context, and decision context.
+- `## Design`: active or requested design, visual direction, and brand/style constraints.
 
 Use explicit `Unknown` or `Pending user input` entries instead of inventing requirements.
 
