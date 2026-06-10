@@ -656,9 +656,9 @@ function writeDesignAssets(targetDir: string, assets?: DesignPackageAssetInput[]
 
 function normalizeAssetPath(pathInput: string): string {
   const normalized = pathInput.replace(/\\/g, "/").replace(/^\.\/+/, "")
-  if (!normalized.startsWith("assets/")) throw new Error(`Design asset paths must start with assets/: ${pathInput}`)
+  if (!normalized.startsWith("assets/")) throw new Error(`Design asset path must be located under assets/: ${pathInput}`)
   if (normalized.includes("\0") || normalized.startsWith("/") || normalized.split("/").some((part) => !part || part === "." || part === "..")) {
-    throw new Error(`Invalid design asset path: ${pathInput}`)
+    throw new Error(`Design asset path must be located under assets/ and must not contain absolute paths, empty segments, '.', '..', or NUL characters: ${pathInput}`)
   }
   return normalized
 }

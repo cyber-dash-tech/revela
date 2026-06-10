@@ -9,7 +9,7 @@ import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
 import { bindResearchFindings, checkDesignRulesReadiness, checkMaterialIntake, designCreate, designDraftCreate, designDraftInstall, designDraftValidate, designInstallArchive, designList, designPack, designRead, designValidate, doctor, domainCreate, domainDraftCreate, domainDraftInstall, domainDraftValidate, domainList, domainValidate, evaluateResearchFindings, extractMaterial, prepareLocalMaterials, readDeckPlan, recordMaterialReview, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead, upsertDeckPlanSlide } from "../lib/runtime"
 import { stopRefineServer } from "../lib/refine/server"
-import { writeTarArchive } from "../lib/design/archive"
+import { readTarArchive, writeTarArchive } from "../lib/design/archive"
 import pkg from "../package.json"
 import { tempWorkspace } from "./helpers/tool-helpers"
 import { zipSync, strToU8 } from "fflate"
@@ -658,8 +658,8 @@ sources:
       workspaceRoot: root,
       name,
       base: "starter",
-      designMd: validDesignMd(name, "Archive"),
-      previewHtml: validPreviewHtml("Archive").replace("Cover", "Cover assets/cover-background.png"),
+      designMd: validDesignMd(name, "Archive").replace("- Keep hierarchy clear.", "- Keep hierarchy clear.\n- Cover backgrounds may use `assets/cover-background.png`."),
+      previewHtml: validPreviewHtml("Archive").replace("Archive Cover", "Archive Cover <img src=\"assets/cover-background.png\" alt=\"\">"),
       assets: [{
         path: "assets/cover-background.png",
         contentBase64: Buffer.from("fake png bytes", "utf-8").toString("base64"),
@@ -672,18 +672,48 @@ sources:
       const installedResult = designInstallArchive({ archivePath: packed.archivePath, overwrite: true })
       installed = installedResult.path
       const read = designRead({ name })
+      const archiveFiles = readTarArchive(packed.archivePath).map((entry) => entry.path)
 
       expect(draft.assets).toEqual([expect.objectContaining({ path: "assets/cover-background.png", kind: "cover-background" })])
+      expect(draft.assets[0]).toMatchObject({ mimeType: "image/png", bytes: "fake png bytes".length })
+      expect(existsSync(join(root, ".revela", "drafts", "designs", name, "DESIGN.md"))).toBe(true)
+      expect(existsSync(join(root, ".revela", "drafts", "designs", name, "preview.html"))).toBe(true)
+      expect(existsSync(join(root, ".revela", "drafts", "designs", name, "assets", "cover-background.png"))).toBe(true)
+      expect(readFileSync(join(root, ".revela", "drafts", "designs", name, "preview.html"), "utf-8")).toContain("assets/cover-background.png")
+      expect(readFileSync(join(root, ".revela", "drafts", "designs", name, "DESIGN.md"), "utf-8")).toContain("assets/cover-background.png")
+      expect(designDraftValidate({ workspaceRoot: root, name }).ok).toBe(true)
       expect(packed).toMatchObject({ ok: true, name, format: "tar.gz" })
-      expect(packed.archivePath).toEndWith(`${name}.tar.gz`)
+      expect(packed.archivePath).toBe(join(root, ".revela", "design-archives", `${name}.tar.gz`))
       expect(existsSync(packed.archivePath)).toBe(true)
       expect(packed.files).toContain("assets/cover-background.png")
+      expect(archiveFiles).toEqual(expect.arrayContaining([
+        `${name}/DESIGN.md`,
+        `${name}/preview.html`,
+        `${name}/assets/cover-background.png`,
+      ]))
       expect(installedResult).toMatchObject({ ok: true, name, overwritten: false })
-      expect(installedResult.assets).toEqual([expect.objectContaining({ path: "assets/cover-background.png", mimeType: "image/png" })])
+      expect(installedResult.assets).toEqual([expect.objectContaining({ path: "assets/cover-background.png", kind: "cover-background", mimeType: "image/png" })])
       expect(existsSync(join(installedResult.path, "assets", "cover-background.png"))).toBe(true)
       expect(read.assets).toEqual([expect.objectContaining({ path: "assets/cover-background.png", bytes: "fake png bytes".length })])
+      expect(designValidate({ name }).ok).toBe(true)
     } finally {
       if (installed) rmSync(installed, { recursive: true, force: true })
+    }
+  })
+
+  it("rejects design asset paths outside package assets", () => {
+    const root = tempWorkspace("revela-runtime-design-asset-paths-")
+    const invalidPaths = ["../cover.png", "/tmp/cover.png", "asset/cover.png", "assets/../cover.png"]
+
+    for (const path of invalidPaths) {
+      const name = `runtime-asset-path-${Date.now()}-${invalidPaths.indexOf(path)}`
+      expect(() => designDraftCreate({
+        workspaceRoot: root,
+        name,
+        designMd: validDesignMd(name, "Asset Path"),
+        previewHtml: validPreviewHtml("Asset Path"),
+        assets: [{ path, contentBase64: Buffer.from("x").toString("base64") }],
+      })).toThrow("Design asset path must be located under assets/")
     }
   })
 

@@ -53,6 +53,8 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("revela_design_draft_install")
     expect(text.stdout).toContain("revela_design_pack")
     expect(text.stdout).toContain("revela_design_install_archive")
+    expect(text.stdout).toContain("user-uploaded or local materials")
+    expect(text.stdout).toContain("Must start with assets/")
     expect(text.stdout).toContain("revela_domain_list")
     expect(text.stdout).toContain("revela_domain_read")
     expect(text.stdout).toContain("revela_domain_activate")
@@ -707,8 +709,8 @@ describe("Codex plugin MCP server", () => {
           workspaceRoot: root,
           name,
           base: "starter",
-          designMd: validDesignMd(name),
-          previewHtml: validPreviewHtml(),
+          designMd: validDesignMd(name).replace("- Keep hierarchy clear.", "- Keep hierarchy clear.\n- Cover backgrounds may use `assets/cover-background.png`."),
+          previewHtml: validPreviewHtml().replace("Cover", "Cover <img src=\"assets/cover-background.png\" alt=\"\">"),
           assets: [{
             path: "assets/cover-background.png",
             contentBase64: Buffer.from("mcp fake png bytes", "utf-8").toString("base64"),
@@ -735,16 +737,22 @@ describe("Codex plugin MCP server", () => {
       jsonrpc: "2.0",
       id: 5,
       method: "tools/call",
-      params: { name: "revela_design_inventory", arguments: { name } },
+      params: { name: "revela_design_validate", arguments: { name } },
     }))
     child.stdin.write(frame({
       jsonrpc: "2.0",
       id: 6,
       method: "tools/call",
+      params: { name: "revela_design_inventory", arguments: { name } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 7,
+      method: "tools/call",
       params: { name: "revela_design_read", arguments: { name } },
     }))
 
-    const text = await output.until((item) => item.stdout.includes("\"id\":6") && item.stdout.includes("assets/cover-background.png"))
+    const text = await output.until((item) => item.stdout.includes("\"id\":7") && item.stdout.includes("assets/cover-background.png"))
     child.kill()
 
     expect(text.stdout).toContain("\\\"ok\\\": true")
@@ -752,7 +760,11 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("\\\"archivePath\\\"")
     expect(text.stdout).toContain("\\\"assets\\\"")
     expect(text.stdout).toContain("\\\"kind\\\": \\\"cover-background\\\"")
+    expect(text.stdout).toContain("\\\"mimeType\\\": \\\"image/png\\\"")
+    expect(text.stdout).toContain("\\\"bytes\\\": 18")
     expect(text.stdout).toContain("test-layout")
+    expect(existsSync(join(root, ".revela", "drafts", "designs", name, "assets", "cover-background.png"))).toBe(true)
+    expect(existsSync(join(root, ".revela", "design-archives", `${name}.tar.gz`))).toBe(true)
   })
 
   it("creates and validates domain packages through MCP tools", async () => {

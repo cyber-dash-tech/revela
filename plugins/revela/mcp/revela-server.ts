@@ -526,11 +526,11 @@ function arrayObjectProp(description: string) {
 function designAssetsProp() {
   return {
     type: "array",
-    description: "Optional design-owned assets to write under assets/**. Each item must use path plus content, contentBase64, or sourcePath.",
+    description: "Optional design-owned assets for user-uploaded or local materials to archive under assets/**. Each item must use path plus content, contentBase64, or sourcePath.",
     items: {
       type: "object",
       properties: {
-        path: { type: "string", description: "Package-relative asset path. Must start with assets/." },
+        path: { type: "string", description: "Package-relative asset path for uploaded or local design material. Must start with assets/." },
         content: { type: "string", description: "UTF-8 text asset content." },
         contentBase64: { type: "string", description: "Base64-encoded binary asset content." },
         sourcePath: { type: "string", description: "Local file path to copy into the design asset." },
