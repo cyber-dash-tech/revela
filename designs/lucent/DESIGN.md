@@ -1,0 +1,171 @@
+---
+name: lucent
+description: Luminous report design with pale analytical pages, glassy blue-violet accents, and data-forward layouts
+author: cyber-dash
+version: 1.0.0
+preview:
+---
+
+## Visual Style - Lucent
+
+Lucent is a clean executive report design for analytical and strategic decks. It uses bright pages, restrained glass textures, crisp Chinese/English typography, and blue-violet-cyan accent gradients. The design is optimized for source-backed narrative, charts, Sankey flows, tables, recommendation cards, and polished cover/closing moments.
+
+<!-- @design:foundation:start -->
+
+### Foundation
+
+Use a fixed `1920px` x `1080px` `.slide-canvas` inside a dark navy browser frame. Scale the canvas with JavaScript transform on viewport resize. Keep all dimensions fixed in pixels; do not use viewport-scaled typography.
+
+```css
+:root {
+  --bg-frame: #07111f;
+  --bg-page: #f7f9fc;
+  --bg-page-alt: #eef3f9;
+  --surface: #ffffff;
+  --surface-tint: #f1f6fc;
+  --surface-blue: #e7f0fb;
+  --text-primary: #101a2b;
+  --text-secondary: #42526a;
+  --text-muted: #7b8aa0;
+  --line: rgba(44, 70, 108, 0.14);
+  --line-strong: rgba(44, 70, 108, 0.28);
+  --accent-primary: #315eea;
+  --accent-secondary: #6e5df6;
+  --accent-cyan: #18a8d8;
+  --accent-coral: #f06370;
+  --accent-soft: #dbe8ff;
+  --shadow-soft: rgba(30, 65, 130, 0.13);
+  --font-display: DengXian, "Microsoft YaHei", "PingFang SC", Arial, ui-sans-serif, sans-serif;
+  --font-body: DengXian, "Microsoft YaHei", "PingFang SC", Arial, ui-sans-serif, sans-serif;
+}
+```
+
+Asset policy:
+- Use `assets/cover-background.jpg` and `assets/closing-background.jpg` for full-bleed hero backgrounds.
+- Use `assets/toc-orb.png` only when transparency is needed for the Lucent glass orb.
+- Use `assets/soft-texture.jpg`, `assets/card-lens.jpg`, and `assets/report-visual.jpg` as subtle report accents; never inline base64 images in generated decks.
+
+<!-- @design:foundation:end -->
+
+<!-- @design:rules:start -->
+
+### Rules
+
+- Use Lucent for strategy, operating review, research synthesis, market diagnosis, and data-backed decision decks.
+- Prefer bright report pages with subtle radial accents. Reserve dark full-bleed imagery for cover, section divider, and closing slides.
+- Put the slide-level title in each layout's title slot or hero text area. Do not hide the main claim inside a card.
+- Use `box` for one idea, evidence item, operating gap, risk, or action. Use 2-4 boxes on dense synthesis slides.
+- Use ECharts for all data charts, including Sankey. Do not fake charts with CSS shapes.
+- Keep typography quiet and legible: large claim headings, compact metadata, and source notes in muted color.
+- Avoid decorative orbs except the Lucent glass assets provided in `assets/`; do not create new gradient blobs.
+- All image assets in design previews must be local package assets under `designs/lucent/assets/`.
+
+<!-- @design:rules:end -->
+
+<!-- @design:layouts:start -->
+
+<!-- @layout:cover:start qa=false -->
+Full-bleed opening slide with one dominant background image, dark overlay, and bottom-left hero title. Slots: `hero`.
+<!-- @layout:cover:end -->
+
+<!-- @layout:toc:start qa=true -->
+Two-column table of contents with a left title rail, right numbered agenda, and optional glass orb. Slots: `left`, `list`, `asset`.
+<!-- @layout:toc:end -->
+
+<!-- @layout:report-story:start qa=true -->
+Report slide with top title block and a two-column body for narrative text plus supporting media or evidence. Slots: `title`, `left`, `right`.
+<!-- @layout:report-story:end -->
+
+<!-- @layout:card-grid:start qa=true -->
+Top title block with three card columns. Use for insight clusters, operating gaps, or comparison. Slots: `title`, `cards`.
+<!-- @layout:card-grid:end -->
+
+<!-- @layout:chart-with-takeaways:start qa=true -->
+Top title block with a dominant chart on the left and stacked takeaway cards on the right. Slots: `title`, `chart`, `takeaways`.
+<!-- @layout:chart-with-takeaways:end -->
+
+<!-- @layout:sankey:start qa=true -->
+Top title block with a wide Sankey chart and a right explanation column. Slots: `title`, `sankey`, `takeaways`.
+<!-- @layout:sankey:end -->
+
+<!-- @layout:table:start qa=true -->
+Top title block with one large table panel and explanatory reading notes. Slots: `title`, `table`.
+<!-- @layout:table:end -->
+
+<!-- @layout:roadmap:start qa=true -->
+Top title block with a horizontal four-phase roadmap across the body. Slots: `title`, `roadmap`.
+<!-- @layout:roadmap:end -->
+
+<!-- @layout:recommendation:start qa=true -->
+Three-column recommendation page with primary recommendation, reasoning, and next steps. Slots: `recommendation`, `rationale`, `steps`.
+<!-- @layout:recommendation:end -->
+
+<!-- @layout:closing:start qa=false -->
+Full-bleed closing slide with a background image, soft overlay, and concise final title. Slots: `hero`.
+<!-- @layout:closing:end -->
+
+<!-- @design:layouts:end -->
+
+<!-- @design:components:start -->
+
+<!-- @component:hero:start -->
+Full-canvas image-backed hero with `.hero`, `.hero-bg`, `.hero-shade`, and `.hero-title`. Use only for cover, section divider, and closing slides.
+<!-- @component:hero:end -->
+
+<!-- @component:toc:start -->
+Lucent agenda component using `.toc-wrap`, `.toc-title`, `.toc-list`, and optional `.toc-orb`. Use for navigation, not for normal text-heavy content.
+<!-- @component:toc:end -->
+
+<!-- @component:text-panel:start -->
+Focused text module for setup, reading guidance, and narrative explanation. Use inside report layouts or boxes.
+<!-- @component:text-panel:end -->
+
+<!-- @component:box:start -->
+Card/group primitive for insights, evidence, operating gaps, recommendations, and rationale. Use `.box`, `.insight-card`, or `.rec-panel` depending on density.
+<!-- @component:box:end -->
+
+<!-- @component:media:start -->
+Image frame for screenshots, report visuals, diagrams, and supporting photography. Use local assets and keep evidence visuals readable.
+<!-- @component:media:end -->
+
+<!-- @component:stat-card:start -->
+Compact metric tile with `.stat-card` and `.stat-value`. Use for one number plus one interpretation line.
+<!-- @component:stat-card:end -->
+
+<!-- @component:echart-panel:start -->
+Chart frame with `.echart-panel`, `.chart-header`, `.echart-container`, and caption/source text. Use ECharts after DOM initialization and call resize on viewport changes. Sankey charts are an `echart-panel` usage pattern, not a separate primary component; keep the chart wide, labels muted, and interpretation in the layout's takeaway slot.
+<!-- @component:echart-panel:end -->
+
+<!-- @component:data-table:start -->
+Structured table component with `.table-panel`, tabular numbers, muted headers, and right-aligned numeric columns.
+<!-- @component:data-table:end -->
+
+<!-- @component:roadmap-horizontal:start -->
+Four-phase horizontal roadmap with alternating cards around a gradient axis. Use for staged plans, milestones, or migration paths.
+<!-- @component:roadmap-horizontal:end -->
+
+<!-- @component:steps:start -->
+Ordered action list for next steps. Keep it short: three to five steps, each with a number and one concise action.
+<!-- @component:steps:end -->
+
+<!-- @component:page-number:start -->
+Small absolute page number utility. Use muted color on report pages and light color on dark hero pages.
+<!-- @component:page-number:end -->
+
+<!-- @component:brand-watermark:start -->
+Small top-right logo or brand mark. Keep it clear, restrained, and never use logos as decorative backgrounds.
+<!-- @component:brand-watermark:end -->
+
+<!-- @design:components:end -->
+
+<!-- @design:chart-rules:start -->
+
+### Chart Rules
+
+- Use ECharts for line, bar, and Sankey charts.
+- Initialize charts after `SlidePresentation` setup and resize them on `window.resize`.
+- Use Lucent chart colors: `#315eea`, `#6e5df6`, `#18a8d8`, `#f06370`, and muted text `#7b8aa0`.
+- Keep chart backgrounds transparent and place charts inside stable `.echart-container` regions with explicit height or flex sizing.
+- Sankey charts inside `echart-panel` should use low-curvature links, restrained labels, and a separate takeaway column for interpretation.
+
+<!-- @design:chart-rules:end -->

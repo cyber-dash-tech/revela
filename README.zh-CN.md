@@ -111,6 +111,14 @@ Revela 内置多个 deck design：
   <img src="assets/img/monet-03.jpg" alt="Monet design preview 3" width="32%" />
 </p>
 
+### [lucent](designs/lucent/preview.html)
+
+<p align="center">
+  <img src="assets/img/lucent-01.jpg" alt="Lucent design cover preview" width="32%" />
+  <img src="assets/img/lucent-02.jpg" alt="Lucent design table of contents preview" width="32%" />
+  <img src="assets/img/lucent-03.jpg" alt="Lucent design Sankey preview" width="32%" />
+</p>
+
 `starter` 是简洁默认演示风格。
 
 切换设计：

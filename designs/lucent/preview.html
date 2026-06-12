@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lucent Design System — Preview</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    :root {
+      --bg-frame: #07111f;
+      --bg-page: #f7f9fc;
+      --bg-page-alt: #eef3f9;
+      --surface: #ffffff;
+      --surface-tint: #f1f6fc;
+      --surface-blue: #e7f0fb;
+      --text-primary: #101a2b;
+      --text-secondary: #42526a;
+      --text-muted: #7b8aa0;
+      --line: rgba(44, 70, 108, 0.14);
+      --line-strong: rgba(44, 70, 108, 0.28);
+      --accent-primary: #315eea;
+      --accent-secondary: #6e5df6;
+      --accent-cyan: #18a8d8;
+      --accent-coral: #f06370;
+      --accent-soft: #dbe8ff;
+      --shadow-soft: rgba(30, 65, 130, 0.13);
+      --font-display: DengXian, 'Microsoft YaHei', 'PingFang SC', Arial, ui-sans-serif, sans-serif;
+      --font-body: DengXian, 'Microsoft YaHei', 'PingFang SC', Arial, ui-sans-serif, sans-serif;
+      --asset-root: '../';
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { height: 100%; overflow-y: scroll; scroll-snap-type: y mandatory; }
+    body { height: 100%; background: var(--bg-frame); color: var(--text-primary); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+    .slide { min-height: 100dvh; scroll-snap-align: start; display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--bg-frame); }
+    .slide-canvas { width: 1920px; height: 1080px; flex-shrink: 0; transform-origin: center center; position: relative; overflow: hidden; padding: 0; }
+    .page { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--bg-page); color: var(--text-primary); box-shadow: 0 24px 80px var(--shadow-soft); }
+    .report-page { padding: 56px 72px 64px; background: radial-gradient(circle at 92% 12%, rgba(24,168,216,.105), rgba(247,249,252,0) 25%), radial-gradient(circle at 7% 84%, rgba(110,93,246,.095), rgba(247,249,252,0) 28%), radial-gradient(circle at 74% 88%, rgba(240,99,112,.055), rgba(247,249,252,0) 24%), var(--bg-page); }
+    .report-page::before { content: ''; position: absolute; right: -180px; top: -140px; width: 680px; height: 680px; border-radius: 999px; background: radial-gradient(circle, rgba(49,94,234,.28), rgba(24,168,216,.14) 40%, rgba(247,249,252,0) 72%); pointer-events: none; }
+    .report-page::after { content: ''; position: absolute; left: -210px; bottom: -210px; width: 720px; height: 720px; border-radius: 999px; background: radial-gradient(circle, rgba(110,93,246,.20), rgba(240,99,112,.105) 36%, rgba(247,249,252,0) 72%); pointer-events: none; }
+    .page.light-text { color: #fff; }
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity .55s cubic-bezier(.22,1,.36,1), transform .55s cubic-bezier(.22,1,.36,1); }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    h1, h2, h3, h4 { font-family: var(--font-display); color: var(--text-primary); letter-spacing: 0; }
+    h1 { font-size: 104px; line-height: .98; font-weight: 700; }
+    h2 { font-size: 52px; line-height: 1.18; font-weight: 700; }
+    h3 { font-size: 31px; line-height: 1.24; font-weight: 700; }
+    h4 { font-size: 28px; line-height: 1.28; font-weight: 700; }
+    p, li { font-size: 22px; line-height: 1.58; color: var(--text-secondary); }
+    .eyebrow, .meta, .caption { font-size: 16px; line-height: 1.42; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); }
+    .source-note { font-family: 'Times New Roman', Times, serif; font-size: 16px; line-height: 1.45; color: var(--text-muted); }
+    .hero { position: relative; width: 100%; height: 100%; overflow: hidden; background: #0b1630; }
+    .hero-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .hero-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(7,17,31,.66) 0%, rgba(7,17,31,.25) 44%, rgba(7,17,31,.08) 100%); }
+    .hero-shade.soft { background: linear-gradient(90deg, rgba(247,249,252,.92) 0%, rgba(247,249,252,.68) 40%, rgba(247,249,252,.12) 100%); }
+    .hero-content { position: relative; z-index: 2; height: 100%; padding: 74px 86px 76px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; }
+    .hero-logo { align-self: flex-start; width: auto; max-width: 380px; height: 52px; object-fit: contain; }
+    .hero-title { max-width: 970px; }
+    .hero-title h1 { color: #fff; max-width: 900px; line-height: 1.08; }
+    .hero-title p { margin-top: 28px; max-width: 620px; color: rgba(255,255,255,.78); font-size: 22px; line-height: 1.5; }
+    .slide[data-slide-index="1"] .hero-content { justify-content: flex-end; padding: 0 86px 132px; }
+    .slide[data-slide-index="1"] .hero-title { max-width: 1040px; }
+    .slide[data-slide-index="1"] .hero-title h1 { max-width: 960px; }
+    .slide[data-slide-index="1"] .hero-title p { max-width: 700px; }
+    .hero-meta { display: flex; gap: 28px; color: rgba(255,255,255,.72); font-size: 15px; letter-spacing: .08em; text-transform: uppercase; }
+    .report-header { position: relative; height: 164px; border-bottom: 1px solid var(--line); }
+    .chapter-label { font-size: 26px; letter-spacing: .11em; text-transform: uppercase; color: var(--accent-primary); font-weight: 700; }
+    .report-title { margin-top: 32px; max-width: 1776px; }
+    .report-title h2 { font-size: 43px; line-height: 1.18; }
+    .pnp-logo { position: absolute; top: 0; right: 0; width: auto; height: 32px; object-fit: contain; }
+    .content { position: absolute; left: 72px; right: 72px; top: 256px; height: 740px; }
+    .page-number { position: absolute; right: 34px; bottom: 26px; z-index: 10; font-size: 12px; letter-spacing: .14em; color: var(--text-muted); }
+    .page-number.light { color: rgba(255,255,255,.72); }
+    .toc-wrap { display: grid; grid-template-columns: 520px 1fr; gap: 72px; height: 100%; padding: 88px 96px 76px; }
+    .toc-title { display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--line); padding-right: 64px; }
+    .toc-title h2 { font-size: 60px; line-height: 1.16; }
+    .toc-list { list-style: none; display: flex; flex-direction: column; justify-content: center; gap: 20px; }
+    .toc-list li { display: grid; grid-template-columns: 86px 1fr; align-items: baseline; gap: 28px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+    .toc-list li:nth-child(4) { grid-template-columns: 98px 1fr; padding-bottom: 20px; }
+    .toc-list span { font-size: 40px; color: var(--accent-secondary); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .toc-list li:nth-child(4) span { font-size: 48px; }
+    .toc-list strong { font-size: 34px; color: var(--text-primary); font-weight: 700; }
+    .toc-list li:nth-child(4) strong { font-size: 42px; }
+    .toc-list em { display: block; margin-top: 10px; font-style: normal; font-size: 24px; line-height: 1.28; color: var(--text-muted); }
+    .toc-list li:nth-child(4) em { font-size: 28px; }
+    .toc-orb { position: absolute; right: -145px; bottom: -205px; width: 920px; opacity: .68; mix-blend-mode: multiply; filter: saturate(1.45) contrast(1.08); pointer-events: none; }
+    .section-kicker { color: rgba(255,255,255,.72); font-size: 15px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; }
+    .section-title { max-width: 920px; }
+    .section-title h1 { margin-top: 22px; color: #fff; font-size: 94px; line-height: 1.08; }
+    .section-title p { margin-top: 26px; color: rgba(255,255,255,.78); font-size: 22px; max-width: 650px; }
+    .two-col { display: grid; grid-template-columns: 600px 1fr; gap: 52px; height: 100%; }
+    .lead-panel { padding: 32px 34px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 18px 48px rgba(30,65,130,.08); }
+    .lead-panel h3 { margin-bottom: 18px; }
+    .lead-panel p { font-size: 27px; line-height: 1.52; }
+    .bullet-list { list-style: none; display: flex; flex-direction: column; gap: 14px; margin-top: 24px; }
+    .bullet-list li { position: relative; padding-left: 22px; }
+    .bullet-list li::before { content: ''; position: absolute; left: 0; top: 10px; width: 7px; height: 7px; background: var(--accent-primary); border-radius: 999px; }
+    .evidence-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; }
+    .evidence-grid .box:first-child { grid-row: span 2; background: linear-gradient(135deg, #edf4ff 0%, rgba(255,255,255,.92) 74%); border-color: rgba(49,94,234,.24); }
+    .evidence-grid .box:nth-child(4) { background: var(--surface-blue); border-color: rgba(24,168,216,.24); }
+    .box, .insight-card { background: rgba(255,255,255,.86); border: 1px solid var(--line); border-radius: 8px; padding: 26px 28px; box-shadow: 0 14px 38px rgba(30,65,130,.07); }
+    .box h4, .insight-card h3 { margin-bottom: 12px; }
+    .box p, .insight-card p { font-size: 21px; line-height: 1.42; }
+    .insight-card h3 { font-size: 26px; line-height: 1.18; }
+    .insight-card p { font-size: 17px; line-height: 1.34; }
+    .card-grid { display: grid; grid-template-columns: 1.18fr .92fr .92fr; gap: 28px; height: 100%; }
+    .insight-card { position: relative; display: flex; flex-direction: column; justify-content: flex-start; gap: 22px; min-height: 0; overflow: visible; }
+    .insight-card:first-child { background: linear-gradient(145deg, rgba(255,255,255,.56) 0%, rgba(237,244,255,.72) 100%), var(--card-bg, none) center / cover no-repeat; border-color: rgba(49,94,234,.26); }
+    .insight-card:nth-child(2) { background: linear-gradient(145deg, rgba(238,241,255,.70), rgba(238,241,255,.84)), var(--card-bg, none) center / cover no-repeat; }
+    .insight-card:nth-child(3) { background: linear-gradient(160deg, #ffffff 0%, #fff2f4 100%); border-top: 5px solid var(--accent-coral); }
+    .insight-card.featured > * { position: relative; z-index: 1; }
+    .insight-card.lensed { background: #eef1ff; border-color: rgba(110,93,246,.34); }
+    .insight-card.lensed::after { content: ''; position: absolute; left: 28px; right: 28px; bottom: 24px; height: 1px; background: linear-gradient(90deg, rgba(49,94,234,.0), rgba(49,94,234,.46), rgba(240,99,112,.0)); }
+    .asset-lens { display: none; position: absolute; width: 300px; height: auto; opacity: .34; pointer-events: none; object-fit: contain; }
+    .asset-lens--card { right: 18px; bottom: 24px; }
+    .asset-lens--top { right: -18px; top: -36px; width: 260px; opacity: .30; transform: rotate(-9deg); }
+    .mini-mosaic { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+    .mini-chip { border: 1px solid rgba(49,94,234,.20); background: rgba(255,255,255,.62); border-radius: 999px; padding: 8px 12px; color: var(--text-primary); font-size: 15px; font-weight: 700; text-align: center; }
+    .card-num { font-size: 54px; line-height: 1; color: var(--accent-secondary); font-weight: 700; }
+    .card-tag { margin-top: 30px; color: var(--accent-primary); font-size: 16px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: auto; position: relative; z-index: 1; }
+    .stat-card { padding: 18px 18px; background: rgba(255,255,255,.78); border: 1px solid var(--line); border-radius: 8px; }
+    .stat-value { font-size: 42px; line-height: .95; font-weight: 700; color: var(--accent-primary); font-variant-numeric: tabular-nums; }
+    .stat-card p { margin-top: 8px; font-size: 15px; }
+    .slide[data-slide-index="4"] .insight-card > div:first-child > p:not(.card-tag) { font-size: 24px; line-height: 1.38; }
+    .slide[data-slide-index="4"] .mini-chip { font-size: 19px; line-height: 1.15; padding: 10px 14px; }
+    .slide[data-slide-index="4"] .stat-card p { font-size: 20px; line-height: 1.34; }
+    .slide[data-slide-index="6"] .insight-card { padding: 34px 36px; gap: 28px; }
+    .slide[data-slide-index="6"] .card-num { font-size: 72px; }
+    .slide[data-slide-index="6"] .card-tag { margin-top: 34px; font-size: 22px; line-height: 1.2; letter-spacing: .10em; }
+    .slide[data-slide-index="6"] .insight-card h3 { font-size: 36px; line-height: 1.15; margin-bottom: 18px; }
+    .slide[data-slide-index="6"] .insight-card p:not(.card-tag) { font-size: 27px; line-height: 1.34; }
+    .slide[data-slide-index="6"] .mini-mosaic { gap: 16px; margin-top: 34px; }
+    .slide[data-slide-index="6"] .mini-chip { font-size: 24px; line-height: 1.15; padding: 16px 18px; }
+    .slide[data-slide-index="6"] .stat-value { font-size: 62px; }
+    .slide[data-slide-index="6"] .stat-card { padding: 24px 26px; }
+    .slide[data-slide-index="6"] .stat-card p { font-size: 24px; line-height: 1.28; }
+    .chart-layout { display: grid; grid-template-columns: 1fr 420px; gap: 36px; height: 100%; }
+    .sankey-layout { display: grid; grid-template-columns: 1fr 470px; gap: 34px; height: 746px; }
+    .echart-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 28px 32px; display: flex; flex-direction: column; min-height: 0; }
+    .chart-header { padding-bottom: 16px; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+    .chart-header p { margin-top: 4px; font-size: 18px; color: var(--text-muted); }
+    .echart-container { flex: 1; min-height: 0; }
+    .takeaway-col { display: flex; flex-direction: column; gap: 18px; }
+    .takeaway { border-left: 4px solid var(--accent-primary); background: var(--surface-tint); padding: 22px 24px; border-radius: 0 8px 8px 0; }
+    .takeaway.coral { border-left-color: var(--accent-coral); }
+    .takeaway.glass { border: 1px solid rgba(110,93,246,.22); border-left: 4px solid var(--accent-secondary); background: linear-gradient(145deg, rgba(255,255,255,.78), rgba(231,240,251,.76)); box-shadow: 0 18px 52px rgba(49,94,234,.10); }
+    .table-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 30px 34px; height: 100%; display: flex; flex-direction: column; }
+    table { width: 100%; border-collapse: collapse; font-size: 25px; line-height: 1.42; font-variant-numeric: tabular-nums; }
+    th { text-align: left; padding: 0 16px 16px 0; border-bottom: 1.5px solid var(--line-strong); font-size: 16px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); }
+    td { padding: 17px 16px 17px 0; border-bottom: 1px solid var(--line); color: var(--text-secondary); }
+    th:not(:first-child), td:not(:first-child) { text-align: right; }
+    .positive { color: var(--accent-primary); font-weight: 700; }
+    .warning { color: var(--accent-coral); font-weight: 700; }
+    .roadmap { position: relative; height: 100%; border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, rgba(255,255,255,.86), rgba(231,240,251,.74)); border: 1px solid rgba(49,94,234,.16); box-shadow: 0 22px 60px rgba(30,65,130,.10); }
+    .roadmap::after { content: ''; position: absolute; left: 126px; right: 126px; top: 380px; height: 18px; border-radius: 999px; background: linear-gradient(90deg, rgba(49,94,234,.18), rgba(110,93,246,.44), rgba(240,99,112,.38)); box-shadow: 0 0 0 1px rgba(255,255,255,.55), 0 22px 60px rgba(49,94,234,.18); z-index: 1; }
+    .roadmap-asset { position: absolute; left: 720px; top: 238px; width: 260px; opacity: .08; filter: saturate(1.1); pointer-events: none; }
+    .roadmap-item { position: absolute; width: 340px; padding: 26px 28px; border: 1px solid rgba(49,94,234,.18); background: rgba(255,255,255,.78); backdrop-filter: blur(8px); border-radius: 10px; box-shadow: 0 18px 48px rgba(30,65,130,.11); z-index: 2; }
+    .roadmap-item:nth-child(1) { left: 84px; top: 92px; }
+    .roadmap-item:nth-child(2) { left: 492px; top: 470px; }
+    .roadmap-item:nth-child(3) { left: 900px; top: 92px; }
+    .roadmap-item:nth-child(4) { right: 84px; top: 470px; }
+    .roadmap-dot { position: absolute; left: 28px; top: 283px; width: 28px; height: 28px; border-radius: 999px; background: var(--accent-primary); box-shadow: 0 0 0 10px rgba(49,94,234,.12), 0 10px 30px rgba(49,94,234,.28); z-index: 2; }
+    .roadmap-item:nth-child(2) .roadmap-dot { background: var(--accent-cyan); top: -95px; }
+    .roadmap-item:nth-child(3) .roadmap-dot { background: var(--accent-secondary); }
+    .roadmap-item:nth-child(4) .roadmap-dot { background: var(--accent-coral); top: -95px; }
+    .roadmap-item h3 { margin-bottom: 14px; }
+    .roadmap-item p { font-size: 17px; line-height: 1.38; }
+    .recommendation-layout { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 28px; height: 100%; }
+    .content.two-col, .content.card-grid, .content.chart-layout, .content.recommendation-layout { height: 740px; }
+    .content.card-grid { top: 232px; height: 812px; }
+    .story-layout { display: grid; grid-template-columns: 660px 1fr; gap: 42px; height: 740px; }
+    .story-copy { position: relative; z-index: 1; background: rgba(255,255,255,.76); border: 1px solid rgba(49,94,234,.16); border-radius: 10px; padding: 36px 38px; box-shadow: 0 18px 52px rgba(30,65,130,.10); }
+    .story-copy p { font-size: 24px; line-height: 1.56; }
+    .story-copy .bullet-list li { font-size: 22px; line-height: 1.45; }
+    .story-media { position: relative; z-index: 1; border-radius: 12px; overflow: hidden; border: 1px solid rgba(49,94,234,.18); box-shadow: 0 24px 70px rgba(30,65,130,.14); background: #dbe8ff; }
+    .story-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .layer-split { display: grid; grid-template-columns: 780px 1fr; gap: 52px; height: 740px; }
+    .layer-map { position: relative; z-index: 1; height: 100%; border-radius: 12px; background: linear-gradient(145deg, rgba(255,255,255,.78), rgba(231,240,251,.66)); border: 1px solid rgba(49,94,234,.16); box-shadow: 0 22px 62px rgba(30,65,130,.10); overflow: hidden; }
+    .layer-map::before { content: ''; position: absolute; left: 360px; top: 54px; bottom: 54px; width: 8px; border-radius: 999px; background: linear-gradient(180deg, rgba(49,94,234,.25), rgba(24,168,216,.36), rgba(240,99,112,.34)); }
+    .layer-node { position: absolute; width: 310px; }
+    .layer-node.left { text-align: right; left: 32px; }
+    .layer-node.right { left: 430px; }
+    .layer-node:nth-child(1) { top: 64px; }
+    .layer-node:nth-child(2) { top: 190px; }
+    .layer-node:nth-child(3) { top: 320px; }
+    .layer-node:nth-child(4) { top: 450px; }
+    .layer-node:nth-child(5) { top: 580px; }
+    .layer-node::after { content: ''; position: absolute; top: 28px; width: 78px; height: 2px; background: rgba(49,94,234,.20); }
+    .layer-node.left::after { right: -88px; }
+    .layer-node.right::after { left: -88px; }
+    .layer-dot { position: absolute; top: 20px; width: 16px; height: 16px; border-radius: 999px; background: var(--layer-color, var(--accent-primary)); box-shadow: 0 0 0 7px rgba(49,94,234,.10); }
+    .layer-node.left .layer-dot { right: -116px; }
+    .layer-node.right .layer-dot { left: -116px; }
+    .layer-node .meta { color: var(--layer-color, var(--accent-primary)); font-weight: 700; }
+    .layer-node h3 { margin-top: 4px; font-size: 30px; line-height: 1.08; }
+    .layer-node p { margin-top: 12px; font-size: 17px; line-height: 1.35; }
+    .layer-table { position: relative; z-index: 1; padding: 30px 34px; border-radius: 12px; background: rgba(255,255,255,.76); border: 1px solid rgba(49,94,234,.16); box-shadow: 0 22px 62px rgba(30,65,130,.10); }
+    .layer-table h3 { font-size: 36px; margin-bottom: 18px; }
+    .layer-table p { font-size: 20px; line-height: 1.48; margin-bottom: 26px; }
+    .layer-table table { font-size: 20px; }
+    .layer-table th { font-size: 14px; padding-bottom: 12px; }
+    .layer-table td { padding: 14px 14px 14px 0; }
+    .layer-full { position: absolute; inset: 0; display: grid; grid-template-columns: 46% 54%; height: 100%; }
+    .layer-brand { position: absolute; left: 42px; top: 42px; width: auto; height: 32px; object-fit: contain; z-index: 4; }
+    .layer-full .layer-map { border-radius: 0; border: 0; border-right: 1px solid rgba(49,94,234,.14); box-shadow: none; background: linear-gradient(145deg, rgba(255,255,255,.72), rgba(231,240,251,.78)); }
+    .layer-full .layer-map::before { left: 50%; top: 142px; bottom: 42px; width: 7px; transform: translateX(-50%); }
+    .layer-full .layer-node { width: 330px; }
+    .layer-full .layer-node.left { left: 54px; }
+    .layer-full .layer-node.right { left: calc(50% + 88px); }
+    .layer-full .layer-node:nth-of-type(1) { top: 205px; }
+    .layer-full .layer-node:nth-of-type(2) { top: 390px; }
+    .layer-full .layer-node:nth-of-type(3) { top: 575px; }
+    .layer-full .layer-node:nth-of-type(4) { top: 760px; }
+    .layer-full .layer-node::after { top: 27px; }
+    .layer-full .layer-node.left::after { left: 100%; width: 112px; transform: translateX(0); }
+    .layer-full .layer-node.right::after { right: 100%; width: 88px; transform: translateX(0); }
+    .layer-full .layer-node.left .layer-dot { right: auto; left: 374px; top: 14px; width: 28px; height: 28px; z-index: 3; }
+    .layer-full .layer-node.right .layer-dot { left: -102px; top: 14px; width: 28px; height: 28px; z-index: 3; }
+    .layer-full .layer-node h3 { font-size: 34px; }
+    .layer-full .layer-node p:not(.meta) { font-size: 19px; }
+    .layer-right { position: relative; padding: 78px 92px 72px 74px; background: rgba(255,255,255,.74); }
+    .layer-right .chapter-label { font-size: 26px; letter-spacing: .11em; text-transform: uppercase; color: var(--accent-primary); font-weight: 700; }
+    .layer-right h2 { margin-top: 32px; font-size: 43px; line-height: 1.18; max-width: 840px; }
+    .layer-right-copy { margin-top: 30px; max-width: 820px; font-size: 22px; line-height: 1.55; }
+    .layer-right .layer-table { margin-top: 54px; box-shadow: none; background: transparent; border: 0; border-radius: 0; padding: 0; }
+    .layer-right .layer-table table { font-size: 23px; }
+    .layer-right .layer-table th { font-size: 17px; }
+    .layer-right .layer-table td { padding: 18px 16px 18px 0; }
+    .content.narrative-page { position: absolute; top: 214px; height: 812px; z-index: 1; display: grid; grid-template-rows: 112px 1fr; gap: 18px; }
+    .narrative-page { z-index: 1; }
+    .narrative-intro { display: flex; align-items: center; padding: 0 28px; border-radius: 12px; background: rgba(255,255,255,.80); border: 1px solid rgba(49,94,234,.16); box-shadow: 0 18px 42px rgba(30,65,130,.09); }
+    .narrative-intro p { font-size: 27px; line-height: 1.36; max-width: 1520px; }
+    .module-board { display: grid; grid-template-columns: 410px 1fr; gap: 24px; min-height: 0; }
+    .setup-stack { display: flex; flex-direction: column; gap: 12px; }
+    .setup-card { padding: 16px 18px; border-radius: 10px; border: 1px solid rgba(49,94,234,.14); background: rgba(255,255,255,.72); }
+    .setup-card h4 { color: var(--accent-primary); font-size: 20px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 10px; }
+    .setup-card p { font-size: 23px; line-height: 1.34; }
+    .process-panel { padding: 18px 20px; border-radius: 12px; border: 1px solid rgba(49,94,234,.16); background: linear-gradient(145deg, rgba(255,255,255,.80), rgba(231,240,251,.68)); }
+    .process-panel h3 { font-size: 38px; margin-bottom: 14px; }
+    .process-panel > p { margin: -2px 0 18px; max-width: 1140px; font-size: 25px; line-height: 1.36; color: var(--text-secondary); }
+    .process-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+    .process-card { min-height: 276px; padding: 20px 18px; border: 1px solid rgba(49,94,234,.15); background: rgba(255,255,255,.62); border-radius: 8px; }
+    .process-card:nth-child(2) { background: rgba(219,232,255,.58); }
+    .process-card:nth-child(4) { background: rgba(255,231,235,.62); border-color: rgba(240,99,112,.20); }
+    .process-card .meta { color: var(--step-color, var(--accent-primary)); font-size: 19px; font-weight: 700; }
+    .process-card h4 { font-size: 25px; margin: 12px 0 10px; line-height: 1.12; }
+    .process-card p { font-size: 21px; line-height: 1.34; }
+    .takeaway-band { margin-top: 14px; padding: 15px 18px; border-radius: 8px; background: rgba(255,255,255,.75); border: 1px solid rgba(49,94,234,.14); font-size: 23px; color: var(--text-primary); }
+    .rec-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 32px; display: flex; flex-direction: column; justify-content: space-between; }
+    .rec-panel.primary { background: linear-gradient(135deg, #edf4ff 0%, #ffffff 70%); border-color: rgba(49,94,234,.28); }
+    .rec-label { font-size: 16px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-primary); font-weight: 700; }
+    .steps { list-style: none; display: flex; flex-direction: column; gap: 18px; margin-top: 22px; }
+    .steps li { display: grid; grid-template-columns: 34px 1fr; gap: 14px; align-items: start; }
+    .steps span { width: 34px; height: 34px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-primary); display: flex; align-items: center; justify-content: center; font-weight: 700; }
+    .soft-texture { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .28; pointer-events: none; }
+    .closing h1 { color: #fff; font-size: 90px; line-height: 1.08; }
+    .closing p { color: rgba(255,255,255,.78); font-size: 22px; margin-top: 22px; }
+  </style>
+</head>
+<body>
+  <section class="slide" slide-qa="false" data-slide-index="1" data-slide-role="cover">
+    <div class="slide-canvas">
+      <div class="page">
+        <div class="hero" data-preview-component="hero">
+          <img class="hero-bg" src="assets/cover-background.jpg" alt="Lucent blue glass background">
+          <div class="hero-shade"></div>
+          <div class="hero-content">
+            <div class="hero-title reveal">
+              <div class="hero-meta"><span>Client Strategy Report</span><span>2026</span><span>Confidential</span></div>
+              <h1>Lucent Template</h1>
+              <p style="width: 638px; max-width: 638px">一套用于客户诊断、策略建议、项目交付和商业分析的可复用报告模板。</p>
+            </div>
+          </div>
+          <div class="page-number light" data-preview-component="page-number">01</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" slide-qa="false" data-slide-index="2">
+    <div class="slide-canvas">
+      <div class="page">
+        <img class="soft-texture" src="assets/soft-texture.jpg" alt="subtle report texture">
+        <img class="toc-orb" src="assets/toc-orb.png" alt="Lucent glass orb element">
+        <div class="toc-wrap" data-preview-component="toc">
+          <div class="toc-title reveal">
+            <div><p class="chapter-label">Lucent</p><h2>目录结构<br>Table of Contents</h2></div>
+            <p class="source-note">Template preview only. Replace chapter names with client report structure.</p>
+          </div>
+          <ol class="toc-list reveal">
+            <li><span>01</span><strong>Executive Summary<em>关键结论与管理层摘要</em></strong></li>
+            <li><span>02</span><strong>Diagnosis<em>现状、问题与机会判断</em></strong></li>
+            <li><span>03</span><strong>Evidence &amp; Options<em>数据、方案与优先级</em></strong></li>
+            <li><span>04</span><strong>Roadmap<em>实施路径与下一步行动</em></strong></li>
+          </ol>
+        </div>
+        <div class="page-number">02</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" slide-qa="true" data-slide-index="3">
+    <div class="slide-canvas">
+      <div class="page report-page">
+        <div class="report-header">
+          <p class="chapter-label">02 / Market Diagnosis</p>
+          <div class="report-title"><h2>增长问题不是单点流量，而是认知、渠道与转化链路同时失衡</h2></div>
+        </div>
+        <div class="content story-layout">
+          <div class="story-copy reveal" data-preview-component="text-panel">
+            <h3>核心判断</h3>
+            <p>这类正文页用于放一段完整的说明文字，配合 bullet points 和右侧图片。背景仍然保持白色阅读底，但边角加入光斑，让页面不再像空白文档。</p>
+            <ul class="bullet-list">
+              <li>正文可以承载客户背景、诊断解释或方法说明。</li>
+              <li>bullet point 用来提炼关键动作、证据或约束。</li>
+              <li>图片区域可以放素材图、项目截图、案例图或客户材料。</li>
+            </ul>
+          </div>
+          <div class="story-media reveal" data-preview-component="media">
+            <img src="assets/report-visual.jpg" alt="PNP report visual" data-preview-component="brand-watermark">
+          </div>
+        </div>
+        <div class="page-number">03</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" slide-qa="false" data-slide-index="4">
+    <div class="slide-canvas">
+      <div class="page">
+        <div class="layer-full">
+          <div class="layer-map reveal">
+            <div class="layer-node left" style="--layer-color:#315eea;"><span class="layer-dot"></span><p class="meta">01 / Perception</p><h3>Sense</h3><p>通过可信信号看见客户、渠道、流程与环境。</p></div>
+            <div class="layer-node right" style="--layer-color:#18a8d8;"><span class="layer-dot"></span><p class="meta">02 / Data Context</p><h3>Contextualize</h3><p>把分散数据放回业务对象、约束与决策场景。</p></div>
+            <div class="layer-node left" style="--layer-color:#6e5df6;"><span class="layer-dot"></span><p class="meta">03 / Decision</p><h3>Decide</h3><p>把预测、诊断和约束转成可讨论的判断选项。</p></div>
+            <div class="layer-node right" style="--layer-color:#f06370;"><span class="layer-dot"></span><p class="meta">04 / Execution</p><h3>Act</h3><p>让系统、人员和资源围绕同一个动作协同。</p></div>
+          </div>
+          <div class="layer-right reveal">
+            <p class="chapter-label">02 / Reality Map</p>
+            <h2>Five-layer logic pages do not need a standard top title bar</h2>
+            <p class="layer-right-copy">这类页面把框架图本身当成主角。左侧纵轴图占满页面，右侧承担标题、解释和表格，整体比标准正文页更自由，也更像一张真正的咨询报告章节页。</p>
+            <div class="layer-table">
+              <table>
+                <thead><tr><th>Layer</th><th>Current-State Question</th></tr></thead>
+                <tbody>
+                  <tr><td class="positive">Sense</td><td>客户现实是否能变成可信信号？</td></tr>
+                  <tr><td>Contextualize</td><td>数据是否承载共同业务含义？</td></tr>
+                  <tr><td>Decide</td><td>洞察是否能变成管理选择？</td></tr>
+                  <tr><td class="warning">Act</td><td>决策是否能进入协同执行？</td></tr>
+                  <tr><td>Learn</td><td>结果是否能改进下一轮行动？</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="page-number">04</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" slide-qa="false" data-slide-index="5">
+    <div class="slide-canvas">
+      <div class="page report-page">
+        <div class="report-header">
+          <p class="chapter-label">02 / Narrative System</p>
+          <div class="report-title"><h2>先讲清业务场景，再拆解响应机制与管理动作</h2></div>
+        </div>
+        <div class="content narrative-page">
+          <div class="narrative-intro reveal">
+            <p>当一个业务机会同时牵动交付、质量和资源约束时，报告页需要先把冲突讲清楚，再把系统响应、管理判断和后续动作拆成可执行的模块。</p>
+          </div>
+          <div class="module-board reveal">
+            <div class="setup-stack">
+              <div class="setup-card"><h4>Story setup</h4><p>一个高优先级机会出现，但组织同时面对时间、质量和资源约束。</p></div>
+              <div class="setup-card"><h4>Operational conflict</h4><p>理想路径被占用，关键材料延迟，改序可能带来额外风险。</p></div>
+              <div class="setup-card"><h4>Management trade-off</h4><p>机会是否值得重排资源，需要被快速解释和批准。</p></div>
+            </div>
+            <div class="process-panel">
+              <h3>How the Response Works</h3>
+              <p>中间流程先交代响应逻辑：从信号进入系统，到形成选项、派发动作，再把执行结果沉淀为下一轮规则。</p>
+              <div class="process-grid">
+                <div class="process-card" style="--step-color:#315eea;"><p class="meta">1 / Sense</p><h4>Signals captured</h4><p>订单、库存、交付和约束被看见。</p></div>
+                <div class="process-card" style="--step-color:#18a8d8;"><p class="meta">2 / Context</p><h4>Context built</h4><p>把信号连接到客户、产品和资源。</p></div>
+                <div class="process-card" style="--step-color:#18a8d8;"><p class="meta">3 / Decide</p><h4>Options simulated</h4><p>比较收益、风险和执行成本。</p></div>
+                <div class="process-card" style="--step-color:#f06370;"><p class="meta">4 / Act</p><h4>Work routed</h4><p>触发责任人、系统任务和审批。</p></div>
+                <div class="process-card" style="--step-color:#6e5df6;"><p class="meta">5 / Learn</p><h4>Loop improves</h4><p>反馈进入下一轮规则和模型。</p></div>
+              </div>
+              <div class="takeaway-band"><strong>Simple takeaway:</strong> 人判断例外，系统协调响应，组织从结果中学习。</div>
+            </div>
+          </div>
+        </div>
+        <div class="page-number">05</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" slide-qa="false" data-slide-index="6">
+    <div class="slide-canvas">
+      <div class="page report-page">
+        <div class="report-header">
+          <p class="chapter-label">02 / Insight Cards</p>
+          <div class="report-title"><h2>三类洞察卡片用于承载判断、证据与管理动作</h2></div>
+        </div>
+        <div class="content card-grid">
+          <div class="insight-card featured reveal" data-preview-component="box" style="--card-bg: url('assets/card-lens.jpg');"><div><div class="card-num">01</div><p class="card-tag">Strategic signal</p><h3>购买理由更具体</h3><p>收益、风险、路径。</p></div><div class="mini-mosaic"><span class="mini-chip">3x questions</span><span class="mini-chip">90d pilot</span></div></div>
+          <div class="insight-card lensed reveal" data-preview-component="media" style="--card-bg: url('assets/card-lens.jpg');"><div><div class="card-num">02</div><p class="card-tag">Operating gap</p><h3>内容资产不足</h3></div><div class="mini-mosaic"><span class="mini-chip">Role</span><span class="mini-chip">Scene</span><span class="mini-chip">Proof</span><span class="mini-chip">Action</span></div></div>
+          <div class="insight-card reveal"><div><div class="card-num">03</div><p class="card-tag">Priority move</p><h3>统一叙事主线</h3><p>再重排渠道资源。</p></div><div class="stat-card" data-preview-component="stat-card"><div class="stat-value" style="color:var(--accent-coral);">90d</div><p>第一轮验证周期。</p></div></div>
+        </div>
+        <div class="page-number">06</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" slide-qa="true" data-slide-index="7">
+    <div class="slide-canvas">
+      <div class="page report-page">
+        <div class="report-header">
+          <p class="chapter-label">03 / Evidence</p>
+          <div class="report-title"><h2>图表页把趋势留给图，把结论留给右侧解释栏</h2></div>
+        </div>
+        <div class="content chart-layout">
+          <div class="echart-panel reveal" data-preview-component="echart-panel">
+            <div class="chart-header"><h3>Channel Contribution Index</h3><p>Indexed performance by channel, 2024-2026</p></div>
+            <div id="channelChart" class="echart-container"></div>
+            <p class="source-note">Source: illustrative template data; replace with client source notes.</p>
+          </div>
+          <div class="takeaway-col reveal">
+            <div class="takeaway"><h4>核心渠道仍然有效</h4><p>主渠道增长放缓但没有失效，问题更多来自新增触点与转化内容之间的断层。</p></div>
+            <div class="takeaway"><h4>新增渠道需要证据资产</h4><p>渠道投入要和场景化材料同步设计，否则流量质量难以转化为销售机会。</p></div>
+            <div class="takeaway coral"><h4>风险提示</h4><p>如果继续只优化投放，不重建叙事和证据，获客成本可能继续抬升。</p></div>
+          </div>
+        </div>
+        <div class="page-number">07</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" slide-qa="true" data-slide-index="8">
+    <div class="slide-canvas">
+      <div class="page report-page">
+        <img class="soft-texture" src="assets/soft-texture.jpg" alt="subtle report texture">
+        <div class="report-header">
+          <p class="chapter-label">03 / Sankey Flow</p>
+          <div class="report-title"><h2>Sankey 图适合展示线索、预算、内容或用户路径如何在系统中流动</h2></div>
+        </div>
+        <div class="content sankey-layout">
+          <div class="echart-panel reveal" data-preview-component="echart-panel">
+            <div class="chart-header"><h3>Demand-to-Revenue Flow</h3><p>Illustrative Sankey structure for report templates</p></div>
+            <div id="sankeyChart" class="echart-container"></div>
+            <p class="source-note">Source: illustrative template data; replace with client funnel, budget, or journey data.</p>
+          </div>
+          <div class="takeaway-col reveal">
+            <div class="takeaway glass"><h4>看清流量不是终点</h4><p>同样的输入会在不同解释、内容和销售节点发生损耗，Sankey 能把损耗位置讲清楚。</p></div>
+            <div class="takeaway glass"><h4>适合多元报告场景</h4><p>可以改成预算流、线索流、用户旅程、组织协作流或内容分发路径。</p></div>
+            <div class="takeaway coral"><h4>设计重点</h4><p>右侧保留解释栏，避免图本身太复杂而失去管理含义。</p></div>
+          </div>
+        </div>
+        <div class="page-number">08</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" slide-qa="true" data-slide-index="9">
+    <div class="slide-canvas">
+      <div class="page report-page">
+        <div class="report-header">
+          <p class="chapter-label">03 / Data Table</p>
+          <div class="report-title"><h2>表格页适合把判断拆成指标、状态与管理含义</h2></div>
+        </div>
+        <div class="content">
+          <div class="table-panel reveal" data-preview-component="data-table">
+            <table>
+              <thead><tr><th>Workstream</th><th>Current</th><th>Target</th><th>Gap</th><th>Priority</th></tr></thead>
+              <tbody>
+                <tr><td>Value proposition clarity</td><td>Medium</td><td>High</td><td class="warning">Large</td><td class="positive">P1</td></tr>
+                <tr><td>Channel efficiency</td><td>Stable</td><td>Improving</td><td>Medium</td><td>P2</td></tr>
+                <tr><td>Sales evidence assets</td><td>Low</td><td>High</td><td class="warning">Large</td><td class="positive">P1</td></tr>
+                <tr><td>Operating feedback loop</td><td>Slow</td><td>Bi-weekly</td><td>Medium</td><td>P2</td></tr>
+                <tr><td>Executive reporting cadence</td><td>Ad hoc</td><td>Monthly</td><td>Small</td><td>P3</td></tr>
+              </tbody>
+            </table>
+            <div style="margin-top:auto; display:grid; grid-template-columns: 1fr 1fr; gap:28px; padding-top:30px;">
+              <div class="box"><h4>读取方式</h4><p>表格不是堆数据，而是把每一项转成可以管理的差距和优先级。</p></div>
+              <p class="source-note">Note: This table uses illustrative values for template demonstration. Replace rows, metric definitions, and source notes in real reports.</p>
+            </div>
+          </div>
+        </div>
+        <div class="page-number">09</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" slide-qa="true" data-slide-index="10">
+    <div class="slide-canvas">
+      <div class="page report-page">
+        <div class="report-header">
+          <p class="chapter-label">04 / Roadmap</p>
+          <div class="report-title"><h2>路线图页用阶段推进代替复杂流程图</h2></div>
+        </div>
+        <div class="content">
+          <div class="roadmap reveal" data-preview-component="roadmap-horizontal">
+            <div class="roadmap-item"><div class="roadmap-dot"></div><p class="meta">Phase 01 / Weeks 1-2</p><h3>统一诊断口径</h3><p>整理客户目标、业务约束、核心假设和现有证据，形成问题地图。</p></div>
+            <div class="roadmap-item"><div class="roadmap-dot"></div><p class="meta">Phase 02 / Weeks 3-5</p><h3>重建价值叙事</h3><p>拆解角色、场景和购买理由，定义统一但可分发的内容模块。</p></div>
+            <div class="roadmap-item"><div class="roadmap-dot"></div><p class="meta">Phase 03 / Weeks 6-9</p><h3>渠道试点验证</h3><p>选择两个重点渠道，测试新叙事、新证据和转化动作的组合效果。</p></div>
+            <div class="roadmap-item"><div class="roadmap-dot"></div><p class="meta">Phase 04 / Weeks 10-12</p><h3>复盘与扩展</h3><p>把验证结果转成组织节奏、指标看板和下一轮资源配置建议。</p></div>
+          </div>
+        </div>
+        <div class="page-number">10</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" slide-qa="true" data-slide-index="11">
+    <div class="slide-canvas">
+      <div class="page report-page">
+        <img class="soft-texture" src="assets/soft-texture.jpg" alt="subtle report texture">
+        <div class="report-header">
+          <p class="chapter-label">04 / Recommendation</p>
+          <div class="report-title"><h2>建议页把结论、理由和下一步动作放在同一张页面上</h2></div>
+        </div>
+        <div class="content recommendation-layout">
+          <div class="rec-panel primary reveal" data-preview-component="box"><div><p class="rec-label">Recommendation</p><h3>先做 90 天叙事与证据重建试点</h3><p>以一个重点客群和两个重点渠道作为验证范围，避免一次性重构所有市场动作。</p></div><div class="stat-card"><div class="stat-value">90</div><p>days to validate first operating loop</p></div></div>
+          <div class="rec-panel reveal"><div><p class="rec-label">Rationale</p><h3>投入前先降低策略不确定性</h3><p>当前最大风险不是单个渠道选择，而是购买理由和证据资产不匹配。</p></div><ul class="bullet-list"><li>减少无效投放。</li><li>提升销售解释效率。</li><li>建立可复用内容模块。</li></ul></div>
+          <div class="rec-panel reveal" data-preview-component="steps"><div><p class="rec-label">Next Steps</p><h3>下一步动作</h3></div><ol class="steps"><li><span>1</span><p>确认试点客群和成功指标。</p></li><li><span>2</span><p>完成价值主张与证据资产梳理。</p></li><li><span>3</span><p>启动渠道测试并按双周复盘。</p></li></ol></div>
+        </div>
+        <div class="page-number">11</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" slide-qa="false" data-slide-index="12" data-slide-role="closing">
+    <div class="slide-canvas">
+      <div class="page">
+        <div class="hero closing">
+          <img class="hero-bg" src="assets/closing-background.jpg" alt="closing background">
+          <div class="hero-shade"></div>
+          <div class="hero-content">
+            <div class="hero-title reveal"><h1>Thank you</h1><p>Lucent keeps the report clear, structured, and quietly branded.</p></div>
+          </div>
+          <div class="page-number light">12</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    class SlidePresentation {
+      constructor() { this.slides = document.querySelectorAll('.slide'); this.currentSlide = 0; this.setupScaling(); this.setupIntersectionObserver(); this.setupKeyboardNav(); this.setupTouchNav(); this.setupMouseWheel(); this.setupCharts(); }
+      setupScaling() { const canvases = document.querySelectorAll('.slide-canvas'); const update = () => { const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080); canvases.forEach((canvas) => { canvas.style.transform = `scale(${scale})`; }); }; window.addEventListener('resize', update); update(); }
+      setupIntersectionObserver() { const observer = new IntersectionObserver((entries) => { entries.forEach((entry) => { if (entry.isIntersecting) entry.target.querySelectorAll('.reveal').forEach((el) => el.classList.add('visible')); }); }, { threshold: .2 }); this.slides.forEach((slide) => observer.observe(slide)); }
+      setupKeyboardNav() { document.addEventListener('keydown', (event) => { if (['ArrowDown','ArrowRight',' ','PageDown'].includes(event.key)) { event.preventDefault(); this.goTo(this.currentSlide + 1); } else if (['ArrowUp','ArrowLeft','PageUp'].includes(event.key)) { event.preventDefault(); this.goTo(this.currentSlide - 1); } }); }
+      setupTouchNav() { let startY = 0; document.addEventListener('touchstart', (event) => { startY = event.touches[0].clientY; }, { passive: true }); document.addEventListener('touchend', (event) => { const deltaY = startY - event.changedTouches[0].clientY; if (Math.abs(deltaY) > 40) this.goTo(this.currentSlide + (deltaY > 0 ? 1 : -1)); }, { passive: true }); }
+      setupMouseWheel() { let last = 0; document.addEventListener('wheel', (event) => { const now = Date.now(); if (now - last < 800) return; last = now; this.goTo(this.currentSlide + (event.deltaY > 0 ? 1 : -1)); }, { passive: true }); }
+      goTo(index) { const clamped = Math.max(0, Math.min(this.slides.length - 1, index)); this.slides[clamped].scrollIntoView({ behavior: 'smooth' }); this.currentSlide = clamped; }
+      setupCharts() {
+        if (!window.echarts) return;
+        const charts = [];
+        const channelEl = document.getElementById('channelChart');
+        if (channelEl) {
+          const channelChart = echarts.init(channelEl, null, { renderer: 'svg' });
+          channelChart.setOption({ color: ['#315eea', '#6e5df6', '#f06370'], grid: { left: 54, right: 24, top: 34, bottom: 44 }, tooltip: { trigger: 'axis' }, legend: { bottom: 0, textStyle: { color: '#42526a', fontSize: 16 } }, xAxis: { type: 'category', data: ['Q1','Q2','Q3','Q4','Q5','Q6'], axisLine: { lineStyle: { color: 'rgba(44,70,108,.24)' } }, axisLabel: { color: '#7b8aa0', fontSize: 15 } }, yAxis: { type: 'value', axisLine: { show: false }, splitLine: { lineStyle: { color: 'rgba(44,70,108,.12)' } }, axisLabel: { color: '#7b8aa0', fontSize: 15 } }, series: [{ name: 'Core channel', type: 'line', smooth: true, data: [100,108,116,119,121,124], lineStyle: { width: 5 }, symbolSize: 9 }, { name: 'New channel', type: 'line', smooth: true, data: [100,96,102,112,130,148], lineStyle: { width: 5 }, symbolSize: 9 }, { name: 'CAC pressure', type: 'bar', data: [100,112,126,139,144,151], barWidth: 34 }] });
+          charts.push(channelChart);
+        }
+        const sankeyEl = document.getElementById('sankeyChart');
+        if (sankeyEl) {
+          const sankeyChart = echarts.init(sankeyEl, null, { renderer: 'svg' });
+          sankeyChart.setOption({
+            color: ['#315eea', '#6e5df6', '#18a8d8', '#f06370', '#8aa4ff', '#9edcf0'],
+            tooltip: { trigger: 'item', triggerOn: 'mousemove' },
+            series: [{
+              type: 'sankey',
+              left: 22,
+              right: 150,
+              top: 28,
+              bottom: 24,
+              nodeWidth: 22,
+              nodeGap: 18,
+              draggable: false,
+              emphasis: { focus: 'adjacency' },
+              label: { color: '#101a2b', fontSize: 17, fontWeight: 700 },
+              lineStyle: { color: 'gradient', curveness: .54, opacity: .42 },
+              data: [
+                { name: 'Awareness' }, { name: 'Organic' }, { name: 'Paid' }, { name: 'Events' },
+                { name: 'Qualified demand' }, { name: 'Sales proof' }, { name: 'Pilot' },
+                { name: 'Revenue' }, { name: 'Lost / delay' }
+              ],
+              links: [
+                { source: 'Awareness', target: 'Organic', value: 32 },
+                { source: 'Awareness', target: 'Paid', value: 26 },
+                { source: 'Awareness', target: 'Events', value: 18 },
+                { source: 'Organic', target: 'Qualified demand', value: 22 },
+                { source: 'Paid', target: 'Qualified demand', value: 14 },
+                { source: 'Events', target: 'Qualified demand', value: 12 },
+                { source: 'Paid', target: 'Lost / delay', value: 12 },
+                { source: 'Qualified demand', target: 'Sales proof', value: 33 },
+                { source: 'Qualified demand', target: 'Lost / delay', value: 15 },
+                { source: 'Sales proof', target: 'Pilot', value: 24 },
+                { source: 'Sales proof', target: 'Lost / delay', value: 9 },
+                { source: 'Pilot', target: 'Revenue', value: 18 },
+                { source: 'Pilot', target: 'Lost / delay', value: 6 }
+              ]
+            }]
+          });
+          charts.push(sankeyChart);
+        }
+        window.addEventListener('resize', () => charts.forEach((chart) => chart.resize()));
+      }
+    }
+    new SlidePresentation();
+  </script>
+</body>
+</html>
