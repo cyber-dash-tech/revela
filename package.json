@@ -11,6 +11,11 @@
     ".": "./index.ts"
   },
   "files": [
+    "assets/img/logo.png",
+    "assets/img/logo-64.png",
+    "assets/img/logo-256.png",
+    "assets/img/logo-wordmark.png",
+    "assets/img/review-ui.png",
     "bin/",
     "plugin.ts",
     "lib/",

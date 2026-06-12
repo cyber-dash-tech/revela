@@ -5,12 +5,12 @@
 [![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-729%20passing-brightgreen)](tests/) [![Codex MCP](https://img.shields.io/badge/Codex-MCP-blue)](https://github.com/openai/codex) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
-  <img src="assets/img/logo.png" alt="Revela" width="560" />
+  <img src="assets/img/logo-wordmark.png" alt="Revela" width="320" />
 </p>
 
-Revela is a Codex-first workspace tool for turning source materials, research, data, and intent into trusted, traceable, presentation-ready decision artifacts.
+Revela is a Codex plugin for turning source materials, research, data, and intent into trusted, traceable, presentation-ready decision artifacts.
 
-Its deck-first workspace reviews local materials, saves source-linked research, builds an explicit `deck-plan.md`, generates HTML decks, reviews them, and exports PDF/PPTX/PNG artifacts.
+In your local workspace, Revela reviews materials, saves source-linked research, builds an explicit `deck-plan.md`, generates HTML decks, reviews them, and exports PDF/PPTX/PNG artifacts.
 
 ## Install
 
@@ -106,11 +106,9 @@ Revela includes built-in deck designs:
 
 `starter` is the clean default presentation style.
 
-Switch designs with:
+To switch designs in Codex, ask:
 
-```text
-/revela design --use summit
-```
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.1.0+codex.20260524164007/skills/revela/SKILL.md), use summit as the design.
 
 In Codex, ask Revela to list or switch designs; the plugin uses the active design when making decks.
 
@@ -118,9 +116,7 @@ In Codex, ask Revela to list or switch designs; the plugin uses the active desig
 
 Domains add topic-specific communication guidance, such as consulting, product, or investor communication. Use them when you want Revela to adapt deck framing to a specific context.
 
-```text
-/revela domain
-```
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.1.0+codex.20260524164007/skills/revela/SKILL.md), list available domains.
 
 In Codex, ask Revela to list or switch domains; the active domain guides deck framing during init, research, and planning.
 
@@ -130,83 +126,61 @@ Use these prompts in Codex from the workspace that contains your source material
 
 1. Choose the narrative domain before authoring so Revela frames the audience, decision, risks, and objections for your context.
 
-```text
-revela, use consulting as the domain.
-```
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.1.0+codex.20260524164007/skills/revela/SKILL.md), use consulting as the domain.
 
 2. Choose the deck design before rendering so generated artifacts use the intended visual language.
 
-```text
-revela, use summit as the design.
-```
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.1.0+codex.20260524164007/skills/revela/SKILL.md), use summit as the design.
 
 3. Create a custom design when you want a different visual direction.
 
-```text
-revela, create a new design named neon-finance with a crisp financial-dashboard style: dark surfaces, precise grids, and bright green accents.
-```
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.1.0+codex.20260524164007/skills/revela/SKILL.md), create a new design named neon-finance with a crisp financial-dashboard style: dark surfaces, precise grids, and bright green accents.
 
 Revela may ask for references or constraints, then creates and validates the design. When it is ready, switch to it:
 
-```text
-revela, use neon-finance as the design.
-```
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.1.0+codex.20260524164007/skills/revela/SKILL.md), use neon-finance as the design.
 
 4. Initialize local material intake. Init scans, extracts, and reviews workspace sources; it does not create a Narrative Vault.
 
-```text
-revela, help me init this workspace from the local materials.
-```
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.1.0+codex.20260524164007/skills/revela/SKILL.md), help me init this workspace from the local materials.
 
 5. Research source-linked deck inputs and save findings.
 
-```text
-revela, research the public evidence and examples needed for this deck.
-```
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.1.0+codex.20260524164007/skills/revela/SKILL.md), research the public evidence and examples needed for this deck.
 
 6. Create or update the deck plan before generating HTML so slide order, chapter structure, source links, unresolved inputs, source limitations, and visual intent are explicit.
 
-```text
-revela, create or update the deck plan before generating HTML.
-```
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.1.0+codex.20260524164007/skills/revela/SKILL.md), create or update the deck plan before generating HTML.
 
 7. Make an HTML deck from the current deck plan.
 
-```text
-revela, make the deck from the current deck plan.
-```
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.1.0+codex.20260524164007/skills/revela/SKILL.md), make the deck from the current deck plan.
 
 8. Review the generated deck for Artifact QA and targeted edits.
 
-```text
-revela, review the generated deck.
-```
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.1.0+codex.20260524164007/skills/revela/SKILL.md), review the generated deck.
 
 9. Export a PDF after deck QA passes.
 
-```text
-revela, export the deck to PDF.
-```
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.1.0+codex.20260524164007/skills/revela/SKILL.md), export the deck to PDF.
 
 10. Export an editable PPTX after deck QA passes.
 
-```text
-revela, export the deck to PPTX.
-```
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.1.0+codex.20260524164007/skills/revela/SKILL.md), export the deck to PPTX.
 
 11. Export per-slide PNG files after deck QA passes.
 
-```text
-revela, export the deck to PNG.
-```
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.1.0+codex.20260524164007/skills/revela/SKILL.md), export the deck to PNG.
 
 ## Review A Deck
 
 Use Review after generating an HTML deck:
 
-```text
-/revela review --deck
-```
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.1.0+codex.20260524164007/skills/revela/SKILL.md), review the generated deck.
+
+<p align="center">
+  <img src="assets/img/review-ui.png" alt="Revela Review UI showing @ref comments and deck QA" width="900" />
+</p>
 
 Review opens a local deck workspace for QA and targeted edits:
 
