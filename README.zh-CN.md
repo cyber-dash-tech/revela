@@ -2,32 +2,17 @@
 
 [English](README.md) | **中文**
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-729%20passing-brightgreen)](tests/) [![OpenCode plugin](https://img.shields.io/badge/OpenCode-plugin-blue)](https://opencode.ai) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-729%20passing-brightgreen)](tests/) [![Codex MCP](https://img.shields.io/badge/Codex-MCP-blue)](https://github.com/openai/codex) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo.png" alt="Revela" width="560" />
 </p>
 
-Revela 可在 [OpenCode](https://opencode.ai) 和 Codex 中使用，把来源材料、调研、数据和用户意图转成可信、可追踪、可直接用于决策沟通的 deck artifact。
+Revela 是 Codex-first 的 workspace 工具，用来把来源材料、调研、数据和用户意图转成可信、可追踪、可直接用于决策沟通的 deck artifact。
 
 它的 deck-first workspace 会审阅本地资料、保存 source-linked research、生成明确的 `deck-plan.md`、产出 HTML deck，并支持 Review 与 PDF/PPTX/PNG 导出。
 
 ## 安装
-
-### OpenCode
-
-通过 `opencode.json` 安装 npm package `@cyber-dash-tech/revela`：
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": ["@cyber-dash-tech/revela"]
-}
-```
-
-重启 OpenCode。
-
-如果想全局安装，把同样配置写到 `~/.config/opencode/opencode.json`。
 
 ### Codex
 

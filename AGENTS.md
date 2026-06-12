@@ -2,7 +2,7 @@
 
 > Current working guide for AI agents and developers in this repository.
 > Historical implementation notes belong in `docs/AGENTS.archive.md`.
-> Last updated: 2026-06-05 for 0.18.1 deck-plan/design contract upgrade.
+> Last updated: 2026-06-12 for Codex-first maintenance policy.
 
 ## 0.18.1 Migration Override
 
@@ -23,6 +23,16 @@ Init -> Research -> Plan --deck -> Make --deck -> Review --deck -> Export
 - Export supports PDF, PPTX, and per-slide PNG.
 
 Older 0.17 Narrative Vault guidance below remains release archaeology until it is fully deleted; when it conflicts with this override, follow the 0.18.1 rules above.
+
+## Codex-First Maintenance Policy
+
+Revela is now Codex-first. OpenCode support is legacy compatibility only.
+
+- New features must target the Codex surface first: CLI/MCP runtime, `plugins/revela/`, Codex skills, Codex hooks, and Codex Review UI.
+- Do not add new OpenCode-only slash commands, prompt transforms, subagents, or tool surfaces unless the user explicitly asks for legacy OpenCode maintenance.
+- Preserve legacy OpenCode behavior when practical, but do not expand OpenCode parity for new Codex features.
+- Shared deterministic logic should live in `lib/runtime/` or shared `lib/*`; adapters may wrap it.
+- When a task mentions "Revela" without specifying a platform, assume Codex unless local context clearly indicates an OpenCode legacy issue.
 
 ## Product Baseline
 
@@ -272,18 +282,18 @@ Compiler behavior:
 
 ### Platform Runtime And Adapter Roadmap
 
-Goal: make Revela usable across OpenCode and Codex without breaking the existing OpenCode workflow. The product architecture should become `shared core/runtime -> CLI/MCP -> platform adapters`, with OpenCode and Codex as separate adapters over the same deterministic capabilities.
+Goal: keep Revela Codex-first while preserving legacy OpenCode compatibility where practical. The product architecture should remain `shared core/runtime -> CLI/MCP -> platform adapters`, with Codex as the primary product surface and OpenCode as a legacy adapter over shared deterministic capabilities.
 
 This roadmap is not ambient work. Start it only when the user explicitly asks for platform runtime, CLI/MCP, Codex adapter, or cross-platform packaging work. For unrelated tasks, preserve existing OpenCode behavior and avoid broad moves.
 
-When implementing this roadmap, start with the current OpenCode command/tool boundary, then write or update the ADR and capability matrix before adding new adapter surfaces. Implement the CLI boundary before MCP/plugin work.
+When implementing this roadmap, start from the Codex CLI/MCP runtime boundary, then update the ADR and capability matrix before adding new adapter surfaces.
 
 Non-negotiable compatibility rules:
 
-- Existing OpenCode Revela commands must keep working: `/revela init`, `/revela research`, `/revela story`, `/revela make --deck`, `/revela make --brief`, `/revela review --deck`, and `/revela export --deck pdf/pptx`.
-- Codex support is additive, not a replacement for `plugin.ts`, `lib/commands/*`, OpenCode tool schemas, OpenCode subagents, or prompt-mode routing.
-- First-stage Codex work should add new CLI/MCP/Codex adapter surfaces while avoiding broad file moves or package export changes.
-- Shared runtime extraction should happen only behind tests that protect current OpenCode behavior.
+- Existing OpenCode Revela commands should keep working when practical: `/revela init`, `/revela research`, `/revela story`, `/revela make --deck`, `/revela make --brief`, `/revela review --deck`, and `/revela export --deck pdf/pptx`.
+- Codex support is the primary target for new work, not an additive parity layer over OpenCode.
+- Do not remove `plugin.ts`, `lib/commands/*`, OpenCode tool schemas, OpenCode subagents, or prompt-mode routing without an explicit breaking-release task.
+- Shared runtime extraction should happen behind tests that protect Codex behavior first and avoid accidental legacy OpenCode regressions.
 - Codex plugin code should call shared CLI/MCP/runtime capabilities; it must not duplicate narrative compiler, deck QA, export, design, or state logic.
 
 Target architecture:
@@ -291,16 +301,16 @@ Target architecture:
 - Shared runtime/core: narrative vault compile, Markdown QA, deck-plan read/compile, design/domain registry reads, deck foundation creation, artifact contract/QA, PDF/PPTX export, media/source-material helpers.
 - CLI boundary: `revela doctor`, `revela compile`, `revela markdown-qa`, `revela deck-plan read`, `revela deck-foundation`, `revela qa`, `revela export pdf`, `revela export pptx`, `revela design list`, and `revela design read --section ...`, with `--json` for deterministic adapter output.
 - MCP boundary: thin tools over the shared runtime such as `revela_compile_narrative`, `revela_markdown_qa`, `revela_read_deck_plan`, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_export_pdf`, `revela_export_pptx`, `revela_design_list`, and `revela_design_read`.
-- OpenCode adapter: keep current slash commands/tools/prompt context stable while gradually thinning implementation to shared runtime calls.
-- Codex adapter: `adapters/codex/plugin/` with `.codex-plugin/plugin.json`, `.mcp.json`, Codex-friendly skills, custom agents, assets, and setup/doctor support.
+- Codex adapter: `plugins/revela/` with `.codex-plugin/plugin.json`, `.mcp.json`, Codex-friendly skills, hooks, assets, and setup/doctor support.
+- OpenCode adapter: keep current slash commands/tools/prompt context stable as legacy compatibility while gradually thinning implementation to shared runtime calls when needed.
 
 Execution order:
 
 - Define MVP scope and work on a platform branch/worktree such as `feature/platform-runtime`.
 - Write or update the ADR and capability matrix before implementation.
 - Build the CLI boundary first with structured JSON output and no OpenCode runtime injection dependency.
-- Add MCP as a thin wrapper over shared runtime/CLI contracts, then add the Codex plugin skeleton, skills, custom agents, marketplace metadata, and setup/doctor checks.
-- Add conformance coverage for narrative inspection, deck QA, PDF/PPTX export, research handoff, and equivalent OpenCode/CLI/MCP results where practical.
+- Add MCP as a thin wrapper over shared runtime/CLI contracts, then evolve the Codex plugin skills, hooks, marketplace metadata, and setup/doctor checks.
+- Add conformance coverage for narrative inspection, deck QA, PDF/PPTX export, research handoff, and Codex CLI/MCP results; OpenCode parity coverage is optional legacy maintenance.
 - Consider package/repo splits only after contracts are stable.
 
 Deferred until after MVP stability:

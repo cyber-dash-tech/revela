@@ -1,6 +1,6 @@
 # Codex Plugin Capability Matrix
 
-| Revela capability | Current OpenCode surface | Codex MVP surface | Status |
+| Revela capability | Legacy OpenCode surface | Codex primary surface | Status |
 | --- | --- | --- | --- |
 | Workflow routing | `/revela` and prompt injection | `revela` router skill + `revela_doctor`, active design/domain reads, and workspace artifact status across `spec.md`, `researches/`, `deck-plan.md`, and deck artifacts | MVP |
 | Help / product guidance | `/revela` and prompt injection | `revela-helper` skill + `revela_doctor`, active design/domain reads, and workspace artifact status | MVP |
@@ -21,6 +21,6 @@
 | OpenCode read/write hooks | `tool.execute.before/after` | Codex plugin hooks where supported | Partial |
 | OpenCode subagents | `revela-research`, `revela-narrative-reviewer` | Skills and tool-backed workflows first; Codex subagent packaging later | Deferred |
 
-## Compatibility Rule
+## Codex-First Rule
 
-Codex support must be additive. If a capability is shared, implement it behind a platform-neutral runtime wrapper and keep the OpenCode surface calling the existing code path until tests justify refactoring.
+Codex is the primary product surface. OpenCode entries document legacy compatibility only. New capability rows should define the Codex CLI/MCP/plugin surface first; OpenCode parity is optional and should not be assumed. If a capability is shared, implement it behind a platform-neutral runtime wrapper and keep legacy OpenCode behavior from breaking when practical.

@@ -1,7 +1,7 @@
 {
   "name": "@cyber-dash-tech/revela",
   "version": "0.18.12",
-  "description": "OpenCode plugin for trusted narrative artifacts from local sources, research, and evidence",
+  "description": "Codex-first CLI/MCP workspace for trusted narrative artifacts from local sources, research, and evidence",
   "type": "module",
   "main": "./index.ts",
   "bin": {
@@ -33,13 +33,16 @@
     "index.ts"
   ],
   "keywords": [
-    "opencode",
-    "opencode-plugin",
+    "codex",
+    "mcp",
+    "revela",
     "slides",
     "presentation",
     "ai",
     "html",
-    "deck"
+    "deck",
+    "opencode",
+    "opencode-plugin"
   ],
   "repository": {
     "type": "git",

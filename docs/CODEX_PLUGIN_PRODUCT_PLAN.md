@@ -2,7 +2,7 @@
 
 ## Summary
 
-Revela's Codex product surface is a CLI-first local adapter with optional Codex plugin packaging. The core contract is `lib/runtime/` plus the `revela` CLI and MCP server; the repo-local plugin packages skills, hooks, and MCP config for convenience without replacing the current OpenCode plugin.
+Revela is now Codex-first. Its primary product surface is a CLI/MCP runtime plus Codex plugin packaging; OpenCode support is legacy compatibility only. The core contract is `lib/runtime/` plus the `revela` CLI and MCP server; the repo-local plugin packages skills, hooks, and MCP config for Codex.
 
 The target product shape is:
 
@@ -13,18 +13,18 @@ The target product shape is:
 - MCP tools for deterministic Revela capabilities
 - Optional Codex hooks as safety nets
 
-OpenCode remains the release-compatible surface while the Codex adapter is built.
+Codex is the primary product surface. The legacy OpenCode adapter stays available for compatibility and is not a default target for new feature work.
 
 ## Product Goals
 
 - Make Revela usable in Codex with the same product promise: turn source materials, research, data, and user intent into trusted, traceable, presentation-ready decision artifacts.
 - Preserve the current file-native architecture: `spec.md` for demand capture, local materials and `researches/` for source inputs, `deck-plan.md` for render planning, `decks/*.html` for artifacts, and `assets/` for media.
-- Keep existing OpenCode `/revela ...` commands working.
+- Preserve existing OpenCode `/revela ...` commands when practical, without expanding OpenCode parity for new Codex features.
 - Avoid duplicating compiler, QA, export, design, or state logic inside the Codex plugin.
 
 ## Development Modules
 
-Codex support is built as small adapter modules around existing Revela capabilities. Shared deterministic behavior belongs in existing Revela libraries or `lib/runtime/`; Codex plugin files should only package, guide, expose, or guard those capabilities.
+Codex support is built as the default adapter around existing Revela capabilities. Shared deterministic behavior belongs in existing Revela libraries or `lib/runtime/`; Codex plugin files should only package, guide, expose, or guard those capabilities.
 
 1. CLI and shared runtime boundary
    - Purpose: provide the stable local contract Codex and other adapters can use without marketplace packaging.
@@ -36,7 +36,7 @@ Codex support is built as small adapter modules around existing Revela capabilit
    - Purpose: provide the installable Codex plugin surface.
    - Main surfaces: `plugins/revela/.codex-plugin/plugin.json`, `plugins/revela/`.
    - Enables: Codex can discover Revela metadata, bundled skills, MCP config, hooks, and assets.
-   - Does not own: OpenCode command routing, narrative compilation, artifact rendering, QA, export logic, or the primary runtime contract.
+   - Does not own: legacy OpenCode command routing, narrative compilation, artifact rendering, QA, export logic, or the primary runtime contract.
 
 3. Repo-local marketplace
    - Purpose: make local development installation repeatable.
@@ -49,13 +49,13 @@ Codex support is built as small adapter modules around existing Revela capabilit
    - Main surfaces: `plugins/revela/skills/revela`, `revela-spec`, `revela-helper`, `revela-design`, `revela-domain`, `revela-research`, `revela-make-deck`, `revela-review`, and `revela-export`.
    - Enables: workflow routing, file-native helper/status, Spec, Design authoring, Domain authoring, Research, Plan Deck, Make Deck, Review Deck, and Export workflows in Codex.
    - Cross-cutting design/domain guidance is read through MCP tools inside these workflows: router/spec inspect active guidance, design/domain skills author packages, research uses domain/design tools, and make-deck uses design tools.
-   - Does not own: hidden workflow state, approval gates, OpenCode slash-command parity, or direct mutation of canonical compiled caches.
+   - Does not own: hidden workflow state, approval gates, legacy OpenCode slash-command parity, or direct mutation of canonical compiled caches.
 
 5. MCP server
    - Purpose: expose shared runtime functions to Codex as tools over stdio JSON-RPC.
    - Main surfaces: `bin/revela.ts`, `plugins/revela/mcp/revela-server.ts`, `plugins/revela/mcp/runtime-resolver.ts`, `plugins/revela/.mcp.json`.
    - Enables: Codex tool calls such as `revela_prepare_local_materials`, `revela_extract_document_materials`, `revela_research_save`, `revela_read_deck_plan`, `revela_upsert_deck_plan_slide` as a compatibility/repair helper, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_review_deck_open`, `revela_review_deck_read`, `revela_export_pdf`, `revela_export_pptx`, `revela_export_png`, `revela_design_list`, `revela_design_read`, `revela_design_inventory`, `revela_design_create`, `revela_design_draft_create`, `revela_design_draft_install`, `revela_design_activate`, `revela_domain_list`, `revela_domain_read`, `revela_domain_create`, `revela_domain_draft_create`, `revela_domain_draft_install`, and `revela_domain_activate`.
-   - Does not own: product workflow policy, broad orchestration, or OpenCode tool replacement. Prefer `revela mcp` as the stable entry; plugin `.mcp.json` is a wrapper for Codex plugin installation.
+   - Does not own: product workflow policy, broad orchestration, or legacy OpenCode tool replacement. Prefer `revela mcp` as the stable entry; plugin `.mcp.json` is a wrapper for Codex plugin installation.
 
 6. Codex hooks
    - Purpose: provide safety checks and user-visible reminders around risky file edits.
@@ -70,7 +70,7 @@ Codex support is built as small adapter modules around existing Revela capabilit
    - Does not own: deck media assets, workspace `assets/`, or evidence/source-material storage.
 
 8. Validation and smoke docs
-   - Purpose: keep the Codex adapter verifiable without relying on a full OpenCode session.
+   - Purpose: keep the Codex product surface verifiable without relying on a full OpenCode session.
    - Main surfaces: `tests/codex-plugin-mcp-server.test.ts`, `scripts/codex-mcp-smoke.ts`, `docs/CODEX_PLUGIN_SMOKE.md`, `docs/CODEX_PLUGIN_CAPABILITY_MATRIX.md`.
    - Enables: MCP handshake checks, runtime behavior checks, smoke workflow validation, and capability tracking.
    - Does not own: release publishing or replacing the release gate of `bun test`, `bun run typecheck`, and `npm pack --dry-run`.
@@ -142,8 +142,8 @@ The current OpenCode Review server depends on an OpenCode `client.session.prompt
 - Do not push to GitHub.
 - Do not publish to npm.
 - Do not bump package version.
-- Do not rewrite `plugin.ts` for Codex.
-- Do not remove or rename OpenCode commands, tools, agents, or prompt modes.
+- Do not rewrite legacy `plugin.ts` for Codex.
+- Do not remove or rename OpenCode commands, tools, agents, or prompt modes without an explicit breaking-release task.
 - Do not pursue exact Codex slash-command parity in the MVP.
 
 ## Local Usage
