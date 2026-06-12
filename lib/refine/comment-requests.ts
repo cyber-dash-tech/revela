@@ -1,6 +1,6 @@
 import type { ReviewBridgeEvent } from "./prompt-bridge"
 
-export type CommentRequestStatus = "pending" | "completed" | "failed" | "expired"
+export type CommentRequestStatus = "pending" | "completed" | "failed" | "expired" | "stopped"
 
 export interface PendingCommentRequest {
   requestId: string
@@ -85,6 +85,24 @@ export function failCommentRequest(requestId: string, error: string, raw?: strin
   return request
 }
 
+export function stopCommentRequest(requestId: string): PendingCommentRequest | undefined {
+  const request = getCommentRequest(requestId)
+  if (!request || request.status !== "pending") return request
+  request.status = "stopped"
+  request.error = "Stopped by user."
+  request.raw = "Stopped by user."
+  request.updatedAt = Date.now()
+  if (!hasTerminalEvent(request)) {
+    appendCommentRequestEvent(request, {
+      type: "stopped",
+      message: "Stopped by user.",
+      timestamp: request.updatedAt,
+      detail: "Stopped by user.",
+    })
+  }
+  return request
+}
+
 function boundedTail(text: string, limit = 4096): string {
   if (text.length <= limit) return text
   return text.slice(text.length - limit)
@@ -154,5 +172,5 @@ function appendCommentRequestEvent(request: PendingCommentRequest, event: Review
 }
 
 function hasTerminalEvent(request: PendingCommentRequest): boolean {
-  return request.events.some((event) => event.type === "completed" || event.type === "failed" || event.type === "timeout")
+  return request.events.some((event) => event.type === "completed" || event.type === "failed" || event.type === "timeout" || event.type === "stopped")
 }

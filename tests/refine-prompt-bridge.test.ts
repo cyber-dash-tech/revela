@@ -373,6 +373,37 @@ describe("Codex exec Review prompt bridge", () => {
     expect(events.at(-1)).toMatchObject({ type: "completed", message: "Codex completed." })
   })
 
+  it("stops codex exec review runs when the caller aborts", async () => {
+    const controller = new AbortController()
+    const events: Array<{ type: string; message: string }> = []
+    const bridge = createCodexExecReviewPromptBridge({
+      runner: async (input) => {
+        return await new Promise((resolve) => {
+          input.signal?.addEventListener("abort", () => {
+            resolve({ exitCode: null, stdout: "", stderr: "Stopped by user." })
+          }, { once: true })
+          controller.abort()
+        })
+      },
+    })
+
+    const result = await bridge.send({
+      action: "comment",
+      prompt: "Change this deck.",
+      workspaceRoot: "/tmp/revela",
+      file: "decks/demo.html",
+      signal: controller.signal,
+      onEvent: (event) => events.push(event),
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: "stopped",
+      error: "Stopped by user.",
+    })
+    expect(events.some((event) => event.type === "stopped" && event.message === "Stopped by user.")).toBe(true)
+  })
+
   it("streams bounded stderr diagnostics without exposing full output", async () => {
     const binDir = mkdtempSync(join(tmpdir(), "revela-codex-bin-"))
     const codex = join(binDir, "codex")

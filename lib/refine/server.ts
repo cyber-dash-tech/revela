@@ -13,7 +13,7 @@ import { addInspectRequestEvent, completeInspectRequest, createInspectRequest, f
 import { saveMediaAsset } from "../media/save"
 import { searchRemoteImages, type ImageCandidate } from "../media/search"
 import type { MediaAssetRecord, MediaPurpose } from "../media/types"
-import { addCommentRequestEvent, completeCommentRequest, createCommentRequest, failCommentRequest, getCommentRequest, subscribeCommentRequestEvents } from "./comment-requests"
+import { addCommentRequestEvent, completeCommentRequest, createCommentRequest, failCommentRequest, getCommentRequest, stopCommentRequest, subscribeCommentRequestEvents } from "./comment-requests"
 import { createOpenCodeReviewPromptBridge, type ReviewPromptBridge } from "./prompt-bridge"
 import { suppressReviewApplyFixArtifactQa } from "./qa-suppression"
 import { createReviewComment, deleteReviewComment, listReviewComments, markReviewCommentApplied, markReviewCommentApplying, markReviewCommentFailed, markReviewCommentQueued, markReviewCommentStopped, readReviewComment, type ReviewCommentRecord } from "./review-comments"
@@ -53,6 +53,8 @@ interface EditSession {
   visualTargets: Map<string, VisualEditTarget>
   visualTargetDeckVersion?: string
   activeApplyCommentId?: string
+  activeApplyRequestId?: string
+  activeApplyController?: AbortController
   applyQueue: string[]
 }
 
@@ -237,7 +239,6 @@ async function handleRequest(req: Request): Promise<Response> {
   if (url.pathname === "/api/comments" && req.method === "POST") {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
-    if (session.value.activeApplyCommentId) return applyLockedResponse()
     return handleReviewCommentCreate(req, session.value)
   }
 
@@ -245,7 +246,6 @@ async function handleRequest(req: Request): Promise<Response> {
   if (applyMatch && req.method === "POST") {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
-    if (session.value.activeApplyCommentId) return applyLockedResponse()
     return handleReviewCommentApply(decodeURIComponent(applyMatch[1]), req, session.value)
   }
 
@@ -253,7 +253,6 @@ async function handleRequest(req: Request): Promise<Response> {
   if (stopMatch && req.method === "POST") {
     const session = validateSession(url.searchParams.get("token"))
     if (!session.ok) return session.response
-    if (session.value.activeApplyCommentId) return applyLockedResponse()
     return handleReviewCommentStop(decodeURIComponent(stopMatch[1]), session.value)
   }
 
@@ -856,6 +855,9 @@ async function handleReviewCommentCreate(req: Request, session: EditSession): Pr
     })
     session.lastActiveAt = Date.now()
     scheduleIdleStop()
+    if ((body as any).applyNow === true) {
+      return enqueueOrStartPersistedReviewCommentApply(session, saved, {})
+    }
     return jsonResponse({ ok: true, comment: saved, deckVersion })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -881,11 +883,20 @@ function handleReviewCommentStop(commentId: string, session: EditSession): Respo
   const comment = readReviewComment(session.workspaceRoot, commentId)
   if (!comment || comment.deckFile !== session.file) return jsonResponse({ ok: false, error: "Review comment not found" }, 404)
   session.applyQueue = (session.applyQueue ?? []).filter((id) => id !== comment.id)
-  if (session.activeApplyCommentId === comment.id) session.activeApplyCommentId = undefined
+  const wasActive = session.activeApplyCommentId === comment.id
+  if (wasActive) {
+    session.activeApplyController?.abort()
+    if (session.activeApplyRequestId) stopCommentRequest(session.activeApplyRequestId)
+    session.activeApplyCommentId = undefined
+    session.activeApplyRequestId = undefined
+    session.activeApplyController = undefined
+  } else if (comment.lastApplyRequestId) {
+    stopCommentRequest(comment.lastApplyRequestId)
+  }
   const stopped = markReviewCommentStopped(session.workspaceRoot, comment.id) ?? comment
   session.lastActiveAt = Date.now()
   scheduleIdleStop()
-  if (comment.status === "queued") drainPersistedReviewCommentApplyQueue(session)
+  if (comment.status === "queued" || wasActive) drainPersistedReviewCommentApplyQueue(session)
   return jsonResponse({ ok: true, status: "stopped", comment: stopped, deckVersion: readDeckVersion(session).version })
 }
 
@@ -903,7 +914,17 @@ function handleReviewCommentDelete(commentId: string, session: EditSession): Res
 
 async function enqueueOrStartPersistedReviewCommentApply(session: EditSession, comment: ReviewCommentRecord, body: any = {}): Promise<Response> {
   session.applyQueue = session.applyQueue ?? []
-  if (session.activeApplyCommentId) return applyLockedResponse()
+  if (session.activeApplyCommentId) {
+    if (!session.applyQueue.includes(comment.id)) session.applyQueue.push(comment.id)
+    const queued = markReviewCommentQueued(session.workspaceRoot, comment.id) ?? comment
+    return jsonResponse({
+      ok: true,
+      deckVersion: readDeckVersion(session).version,
+      status: "queued",
+      queuePosition: session.applyQueue.indexOf(comment.id) + 1,
+      comment: queued,
+    })
+  }
 
   const queuedIndex = session.applyQueue.indexOf(comment.id)
   if (queuedIndex >= 0) {
@@ -922,6 +943,10 @@ async function enqueueOrStartPersistedReviewCommentApply(session: EditSession, c
 
 async function startPersistedReviewCommentApply(session: EditSession, comment: ReviewCommentRecord, body: any = {}): Promise<Response> {
   session.activeApplyCommentId = comment.id
+  const requestId = typeof body.requestId === "string" && body.requestId.trim() ? body.requestId.trim() : randomBytes(10).toString("base64url")
+  const controller = new AbortController()
+  session.activeApplyRequestId = requestId
+  session.activeApplyController = controller
   try {
     const response = await applyCommentPayload({
       ...body,
@@ -929,9 +954,10 @@ async function startPersistedReviewCommentApply(session: EditSession, comment: R
       elements: comment.elements,
       asset: comment.asset,
       drop: comment.drop,
-      requestId: typeof body.requestId === "string" && body.requestId.trim() ? body.requestId.trim() : randomBytes(10).toString("base64url"),
+      requestId,
     }, session, {
       persistedCommentId: comment.id,
+      signal: controller.signal,
       onSettled: () => settlePersistedReviewCommentApply(session, comment.id),
     })
     if (!response.ok) settlePersistedReviewCommentApply(session, comment.id)
@@ -944,6 +970,10 @@ async function startPersistedReviewCommentApply(session: EditSession, comment: R
 
 function settlePersistedReviewCommentApply(session: EditSession, commentId: string): void {
   if (session.activeApplyCommentId === commentId) session.activeApplyCommentId = undefined
+  if (session.activeApplyCommentId === undefined) {
+    session.activeApplyRequestId = undefined
+    session.activeApplyController = undefined
+  }
   drainPersistedReviewCommentApplyQueue(session)
 }
 
@@ -963,9 +993,9 @@ function drainPersistedReviewCommentApplyQueue(session: EditSession): void {
 async function applyCommentPayload(
   body: Partial<EditCommentPayload>,
   session: EditSession,
-  options: { persistedCommentId?: string; onSettled?: () => void } = {},
+  options: { persistedCommentId?: string; signal?: AbortSignal; onSettled?: () => void } = {},
 ): Promise<Response> {
-  const { persistedCommentId, onSettled } = options
+  const { persistedCommentId, signal, onSettled } = options
   const comments = Array.isArray(body.comments)
     ? body.comments
       .map((draft: any) => ({
@@ -1008,11 +1038,15 @@ async function applyCommentPayload(
     workspaceRoot: session.workspaceRoot,
     file: session.file,
     requestId,
+    signal,
     onEvent: (event) => addCommentRequestEvent(requestId, event),
   }).then((result) => {
     if (result.ok) {
       completeCommentRequest(requestId)
       if (persistedCommentId && readReviewComment(session.workspaceRoot, persistedCommentId)?.status === "applying") markReviewCommentApplied(session.workspaceRoot, persistedCommentId)
+    } else if (result.status === "stopped") {
+      stopCommentRequest(requestId)
+      if (persistedCommentId && readReviewComment(session.workspaceRoot, persistedCommentId)?.status === "applying") markReviewCommentStopped(session.workspaceRoot, persistedCommentId)
     } else {
       failCommentRequest(requestId, result.error, result.raw)
       if (persistedCommentId && readReviewComment(session.workspaceRoot, persistedCommentId)?.status === "applying") markReviewCommentFailed(session.workspaceRoot, persistedCommentId, result.error, result.raw)
@@ -1020,8 +1054,13 @@ async function applyCommentPayload(
     onSettled?.()
   }).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)
-    failCommentRequest(requestId, message)
-    if (persistedCommentId && readReviewComment(session.workspaceRoot, persistedCommentId)?.status === "applying") markReviewCommentFailed(session.workspaceRoot, persistedCommentId, message)
+    if (signal?.aborted) {
+      stopCommentRequest(requestId)
+      if (persistedCommentId && readReviewComment(session.workspaceRoot, persistedCommentId)?.status === "applying") markReviewCommentStopped(session.workspaceRoot, persistedCommentId)
+    } else {
+      failCommentRequest(requestId, message)
+      if (persistedCommentId && readReviewComment(session.workspaceRoot, persistedCommentId)?.status === "applying") markReviewCommentFailed(session.workspaceRoot, persistedCommentId, message)
+    }
     onSettled?.()
   })
 
@@ -1052,7 +1091,7 @@ function handleCommentEvents(requestId: string | null, session: EditSession): Re
       }
       unsubscribe = subscribeCommentRequestEvents(requestId, (event) => {
         send(event)
-        if (event.type === "completed" || event.type === "failed" || event.type === "timeout") {
+        if (event.type === "completed" || event.type === "failed" || event.type === "timeout" || event.type === "stopped") {
           unsubscribe()
           controller.close()
         }
@@ -1119,7 +1158,7 @@ function handleCommentResult(requestId: string | null, session: EditSession): Re
   if (!request) return jsonResponse({ ok: false, requestId, error: "Comment request not found" }, 404)
   session.lastActiveAt = Date.now()
   scheduleIdleStop()
-  if (request.status === "failed" || request.status === "expired") {
+  if (request.status === "failed" || request.status === "expired" || request.status === "stopped") {
     return jsonResponse({
       ok: true,
       requestId,
@@ -1312,7 +1351,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
   const encodedToken = JSON.stringify(token)
   const encodedDefaultMode = JSON.stringify(defaultMode)
   const encodedSurface = JSON.stringify(surface)
-  const sendButtonHtml = `${lucideIcon("send")}<span class="sr-only">Leave Comment</span>`
+  const sendButtonHtml = `${lucideIcon("send")}<span class="sr-only">Apply</span>`
   const encodedSendButtonHtml = JSON.stringify(sendButtonHtml)
   const activityLabel = "Comments"
   const bodyClass = surface === "codex" ? "codex-review" : "legacy-review"
@@ -1379,7 +1418,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .ref-chip { display: inline-flex; align-items: center; max-width: 32ch; overflow: hidden; text-overflow: ellipsis; margin: 0 2px; padding: 1px 7px; border-radius: 999px; background: var(--ref-bg, #eff6ff); color: var(--ref-text, #1d4ed8); border: 1px solid var(--ref-border, #bfdbfe); font-weight: 800; white-space: nowrap; }
     .activity-panel { display: flex; flex: 1 1 auto; flex-direction: column; gap: 8px; min-height: 0; padding-top: 2px; }
     .comment-thread { display: flex; flex: 1 1 auto; flex-direction: column; gap: 16px; min-height: 160px; overflow-y: auto; overflow-x: hidden; padding: 12px 14px; }
-    .comment-thread:empty::before { content: "No activity yet. Leave a comment to start."; display: block; padding: 14px; border: 1px dashed #cbd5e1; border-radius: 16px; color: #64748b; font-size: 12px; line-height: 1.45; background: #f8fafc; box-shadow: none; }
+    .comment-thread:empty::before { content: "No activity yet. Apply a change to start."; display: block; padding: 14px; border: 1px dashed #cbd5e1; border-radius: 16px; color: #64748b; font-size: 12px; line-height: 1.45; background: #f8fafc; box-shadow: none; }
     .comment-bubble { position: relative; display: flex; flex: 0 0 150px; flex-direction: column; min-height: 150px; max-height: 150px; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 15px; padding: 14px 15px 13px 16px; background: #ffffff; color: #334155; font-size: 13px; line-height: 1.45; box-shadow: 0 1px 2px rgba(15,23,42,.04); transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; cursor: pointer; }
     .comment-bubble:hover { transform: translateY(-1px); border-color: #cbd5e1; box-shadow: 0 8px 20px rgba(15,23,42,.07); }
     .comment-bubble.active { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(59,130,246,.12), 0 8px 20px rgba(15,23,42,.08); }
@@ -1392,6 +1431,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .comment-bubble.updated { border-color: #bbf7d0; background: #f7fef9; }
     .comment-bubble.stale { border-color: #fed7aa; background: #fffaf0; }
     .comment-bubble.failed { border-color: #fecaca; background: #fffafa; }
+    .comment-bubble.stopped { border-color: #fed7aa; background: #fffaf0; }
     .comment-bubble-text { flex: 1 1 auto; min-height: 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
     .comment-bubble-state { margin-top: 8px; align-self: flex-start; padding: 0; background: transparent; color: #475569; font-size: 11px; font-weight: 800; }
     .comment-bubble-meta { margin-bottom: 6px; color: #64748b; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
@@ -1430,6 +1470,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     .comment-bubble.queued .comment-bubble-state { color: #92400e; }
     .comment-bubble.stale .comment-bubble-state { color: #9a3412; }
     .comment-bubble.failed .comment-bubble-state { color: #991b1b; }
+    .comment-bubble.stopped .comment-bubble-state { color: #92400e; }
     .inspect-actions { display: flex; flex-direction: column; gap: 8px; }
     .inspect-options { display: flex; flex-direction: column; gap: 5px; }
     .inspect-options label { color: #64748b; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
@@ -1539,7 +1580,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
                 </div>
               </div>
             </div>
-            <button id="send" class="primary-action composer-send" type="button" aria-label="Leave Comment" title="Leave Comment" disabled>${sendButtonHtml}</button>
+            <button id="send" class="primary-action composer-send" type="button" aria-label="Apply" title="Apply" disabled>${sendButtonHtml}</button>
           </div>
         </div>
       </div>
@@ -2644,21 +2685,29 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         const asset = state.selectedAsset || undefined;
         state.sendingEdit = true;
         updateSendState();
-        setStatus('Saving comment...');
+        setStatus('Applying comment...');
         try {
           const res = await fetch('/api/comments?token=' + encodeURIComponent(token), {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ comment: text, elements, asset }),
+            body: JSON.stringify({ comment: text, elements, asset, applyNow: true }),
           });
           const body = await res.json().catch(() => ({}));
-          if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to save comment');
+          if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to apply comment');
           upsertPersistedComment(body.comment);
           clearReferences(false);
           state.selectedAsset = null;
           els.comment.textContent = '';
           renderReferenceOutlines();
-          setStatus('Comment saved. Use Apply on the comment card when you want Codex to edit the deck.');
+          if (body.status === 'queued') {
+            updatePendingCommentStatus(body.comment.id, 'queued', { requestId: '', progressEvent: null, failureRaw: '', failureMessage: '' });
+            setStatus('Comment queued. It will apply after the current edit finishes.');
+            pollQueuedComment(body.comment.id);
+          } else {
+            updatePendingCommentStatus(body.comment.id, 'applying', { requestId: body.commentRequestId || body.requestId || '', baseDeckVersion: body.deckVersion || state.deckVersion });
+            setStatus('Applying comment with Codex...');
+            if (body.commentRequestId || body.requestId) watchCommentProgress(body.comment.id, body.commentRequestId || body.requestId);
+          }
         } catch (error) {
           reportError(error);
         } finally {
@@ -2711,7 +2760,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           eventLog: [],
           failureRaw: record.lastApplyRaw || '',
           failureMessage: record.lastApplyError || '',
-          stopped: record.status === 'failed' && record.lastApplyError === 'Stopped by user.',
+          stopped: record.status === 'stopped',
         };
       }
 
@@ -2719,7 +2768,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         if (isApplyLocked()) return setStatus(applyLockStatus());
         const comment = state.pendingComments.find((item) => item.id === commentId);
         if (!comment || comment.status === 'applying' || comment.status === 'queued') return;
-        updatePendingCommentStatus(commentId, 'applying', { baseDeckVersion: state.deckVersion || comment.baseDeckVersion, progressEvent: null, eventLog: [], failureRaw: '', failureMessage: '' });
+        updatePendingCommentStatus(commentId, 'applying', { stopped: false, baseDeckVersion: state.deckVersion || comment.baseDeckVersion, progressEvent: null, eventLog: [], failureRaw: '', failureMessage: '' });
         setStatus(comment.status === 'applied' || comment.status === 'updated' || comment.status === 'stale' ? 'Re-applying saved comment...' : 'Applying saved comment...');
         try {
           const res = await fetch('/api/comments/' + encodeURIComponent(commentId) + '/apply?token=' + encodeURIComponent(token), {
@@ -2745,7 +2794,6 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       }
 
       async function stopPersistedComment(commentId) {
-        if (isApplyLocked()) return setStatus(applyLockStatus());
         const comment = state.pendingComments.find((item) => item.id === commentId);
         if (!comment || !canStopPersistedComment(comment.status)) return;
         try {
@@ -2753,7 +2801,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
           const body = await res.json().catch(() => ({}));
           if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to stop comment');
           if (body.comment) upsertPersistedComment(body.comment);
-          updatePendingCommentStatus(commentId, 'failed', { stopped: true, requestId: '', progressEvent: null, failureRaw: 'Stopped by user.', failureMessage: 'Stopped by user.' });
+          updatePendingCommentStatus(commentId, 'stopped', { stopped: true, requestId: '', progressEvent: null, failureRaw: 'Stopped by user.', failureMessage: 'Stopped by user.' });
           setStatus('Stopped comment apply.');
         } catch (error) {
           reportError(error);
@@ -3044,7 +3092,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         setMode('edit');
         updateSendState();
         closeLocalAssetMenu();
-        setStatus('Asset added to the Edit comment. Describe where or how to use it, then Leave Comment.');
+        setStatus('Asset added to the Edit comment. Describe where or how to use it, then Apply.');
       }
 
       function onAssetDragOver(event) {
@@ -3121,7 +3169,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         const target = placement?.target ? elementFromPayload(placement.target) : null;
         state.assetDropTarget = target;
         renderBox(state.assetDropOutline, target);
-        if (placement?.targetLabel) setStatus(placement.targetLabel + '. Drop to send an asset placement comment.');
+        if (placement?.targetLabel) setStatus(placement.targetLabel + '. Drop to apply an asset placement edit.');
       }
 
       function elementFromPayload(payload) {
@@ -3252,17 +3300,25 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             : 'add it near the drop point';
         const comment = 'Place workspace asset ' + asset.path + ' on slide ' + placement.slideIndex + ' as a ' + (asset.purpose || 'visual asset') + '; ' + modeText + '. Preserve the current layout and do not cover existing text, charts, tables, or evidence.';
         const elements = placement.target ? [placement.target] : [];
-        setStatus('Saving asset placement comment...');
+        setStatus('Applying asset placement edit...');
         try {
           const res = await fetch('/api/comments?token=' + encodeURIComponent(token), {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ comment, elements, asset, drop: placement }),
+            body: JSON.stringify({ comment, elements, asset, drop: placement, applyNow: true }),
           });
           const body = await res.json().catch(() => ({}));
-          if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to save asset placement');
+          if (!res.ok || !body.ok) throw new Error(body.error || 'Failed to apply asset placement');
           upsertPersistedComment(body.comment);
-          setStatus('Asset placement comment saved. Use Apply on the comment card when ready.');
+          if (body.status === 'queued') {
+            updatePendingCommentStatus(body.comment.id, 'queued', { requestId: '', progressEvent: null, failureRaw: '', failureMessage: '' });
+            setStatus('Asset placement queued. It will apply after the current edit finishes.');
+            pollQueuedComment(body.comment.id);
+          } else {
+            updatePendingCommentStatus(body.comment.id, 'applying', { requestId: body.commentRequestId || body.requestId || '', baseDeckVersion: body.deckVersion || state.deckVersion });
+            setStatus('Applying asset placement with Codex...');
+            if (body.commentRequestId || body.requestId) watchCommentProgress(body.comment.id, body.commentRequestId || body.requestId);
+          }
         } catch (error) {
           reportError(error);
         }
@@ -3358,10 +3414,10 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function updatePendingCommentStatus(id, status, updates) {
         const comment = state.pendingComments.find((item) => item.id === id);
         if (!comment) return;
-        if (comment.status === 'updated' && status !== 'failed') return;
+        if (comment.status === 'updated' && status !== 'failed' && status !== 'stopped') return;
         comment.status = status;
         if (updates) Object.assign(comment, updates);
-        if (status === 'updated' || status === 'failed' || status === 'applied') comment.progressEvent = null;
+        if (status === 'updated' || status === 'failed' || status === 'applied' || status === 'stopped') comment.progressEvent = null;
         renderCommentThread();
       }
 
@@ -3373,7 +3429,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         if (!requestId) return;
         for (let attempt = 0; attempt < 140; attempt++) {
           await delay(1000);
-          if (pendingCommentStatus(commentId) === 'updated') return;
+          if (pendingCommentStatus(commentId) === 'updated' || pendingCommentStatus(commentId) === 'stopped') return;
           try {
             const res = await fetch('/api/comment-result?token=' + encodeURIComponent(token) + '&requestId=' + encodeURIComponent(requestId), { cache: 'no-store' });
             const body = await res.json().catch(() => ({}));
@@ -3381,6 +3437,11 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             if (body.status === 'failed' || body.status === 'expired') {
               updatePendingCommentStatus(commentId, 'failed', { failureRaw: body.raw || '' });
               setStatus(body.error || 'Review agent failed to apply the comment.');
+              return;
+            }
+            if (body.status === 'stopped') {
+              updatePendingCommentStatus(commentId, 'stopped', { stopped: true, failureRaw: body.raw || 'Stopped by user.', failureMessage: body.error || 'Stopped by user.' });
+              setStatus(body.error || 'Stopped comment apply.');
               return;
             }
             if (body.status === 'completed') {
@@ -3395,7 +3456,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             return;
           }
         }
-        if (pendingCommentStatus(commentId) !== 'updated') {
+        if (pendingCommentStatus(commentId) !== 'updated' && pendingCommentStatus(commentId) !== 'stopped') {
           updatePendingCommentStatus(commentId, 'failed');
           setStatus('Review agent timed out before applying the comment.');
         }
@@ -3434,6 +3495,11 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             source.close();
             updatePendingCommentStatus(commentId, 'failed', { failureRaw: payload.detail || '' });
             setStatus(payload.message || 'Review agent failed to apply the comment.');
+          } else if (payload.type === 'stopped') {
+            closed = true;
+            source.close();
+            updatePendingCommentStatus(commentId, 'stopped', { stopped: true, failureRaw: payload.detail || 'Stopped by user.', failureMessage: payload.message || 'Stopped by user.' });
+            setStatus(payload.message || 'Stopped comment apply.');
           } else if (payload.type === 'completed') {
             closed = true;
             source.close();
@@ -3444,7 +3510,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         });
         source.onerror = () => {
           source.close();
-          if (!closed && pendingCommentStatus(commentId) !== 'updated' && pendingCommentStatus(commentId) !== 'failed') {
+          if (!closed && pendingCommentStatus(commentId) !== 'updated' && pendingCommentStatus(commentId) !== 'failed' && pendingCommentStatus(commentId) !== 'stopped') {
             startFallback();
           }
         };
@@ -3453,7 +3519,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       function recordCommentProgress(commentId, event) {
         const comment = state.pendingComments.find((item) => item.id === commentId);
         if (!comment || !event || !event.message) return;
-        if (comment.stopped || comment.status === 'failed' && comment.failureMessage === 'Stopped by user.') return;
+        if (comment.stopped || comment.status === 'stopped') return;
         if (codexReview) {
           appendCodexEventLog(comment, event);
         }
@@ -3594,7 +3660,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
             actions.appendChild(apply);
             bubble.appendChild(actions);
           }
-          if (!locked && comment.persisted && canStopPersistedComment(comment.status)) {
+          if (comment.persisted && canStopPersistedComment(comment.status)) {
             const actions = bubble.querySelector('.comment-actions') || document.createElement('div');
             actions.className = 'comment-actions';
             const stop = commentActionButton('Stop', '${lucideIcon("square", "comment-action-icon")}', 'stop');
@@ -3703,12 +3769,13 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
         if (status === 'applying') return 'Applying with Codex...';
         if (status === 'applied' || status === 'updated' || status === 'stale') return 'Codex completed';
         if (status === 'failed') return 'Failed to apply';
+        if (status === 'stopped') return 'Stopped';
         if (status === 'sending') return 'Sending to Review agent...';
         return 'Sent to Review agent';
       }
 
       function canApplyPersistedComment(status) {
-        return status === 'open' || status === 'failed' || isReapplyStatus(status);
+        return status === 'open' || status === 'failed' || status === 'stopped' || isReapplyStatus(status);
       }
 
       function canStopPersistedComment(status) {

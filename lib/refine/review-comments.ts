@@ -3,7 +3,7 @@ import { join } from "path"
 import { randomBytes } from "crypto"
 import { workspaceMetaPath } from "../workspace-meta"
 
-export type ReviewCommentStatus = "open" | "queued" | "applying" | "applied" | "failed"
+export type ReviewCommentStatus = "open" | "queued" | "applying" | "applied" | "failed" | "stopped"
 
 export interface ReviewCommentRecord {
   id: string
@@ -113,7 +113,12 @@ export function markReviewCommentFailed(workspaceRoot: string, id: string, error
 }
 
 export function markReviewCommentStopped(workspaceRoot: string, id: string): ReviewCommentRecord | undefined {
-  return markReviewCommentFailed(workspaceRoot, id, "Stopped by user.", "Stopped by user.")
+  return updateReviewComment(workspaceRoot, id, (record) => ({
+    ...record,
+    status: "stopped",
+    lastApplyError: "Stopped by user.",
+    lastApplyRaw: "Stopped by user.",
+  }))
 }
 
 export function deleteReviewComment(workspaceRoot: string, id: string): boolean {

@@ -5,7 +5,7 @@ export type ReviewPromptAction = "comment" | "inspect"
 export type ReviewPromptBridgeKind = "opencode" | "codex-exec"
 
 export type ReviewBridgeEvent = {
-  type: "started" | "codex_event" | "stdout" | "stderr" | "completed" | "failed" | "timeout"
+  type: "started" | "codex_event" | "stdout" | "stderr" | "completed" | "failed" | "timeout" | "stopped"
   message: string
   timestamp: number
   detail?: string
@@ -18,12 +18,13 @@ export interface ReviewPromptInput {
   file: string
   requestId?: string
   timeoutMs?: number
+  signal?: AbortSignal
   onEvent?: (event: ReviewBridgeEvent) => void
 }
 
 export type ReviewPromptResult =
   | { ok: true; status: "sent" | "completed"; result?: InspectionResult; raw?: string }
-  | { ok: false; status: "failed" | "unsupported"; error: string; raw?: string }
+  | { ok: false; status: "failed" | "unsupported" | "stopped"; error: string; raw?: string }
 
 export interface ReviewPromptBridge {
   kind: ReviewPromptBridgeKind
@@ -46,6 +47,7 @@ export type CodexExecRunner = (input: {
   timeoutMs: number
   sandboxMode: "read-only" | "workspace-write"
   skipGitRepoCheck: boolean
+  signal?: AbortSignal
   onEvent?: (event: ReviewBridgeEvent) => void
 }) => Promise<CodexExecRunResult>
 
@@ -84,6 +86,10 @@ export function createCodexExecReviewPromptBridge(options: {
       const sandboxMode = input.action === "comment" ? "workspace-write" : "read-only"
       const timeoutMs = input.timeoutMs ?? options.timeoutMs ?? (input.action === "comment" ? DEFAULT_COMMENT_TIMEOUT_MS : DEFAULT_INSPECT_TIMEOUT_MS)
       input.onEvent?.(bridgeEvent("started", "Starting Codex..."))
+      if (input.signal?.aborted) {
+        input.onEvent?.(bridgeEvent("stopped", "Stopped by user."))
+        return { ok: false, status: "stopped", error: "Stopped by user.", raw: "Stopped by user." }
+      }
       const startedAt = Date.now()
       const heartbeat = input.onEvent
         ? setInterval(() => {
@@ -100,12 +106,22 @@ export function createCodexExecReviewPromptBridge(options: {
           timeoutMs,
           sandboxMode,
           skipGitRepoCheck: true,
+          signal: input.signal,
           onEvent: input.onEvent,
         })
       } finally {
         if (heartbeat) clearInterval(heartbeat)
       }
       const raw = [output.stdout, output.stderr].filter(Boolean).join("\n")
+      if (input.signal?.aborted || raw.includes("Stopped by user.")) {
+        input.onEvent?.(bridgeEvent("stopped", "Stopped by user.", boundedTail(raw || "Stopped by user.")))
+        return {
+          ok: false,
+          status: "stopped",
+          error: "Stopped by user.",
+          raw,
+        }
+      }
       if (input.action === "comment" && isCodexWriteBlocked(raw)) {
         input.onEvent?.(bridgeEvent("failed", "codex exec could not write the deck because its sandbox blocked file changes.", boundedTail(raw)))
         return {
@@ -155,6 +171,7 @@ async function runCodexExec(input: {
   timeoutMs: number
   sandboxMode: "read-only" | "workspace-write"
   skipGitRepoCheck: boolean
+  signal?: AbortSignal
   onEvent?: (event: ReviewBridgeEvent) => void
 }): Promise<CodexExecRunResult> {
   return new Promise((resolve) => {
@@ -169,12 +186,31 @@ async function runCodexExec(input: {
     let stdoutLineBuffer = ""
     let sawTrustedCompletion = false
     let resolved = false
+    let stopped = false
     const resolveOnce = (output: CodexExecRunResult) => {
       if (resolved) return
       resolved = true
+      if (input.signal) input.signal.removeEventListener("abort", abort)
       resolve(output)
     }
+    const abort = () => {
+      if (stopped) return
+      stopped = true
+      child.kill()
+      input.onEvent?.(bridgeEvent("stopped", "Stopped by user."))
+      resolveOnce({
+        exitCode: null,
+        stdout,
+        stderr: `${stderr}${stderr ? "\n" : ""}Stopped by user.`,
+      })
+    }
+    if (input.signal?.aborted) {
+      abort()
+      return
+    }
+    input.signal?.addEventListener("abort", abort, { once: true })
     const timer = setTimeout(() => {
+      if (stopped) return
       child.kill()
       const nextStderr = `${stderr}${stderr ? "\n" : ""}codex exec timed out after ${input.timeoutMs}ms.`
       if (input.action === "comment" && sawTrustedCompletion) {
@@ -202,11 +238,13 @@ async function runCodexExec(input: {
     })
     child.on("error", (error) => {
       clearTimeout(timer)
+      if (stopped) return
       input.onEvent?.(bridgeEvent("failed", "Failed to start codex exec.", boundedTail(error.message)))
       resolveOnce({ exitCode: 127, stdout, stderr: error.message })
     })
     child.on("close", (code) => {
       clearTimeout(timer)
+      if (stopped) return
       const progress = emitCodexJsonProgress(`${stdoutLineBuffer}\n`, input.action, input.onEvent)
       sawTrustedCompletion = sawTrustedCompletion || progress.sawTrustedCompletion
       resolveOnce({ exitCode: code, stdout, stderr })
