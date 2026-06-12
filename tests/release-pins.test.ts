@@ -18,13 +18,13 @@ describe("release pins", () => {
   })
 
   it("keeps README Codex install pins aligned with the package version", () => {
-    const expectedNpmLauncher = `npx -y @cyber-dash-tech/revela@${pkg.version} mcp`
+    const expectedPluginLauncher = "bun ./mcp/revela-server.ts"
     const expectedMarketplaceRef = `codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v${pkg.version}`
 
     for (const file of ["README.md", "README.zh-CN.md"]) {
       const text = readFileSync(join(repoRoot, file), "utf-8")
 
-      expect(text).toContain(expectedNpmLauncher)
+      expect(text).toContain(expectedPluginLauncher)
       expect(text).toContain(expectedMarketplaceRef)
     }
   })

@@ -9,14 +9,17 @@ const keepTemp = process.argv.includes("--keep-temp")
 const debug = process.argv.includes("--debug")
 const tempRoot = resolve(process.env.REVELA_MCP_PACK_SMOKE_DIR || join(tmpdir(), `revela-mcp-pack-smoke-${process.pid}`))
 const packDir = join(tempRoot, "pack")
+const extractDir = join(tempRoot, "extract")
 const npmCache = resolve(process.env.npm_config_cache || join(tempRoot, "npm-cache"))
 
 mkdirSync(packDir, { recursive: true })
+mkdirSync(extractDir, { recursive: true })
 mkdirSync(npmCache, { recursive: true })
 
 try {
   const tarballPath = packTarball()
-  await smokeNpxMcp(tarballPath)
+  const packageRoot = extractTarball(tarballPath)
+  await smokePackagedPluginMcp(packageRoot, tarballPath)
 } finally {
   if (!keepTemp && !process.env.REVELA_MCP_PACK_SMOKE_DIR) {
     rmSync(tempRoot, { recursive: true, force: true })
@@ -26,6 +29,10 @@ try {
 function packTarball(): string {
   const result = spawnSync("npm", ["pack", "--pack-destination", packDir, "--json"], {
     cwd: repoRoot,
+    env: {
+      ...process.env,
+      npm_config_cache: npmCache,
+    },
     encoding: "utf-8",
   })
   if (result.status !== 0) {
@@ -39,13 +46,30 @@ function packTarball(): string {
   return tarballPath
 }
 
-async function smokeNpxMcp(tarballPath: string): Promise<void> {
+function extractTarball(tarballPath: string): string {
+  const result = spawnSync("tar", ["-xzf", tarballPath, "-C", extractDir], {
+    cwd: repoRoot,
+    encoding: "utf-8",
+  })
+  if (result.status !== 0) {
+    fail("Packed tarball extraction failed.", { tarballPath, stdout: result.stdout, stderr: result.stderr })
+  }
+
+  const packageRoot = join(extractDir, "package")
+  const serverPath = join(packageRoot, "plugins", "revela", "mcp", "revela-server.ts")
+  if (!existsSync(serverPath)) fail(`Packed Codex MCP server was not found: ${serverPath}`, { tarballPath })
+  return packageRoot
+}
+
+async function smokePackagedPluginMcp(packageRoot: string, tarballPath: string): Promise<void> {
   await new Promise<void>((resolvePromise) => {
-    const child = spawn("npx", ["-y", "--package", tarballPath, "revela", "mcp"], {
-      cwd: repoRoot,
+    const serverPath = join(packageRoot, "plugins", "revela", "mcp", "revela-server.ts")
+    const child = spawn("bun", [serverPath], {
+      cwd: packageRoot,
       env: {
         ...process.env,
         npm_config_cache: npmCache,
+        REVELA_REPO_ROOT: packageRoot,
         ...(debug ? { REVELA_MCP_DEBUG: "1" } : {}),
       },
       stdio: ["pipe", "pipe", "pipe"],
@@ -62,6 +86,7 @@ async function smokeNpxMcp(tarballPath: string): Promise<void> {
       if (!ok) {
         fail(message || "Packed MCP smoke failed.", {
           tarballPath,
+          packageRoot,
           npmCache,
           stdout,
           stderr,
@@ -71,7 +96,7 @@ async function smokeNpxMcp(tarballPath: string): Promise<void> {
     }
 
     const timer = setTimeout(() => {
-      finish(false, `Timed out after ${timeoutMs}ms waiting for packed npx MCP initialize/tools-list response.`)
+      finish(false, `Timed out after ${timeoutMs}ms waiting for packed Codex plugin MCP initialize/tools-list response.`)
     }, timeoutMs)
 
     child.stdout.on("data", (data) => {
@@ -90,10 +115,10 @@ async function smokeNpxMcp(tarballPath: string): Promise<void> {
       stderr += data.toString()
     })
     child.on("error", (error) => {
-      finish(false, `Failed to start npx for packed MCP smoke: ${error.message}`)
+      finish(false, `Failed to start packed Codex plugin MCP smoke: ${error.message}`)
     })
     child.on("close", (code) => {
-      if (!settled) finish(false, `Packed npx MCP process exited before tools/list completed with code ${code ?? "unknown"}.`)
+      if (!settled) finish(false, `Packed Codex plugin MCP process exited before tools/list completed with code ${code ?? "unknown"}.`)
     })
 
     writeMessage(child.stdin, {
@@ -103,7 +128,7 @@ async function smokeNpxMcp(tarballPath: string): Promise<void> {
       params: {
         protocolVersion: "2024-11-05",
         capabilities: {},
-        clientInfo: { name: "revela-packed-mcp-smoke", version: "0" },
+        clientInfo: { name: "revela-packed-plugin-mcp-smoke", version: "0" },
       },
     })
     writeMessage(child.stdin, { jsonrpc: "2.0", method: "notifications/initialized" })
@@ -121,7 +146,7 @@ function fail(message: string, details: Record<string, unknown> = {}): never {
   const enriched = {
     npmCache,
     tempRoot,
-    hint: "If npx fails before launching Revela, check npm cache permissions or rerun with a writable npm_config_cache.",
+    hint: "If npm pack or packaged MCP startup fails, check package contents, Bun availability, and npm cache permissions.",
     ...details,
   }
   process.stderr.write(`${JSON.stringify(enriched, null, 2)}\n`)
