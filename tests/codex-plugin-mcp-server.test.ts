@@ -204,14 +204,14 @@ describe("Codex plugin MCP server", () => {
     expect(text.stderr).toBe("")
   })
 
-  it("uses the published npm package as the Codex MCP launcher", () => {
+  it("launches the Codex MCP server from the installed plugin cache", () => {
     const config = JSON.parse(readFileSync(join(repoRoot, "plugins", "revela", ".mcp.json"), "utf-8"))
-    const pkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf-8"))
     const server = config.mcpServers.revela
 
     expect(server).toEqual({
-      command: "npx",
-      args: ["-y", `@cyber-dash-tech/revela@${pkg.version}`, "mcp"],
+      cwd: ".",
+      command: "bun",
+      args: ["./mcp/revela-server.ts"],
     })
   })
 

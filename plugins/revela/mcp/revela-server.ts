@@ -395,7 +395,7 @@ async function handle(req: JsonRpcRequest): Promise<any | undefined> {
       return result(req.id, {
         protocolVersion: req.params?.protocolVersion || "2024-11-05",
         capabilities: { tools: {} },
-        serverInfo: { name: "revela", version: "0.1.0" },
+        serverInfo: { name: "revela", version: "0.18.14" },
       })
     }
     if (req.method === "tools/list") {

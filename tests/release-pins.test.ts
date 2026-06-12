@@ -6,13 +6,14 @@ import pkg from "../package.json"
 const repoRoot = join(import.meta.dir, "..")
 
 describe("release pins", () => {
-  it("keeps the Codex MCP launcher pinned to the package version", () => {
+  it("launches the Codex MCP server from the installed plugin cache", () => {
     const config = JSON.parse(readFileSync(join(repoRoot, "plugins", "revela", ".mcp.json"), "utf-8"))
     const server = config.mcpServers.revela
 
     expect(server).toEqual({
-      command: "npx",
-      args: ["-y", `@cyber-dash-tech/revela@${pkg.version}`, "mcp"],
+      cwd: ".",
+      command: "bun",
+      args: ["./mcp/revela-server.ts"],
     })
   })
 
