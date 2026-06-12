@@ -22,6 +22,10 @@ import { annotateVisualEditTargets, applyVisualTargetChanges, type VisualEditTar
 const TOKEN_BYTES = 24
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000
 const IDLE_STOP_MS = 30 * 60 * 1000
+const REVIEW_UI_ASSET_ROUTE = "/__revela_ui_asset"
+const REVIEW_UI_ASSETS = new Map<string, string>([
+  ["/logo-wordmark.png", resolve(dirname(fileURLToPath(import.meta.url)), "../../assets/img/logo-wordmark.png")],
+])
 export const REVIEW_REF_LABEL_MAX_DISPLAY_CHARS = 32
 export const LIVE_EDITOR_IDLE_MS = 10 * 1000
 
@@ -198,6 +202,10 @@ async function handleRequest(req: Request): Promise<Response> {
   const url = new URL(req.url)
 
   if (url.pathname === "/health") return textResponse("ok")
+
+  if (url.pathname.startsWith(`${REVIEW_UI_ASSET_ROUTE}/`) && (req.method === "GET" || req.method === "HEAD")) {
+    return handleReviewUiAsset(url.pathname, req.method)
+  }
 
   if (url.pathname === "/refine" && req.method === "GET") {
     const session = validateSession(url.searchParams.get("token"))
@@ -606,6 +614,21 @@ function handleAsset(session: EditSession, id: string | null, method: string): R
   }
 
   return new Response(new Uint8Array(readFileSync(asset.absoluteFile)), { status: 200, headers })
+}
+
+function handleReviewUiAsset(pathname: string, method: string): Response {
+  const assetPath = pathname.slice(REVIEW_UI_ASSET_ROUTE.length)
+  const absoluteFile = REVIEW_UI_ASSETS.get(assetPath)
+  if (!absoluteFile || !existsSync(absoluteFile) || !statSync(absoluteFile).isFile()) {
+    return textResponse("Asset not found", 404)
+  }
+
+  const headers = {
+    "content-type": mimeTypeForPath(absoluteFile),
+    "cache-control": "no-store, max-age=0",
+  }
+  if (method === "HEAD") return new Response(null, { status: 200, headers })
+  return new Response(new Uint8Array(readFileSync(absoluteFile)), { status: 200, headers })
 }
 
 function rewriteLocalAssetRefs(content: string, input: { session: EditSession; sourceFile: string; contentType: "html" | "css" }): string {
@@ -1367,7 +1390,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     body { margin: 0; background: #f8fafc; color: #111827; height: 100vh; overflow: hidden; }
     body.resizing { cursor: col-resize; user-select: none; }
     body.resizing iframe, body.resizing .hitbox { pointer-events: none; }
-    .app { --editor-width: 376px; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) var(--editor-width); height: 100vh; }
+    .app { --editor-width: 620px; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) var(--editor-width); height: 100vh; }
     .preview { position: relative; min-width: 0; background: #eef2f7; }
     .resize-handle { position: absolute; top: 0; bottom: 0; right: calc(var(--editor-width) - 7px); width: 14px; z-index: 5; cursor: col-resize; background: transparent; }
     .resize-handle::before { content: ""; position: absolute; left: 50%; top: 50%; width: 4px; height: 44px; border-radius: 999px; transform: translate(-50%, -50%); background: rgba(148,163,184,.34); box-shadow: 0 1px 2px rgba(15,23,42,.06); transition: background .16s ease, height .16s ease, box-shadow .16s ease; }
@@ -1392,7 +1415,8 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     aside { position: relative; display: flex; flex-direction: column; gap: 16px; padding: 18px; background: #ffffff; overflow: hidden; border-left: 1px solid #e2e8f0; box-shadow: -10px 0 28px rgba(15,23,42,.06); }
     aside button, aside input, aside select, aside textarea, aside .comment-editor { font-family: inherit; }
     h1 { margin: 0; font-size: 17px; line-height: 1.2; letter-spacing: 0; color: #0f172a; }
-    .wordmark { font-family: inherit; font-size: 17px; letter-spacing: 0; font-weight: 800; }
+    .review-brand { display: inline-flex; align-items: center; min-width: 0; max-width: 100%; }
+    .wordmark-logo { display: block; width: auto; height: 30px; max-width: min(210px, 82%); object-fit: contain; flex: 0 1 auto; }
     .panel { display: flex; flex-direction: column; gap: 10px; }
     .tabs { display: flex; gap: 4px; padding: 3px; border: 1px solid #e2e8f0; border-radius: 999px; background: #f8fafc; }
     .tab { width: auto; min-width: 112px; padding: 8px 16px; border: 1px solid transparent; border-radius: 999px; background: transparent; color: #64748b; box-shadow: none; font-weight: 750; }
@@ -1558,7 +1582,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
     <div id="resizeHandle" class="resize-handle" role="separator" aria-label="Resize editor panel" aria-orientation="vertical" title="Drag to resize editor. Double-click to reset."></div>
     <aside>
       <div>
-        <h1><span class="wordmark">REVELA</span> Review</h1>
+        <h1 class="review-brand" aria-label="Revela Review"><img class="wordmark-logo" src="${REVIEW_UI_ASSET_ROUTE}/logo-wordmark.png" alt="Revela" /></h1>
       </div>
       <div id="selectionSummary" class="selection-summary sr-only" aria-live="polite"><strong>Selection</strong><span>No references selected.</span><div id="selectionChips" class="selection-chips"></div></div>
       <div class="tabs" role="tablist" aria-label="Review mode">
@@ -1629,7 +1653,7 @@ export function renderRefineShell(token: string, defaultMode: RefineMode = "edit
       const codexReview = reviewSurface === 'codex';
       const COMMENT_STALE_MS = 60000;
       const EDITOR_WIDTH_KEY = 'revela-edit-editor-width';
-      const DEFAULT_EDITOR_WIDTH = 376;
+      const DEFAULT_EDITOR_WIDTH = 620;
       const MIN_EDITOR_WIDTH = 320;
       const MAX_EDITOR_WIDTH = 620;
       const REFERENCE_COLORS = [

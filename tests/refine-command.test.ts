@@ -41,11 +41,25 @@ describe("renderRefineShell", () => {
     const html = renderRefineShell("test-token")
 
     expect(html).toContain("Revela Review")
+    expect(html).toContain("aria-label=\"Revela Review\"")
+    expect(html).toContain("class=\"review-brand\"")
+    expect(html).toContain("class=\"wordmark-logo\"")
+    expect(html).toContain("src=\"/__revela_ui_asset/logo-wordmark.png\"")
+    expect(html).toContain("alt=\"Revela\"")
+    expect(html).not.toContain("<span>Review</span>")
+    expect(html).not.toContain("<span class=\"wordmark\">REVELA</span>")
     expect(html).not.toContain("Select refs, describe the change, then send.")
     expect(html).toContain("body { margin: 0; background: #f8fafc; color: #111827")
+    expect(html).toContain(".app { --editor-width: 620px; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) var(--editor-width); height: 100vh; }")
+    expect(html).toContain("const DEFAULT_EDITOR_WIDTH = 620;")
+    expect(html).toContain("const MAX_EDITOR_WIDTH = 620;")
+    expect(html).toContain("const saved = Number(window.localStorage.getItem(EDITOR_WIDTH_KEY));")
+    expect(html).toContain("setEditorWidth(Number.isFinite(saved) ? saved : DEFAULT_EDITOR_WIDTH, false);")
     expect(html).toContain("aside { position: relative; display: flex; flex-direction: column; gap: 16px; padding: 18px; background: #ffffff")
     expect(html).toContain("border-left: 1px solid #e2e8f0")
     expect(html).toContain("aside button, aside input, aside select, aside textarea, aside .comment-editor { font-family: inherit; }")
+    expect(html).toContain(".review-brand { display: inline-flex; align-items: center; min-width: 0; max-width: 100%; }")
+    expect(html).toContain(".wordmark-logo { display: block; width: auto; height: 30px; max-width: min(210px, 82%); object-fit: contain; flex: 0 1 auto; }")
     expect(html).not.toContain("font-family: Garamond, \"Iowan Old Style\", Georgia, serif")
     expect(html).not.toContain("background: linear-gradient(180deg, #fbfaf7 0%, #f2eee6 100%)")
     expect(html).not.toContain("background: linear-gradient(135deg, #111827 0%, #1f2937 100%)")
@@ -367,6 +381,35 @@ describe("renderRefineShell", () => {
 })
 
 describe("openRefineDeck", () => {
+  it("serves built-in Review UI assets from an explicit whitelist", async () => {
+    const root = workspace()
+    writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Market Map</h2></section></body></html>", "utf-8")
+
+    const opened = openRefineDeck("", {
+      client: { session: { prompt: async () => undefined } },
+      sessionID: "session-1",
+      workspaceRoot: root,
+      openBrowser: false,
+    })
+    const logoUrl = new URL(opened.url)
+    logoUrl.pathname = "/__revela_ui_asset/logo-wordmark.png"
+    logoUrl.search = ""
+
+    const response = await fetch(logoUrl)
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toBe("image/png")
+    expect((await response.arrayBuffer()).byteLength).toBeGreaterThan(0)
+
+    const headResponse = await fetch(logoUrl, { method: "HEAD" })
+    expect(headResponse.status).toBe(200)
+    expect(headResponse.headers.get("content-type")).toBe("image/png")
+
+    const missingUrl = new URL(logoUrl)
+    missingUrl.pathname = "/__revela_ui_asset/not-allowed.png"
+    const missing = await fetch(missingUrl)
+    expect(missing.status).toBe(404)
+  })
+
   it("opens a refine session for the only HTML deck without launching a browser when disabled", () => {
     const root = workspace()
     writeFileSync(join(root, "decks", "market-map.html"), "<html><body><section class=\"slide\" data-slide-index=\"1\"><h2>Market Map</h2></section></body></html>", "utf-8")
