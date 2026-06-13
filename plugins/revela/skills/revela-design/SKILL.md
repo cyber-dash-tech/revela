@@ -10,6 +10,7 @@ Use this skill when the user asks to create, customize, edit, validate, package,
 ## Contract
 
 - Designs define deck visual systems: rules, foundation, layouts, components, chart rules, and preview coverage.
+- Designs should define executable visual contracts, not only mood, fonts, and palettes. Capture grid/safe-area, spacing scale, type scale, surface behavior, chart tokens, component states, and preview fixtures in the design package.
 - Designs may include package-owned `assets/**` such as cover or closing backgrounds; design tools surface these as design elements, not source evidence.
 - When the user uploads or provides logo, cover, closing, background, texture, brand image, or similar design material, store it inside the design package with `revela_design_draft_create.assets`; use paths under `assets/**` only.
 - Generated `preview.html` must actually reference uploaded design assets with package-relative `assets/...` paths rather than describing them only in text.
@@ -53,11 +54,16 @@ Use `revela_design_create` only when the user explicitly requests direct local c
 - Use a kebab-case design name.
 - `DESIGN.md` must include valid frontmatter and complete design marker sections.
 - Include design rules, foundation guidance, at least one layout, and at least one component.
+- In `@design:foundation`, document the design contract: grid columns or layout rails, safe area, spacing/baseline scale, typography scale, surfaces/borders/shadows, and chart tokens when charts are supported.
+- Layouts must declare stable slots and use grid/flex structure as the source of alignment. Avoid one-off absolute positioning that bypasses the declared layout contract.
+- Components should describe normal, dense, and long-copy behavior where relevant. Chart, table, media, and source-note components need stable container dimensions.
 - Optional assets must live under `assets/**`; reference them as package-relative paths like `assets/cover-background.png`.
 - `DESIGN.md` may reference package assets in rules, layouts, or components with `assets/...`; do not reference workspace `assets/` media manifest entries for design-owned visuals.
 - `preview.html` must use the fixed Revela preview canvas contract and visibly preview the design.
 - If design assets are present, `preview.html` must visibly use the saved `assets/...` files, for example a cover hero background or logo image.
 - Preview must include cover and closing examples and showcase every component.
+- Preview should showcase every layout with `data-preview-layout="<layout-name>"` and every component with `data-preview-component="<component-name>"`.
+- Preview should behave like a design test fixture: include normal content, dense content, mixed-language text where relevant, chart/table examples when supported, readable media, and source-note behavior.
 - Preserve source inspiration and limitations explicitly; do not copy copyrighted design text or assets into the package.
 
 ## Outputs

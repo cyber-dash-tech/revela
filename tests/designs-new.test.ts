@@ -507,6 +507,33 @@ describe("design package authoring", () => {
     expect(validation.errors).toContain('preview.html must include a slide section with data-slide-role="closing"')
   })
 
+  it("warns when preview does not mark layout fixtures", () => {
+    const name = track("test-preview-layout-warnings")
+    const dir = join(DESIGNS_DIR, name)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, "DESIGN.md"), validDesignMd(name), "utf-8")
+    writeFileSync(join(dir, "preview.html"), validPreviewHtml(), "utf-8")
+
+    const validation = validateDesignPackage(name)
+
+    expect(validation.ok).toBe(true)
+    expect(validation.warnings.join("\n")).toContain("preview.html should mark layout fixtures with data-preview-layout; missing: test-layout")
+  })
+
+  it("warns when design contract token families are missing", () => {
+    const name = track("test-preview-token-warnings")
+    const dir = join(DESIGNS_DIR, name)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, "DESIGN.md"), designMdWithOneComponent(name), "utf-8")
+    writeFileSync(join(dir, "preview.html"), validPreviewHtmlForOneComponent().replace("data-preview-component=\"test-card\"", "data-preview-layout=\"test-layout\" data-preview-component=\"test-card\""), "utf-8")
+
+    const validation = validateDesignPackage(name)
+
+    expect(validation.ok).toBe(true)
+    expect(validation.warnings.join("\n")).toContain("DESIGN.md/preview.html should document grid design tokens or an equivalent contract")
+    expect(validation.warnings.join("\n")).toContain("DESIGN.md/preview.html should document spacing design tokens or an equivalent contract")
+  })
+
   it("resolves preview path and missing-preview state", () => {
     const withPreview = track("test-preview-present")
     createDesignPackage({

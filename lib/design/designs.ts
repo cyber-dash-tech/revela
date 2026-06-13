@@ -92,6 +92,7 @@ export interface ValidateDesignPackageResult {
   components: string[]
   assets: DesignPackageAssetInfo[]
   errors: string[]
+  warnings: string[]
 }
 
 export interface DesignPackageAssetInput {
@@ -551,6 +552,7 @@ export function validateDesignPackage(nameInput: string): ValidateDesignPackageR
 function validateDesignPackageAt(nameInput: string, dir: string): ValidateDesignPackageResult {
   let name = nameInput
   const errors: string[] = []
+  const warnings: string[] = []
   try {
     name = normalizeDesignName(nameInput)
   } catch (e) {
@@ -605,6 +607,13 @@ function validateDesignPackageAt(nameInput: string, dir: string): ValidateDesign
     if (missingComponents.length > 0) {
       errors.push(`preview.html must showcase every @component; missing: ${missingComponents.join(", ")}`)
     }
+    const missingLayoutPreviews = layouts.filter((layout) => !hasDataAttribute(preview, "data-preview-layout", layout))
+    if (missingLayoutPreviews.length > 0) {
+      warnings.push(`preview.html should mark layout fixtures with data-preview-layout; missing: ${missingLayoutPreviews.join(", ")}`)
+    }
+    const designText = hasDesignMd ? readFileSync(mdPath, "utf-8") : ""
+    const tokenWarnings = designContractTokenWarnings(`${designText}\n${preview}`)
+    warnings.push(...tokenWarnings)
   }
 
   return {
@@ -619,7 +628,22 @@ function validateDesignPackageAt(nameInput: string, dir: string): ValidateDesign
     components,
     assets,
     errors,
+    warnings,
   }
+}
+
+function designContractTokenWarnings(text: string): string[] {
+  const warnings: string[] = []
+  const checks = [
+    { label: "grid", pattern: /--grid-|grid columns|grid-column|column line|safe area|safe-area/i },
+    { label: "spacing", pattern: /--space-|spacing scale|baseline|rhythm unit|gap scale/i },
+    { label: "type scale", pattern: /--font-size-|type scale|typographic scale|line-height/i },
+    { label: "surface", pattern: /--surface|surface token|border token|shadow token/i },
+  ]
+  for (const check of checks) {
+    if (!check.pattern.test(text)) warnings.push(`DESIGN.md/preview.html should document ${check.label} design tokens or an equivalent contract`)
+  }
+  return warnings
 }
 
 function designDraftDir(workspaceRoot: string, name: string): string {

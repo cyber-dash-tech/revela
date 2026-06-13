@@ -74,6 +74,9 @@ const VISUAL_QUALITY_RULES = `Visual extraction and CSS quality rules:
 - Preserve composition, not just colors and shapes. If the reference is a bottom strip, compact badge, side rail, or sparse header mark, keep that scale and anchoring; do not enlarge it into a full-slide mascot or background unless requested.
 - Do not rewrite the entire base layout system from scratch. Preserve base layout/container CSS where possible; mainly change tokens, typography, component skins, and small decorative components.
 - Keep CSS scoped and boring. Prefer CSS variables and reusable classes over many one-off absolute-positioned selectors.
+- Treat the design as an executable visual system, not a mood board. Document grid, safe-area, spacing, type scale, surface, and chart tokens in \`@design:foundation\`.
+- Layouts must use declared slots and stable grid/flex containers. Do not fake alignment with scattered one-off absolute positioning when a layout grid should own placement.
+- Components must declare normal, dense, and long-copy behavior when relevant. Chart, table, media, and source-note components need stable container dimensions.
 - If a reference is flat vector, doodle, mascot, blob, line-art, or geometric illustration, prefer a self-contained SVG component with a fixed viewBox. CSS should place the SVG; the SVG should draw the motif.
 - If a reference is photography, UI screenshot, webpage, or product surface, do not convert it to SVG. Extract palette, type scale, spacing, layout rhythm, borders, and image treatment instead.
 - For SVG motifs: set a viewBox, keep all eyes/mouths/decorations inside that coordinate system, and document intended placement/scale in the component notes.
@@ -83,6 +86,8 @@ const PREVIEW_REQUIREMENTS = `Preview requirements:
 - \`preview.html\` must include a cover slide and a closing slide. Mark their \`<section class="slide">\` elements with \`data-slide-role="cover"\` and \`data-slide-role="closing"\`.
 - \`preview.html\` must define an explicit CSS rule for \`.slide-canvas\` with \`width: 1920px\` and \`height: 1080px\`; every direct \`.slide-canvas\` is the fixed 1920px x 1080px export surface.
 - \`preview.html\` must showcase every \`@component:*\` defined in \`DESIGN.md\`. Mark each showcased component with \`data-preview-component="<component-name>"\`.
+- \`preview.html\` should showcase every \`@layout:*\` defined in \`DESIGN.md\`. Mark each layout fixture with \`data-preview-layout="<layout-name>"\`.
+- Preview slides should act as test fixtures: include at least one normal content slide, one dense content slide, one chart/table or data slide when supported, mixed Chinese/English copy when relevant, and visible source-note behavior.
 - Do not save with \`revela-designs-author\` until every component has a corresponding preview marker. If a component is decorative or abstract, include a visible labeled sample state.
 - When the design supports chart styling, \`preview.html\` should include a 3x3 ECharts gallery with at least 9 chart examples. This is a preview quality requirement, not a validation blocker.`
 
@@ -133,11 +138,13 @@ Hard requirements:
 - \`DESIGN.md\` must include frontmatter with name, description, author, and version.
 - \`DESIGN.md\` must include valid \`@design\`, \`@layout\`, and \`@component\` markers.
 - \`DESIGN.md\` must include at least \`@design:foundation\`, \`@design:rules\`, one layout, and one component.
+- \`DESIGN.md\` should document the design contract: grid/safe-area, spacing scale, typography scale, surfaces, and chart tokens when charts are supported.
 - \`preview.html\` must be self-contained and directly openable in a browser.
 - \`preview.html\` must include an explicit CSS rule: \`.slide-canvas { width: 1920px; height: 1080px; }\`.
 - Every preview slide must include \`slide-qa="true"\` or \`slide-qa="false"\`.
 - \`preview.html\` must include \`data-slide-role="cover"\` and \`data-slide-role="closing"\` on slide sections.
 - \`preview.html\` must showcase every \`@component:*\` with \`data-preview-component="<component-name>"\` before saving.
+- \`preview.html\` should showcase every \`@layout:*\` with \`data-preview-layout="<layout-name>"\`.
 - Do not save anything until the user confirms the brief.
 
 Start now by interviewing the user. Keep the first question concise.`
@@ -173,11 +180,13 @@ Workflow:
 Hard requirements:
 - Preserve valid frontmatter and marker structure.
 - Preserve at least \`@design:foundation\`, \`@design:rules\`, one layout, and one component.
+- Preserve or add the design contract: grid/safe-area, spacing scale, typography scale, surfaces, and chart tokens when charts are supported.
 - \`preview.html\` must be self-contained and directly openable in a browser.
 - \`preview.html\` must include an explicit CSS rule: \`.slide-canvas { width: 1920px; height: 1080px; }\`.
 - Every preview slide must include \`slide-qa="true"\` or \`slide-qa="false"\`.
 - \`preview.html\` must include \`data-slide-role="cover"\` and \`data-slide-role="closing"\` on slide sections.
 - \`preview.html\` must showcase every \`@component:*\` with \`data-preview-component="<component-name>"\` before saving.
+- \`preview.html\` should showcase every \`@layout:*\` with \`data-preview-layout="<layout-name>"\`.
 - Do not save anything until the user confirms the edit brief.
 
 Start now by asking what the user wants to change in \`${name}\`.`

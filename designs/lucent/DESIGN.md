@@ -37,8 +37,36 @@ Use a fixed `1920px` x `1080px` `.slide-canvas` inside a dark navy browser frame
   --shadow-soft: rgba(30, 65, 130, 0.13);
   --font-display: DengXian, "Microsoft YaHei", "PingFang SC", Arial, ui-sans-serif, sans-serif;
   --font-body: DengXian, "Microsoft YaHei", "PingFang SC", Arial, ui-sans-serif, sans-serif;
+  --grid-margin-x: 72px;
+  --grid-margin-y: 56px;
+  --grid-columns: 12;
+  --grid-gutter: 24px;
+  --grid-safe-top: 56px;
+  --grid-safe-bottom: 64px;
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 48px;
+  --space-6: 72px;
+  --font-size-caption: 16px;
+  --font-size-body: 22px;
+  --font-size-body-small: 18px;
+  --font-size-h3: 31px;
+  --font-size-h2: 52px;
+  --font-size-hero: 104px;
+  --surface-radius: 8px;
+  --surface-radius-large: 12px;
 }
 ```
+
+Design contract:
+- Grid: content slides use a 12-column mental grid inside `--grid-margin-x` / `--grid-margin-y`; layout slots should align to declared grid rails or documented column ratios.
+- Safe area: titles, body slots, source notes, page numbers, and logos stay inside the safe area unless a `hero` layout owns a full-bleed image.
+- Spacing: use the `--space-*` scale and keep dense report pages on an 8px rhythm; do not hand-tune every card with unrelated gaps.
+- Type scale: use the declared fixed-pixel type tokens for the 1920x1080 canvas; do not use `clamp()`, viewport units, or negative tracking.
+- Surfaces: cards and panels use `--surface`, `--line`, `--shadow-soft`, and radius tokens; avoid new one-off glass/orb treatments outside Lucent's supplied assets.
+- Chart tokens: ECharts use `--accent-primary`, `--accent-secondary`, `--accent-cyan`, `--accent-coral`, transparent backgrounds, muted axes, and explicit container heights.
 
 Asset policy:
 - Use `assets/cover-background.jpg` and `assets/closing-background.jpg` for full-bleed hero backgrounds.
@@ -54,6 +82,9 @@ Asset policy:
 - Use Lucent for strategy, operating review, research synthesis, market diagnosis, and data-backed decision decks.
 - Prefer bright report pages with subtle radial accents. Reserve dark full-bleed imagery for cover, section divider, and closing slides.
 - Put the slide-level title in each layout's title slot or hero text area. Do not hide the main claim inside a card.
+- Treat the design as a measurable report system: every content layout should expose clear grid rails, stable slot dimensions, and a visible reading order.
+- Use declared spacing/type/surface tokens before adding local CSS. Local overrides should serve a documented state such as dense table, long title, or mixed-language body copy.
+- Preview examples should mark every layout with `data-preview-layout="<layout-name>"` and every component with `data-preview-component="<component-name>"`.
 - Use `box` for one idea, evidence item, operating gap, risk, or action. Use 2-4 boxes on dense synthesis slides.
 - Use ECharts for all data charts, including Sankey. Do not fake charts with CSS shapes.
 - Keep typography quiet and legible: large claim headings, compact metadata, and source notes in muted color.
