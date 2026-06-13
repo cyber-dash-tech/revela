@@ -35,6 +35,27 @@ Inspired by Claude Monet's *Le Bassin aux Nymphéas* — mist, water, and soft l
     --shadow-soft: rgba(0, 55, 102, 0.18);
     --font-display: 'EB Garamond', 'Georgia', ui-serif, serif;
     --font-body: 'EB Garamond', 'Georgia', ui-serif, serif;
+    --grid-page-inset: 40px;
+    --grid-content-width: 1480px;
+    --grid-text-col: 480px;
+    --grid-image-col: 880px;
+    --grid-gutter: 40px;
+    --grid-safe-x: 80px;
+    --grid-safe-y: 72px;
+    --space-1: 8px;
+    --space-2: 16px;
+    --space-3: 24px;
+    --space-4: 32px;
+    --space-5: 48px;
+    --space-6: 72px;
+    --font-size-meta: 13px;
+    --font-size-body: 17px;
+    --font-size-body-strong: 20px;
+    --font-size-h3: 24px;
+    --font-size-h2: 36px;
+    --font-size-hero: 116px;
+    --surface-radius: 0px;
+    --surface-shadow: 0 24px 80px var(--shadow-soft);
 }
 ```
 
@@ -84,6 +105,14 @@ All sizes are fixed `px` for the 1920x1080 canvas. JS `transform: scale()` handl
 - Image column target: about `880px` max.
 - Headings align to the text column, not to the full canvas.
 - Let images carry visual weight; text should remain narrow, calm, and readable.
+
+Design contract:
+- Grid: use `--grid-page-inset`, `--grid-content-width`, and editorial split ratios as the source of layout alignment; do not scatter content with unrelated absolute offsets.
+- Safe area: image captions, source notes, page numbers, and brand marks stay inside `--grid-safe-x` / `--grid-safe-y` unless the `hero` component owns the full canvas.
+- Spacing: use the `--space-*` rhythm for editorial gaps, plaques, captions, and component padding. Dense pages may tighten within the scale, but should not invent one-off spacing systems.
+- Type scale: use fixed 1920x1080 type tokens and the Monet serif stack. Do not introduce viewport-relative text sizing or sans-serif fallbacks for deck body copy.
+- Surfaces: panels remain paper-like and flat. Use line, tonal blocks, and `--surface-shadow`; avoid glass, neon, blob, or dashboard-card treatments.
+- Chart tokens: charts use Monet accents, quiet gridlines, transparent backgrounds, explicit axis text colors, and stable `echart-panel` containers.
 
 ### Image Treatment
 

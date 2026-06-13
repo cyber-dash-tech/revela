@@ -36,6 +36,24 @@ Apply this visual style when generating all slides in this session.
     --font-size-body: 17px;
     --font-size-meta: 17px;
     --font-size-body-strong: 20px;
+    --grid-page-inset: 40px;
+    --grid-content-width: 1480px;
+    --grid-text-col: 480px;
+    --grid-image-col: 880px;
+    --grid-gutter: 40px;
+    --grid-safe-x: 80px;
+    --grid-safe-y: 72px;
+    --space-1: 8px;
+    --space-2: 16px;
+    --space-3: 24px;
+    --space-4: 32px;
+    --space-5: 48px;
+    --space-6: 72px;
+    --font-size-h3: 24px;
+    --font-size-h2: 36px;
+    --font-size-hero: 116px;
+    --surface-radius: 0px;
+    --surface-shadow: 0 24px 80px var(--shadow-soft);
 }
 ```
 
@@ -86,6 +104,14 @@ All sizes are fixed `px` for the 1920x1080 canvas. JS `transform: scale()` handl
 - Image column target: about `880px` max.
 - Headings align to the text column, not to the full canvas.
 - Let images carry visual weight; text should remain narrow, calm, and readable.
+
+Design contract:
+- Grid: use `--grid-page-inset`, `--grid-content-width`, and editorial split ratios as the source of layout alignment; avoid one-off absolute positioning that bypasses the chosen layout.
+- Safe area: image captions, source notes, page numbers, brand marks, and roadmap labels stay inside `--grid-safe-x` / `--grid-safe-y` unless the `hero` component owns the full canvas.
+- Spacing: use the `--space-*` scale for page rhythm, component padding, card gaps, and table density. Dense slides may tighten within the scale, but should not introduce unrelated gap values.
+- Type scale: use fixed 1920x1080 type tokens and the Summit sans-serif stack. Do not use viewport-relative text sizing, serif substitutions, text shadows, or glows.
+- Surfaces: panels should feel like warm paper and expedition documentation. Use lines, image blocks, and grounded shadows; avoid glass, neon, blobs, or dashboard chrome.
+- Chart tokens: charts use Summit accents, muted axes, transparent backgrounds, explicit text colors, and stable `echart-panel` containers.
 
 ### Image Treatment
 
