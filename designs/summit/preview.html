@@ -83,12 +83,12 @@
     .narrative-grid--reverse { grid-template-columns: 7fr 5fr; }
     .highlight-cols-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .halves-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .stacked-grid { grid-template-rows: .72fr 1fr; }
-    .box, .text-panel, .stat-card, .echart-panel, .table-panel, .quote, .steps, .roadmap { border: 1px solid var(--line); background: rgba(247,244,238,.62); padding: var(--space-4); min-height: 0; overflow: hidden; }
+    .stacked-grid { grid-template-rows: .44fr 1.56fr; }
+    .box, .text-panel, .stat-card, .echart-panel, .table-panel, .quote, .steps, .roadmap { background: rgba(247,244,238,.62); padding: var(--space-4); min-height: 0; overflow: hidden; }
     .box { display: flex; flex-direction: column; gap: var(--space-3); }
     .box--paper { background: rgba(255,255,255,.42); }
     .text-panel { display: flex; flex-direction: column; justify-content: space-between; }
-    .media { position: relative; min-height: 0; overflow: hidden; background: linear-gradient(140deg, #6f7562, #b9afa1); border: 1px solid var(--line); }
+    .media { position: relative; min-height: 0; overflow: hidden; background: linear-gradient(140deg, #6f7562, #b9afa1); }
     .media::before { content: ""; position: absolute; inset: 64px 42px; background: linear-gradient(140deg, transparent 0 36%, rgba(247,244,238,.78) 36% 39%, transparent 39%), linear-gradient(35deg, transparent 0 45%, rgba(23,20,17,.42) 45% 62%, transparent 62%); }
     .stat-value { font-size: 66px; line-height: 1.12; color: var(--accent-earth); font-weight: 700; }
     .chart-bars { flex: 1; display: flex; align-items: end; gap: 18px; padding-top: var(--space-4); min-height: 230px; }
@@ -103,6 +103,48 @@
     .roadmap { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); }
     .roadmap-item { border-left: 3px solid var(--accent-earth); padding-left: var(--space-3); }
     .roadmap-vertical { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+    .tjh { --tjh-node: 14px; --tjh-stem-h: 38px; --tjh-col: 280px; position: relative; width: 100%; height: 100%; min-height: 420px; overflow: visible; }
+    .tjh-axis { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--line-strong); transform: translateY(-50%); }
+    .tjh-item { position: absolute; display: flex; flex-direction: column; align-items: center; width: var(--tjh-col); transform: translateX(-50%); overflow: visible; }
+    .tjh-item--up { bottom: 50%; }
+    .tjh-item--down { top: 50%; }
+    .tjh-axis-dot, .tjh-tip-dot { width: var(--tjh-node); height: var(--tjh-node); background: var(--tjh-item-color); flex-shrink: 0; }
+    .tjh-item--up .tjh-axis-dot { margin-bottom: calc(-1 * var(--tjh-node) / 2); }
+    .tjh-item--down .tjh-axis-dot { margin-top: calc(-1 * var(--tjh-node) / 2); }
+    .tjh-stem { width: 1px; height: var(--tjh-stem-h); background-image: repeating-linear-gradient(to bottom, var(--line-strong) 0 4px, transparent 4px 8px); flex-shrink: 0; }
+    .tjh-label { display: flex; flex-direction: column; gap: 5px; width: 100%; padding: 0 8px; overflow: visible; }
+    .tjh-item--up .tjh-label { margin-bottom: 8px; }
+    .tjh-item--down .tjh-label { margin-top: 8px; }
+    .tjh-date, .tjv-date { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--tjh-item-color, var(--tjv-item-color)); font-weight: 800; }
+    .tjh-title, .tjv-title { font-family: var(--font-display); font-size: 18px; color: var(--text-primary); line-height: 1.28; font-weight: 700; }
+    .tjh-text, .tjv-text { font-size: 13px; line-height: 1.45; color: var(--text-secondary); }
+    .tjv { --tjv-node: 14px; --tjv-stem-w: 36px; position: relative; width: 100%; height: 100%; min-height: 420px; overflow: visible; }
+    .tjv-axis { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--line-strong); transform: translateX(-50%); }
+    .tjv-item { position: absolute; display: flex; align-items: center; min-height: 116px; transform: translateY(-50%); overflow: visible; }
+    .tjv-item--left { right: 50%; flex-direction: row-reverse; }
+    .tjv-item--right { left: 50%; flex-direction: row; }
+    .tjv-axis-dot, .tjv-tip-dot { width: var(--tjv-node); height: var(--tjv-node); background: var(--tjv-item-color); flex-shrink: 0; }
+    .tjv-item--left .tjv-axis-dot { margin-right: calc(-1 * var(--tjv-node) / 2); }
+    .tjv-item--right .tjv-axis-dot { margin-left: calc(-1 * var(--tjv-node) / 2); }
+    .tjv-stem { width: var(--tjv-stem-w); height: 1px; background-image: repeating-linear-gradient(to right, var(--line-strong) 0 4px, transparent 4px 8px); flex-shrink: 0; }
+    .tjv-label { display: flex; flex-direction: column; gap: 5px; overflow: visible; }
+    .tjv-item--left .tjv-label { text-align: right; align-items: flex-end; padding-right: 14px; max-width: 340px; }
+    .tjv-item--right .tjv-label { text-align: left; align-items: flex-start; padding-left: 14px; max-width: 340px; }
+    .timeline-preview { display: grid; grid-template-rows: 1fr 58px 1fr; gap: var(--space-3); height: 100%; }
+    .timeline-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); align-items: end; }
+    .timeline-row--bottom { align-items: start; }
+    .timeline-node { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .timeline-row--top .timeline-node:nth-child(even), .timeline-row--bottom .timeline-node:nth-child(odd) { opacity: 0; }
+    .timeline-axis-preview { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; }
+    .timeline-axis-preview::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--line-strong); }
+    .timeline-dot { position: relative; z-index: 1; width: 14px; height: 14px; background: var(--dot); justify-self: center; }
+    .vertical-timeline-preview { position: relative; display: grid; grid-template-rows: repeat(4, 1fr); gap: var(--space-3); height: 100%; }
+    .vertical-timeline-preview::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--line-strong); }
+    .vertical-node { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 34px 1fr; align-items: center; gap: var(--space-2); min-height: 0; }
+    .vertical-node::before { content: ""; width: 14px; height: 14px; background: var(--dot); justify-self: center; grid-column: 2; grid-row: 1; }
+    .vertical-node .timeline-node { max-width: 300px; }
+    .vertical-node--left .timeline-node { grid-column: 1; text-align: right; justify-self: end; }
+    .vertical-node--right .timeline-node { grid-column: 3; text-align: left; justify-self: start; }
   </style>
 </head>
 <body>
@@ -131,11 +173,11 @@
   </section>
 
   <section class="slide" slide-qa="true" data-slide-index="7" data-preview-layout="stacked">
-    <div class="slide-canvas"><div class="page"><p class="preview-label">layout fixture / stacked</p><div class="grid stacked-grid"><div class="quote" data-preview-component="quote"><p>"A hard deck should make the path, the risk, and the decision unmistakable."</p></div><div class="roadmap" data-preview-component="roadmap-horizontal"><div class="roadmap-item"><h3>01 Baseline</h3><p>Lock data.</p></div><div class="roadmap-item"><h3>02 Focus</h3><p>Choose levers.</p></div><div class="roadmap-item"><h3>03 Move</h3><p>Ship actions.</p></div><div class="roadmap-item"><h3>04 Review</h3><p>Check gaps.</p></div></div></div><div class="page-number">07</div></div></div>
+    <div class="slide-canvas"><div class="page"><p class="preview-label">layout fixture / stacked + expedition timeline</p><div class="grid stacked-grid"><div class="quote" data-preview-component="quote"><p>"A hard deck should make the path, the risk, and the decision unmistakable."</p></div><div class="roadmap-horizontal timeline-preview" data-preview-component="roadmap-horizontal"><div class="timeline-row timeline-row--top"><div class="timeline-node"><span class="tjh-date" style="--tjh-item-color:var(--accent-earth);">Q1</span><span class="tjh-title">Baseline</span><span class="tjh-text">Lock facts.</span></div><div class="timeline-node"></div><div class="timeline-node"><span class="tjh-date" style="--tjh-item-color:var(--accent-olive);">Q3</span><span class="tjh-title">Move</span><span class="tjh-text">Ship actions.</span></div><div class="timeline-node"></div><div class="timeline-node"><span class="tjh-date" style="--tjh-item-color:var(--text-muted);">2027</span><span class="tjh-title">Scale</span><span class="tjh-text">Extend route.</span></div></div><div class="timeline-axis-preview"><span class="timeline-dot" style="--dot:var(--accent-earth);"></span><span class="timeline-dot" style="--dot:var(--accent-gold);"></span><span class="timeline-dot" style="--dot:var(--accent-olive);"></span><span class="timeline-dot" style="--dot:var(--accent-rust);"></span><span class="timeline-dot" style="--dot:var(--text-muted);"></span></div><div class="timeline-row timeline-row--bottom"><div class="timeline-node"></div><div class="timeline-node"><span class="tjh-date" style="--tjh-item-color:var(--accent-gold);">Q2</span><span class="tjh-title">Focus</span><span class="tjh-text">Pick levers.</span></div><div class="timeline-node"></div><div class="timeline-node"><span class="tjh-date" style="--tjh-item-color:var(--accent-rust);">Q4</span><span class="tjh-title">Review</span><span class="tjh-text">Audit gaps.</span></div><div class="timeline-node"></div></div></div></div><div class="page-number">07</div></div></div>
   </section>
 
   <section class="slide" slide-qa="false" data-slide-index="8" data-slide-role="closing" data-preview-component="roadmap-vertical">
-    <div class="slide-canvas"><div class="page alt"><p class="preview-label">component fixture / roadmap-vertical + steps</p><div class="layout-title"><div><p class="eyebrow">Closing fixture</p><h2>Vertical milestones and next steps stay inside the paper page.</h2></div></div><div class="grid halves-grid"><div class="roadmap-vertical"><div class="roadmap-item"><h3>Measure</h3><p>Set baseline.</p></div><div class="roadmap-item"><h3>Reduce</h3><p>Act on levers.</p></div><div class="roadmap-item"><h3>Verify</h3><p>Audit source.</p></div><div class="roadmap-item"><h3>Decide</h3><p>Scale or stop.</p></div></div><ol class="steps" data-preview-component="steps"><li><h3>1</h3><p>Keep the claim direct.</p></li><li><h3>2</h3><p>Keep evidence bounded.</p></li><li><h3>3</h3><p>Export after QA.</p></li></ol></div><div class="page-number">08</div></div></div>
+    <div class="slide-canvas"><div class="page alt"><p class="preview-label">component fixture / roadmap-vertical + steps</p><div class="layout-title"><div><p class="eyebrow">Closing fixture</p><h2>Vertical expedition timeline and next steps stay inside the paper page.</h2></div></div><div class="grid halves-grid"><div class="roadmap-vertical vertical-timeline-preview"><div class="vertical-node vertical-node--left" style="--dot:var(--accent-earth);"><div class="timeline-node"><span class="tjv-date" style="--tjv-item-color:var(--accent-earth);">Measure</span><span class="tjv-title">Baseline</span><span class="tjv-text">Set terrain.</span></div></div><div class="vertical-node vertical-node--right" style="--dot:var(--accent-gold);"><div class="timeline-node"><span class="tjv-date" style="--tjv-item-color:var(--accent-gold);">Reduce</span><span class="tjv-title">Levers</span><span class="tjv-text">Assign owners.</span></div></div><div class="vertical-node vertical-node--left" style="--dot:var(--accent-olive);"><div class="timeline-node"><span class="tjv-date" style="--tjv-item-color:var(--accent-olive);">Verify</span><span class="tjv-title">Audit</span><span class="tjv-text">Check source.</span></div></div><div class="vertical-node vertical-node--right" style="--dot:var(--accent-rust);"><div class="timeline-node"><span class="tjv-date" style="--tjv-item-color:var(--accent-rust);">Decide</span><span class="tjv-title">Scale</span><span class="tjv-text">Name action.</span></div></div></div><ol class="steps" data-preview-component="steps"><li><h3>1</h3><p>Keep the claim direct.</p></li><li><h3>2</h3><p>Keep evidence bounded.</p></li><li><h3>3</h3><p>Export after QA.</p></li></ol></div><div class="page-number">08</div></div></div>
   </section>
 
   <script>

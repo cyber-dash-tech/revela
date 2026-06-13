@@ -111,7 +111,7 @@ Design contract:
 - Safe area: image captions, source notes, page numbers, and brand marks stay inside `--grid-safe-x` / `--grid-safe-y` unless the `hero` component owns the full canvas.
 - Spacing: use the `--space-*` rhythm for editorial gaps, plaques, captions, and component padding. Dense pages may tighten within the scale, but should not invent one-off spacing systems.
 - Type scale: use fixed 1920x1080 type tokens and the Monet serif stack. Do not introduce viewport-relative text sizing or sans-serif fallbacks for deck body copy.
-- Surfaces: panels remain paper-like and flat. Use line, tonal blocks, and `--surface-shadow`; avoid glass, neon, blob, or dashboard-card treatments.
+- Surfaces: panels remain paper-like and flat. Use tonal blocks, whitespace, and `--surface-shadow`; avoid default container outlines, glass, neon, blob, or dashboard-card treatments.
 - Chart tokens: charts use Monet accents, quiet gridlines, transparent backgrounds, explicit axis text colors, and stable `echart-panel` containers.
 
 ### Image Treatment
@@ -913,7 +913,7 @@ Card/group primitive for one idea, case, evidence item, metric, objection, risk,
 ```
 
 ```css
-.box { height: 100%; min-height: 0; padding: 28px; border: 1px solid var(--line); background: rgba(255,255,255,0.46); display: flex; flex-direction: column; gap: 18px; overflow: hidden; }
+.box { height: 100%; min-height: 0; padding: 28px; background: rgba(255,255,255,0.46); display: flex; flex-direction: column; gap: 18px; overflow: hidden; }
 .box--quiet { background: transparent; }
 .box--mist { background: rgba(240,244,247,0.72); }
 .box--dark { background: #0d1a24; --text-primary:#f0f4f7; --text-secondary:rgba(240,244,247,0.72); --text-muted:rgba(240,244,247,0.55); --line:rgba(240,244,247,0.16); }

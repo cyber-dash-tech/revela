@@ -87,13 +87,13 @@
     .narrative-grid--reverse { grid-template-columns: 7fr 5fr; }
     .highlight-cols-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .halves-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .stacked-grid { grid-template-rows: .72fr 1fr; }
-    .box, .text-panel, .stat-card, .echart-panel, .table-panel, .quote, .steps, .roadmap { border: 1px solid var(--line); background: rgba(255,255,255,.44); padding: var(--space-4); min-height: 0; overflow: hidden; }
+    .stacked-grid { grid-template-rows: .44fr 1.56fr; }
+    .box, .text-panel, .stat-card, .echart-panel, .table-panel, .quote, .steps, .roadmap { background: rgba(255,255,255,.44); padding: var(--space-4); min-height: 0; overflow: hidden; }
     .box { display: flex; flex-direction: column; gap: var(--space-3); }
     .box--mist { background: rgba(228,236,242,.72); }
     .text-panel { display: flex; flex-direction: column; justify-content: space-between; }
-    .media { position: relative; min-height: 0; overflow: hidden; background: linear-gradient(135deg, rgba(41,128,175,.16), rgba(124,189,195,.34)); border: 1px solid var(--line); }
-    .media::before { content: ""; position: absolute; inset: 38px 54px; border: 1px solid rgba(15,30,42,.12); background: radial-gradient(circle at 32% 34%, rgba(255,255,255,.68), transparent 28%), linear-gradient(130deg, rgba(41,128,175,.36), rgba(124,189,195,.24)); }
+    .media { position: relative; min-height: 0; overflow: hidden; background: linear-gradient(135deg, rgba(41,128,175,.16), rgba(124,189,195,.34)); }
+    .media::before { content: ""; position: absolute; inset: 38px 54px; background: radial-gradient(circle at 32% 34%, rgba(255,255,255,.68), transparent 28%), linear-gradient(130deg, rgba(41,128,175,.36), rgba(124,189,195,.24)); }
     .stat-value { font-size: 68px; line-height: 1.12; color: var(--accent-earth); font-weight: 500; }
     .chart-bars { flex: 1; display: flex; align-items: end; gap: 18px; padding-top: var(--space-4); min-height: 230px; }
     .chart-bars span { flex: 1; background: linear-gradient(180deg, var(--accent-olive), var(--accent-stone)); min-height: 64px; }
@@ -107,6 +107,48 @@
     .roadmap { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); }
     .roadmap-item { border-left: 2px solid var(--accent-olive); padding-left: var(--space-3); }
     .roadmap-vertical { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+    .tjh { --tjh-node: 14px; --tjh-stem-h: 38px; --tjh-col: 280px; position: relative; width: 100%; height: 100%; min-height: 420px; overflow: visible; }
+    .tjh-axis { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--line-strong); transform: translateY(-50%); }
+    .tjh-item { position: absolute; display: flex; flex-direction: column; align-items: center; width: var(--tjh-col); transform: translateX(-50%); overflow: visible; }
+    .tjh-item--up { bottom: 50%; }
+    .tjh-item--down { top: 50%; }
+    .tjh-axis-dot, .tjh-tip-dot { width: var(--tjh-node); height: var(--tjh-node); background: var(--tjh-item-color); flex-shrink: 0; transform: rotate(-8deg); }
+    .tjh-item--up .tjh-axis-dot { margin-bottom: calc(-1 * var(--tjh-node) / 2); }
+    .tjh-item--down .tjh-axis-dot { margin-top: calc(-1 * var(--tjh-node) / 2); }
+    .tjh-stem { width: 1px; height: var(--tjh-stem-h); background-image: repeating-linear-gradient(to bottom, var(--line-strong) 0 4px, transparent 4px 8px); flex-shrink: 0; }
+    .tjh-label { display: flex; flex-direction: column; gap: 5px; width: 100%; padding: 0 8px; overflow: visible; }
+    .tjh-item--up .tjh-label { margin-bottom: 8px; }
+    .tjh-item--down .tjh-label { margin-top: 8px; }
+    .tjh-date, .tjv-date { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--tjh-item-color, var(--tjv-item-color)); }
+    .tjh-title, .tjv-title { font-family: var(--font-display); font-size: 18px; color: var(--text-primary); line-height: 1.28; }
+    .tjh-text, .tjv-text { font-size: 13px; line-height: 1.45; color: var(--text-secondary); }
+    .tjv { --tjv-node: 14px; --tjv-stem-w: 36px; position: relative; width: 100%; height: 100%; min-height: 420px; overflow: visible; }
+    .tjv-axis { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--line-strong); transform: translateX(-50%); }
+    .tjv-item { position: absolute; display: flex; align-items: center; min-height: 116px; transform: translateY(-50%); overflow: visible; }
+    .tjv-item--left { right: 50%; flex-direction: row-reverse; }
+    .tjv-item--right { left: 50%; flex-direction: row; }
+    .tjv-axis-dot, .tjv-tip-dot { width: var(--tjv-node); height: var(--tjv-node); background: var(--tjv-item-color); flex-shrink: 0; transform: rotate(-8deg); }
+    .tjv-item--left .tjv-axis-dot { margin-right: calc(-1 * var(--tjv-node) / 2); }
+    .tjv-item--right .tjv-axis-dot { margin-left: calc(-1 * var(--tjv-node) / 2); }
+    .tjv-stem { width: var(--tjv-stem-w); height: 1px; background-image: repeating-linear-gradient(to right, var(--line-strong) 0 4px, transparent 4px 8px); flex-shrink: 0; }
+    .tjv-label { display: flex; flex-direction: column; gap: 5px; overflow: visible; }
+    .tjv-item--left .tjv-label { text-align: right; align-items: flex-end; padding-right: 14px; max-width: 340px; }
+    .tjv-item--right .tjv-label { text-align: left; align-items: flex-start; padding-left: 14px; max-width: 340px; }
+    .timeline-preview { display: grid; grid-template-rows: 1fr 58px 1fr; gap: var(--space-3); height: 100%; }
+    .timeline-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); align-items: end; }
+    .timeline-row--bottom { align-items: start; }
+    .timeline-node { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .timeline-row--top .timeline-node:nth-child(even), .timeline-row--bottom .timeline-node:nth-child(odd) { opacity: 0; }
+    .timeline-axis-preview { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; }
+    .timeline-axis-preview::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--line-strong); }
+    .timeline-dot { position: relative; z-index: 1; width: 14px; height: 14px; background: var(--dot); justify-self: center; transform: rotate(-8deg); }
+    .vertical-timeline-preview { position: relative; display: grid; grid-template-rows: repeat(4, 1fr); gap: var(--space-3); height: 100%; }
+    .vertical-timeline-preview::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--line-strong); }
+    .vertical-node { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 34px 1fr; align-items: center; gap: var(--space-2); min-height: 0; }
+    .vertical-node::before { content: ""; width: 14px; height: 14px; background: var(--dot); justify-self: center; grid-column: 2; grid-row: 1; transform: rotate(-8deg); }
+    .vertical-node .timeline-node { max-width: 300px; }
+    .vertical-node--left .timeline-node { grid-column: 1; text-align: right; justify-self: end; }
+    .vertical-node--right .timeline-node { grid-column: 3; text-align: left; justify-self: start; }
   </style>
 </head>
 <body>
@@ -135,11 +177,11 @@
   </section>
 
   <section class="slide" slide-qa="true" data-slide-index="7" data-preview-layout="stacked">
-    <div class="slide-canvas"><div class="page"><p class="preview-label">layout fixture / stacked</p><div class="grid stacked-grid"><div class="quote" data-preview-component="quote"><p>"The slide should feel edited, sourced, and composed before it feels decorated."</p></div><div class="roadmap" data-preview-component="roadmap-horizontal"><div class="roadmap-item"><h3>01 Frame</h3><p>Clarify audience.</p></div><div class="roadmap-item"><h3>02 Bind</h3><p>Preserve evidence.</p></div><div class="roadmap-item"><h3>03 Decide</h3><p>State the action.</p></div><div class="roadmap-item"><h3>04 Review</h3><p>Check caveats.</p></div></div></div><div class="page-number">07</div></div></div>
+    <div class="slide-canvas"><div class="page"><p class="preview-label">layout fixture / stacked + timeline journey</p><div class="grid stacked-grid"><div class="quote" data-preview-component="quote"><p>"The slide should feel edited, sourced, and composed before it feels decorated."</p></div><div class="roadmap-horizontal timeline-preview" data-preview-component="roadmap-horizontal"><div class="timeline-row timeline-row--top"><div class="timeline-node"><span class="tjh-date" style="--tjh-item-color:var(--accent-earth);">Mar 2019</span><span class="tjh-title">Launch</span><span class="tjh-text">Baseline mapping.</span></div><div class="timeline-node"></div><div class="timeline-node"><span class="tjh-date" style="--tjh-item-color:var(--accent-olive);">Jun 2021</span><span class="tjh-title">Reset</span><span class="tjh-text">Claims narrow.</span></div><div class="timeline-node"></div><div class="timeline-node"><span class="tjh-date" style="--tjh-item-color:var(--accent-stone);">2026</span><span class="tjh-title">Loop</span><span class="tjh-text">Evidence refresh.</span></div></div><div class="timeline-axis-preview"><span class="timeline-dot" style="--dot:var(--accent-earth);"></span><span class="timeline-dot" style="--dot:var(--accent-gold);"></span><span class="timeline-dot" style="--dot:var(--accent-olive);"></span><span class="timeline-dot" style="--dot:var(--accent-sage);"></span><span class="timeline-dot" style="--dot:var(--accent-stone);"></span></div><div class="timeline-row timeline-row--bottom"><div class="timeline-node"></div><div class="timeline-node"><span class="tjh-date" style="--tjh-item-color:var(--accent-gold);">Nov 2019</span><span class="tjh-title">Audit</span><span class="tjh-text">Evidence sprint.</span></div><div class="timeline-node"></div><div class="timeline-node"><span class="tjh-date" style="--tjh-item-color:var(--accent-sage);">Feb 2024</span><span class="tjh-title">Gate</span><span class="tjh-text">Review caveats.</span></div><div class="timeline-node"></div></div></div></div><div class="page-number">07</div></div></div>
   </section>
 
   <section class="slide" slide-qa="false" data-slide-index="8" data-slide-role="closing" data-preview-component="roadmap-vertical">
-    <div class="slide-canvas"><div class="page alt"><p class="preview-label">component fixture / roadmap-vertical + steps</p><div class="layout-title"><div><p class="eyebrow">Closing fixture</p><h2>Vertical milestones and next steps stay inside the safe area.</h2></div></div><div class="grid halves-grid"><div class="roadmap-vertical"><div class="roadmap-item"><h3>Research</h3><p>Find source truth.</p></div><div class="roadmap-item"><h3>Plan</h3><p>Choose argument flow.</p></div><div class="roadmap-item"><h3>Make</h3><p>Render the deck.</p></div><div class="roadmap-item"><h3>Review</h3><p>Fix hard errors.</p></div></div><ol class="steps" data-preview-component="steps"><li><h3>1</h3><p>Keep evidence visible.</p></li><li><h3>2</h3><p>Use the layout grid.</p></li><li><h3>3</h3><p>Export only after QA.</p></li></ol></div><div class="page-number">08</div></div></div>
+    <div class="slide-canvas"><div class="page alt"><p class="preview-label">component fixture / roadmap-vertical + steps</p><div class="layout-title"><div><p class="eyebrow">Closing fixture</p><h2>Vertical journey timeline and next steps stay inside the safe area.</h2></div></div><div class="grid halves-grid"><div class="roadmap-vertical vertical-timeline-preview"><div class="vertical-node vertical-node--left" style="--dot:var(--accent-earth);"><div class="timeline-node"><span class="tjv-date" style="--tjv-item-color:var(--accent-earth);">Research</span><span class="tjv-title">Source truth</span><span class="tjv-text">Preserve caveats.</span></div></div><div class="vertical-node vertical-node--right" style="--dot:var(--accent-gold);"><div class="timeline-node"><span class="tjv-date" style="--tjv-item-color:var(--accent-gold);">Plan</span><span class="tjv-title">Argument flow</span><span class="tjv-text">Use the grid.</span></div></div><div class="vertical-node vertical-node--left" style="--dot:var(--accent-olive);"><div class="timeline-node"><span class="tjv-date" style="--tjv-item-color:var(--accent-olive);">Make</span><span class="tjv-title">Render</span><span class="tjv-text">No outer boxes.</span></div></div><div class="vertical-node vertical-node--right" style="--dot:var(--accent-sage);"><div class="timeline-node"><span class="tjv-date" style="--tjv-item-color:var(--accent-sage);">Review</span><span class="tjv-title">QA pass</span><span class="tjv-text">Then export.</span></div></div></div><ol class="steps" data-preview-component="steps"><li><h3>1</h3><p>Keep evidence visible.</p></li><li><h3>2</h3><p>Use the layout grid.</p></li><li><h3>3</h3><p>Export only after QA.</p></li></ol></div><div class="page-number">08</div></div></div>
   </section>
 
   <script>

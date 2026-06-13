@@ -110,7 +110,7 @@ Design contract:
 - Safe area: image captions, source notes, page numbers, brand marks, and roadmap labels stay inside `--grid-safe-x` / `--grid-safe-y` unless the `hero` component owns the full canvas.
 - Spacing: use the `--space-*` scale for page rhythm, component padding, card gaps, and table density. Dense slides may tighten within the scale, but should not introduce unrelated gap values.
 - Type scale: use fixed 1920x1080 type tokens and the Summit sans-serif stack. Do not use viewport-relative text sizing, serif substitutions, text shadows, or glows.
-- Surfaces: panels should feel like warm paper and expedition documentation. Use lines, image blocks, and grounded shadows; avoid glass, neon, blobs, or dashboard chrome.
+- Surfaces: panels should feel like warm paper and expedition documentation. Use tonal blocks, image blocks, whitespace, and grounded shadows; avoid default container outlines, glass, neon, blobs, or dashboard chrome.
 - Chart tokens: charts use Summit accents, muted axes, transparent backgrounds, explicit text colors, and stable `echart-panel` containers.
 
 ### Image Treatment
@@ -895,7 +895,7 @@ Card/group primitive for one idea, case, evidence item, metric, objection, risk,
 ```
 
 ```css
-.box { height: 100%; min-height: 0; padding: 28px; border: 1px solid var(--line); background: transparent; display: flex; flex-direction: column; gap: 18px; overflow: hidden; }
+.box { height: 100%; min-height: 0; padding: 28px; background: transparent; display: flex; flex-direction: column; gap: 18px; overflow: hidden; }
 .box--quiet { background: transparent; }
 .box--paper { background: rgba(247,244,238,0.72); }
 .box--dark { background: #2c2828; --text-primary:#f7f4ee; --text-secondary:rgba(247,244,238,0.72); --text-muted:rgba(247,244,238,0.55); --line:rgba(247,244,238,0.16); }

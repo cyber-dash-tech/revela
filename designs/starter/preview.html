@@ -40,7 +40,7 @@
     .page.alt { background: var(--bg-page-alt); }
     .eyebrow, .caption, .meta-label { font-size: var(--font-size-meta); line-height: 1.4; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
     h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 750; letter-spacing: -0.035em; color: var(--text-primary); }
-    h1 { font-size: 96px; line-height: 0.94; }
+    h1 { font-size: 92px; line-height: 1.08; }
     h2 { font-size: 46px; line-height: 1.04; }
     h3 { font-size: 26px; line-height: 1.14; }
     p, li { font-size: var(--font-size-body); line-height: 1.6; color: var(--text-secondary); }
@@ -62,7 +62,7 @@
     .highlight-cols-grid > * { overflow: hidden; min-height: 0; }
     .halves-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); height: 100%; overflow: hidden; align-items: stretch; }
     .halves-grid > * { overflow: hidden; min-height: 0; min-width: 0; }
-    .stacked-grid { display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1.618fr); height: 100%; width: 100%; overflow: hidden; }
+    .stacked-grid { display: grid; grid-template-rows: minmax(0, .52fr) minmax(0, 1.72fr); height: 100%; width: 100%; overflow: hidden; }
     .stacked-top, .stacked-bottom { overflow: hidden; min-height: 0; }
 
     .text-panel { height: 100%; padding: 56px 48px 34px; display: flex; flex-direction: column; justify-content: space-between; gap: 32px; }
@@ -72,7 +72,7 @@
     .text-panel-footer { display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; }
     .stat-card { height: 100%; display: flex; min-height: 0; flex-direction: column; justify-content: flex-start; gap: 16px; padding-top: 8px; }
     .stat-card--horizontal { flex-direction: row; align-items: flex-start; gap: 30px; }
-    .stat-card-value { font-family: var(--font-display); font-size: 88px; line-height: 0.9; letter-spacing: -0.05em; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent-primary); }
+    .stat-card-value { font-family: var(--font-display); font-size: 76px; line-height: 1.08; letter-spacing: -0.04em; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent-primary); }
     .editorial-image-top { display: flex; flex-direction: column; gap: 16px; height: 100%; }
     .editorial-image-top .editorial-media { height: 240px; border: 1px solid var(--line); }
     .editorial-module-body { display: flex; flex-direction: column; gap: 12px; }
@@ -120,8 +120,8 @@
     .image-title-media { position: absolute; inset: 0; z-index: 0; background: linear-gradient(135deg, #1f2937, #475569); }
     .image-title-overlay { position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, rgba(15,23,42,0.78), rgba(15,23,42,0.18)); }
     .image-title-fg { position: relative; z-index: 2; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 72px 84px; }
-    .image-title--left .image-title-body { max-width: 760px; }
-    .image-title h1 { color: #f8fafc; font-size: 104px; line-height: 0.92; letter-spacing: -0.055em; }
+    .image-title--left .image-title-body { max-width: 820px; }
+    .image-title h1 { color: #f8fafc; font-size: 82px; line-height: 1.18; letter-spacing: -0.03em; padding: 4px 0 10px; }
     .image-title-eyebrow { font-size: 12px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(248,250,252,0.62); margin-bottom: 20px; }
     .image-title-subtitle { margin-top: 24px; font-size: 18px; line-height: 1.56; color: rgba(248,250,252,0.78); max-width: 520px; }
     .toc-panel { height: 100%; padding: 86px 118px 58px; display: flex; overflow: hidden; background: var(--bg-page); }
@@ -131,9 +131,9 @@
     .toc-note { margin-top: 230px; margin-bottom: 0; max-width: 300px; font-size: 14px; line-height: 1.7; letter-spacing: 0.02em; color: var(--text-muted); }
     .toc-footer { margin-top: auto; font-size: 11px; line-height: 1.4; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 750; color: var(--text-primary); }
     .toc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: center; gap: 42px; height: 100%; }
-    .toc-item { display: grid; grid-template-columns: 80px 1fr; gap: 44px; align-items: center; }
+    .toc-item { display: grid; grid-template-columns: 80px 1fr; gap: 44px; align-items: center; min-height: 54px; overflow: visible; }
     .toc-item span { font-style: normal; font-family: var(--font-display); font-size: 42px; line-height: 1; letter-spacing: 0.03em; color: var(--text-primary); font-variant-numeric: tabular-nums; }
-    .toc-item strong { font-size: 17px; line-height: 1.35; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; color: var(--text-primary); }
+    .toc-item strong { font-size: 16px; line-height: 1.55; letter-spacing: 0.10em; text-transform: uppercase; font-weight: 500; color: var(--text-primary); }
     .quote-block { height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 24px; max-width: 980px; }
     .quote-mark { font-size: 96px; line-height: 0.7; color: var(--accent-primary); }
     .quote-block blockquote { font-family: var(--font-display); font-size: 54px; line-height: 1.06; letter-spacing: -0.04em; color: var(--text-primary); }
@@ -143,9 +143,9 @@
     .brand-watermark strong { font-weight: 800; color: var(--text-secondary); }
     .page-number { position: absolute; right: 34px; bottom: 26px; z-index: 10; font-size: 12px; letter-spacing: 0.14em; color: var(--text-muted); }
     .page-number--light { color: rgba(248,250,252,0.72); }
-    .timeline-journey-horizontal { --tjh-node: 12px; --tjh-stem-h: 62px; --tjh-col: 180px; position: relative; width: 100%; height: 245px; }
+    .timeline-journey-horizontal { --tjh-node: 12px; --tjh-stem-h: 34px; --tjh-col: 210px; position: relative; width: 100%; height: 245px; overflow: visible; }
     .tjh-axis { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--line-strong); transform: translateY(-50%); }
-    .tjh-item { position: absolute; display: flex; flex-direction: column; align-items: center; width: var(--tjh-col); transform: translateX(-50%); }
+    .tjh-item { position: absolute; display: flex; flex-direction: column; align-items: center; width: var(--tjh-col); transform: translateX(-50%); overflow: visible; }
     .tjh-item--up { bottom: 50%; }
     .tjh-item--down { top: 50%; }
     .tjh-axis-dot, .tjh-tip-dot { width: var(--tjh-node); height: var(--tjh-node); border-radius: 999px; background: var(--tjh-item-color, var(--accent-primary)); flex-shrink: 0; }
@@ -156,11 +156,11 @@
     .tjh-item--up .tjh-label { margin-bottom: 8px; }
     .tjh-item--down .tjh-label { margin-top: 8px; }
     .tjh-date { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--tjh-item-color, var(--accent-primary)); line-height: 1.3; white-space: nowrap; }
-    .tjh-title { font-size: 17px; font-weight: 700; line-height: 1.15; color: var(--text-primary); }
-    .tjh-text { font-size: 13px; line-height: 1.4; color: var(--text-secondary); }
-    .timeline-journey-vertical { --tjv-node: 12px; --tjv-stem-w: 46px; position: relative; width: 100%; height: 100%; min-height: 260px; }
+    .tjh-title { font-size: 15px; font-weight: 700; line-height: 1.28; color: var(--text-primary); }
+    .tjh-text { font-size: 12px; line-height: 1.35; color: var(--text-secondary); }
+    .timeline-journey-vertical { --tjv-node: 12px; --tjv-stem-w: 28px; position: relative; width: 100%; height: 100%; min-height: 260px; overflow: visible; }
     .tjv-axis { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--line-strong); transform: translateX(-50%); }
-    .tjv-item { position: absolute; display: flex; align-items: center; height: 72px; transform: translateY(-50%); }
+    .tjv-item { position: absolute; display: flex; align-items: center; min-height: 92px; transform: translateY(-50%); overflow: visible; }
     .tjv-item--left { right: 50%; flex-direction: row-reverse; }
     .tjv-item--right { left: 50%; flex-direction: row; }
     .tjv-axis-dot { width: var(--tjv-node); height: var(--tjv-node); border-radius: 999px; background: var(--tjv-item-color, var(--accent-primary)); flex-shrink: 0; position: relative; z-index: 1; }
@@ -169,21 +169,36 @@
     .tjv-tip-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--tjv-item-color, var(--accent-primary)); flex-shrink: 0; }
     .tjv-stem { width: var(--tjv-stem-w); height: 1px; background-image: repeating-linear-gradient(to right, var(--line-strong) 0 4px, transparent 4px 8px); flex-shrink: 0; }
     .tjv-label { display: flex; flex-direction: column; gap: 3px; }
-    .tjv-item--left .tjv-label { text-align: right; align-items: flex-end; padding-right: 14px; max-width: 220px; }
-    .tjv-item--right .tjv-label { text-align: left; align-items: flex-start; padding-left: 14px; max-width: 220px; }
+    .tjv-item--left .tjv-label { text-align: right; align-items: flex-end; padding-right: 10px; max-width: 180px; }
+    .tjv-item--right .tjv-label { text-align: left; align-items: flex-start; padding-left: 10px; max-width: 180px; }
     .tjv-date { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--tjv-item-color, var(--accent-primary)); line-height: 1.3; white-space: nowrap; }
-    .tjv-title { font-size: 17px; font-weight: 700; line-height: 1.15; color: var(--text-primary); }
-    .tjv-text { font-size: 13px; line-height: 1.4; color: var(--text-secondary); max-width: 210px; }
+    .tjv-title { font-size: 15px; font-weight: 700; line-height: 1.28; color: var(--text-primary); }
+    .tjv-text { font-size: 12px; line-height: 1.35; color: var(--text-secondary); max-width: 190px; }
     .svg-motif { position: relative; pointer-events: none; color: var(--text-primary); }
     .svg-motif svg { display: block; width: 100%; height: 100%; overflow: visible; }
     .svg-motif--bottom { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; }
     .svg-motif--side { position: absolute; right: 0; top: 0; bottom: 0; width: 34%; }
     .svg-motif--corner { position: absolute; right: 40px; bottom: 36px; width: 360px; height: 220px; }
     .svg-motif--hero { width: 100%; height: 100%; }
+    .timeline-preview { display: grid; grid-template-rows: 1fr 46px 1fr; gap: 14px; height: 100%; }
+    .timeline-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; align-items: end; }
+    .timeline-row--bottom { align-items: start; }
+    .timeline-node { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .timeline-row--top .timeline-node:nth-child(even), .timeline-row--bottom .timeline-node:nth-child(odd) { opacity: 0; }
+    .timeline-axis-preview { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); align-items: center; }
+    .timeline-axis-preview::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--line-strong); }
+    .timeline-dot { position: relative; z-index: 1; width: 12px; height: 12px; background: var(--dot); justify-self: center; border-radius: 999px; }
+    .vertical-timeline-preview { position: relative; display: grid; grid-template-rows: repeat(3, 1fr); gap: 14px; height: 100%; }
+    .vertical-timeline-preview::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--line-strong); }
+    .vertical-node { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 28px 1fr; align-items: center; gap: 10px; min-height: 0; }
+    .vertical-node::before { content: ""; width: 12px; height: 12px; border-radius: 999px; background: var(--dot); justify-self: center; grid-column: 2; grid-row: 1; }
+    .vertical-node .timeline-node { max-width: 180px; }
+    .vertical-node--left .timeline-node { grid-column: 1; text-align: right; justify-self: end; }
+    .vertical-node--right .timeline-node { grid-column: 3; text-align: left; justify-self: start; }
   </style>
 </head>
 <body>
-  <section class="slide" slide-qa="false" data-index="0" data-slide-role="cover">
+  <section class="slide" slide-qa="false" data-index="0" data-slide-role="cover" data-preview-layout="fullbleed" data-preview-component="hero">
     <div class="slide-canvas">
       <div class="page" style="padding:0;">
         <div class="image-title image-title--left">
@@ -193,16 +208,16 @@
             <svg viewBox="0 0 1600 420"><rect x="0" y="354" width="1600" height="26" fill="#dbeafe"/><circle cx="1240" cy="230" r="96" fill="#3b82f6" opacity=".18"/><path d="M118 344 C150 250 265 224 342 290 C400 340 315 378 176 374 Z" fill="#3b82f6"/><path d="M392 368 C430 250 590 228 668 314 C714 364 606 394 462 390 Z" fill="#64748b" opacity=".85"/><path d="M692 360 C730 285 835 282 888 336 C920 370 832 392 716 386 Z" fill="#dbeafe"/><path d="M1160 278 l28 -28 l28 28 l-28 28 Z" fill="none" stroke="#f8fafc" stroke-width="8"/><path d="M1320 198 C1370 160 1412 168 1448 220" fill="none" stroke="#f8fafc" stroke-width="10" stroke-linecap="round"/><circle cx="232" cy="318" r="7" fill="#17191c"/><circle cx="284" cy="318" r="7" fill="#17191c"/><path d="M238 340 C252 354 272 354 286 340" fill="none" stroke="#17191c" stroke-width="7" stroke-linecap="round"/></svg>
           </div>
           <div class="image-title-fg">
-            <div class="brand-watermark"><span></span><strong>Starter</strong></div>
-            <div class="image-title-body reveal"><p class="image-title-eyebrow">Neutral base design</p><h1>Design System Preview</h1><p class="image-title-subtitle">A structural scaffold for AI-authored Revela themes. Preserve the system; replace the visual identity.</p></div>
+            <div class="brand-watermark" data-preview-component="brand-watermark"><span></span><strong>Starter</strong></div>
+            <div class="image-title-body reveal"><p class="image-title-eyebrow">Neutral base design</p><h1>Design Preview</h1><p class="image-title-subtitle">A structural scaffold for AI-authored Revela themes. Preserve the system; replace the visual identity.</p></div>
           </div>
-          <div class="page-number page-number--light">01</div>
+          <div class="page-number page-number--light" data-preview-component="page-number">01</div>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="slide" slide-qa="false" data-index="1">
+  <section class="slide" slide-qa="false" data-index="1" data-preview-layout="toc" data-preview-component="toc">
     <div class="slide-canvas">
       <div class="page" style="padding:0;">
         <div class="toc-panel">
@@ -225,30 +240,30 @@
     </div>
   </section>
 
-  <section class="slide" slide-qa="false" data-index="2">
+  <section class="slide" slide-qa="false" data-index="2" data-preview-layout="narrative">
     <div class="slide-canvas">
       <div class="page" style="padding:0;">
         <div class="narrative-grid">
-          <div class="text-panel text-panel--light reveal">
+          <div class="text-panel text-panel--light reveal" data-preview-component="text-panel">
             <div class="text-panel-body"><p class="eyebrow">Visual schema first</p><h2>Preserve composition before changing style</h2><ul class="editorial-list"><li><strong>Reference type.</strong> Identify whether the source is vector, photo, UI, page, or motif.</li><li><strong>Scale and anchor.</strong> Keep a bottom strip low, a corner motif small, and a hero visual dominant only when requested.</li><li><strong>Implementation path.</strong> Use SVG for flat motifs; use image/surface rules for photo and UI references.</li></ul></div>
             <div class="text-panel-footer"><span class="caption">Authoring constraint</span><span class="caption">03</span></div>
           </div>
           <div class="text-panel text-panel--dark reveal">
             <div class="text-panel-body"><p class="eyebrow">CSS scope</p><h3>Stable containers, replaceable skins</h3><p>Derived designs should modify tokens, type, component surfaces, and motif components before rewriting layout CSS.</p></div>
-            <div class="stat-card"><div class="stat-card-value">6</div><p>Baseline layouts remain available as neutral structure.</p></div>
+            <div class="stat-card" data-preview-component="stat-card"><div class="stat-card-value">6</div><p>Baseline layouts remain available as neutral structure.</p></div>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="slide" slide-qa="false" data-index="3">
+  <section class="slide" slide-qa="false" data-index="3" data-preview-layout="highlight-cols">
     <div class="slide-canvas">
       <div class="page">
-        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px;max-width:620px;" class="reveal"><p class="eyebrow">Component coverage</p><h2>Reusable modules with neutral skins</h2></div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px;max-width:620px;" class="reveal"><p class="eyebrow">Component coverage</p><h2>Reusable modules</h2></div>
         <div class="highlight-cols-grid" style="flex:1;min-height:0;">
-          <div class="editorial-image-top reveal"><div class="media-frame editorial-media"><div class="svg-motif svg-motif--hero"><svg viewBox="0 0 600 320"><rect width="600" height="320" fill="#dfe5eb"/><circle cx="140" cy="150" r="72" fill="#3b82f6" opacity=".76"/><rect x="250" y="86" width="210" height="132" rx="24" fill="#fff"/><path d="M286 132 H426 M286 166 H390" stroke="#64748b" stroke-width="12" stroke-linecap="round"/></svg></div></div><div class="editorial-module-body"><p class="eyebrow">Media module</p><h3>Image or motif above copy</h3><p>Use for examples, evidence, screenshots, and vector moments.</p></div></div>
-          <div class="editorial-text-top reveal"><div class="editorial-module-body"><p class="eyebrow">Text module</p><h3>Copy-led primitive</h3><p>Neutral spacing and type hierarchy provide a stable baseline for derived themes.</p></div><div class="media-frame editorial-media"></div></div>
+          <div class="editorial-image-top reveal" data-preview-component="media"><div class="media-frame editorial-media"><div class="svg-motif svg-motif--hero"><svg viewBox="0 0 600 320"><rect width="600" height="320" fill="#dfe5eb"/><circle cx="140" cy="150" r="72" fill="#3b82f6" opacity=".76"/><rect x="250" y="86" width="210" height="132" rx="24" fill="#fff"/><path d="M286 132 H426 M286 166 H390" stroke="#64748b" stroke-width="12" stroke-linecap="round"/></svg></div></div><div class="editorial-module-body"><p class="eyebrow">Media module</p><h3>Image or motif above copy</h3><p>Use for examples, evidence, screenshots, and vector moments.</p></div></div>
+          <div class="editorial-text-top reveal" data-preview-component="box"><div class="editorial-module-body"><p class="eyebrow">Text module</p><h3>Copy-led primitive</h3><p>Neutral spacing and type hierarchy provide a stable baseline for derived themes.</p></div><div class="media-frame editorial-media"></div></div>
           <div class="stat-card reveal"><p class="eyebrow">Metric</p><div class="stat-card-value">16</div><h3>Components</h3><p>Starter includes broad enough coverage for most generated decks, including SVG motifs.</p></div>
         </div>
         <div class="page-number">04</div>
@@ -256,25 +271,22 @@
     </div>
   </section>
 
-  <section class="slide" slide-qa="false" data-index="4">
+  <section class="slide" slide-qa="false" data-index="4" data-preview-layout="stacked">
     <div class="slide-canvas">
       <div class="page" style="padding:0;">
         <div class="stacked-grid">
           <div class="stacked-top text-panel reveal" style="padding:42px 56px 20px;"><div class="text-panel-body"><p class="eyebrow">Data and process</p><h2>Evidence components stay structural</h2><p>Charts, tables, and journey timelines inherit the active theme while keeping predictable geometry.</p></div></div>
-          <div class="stacked-bottom" style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr) 250px;gap:26px;padding:0 56px 56px;">
-            <div class="echart-panel reveal"><div class="echart-panel-header"><p class="eyebrow">Example chart</p><h3>Signal distribution</h3><p class="chart-subtitle">Neutral chart defaults with restrained labels.</p></div><div class="echart-container" id="starter-chart"></div><p class="chart-caption">Source: demo data</p></div>
-            <div class="roadmap-vertical timeline-journey-vertical reveal" data-preview-component="roadmap-vertical">
-              <div class="tjv-axis"></div>
-              <div class="tjv-item tjv-item--left" style="top:18%; --tjv-item-color:var(--accent-primary);"><div class="tjv-axis-dot"></div><div class="tjv-stem"></div><div class="tjv-tip-dot"></div><div class="tjv-label"><span class="tjv-date">Discover</span><span class="tjv-title">Signal scan</span><span class="tjv-text">Map inputs and identify the base pattern.</span></div></div>
-              <div class="tjv-item tjv-item--right" style="top:50%; --tjv-item-color:var(--accent-secondary);"><div class="tjv-axis-dot"></div><div class="tjv-stem"></div><div class="tjv-tip-dot"></div><div class="tjv-label"><span class="tjv-date">Build</span><span class="tjv-title">Theme draft</span><span class="tjv-text">Apply visual schema without changing structure.</span></div></div>
-              <div class="tjv-item tjv-item--left" style="top:82%; --tjv-item-color:var(--accent-danger);"><div class="tjv-axis-dot"></div><div class="tjv-stem"></div><div class="tjv-tip-dot"></div><div class="tjv-label"><span class="tjv-date">Verify</span><span class="tjv-title">Preview pass</span><span class="tjv-text">Check roles, components, and slide geometry.</span></div></div>
+          <div class="stacked-bottom" style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr) 250px;gap:26px;padding:0 56px 56px;overflow:visible;" data-preview-layout="halves">
+            <div class="echart-panel reveal" data-preview-component="echart-panel"><div class="echart-panel-header"><p class="eyebrow">Example chart</p><h3>Signal distribution</h3><p class="chart-subtitle">Neutral chart defaults with restrained labels.</p></div><div class="echart-container" id="starter-chart"></div><p class="chart-caption">Source: demo data</p></div>
+            <div class="roadmap-vertical vertical-timeline-preview reveal" data-preview-component="roadmap-vertical">
+              <div class="vertical-node vertical-node--left" style="--dot:var(--accent-primary);"><div class="timeline-node"><span class="tjv-date">Discover</span><span class="tjv-title">Scan</span><span class="tjv-text">Map inputs.</span></div></div>
+              <div class="vertical-node vertical-node--right" style="--dot:var(--accent-secondary);"><div class="timeline-node"><span class="tjv-date">Build</span><span class="tjv-title">Draft</span><span class="tjv-text">Apply schema.</span></div></div>
+              <div class="vertical-node vertical-node--left" style="--dot:var(--accent-danger);"><div class="timeline-node"><span class="tjv-date">Verify</span><span class="tjv-title">Preview</span><span class="tjv-text">Check geometry.</span></div></div>
             </div>
-            <div class="roadmap-horizontal timeline-journey-horizontal reveal" data-preview-component="roadmap-horizontal" style="grid-column:1 / -1;">
-              <div class="tjh-axis"></div>
-              <div class="tjh-item tjh-item--up" style="left:14%; --tjh-item-color:var(--accent-primary);"><div class="tjh-label"><span class="tjh-date">01</span><span class="tjh-title">Brief</span><span class="tjh-text">Clarify source style.</span></div><div class="tjh-tip-dot"></div><div class="tjh-stem"></div><div class="tjh-axis-dot"></div></div>
-              <div class="tjh-item tjh-item--down" style="left:38%; --tjh-item-color:var(--accent-secondary);"><div class="tjh-axis-dot"></div><div class="tjh-stem"></div><div class="tjh-tip-dot"></div><div class="tjh-label"><span class="tjh-date">02</span><span class="tjh-title">Tokens</span><span class="tjh-text">Set color and type.</span></div></div>
-              <div class="tjh-item tjh-item--up" style="left:62%; --tjh-item-color:var(--accent-danger);"><div class="tjh-label"><span class="tjh-date">03</span><span class="tjh-title">Modules</span><span class="tjh-text">Skin components.</span></div><div class="tjh-tip-dot"></div><div class="tjh-stem"></div><div class="tjh-axis-dot"></div></div>
-              <div class="tjh-item tjh-item--down" style="left:86%; --tjh-item-color:var(--text-muted);"><div class="tjh-axis-dot"></div><div class="tjh-stem"></div><div class="tjh-tip-dot"></div><div class="tjh-label"><span class="tjh-date">04</span><span class="tjh-title">Validate</span><span class="tjh-text">Inspect preview.</span></div></div>
+            <div class="roadmap-horizontal timeline-preview reveal" data-preview-component="roadmap-horizontal" style="grid-column:1 / -1;">
+              <div class="timeline-row timeline-row--top"><div class="timeline-node"><span class="tjh-date">01</span><span class="tjh-title">Brief</span><span class="tjh-text">Clarify style.</span></div><div class="timeline-node"></div><div class="timeline-node"><span class="tjh-date">03</span><span class="tjh-title">Modules</span><span class="tjh-text">Skin blocks.</span></div><div class="timeline-node"></div></div>
+              <div class="timeline-axis-preview"><span class="timeline-dot" style="--dot:var(--accent-primary);"></span><span class="timeline-dot" style="--dot:var(--accent-secondary);"></span><span class="timeline-dot" style="--dot:var(--accent-danger);"></span><span class="timeline-dot" style="--dot:var(--text-muted);"></span></div>
+              <div class="timeline-row timeline-row--bottom"><div class="timeline-node"></div><div class="timeline-node"><span class="tjh-date">02</span><span class="tjh-title">Tokens</span><span class="tjh-text">Set type.</span></div><div class="timeline-node"></div><div class="timeline-node"><span class="tjh-date">04</span><span class="tjh-title">Validate</span><span class="tjh-text">Inspect.</span></div></div>
             </div>
           </div>
         </div>
@@ -283,13 +295,23 @@
     </div>
   </section>
 
-  <section class="slide" slide-qa="false" data-index="5" data-slide-role="closing">
+  <section class="slide" slide-qa="false" data-index="5" data-slide-role="closing" data-preview-layout="narrative-reverse">
     <div class="slide-canvas">
       <div class="page">
         <div class="svg-motif svg-motif--corner" aria-hidden="true"><svg viewBox="0 0 600 360"><rect x="80" y="190" width="360" height="34" fill="#dbeafe"/><circle cx="190" cy="150" r="82" fill="#3b82f6" opacity=".82"/><path d="M286 230 C330 120 474 122 516 226 C458 274 348 276 286 230 Z" fill="#64748b" opacity=".68"/><path d="M112 70 l22 -22 l22 22 l-22 22 Z" fill="none" stroke="#17191c" stroke-width="8"/><path d="M470 72 C508 38 548 46 566 88" fill="none" stroke="#17191c" stroke-width="9" stroke-linecap="round"/></svg></div>
         <div style="height:100%;display:flex;flex-direction:column;justify-content:space-between;max-width:1040px;" class="reveal">
           <div class="brand-watermark"><span></span><strong>Starter</strong></div>
-          <div class="quote-block"><p class="quote-mark">“</p><blockquote>A starter design should be boring enough to replace, but complete enough to trust.</blockquote><p class="quote-source">Neutral base principle</p></div>
+          <div class="quote-block" data-preview-component="quote"><p class="quote-mark">“</p><blockquote>A starter design should be boring enough to replace, but complete enough to trust.</blockquote><p class="quote-source">Neutral base principle</p></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;max-width:900px;">
+            <ol class="steps--horizontal" data-preview-component="steps" style="list-style:none;">
+              <li class="step-item"><span class="step-number" data-n="1"></span><div class="step-body"><h4>Read</h4><p>Inspect the design.</p></div></li>
+              <li class="step-item"><span class="step-number" data-n="2"></span><div class="step-body"><h4>Render</h4><p>Apply the theme.</p></div></li>
+            </ol>
+            <table data-preview-component="data-table" style="width:100%;border-collapse:collapse;font-size:16px;">
+              <thead><tr><th style="text-align:left;">Check</th><th style="text-align:left;">State</th></tr></thead>
+              <tbody><tr><td>Canvas</td><td>Fixed</td></tr><tr><td>Preview</td><td>Complete</td></tr></tbody>
+            </table>
+          </div>
           <p class="caption">Activate derived designs after preview inspection.</p>
         </div>
         <div class="page-number">06</div>

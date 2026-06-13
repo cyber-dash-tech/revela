@@ -372,6 +372,7 @@ describe("summit built-in design", () => {
     expect(body).toContain("cover h1: `108px` to `124px`, weight `600` to `700`, line-height `0.88` to `0.94`, Title Case")
     expect(body).toContain("Components are transparent by default")
     expect(body).toContain("Component defaults are transparent")
+    expect(body).toContain("avoid default container outlines")
     expect(body).toContain("Source and citation text should use `.source` or `.source-note`, not `.caption`")
     expect(body).toContain('font-family: "Times New Roman", Times, serif')
     expect(body).toContain("font-size: 11px")
@@ -382,7 +383,8 @@ describe("summit built-in design", () => {
     expect(body).toContain("padding: 0;")
 
     const box = parsed.components["box"] ?? ""
-    expect(box).toContain(".box { height: 100%; min-height: 0; padding: 28px; border: 1px solid var(--line); background: transparent;")
+    expect(box).toContain(".box { height: 100%; min-height: 0; padding: 28px; background: transparent;")
+    expect(box).not.toContain("border: 1px solid var(--line); background: transparent;")
     expect(box).toContain(".box--paper { background: rgba(247,244,238,0.72); }")
 
     const media = parsed.components["media"] ?? ""

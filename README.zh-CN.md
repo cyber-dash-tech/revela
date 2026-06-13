@@ -85,7 +85,7 @@ Revela 内置多个 deck design：
 <p align="center">
   <img src="assets/img/summit-01.jpg" alt="Summit design cover preview" width="32%" />
   <img src="assets/img/summit-02.jpg" alt="Summit design narrative layout preview" width="32%" />
-  <img src="assets/img/summit-03.jpg" alt="Summit design data module preview" width="32%" />
+  <img src="assets/img/summit-03.jpg" alt="Summit design timeline preview" width="32%" />
 </p>
 
 ### [monet](designs/monet/preview.html)
@@ -93,7 +93,7 @@ Revela 内置多个 deck design：
 <p align="center">
   <img src="assets/img/monet-01.jpg" alt="Monet design cover preview" width="32%" />
   <img src="assets/img/monet-02.jpg" alt="Monet design narrative layout preview" width="32%" />
-  <img src="assets/img/monet-03.jpg" alt="Monet design data module preview" width="32%" />
+  <img src="assets/img/monet-03.jpg" alt="Monet design timeline preview" width="32%" />
 </p>
 
 ### [lucent](designs/lucent/preview.html)
