@@ -83,25 +83,25 @@ Revela includes built-in deck designs:
 ### [summit](designs/summit/preview.html)
 
 <p align="center">
-  <img src="assets/img/summit-01.jpg" alt="Summit design preview 1" width="32%" />
-  <img src="assets/img/summit-02.jpg" alt="Summit design preview 2" width="32%" />
-  <img src="assets/img/summit-03.jpg" alt="Summit design preview 3" width="32%" />
+  <img src="assets/img/summit-01.jpg" alt="Summit design cover preview" width="32%" />
+  <img src="assets/img/summit-02.jpg" alt="Summit design narrative layout preview" width="32%" />
+  <img src="assets/img/summit-03.jpg" alt="Summit design data module preview" width="32%" />
 </p>
 
 ### [monet](designs/monet/preview.html)
 
 <p align="center">
-  <img src="assets/img/monet-01.jpg" alt="Monet design preview 1" width="32%" />
-  <img src="assets/img/monet-02.jpg" alt="Monet design preview 2" width="32%" />
-  <img src="assets/img/monet-03.jpg" alt="Monet design preview 3" width="32%" />
+  <img src="assets/img/monet-01.jpg" alt="Monet design cover preview" width="32%" />
+  <img src="assets/img/monet-02.jpg" alt="Monet design narrative layout preview" width="32%" />
+  <img src="assets/img/monet-03.jpg" alt="Monet design data module preview" width="32%" />
 </p>
 
 ### [lucent](designs/lucent/preview.html)
 
 <p align="center">
   <img src="assets/img/lucent-01.jpg" alt="Lucent design cover preview" width="32%" />
-  <img src="assets/img/lucent-02.jpg" alt="Lucent design table of contents preview" width="32%" />
-  <img src="assets/img/lucent-03.jpg" alt="Lucent design Sankey preview" width="32%" />
+  <img src="assets/img/lucent-02.jpg" alt="Lucent design narrative layout preview" width="32%" />
+  <img src="assets/img/lucent-03.jpg" alt="Lucent design chart module preview" width="32%" />
 </p>
 
 `starter` is the clean default presentation style.
