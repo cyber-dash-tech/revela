@@ -413,6 +413,26 @@ describe("summit built-in design", () => {
   })
 })
 
+describe("built-in vertical roadmap previews", () => {
+  it("showcases roadmap-vertical with axis, stems, tip dots, and alternating labels", () => {
+    for (const name of ["starter", "monet", "summit"]) {
+      const previewPath = join(import.meta.dir, "..", "designs", name, "preview.html")
+      const html = readFileSync(previewPath, "utf-8")
+      const match = html.match(/<div class="[^"]*roadmap-vertical[^"]*"[^>]*data-preview-component="roadmap-vertical"[\s\S]*?<\/div><ol class="steps"|<div class="[^"]*roadmap-vertical[^"]*"[^>]*data-preview-component="roadmap-vertical"[\s\S]*?<\/div>\s*<div class="roadmap-horizontal/)
+      const fixture = match?.[0] ?? ""
+
+      expect(fixture, name).toContain("tjv-axis")
+      expect(fixture, name).toContain("tjv-item tjv-item--left")
+      expect(fixture, name).toContain("tjv-item tjv-item--right")
+      expect(fixture, name).toContain("tjv-axis-dot")
+      expect(fixture, name).toContain("tjv-stem")
+      expect(fixture, name).toContain("tjv-tip-dot")
+      expect(fixture, name).toContain("tjv-label")
+      expect(fixture, name).not.toContain("vertical-node")
+    }
+  })
+})
+
 describe("design package authoring", () => {
   it("creates and validates a design package", () => {
     const name = track("test-designs-new-create")

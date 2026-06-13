@@ -160,12 +160,11 @@
     .tjh-text { font-size: 12px; line-height: 1.35; color: var(--text-secondary); }
     .timeline-journey-vertical { --tjv-node: 12px; --tjv-stem-w: 28px; position: relative; width: 100%; height: 100%; min-height: 260px; overflow: visible; }
     .tjv-axis { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--line-strong); transform: translateX(-50%); }
-    .tjv-item { position: absolute; display: flex; align-items: center; min-height: 92px; transform: translateY(-50%); overflow: visible; }
-    .tjv-item--left { right: 50%; flex-direction: row-reverse; }
-    .tjv-item--right { left: 50%; flex-direction: row; }
+    .tjv-item { position: absolute; display: flex; align-items: center; min-width: 220px; min-height: 92px; transform: translateY(-50%); overflow: visible; }
+    .tjv-item--left { right: calc(50% - var(--tjv-node) / 2); flex-direction: row-reverse; }
+    .tjv-item--right { left: calc(50% - var(--tjv-node) / 2); flex-direction: row; }
     .tjv-axis-dot { width: var(--tjv-node); height: var(--tjv-node); border-radius: 999px; background: var(--tjv-item-color, var(--accent-primary)); flex-shrink: 0; position: relative; z-index: 1; }
-    .tjv-item--left .tjv-axis-dot { margin-right: calc(-1 * var(--tjv-node) / 2); }
-    .tjv-item--right .tjv-axis-dot { margin-left: calc(-1 * var(--tjv-node) / 2); }
+    .tjv-item--left .tjv-axis-dot, .tjv-item--right .tjv-axis-dot { margin: 0; }
     .tjv-tip-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--tjv-item-color, var(--accent-primary)); flex-shrink: 0; }
     .tjv-stem { width: var(--tjv-stem-w); height: 1px; background-image: repeating-linear-gradient(to right, var(--line-strong) 0 4px, transparent 4px 8px); flex-shrink: 0; }
     .tjv-label { display: flex; flex-direction: column; gap: 3px; }
@@ -183,18 +182,12 @@
     .timeline-preview { display: grid; grid-template-rows: 1fr 46px 1fr; gap: 14px; height: 100%; }
     .timeline-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; align-items: end; }
     .timeline-row--bottom { align-items: start; }
-    .timeline-node { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-    .timeline-row--top .timeline-node:nth-child(even), .timeline-row--bottom .timeline-node:nth-child(odd) { opacity: 0; }
-    .timeline-axis-preview { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); align-items: center; }
+    .timeline-node { display: flex; flex-direction: column; align-items: center; justify-self: center; gap: 4px; width: min(220px, 100%); min-width: 0; text-align: center; }
+    .timeline-row--top .timeline-node:nth-child(even), .timeline-row--bottom .timeline-node:nth-child(odd) { visibility: hidden; }
+    .timeline-axis-preview { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; align-items: center; }
     .timeline-axis-preview::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--line-strong); }
     .timeline-dot { position: relative; z-index: 1; width: 12px; height: 12px; background: var(--dot); justify-self: center; border-radius: 999px; }
-    .vertical-timeline-preview { position: relative; display: grid; grid-template-rows: repeat(3, 1fr); gap: 14px; height: 100%; }
-    .vertical-timeline-preview::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--line-strong); }
-    .vertical-node { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 28px 1fr; align-items: center; gap: 10px; min-height: 0; }
-    .vertical-node::before { content: ""; width: 12px; height: 12px; border-radius: 999px; background: var(--dot); justify-self: center; grid-column: 2; grid-row: 1; }
-    .vertical-node .timeline-node { max-width: 180px; }
-    .vertical-node--left .timeline-node { grid-column: 1; text-align: right; justify-self: end; }
-    .vertical-node--right .timeline-node { grid-column: 3; text-align: left; justify-self: start; }
+    .vertical-timeline-preview { display: block; position: relative; height: 100%; min-height: 260px; }
   </style>
 </head>
 <body>
@@ -278,10 +271,11 @@
           <div class="stacked-top text-panel reveal" style="padding:42px 56px 20px;"><div class="text-panel-body"><p class="eyebrow">Data and process</p><h2>Evidence components stay structural</h2><p>Charts, tables, and journey timelines inherit the active theme while keeping predictable geometry.</p></div></div>
           <div class="stacked-bottom" style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr) 250px;gap:26px;padding:0 56px 56px;overflow:visible;" data-preview-layout="halves">
             <div class="echart-panel reveal" data-preview-component="echart-panel"><div class="echart-panel-header"><p class="eyebrow">Example chart</p><h3>Signal distribution</h3><p class="chart-subtitle">Neutral chart defaults with restrained labels.</p></div><div class="echart-container" id="starter-chart"></div><p class="chart-caption">Source: demo data</p></div>
-            <div class="roadmap-vertical vertical-timeline-preview reveal" data-preview-component="roadmap-vertical">
-              <div class="vertical-node vertical-node--left" style="--dot:var(--accent-primary);"><div class="timeline-node"><span class="tjv-date">Discover</span><span class="tjv-title">Scan</span><span class="tjv-text">Map inputs.</span></div></div>
-              <div class="vertical-node vertical-node--right" style="--dot:var(--accent-secondary);"><div class="timeline-node"><span class="tjv-date">Build</span><span class="tjv-title">Draft</span><span class="tjv-text">Apply schema.</span></div></div>
-              <div class="vertical-node vertical-node--left" style="--dot:var(--accent-danger);"><div class="timeline-node"><span class="tjv-date">Verify</span><span class="tjv-title">Preview</span><span class="tjv-text">Check geometry.</span></div></div>
+            <div class="roadmap-vertical timeline-journey-vertical vertical-timeline-preview reveal" data-preview-component="roadmap-vertical">
+              <div class="tjv-axis"></div>
+              <div class="tjv-item tjv-item--left" style="top:18%;--tjv-item-color:var(--accent-primary);"><div class="tjv-axis-dot"></div><div class="tjv-stem"></div><div class="tjv-tip-dot"></div><div class="tjv-label"><span class="tjv-date">Discover</span><span class="tjv-title">Scan</span><span class="tjv-text">Map inputs.</span></div></div>
+              <div class="tjv-item tjv-item--right" style="top:50%;--tjv-item-color:var(--accent-secondary);"><div class="tjv-axis-dot"></div><div class="tjv-stem"></div><div class="tjv-tip-dot"></div><div class="tjv-label"><span class="tjv-date">Build</span><span class="tjv-title">Draft</span><span class="tjv-text">Apply schema.</span></div></div>
+              <div class="tjv-item tjv-item--left" style="top:82%;--tjv-item-color:var(--accent-danger);"><div class="tjv-axis-dot"></div><div class="tjv-stem"></div><div class="tjv-tip-dot"></div><div class="tjv-label"><span class="tjv-date">Verify</span><span class="tjv-title">Preview</span><span class="tjv-text">Check geometry.</span></div></div>
             </div>
             <div class="roadmap-horizontal timeline-preview reveal" data-preview-component="roadmap-horizontal" style="grid-column:1 / -1;">
               <div class="timeline-row timeline-row--top"><div class="timeline-node"><span class="tjh-date">01</span><span class="tjh-title">Brief</span><span class="tjh-text">Clarify style.</span></div><div class="timeline-node"></div><div class="timeline-node"><span class="tjh-date">03</span><span class="tjh-title">Modules</span><span class="tjh-text">Skin blocks.</span></div><div class="timeline-node"></div></div>

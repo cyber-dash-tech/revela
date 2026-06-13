@@ -153,10 +153,16 @@
     .roadmap-item:nth-child(2) { left: 492px; top: 430px; }
     .roadmap-item:nth-child(3) { left: 900px; top: 84px; }
     .roadmap-item:nth-child(4) { right: 84px; top: 430px; }
-    .roadmap-dot { position: absolute; right: 22px; top: 22px; width: 22px; height: 22px; border-radius: 999px; background: var(--accent-primary); box-shadow: 0 0 0 8px rgba(49,94,234,.12); }
-    .roadmap-item:nth-child(2) .roadmap-dot { background: var(--accent-cyan); }
-    .roadmap-item:nth-child(3) .roadmap-dot { background: var(--accent-secondary); }
-    .roadmap-item:nth-child(4) .roadmap-dot { background: var(--accent-coral); }
+    .roadmap-connector { position: absolute; z-index: 1; width: 1px; background: rgba(49,94,234,.26); transform: translateX(-50%); }
+    .roadmap-connector--1 { left: 269px; top: 234px; height: 126px; }
+    .roadmap-connector--2 { left: 677px; top: 360px; height: 70px; }
+    .roadmap-connector--3 { left: 1085px; top: 234px; height: 126px; }
+    .roadmap-connector--4 { left: 1505px; top: 360px; height: 70px; }
+    .roadmap-dot { position: absolute; z-index: 3; top: 360px; width: 22px; height: 22px; border-radius: 999px; background: var(--accent-primary); box-shadow: 0 0 0 8px rgba(49,94,234,.12); transform: translate(-50%, -50%); }
+    .roadmap-dot--1 { left: 269px; }
+    .roadmap-dot--2 { left: 677px; background: var(--accent-cyan); }
+    .roadmap-dot--3 { left: 1085px; background: var(--accent-secondary); }
+    .roadmap-dot--4 { left: 1505px; background: var(--accent-coral); }
     .roadmap-item p { font-size: 16px; line-height: 1.45; }
 
     .recommendation-layout { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); height: 100%; min-height: 0; }
@@ -364,10 +370,18 @@
         </header>
         <main class="slide-grid">
           <section class="roadmap" data-preview-component="roadmap-horizontal">
-            <article class="roadmap-item"><div class="roadmap-dot"></div><h3>Week 1-2</h3><p>Define ICP, audience, and success metrics.</p></article>
-            <article class="roadmap-item"><div class="roadmap-dot"></div><h3>Week 3-5</h3><p>Build proof assets and map unsupported claims.</p></article>
-            <article class="roadmap-item"><div class="roadmap-dot"></div><h3>Week 6-9</h3><p>Run channel tests with sourced messaging.</p></article>
-            <article class="roadmap-item"><div class="roadmap-dot"></div><h3>Week 10-12</h3><p>Review evidence, decide whether to scale.</p></article>
+            <article class="roadmap-item"><h3>Week 1-2</h3><p>Define ICP, audience, and success metrics.</p></article>
+            <article class="roadmap-item"><h3>Week 3-5</h3><p>Build proof assets and map unsupported claims.</p></article>
+            <article class="roadmap-item"><h3>Week 6-9</h3><p>Run channel tests with sourced messaging.</p></article>
+            <article class="roadmap-item"><h3>Week 10-12</h3><p>Review evidence, decide whether to scale.</p></article>
+            <span class="roadmap-connector roadmap-connector--1" aria-hidden="true"></span>
+            <span class="roadmap-connector roadmap-connector--2" aria-hidden="true"></span>
+            <span class="roadmap-connector roadmap-connector--3" aria-hidden="true"></span>
+            <span class="roadmap-connector roadmap-connector--4" aria-hidden="true"></span>
+            <span class="roadmap-dot roadmap-dot--1" aria-hidden="true"></span>
+            <span class="roadmap-dot roadmap-dot--2" aria-hidden="true"></span>
+            <span class="roadmap-dot roadmap-dot--3" aria-hidden="true"></span>
+            <span class="roadmap-dot roadmap-dot--4" aria-hidden="true"></span>
           </section>
         </main>
         <div class="page-number">08</div>

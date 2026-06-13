@@ -2441,6 +2441,7 @@ A horizontal milestone timeline with a central axis line. Nodes sit on the axis;
 
 Rules:
 - Position nodes with `left: X%` inline style. For N nodes, space them at `(100/(N+1)) * k %` or manually distribute to reflect time proportions.
+- Treat `left: X%` as the milestone centreline. The label, tip dot, stem, and axis dot must remain centered on that same x-position; do not left-align the label block away from the marker.
 - Each node requires `--tjh-item-color` set inline (use any summit accent colour).
 - **`--up` DOM order**: label → tip-dot → stem → axis-dot (label at top, axis-dot at bottom touching axis).
 - **`--down` DOM order**: axis-dot → stem → tip-dot → label (axis-dot at top touching axis, label at bottom).
@@ -2527,19 +2528,20 @@ Can be placed inside any layout slot that provides a defined height (`narrative`
   position: absolute;
   display: flex;
   align-items: center;
+  min-width: 260px;
   height: 80px;           /* vertical size of the clickable/hover zone */
   transform: translateY(-50%); /* center the row on the top: Y% point */
 }
 
 /* LEFT: row-reverse flips DOM order so axis-dot appears on the right (on the axis) */
 .tjv-item--left {
-  right: 50%;
+  right: calc(50% - var(--tjv-node) / 2);
   flex-direction: row-reverse;
 }
 
 /* RIGHT: standard row; axis-dot appears on the left (on the axis) */
 .tjv-item--right {
-  left: 50%;
+  left: calc(50% - var(--tjv-node) / 2);
   flex-direction: row;
 }
 
@@ -2555,13 +2557,9 @@ Can be placed inside any layout slot that provides a defined height (`narrative`
 }
 
 /* LEFT: axis-dot is visually rightmost (row-reverse); push right to straddle axis */
-.tjv-item--left .tjv-axis-dot {
-  margin-right: calc(-1 * var(--tjv-node) / 2);
-}
-
-/* RIGHT: axis-dot is visually leftmost; push left to straddle axis */
+.tjv-item--left .tjv-axis-dot,
 .tjv-item--right .tjv-axis-dot {
-  margin-left: calc(-1 * var(--tjv-node) / 2);
+  margin: 0;
 }
 
 /* Tip dot — smaller circle at the stem end near the label */
@@ -2640,6 +2638,9 @@ Can be placed inside any layout slot that provides a defined height (`narrative`
 Rules:
 - **DOM order is identical for left and right nodes**: `axis-dot → stem → tip-dot → label`. The visual direction is controlled by CSS (`row-reverse` for left, `row` for right) — never by changing the DOM order.
 - Position each node with `top: Y%` inline style. For N nodes, distribute evenly: `(100 / (N + 1)) * k %` or manually to reflect actual time proportions.
+- Treat `top: Y%` as the milestone row centre. The axis dot, stem, tip dot, and label row must stay vertically centered on that same y-position.
+- Anchor left/right rows at `calc(50% - var(--tjv-node) / 2)` rather than using negative margins on `.tjv-axis-dot`; this keeps the marker centered on the axis without creating export/QA overflow.
+- Give `.tjv-item` an explicit `min-width` large enough to include label + tip + stem + axis-dot, rather than relying on intrinsic content width.
 - Every node must set `--tjv-item-color` inline (use any Summit accent: `--accent-earth`, `--accent-gold`, `--accent-olive`, `--accent-sage`).
 - Alternate `--left` and `--right` across nodes for visual rhythm. Do not place consecutive same-side nodes unless intentional.
 - The parent container must have a defined height. Use `height: 100%` when inside a layout slot, or set an explicit `px` height when used standalone.

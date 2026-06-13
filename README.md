@@ -101,7 +101,7 @@ Revela includes built-in deck designs:
 <p align="center">
   <img src="assets/img/lucent-01.jpg" alt="Lucent design cover preview" width="32%" />
   <img src="assets/img/lucent-02.jpg" alt="Lucent design narrative layout preview" width="32%" />
-  <img src="assets/img/lucent-03.jpg" alt="Lucent design chart module preview" width="32%" />
+  <img src="assets/img/lucent-03.jpg" alt="Lucent design roadmap preview" width="32%" />
 </p>
 
 `starter` is the clean default presentation style.

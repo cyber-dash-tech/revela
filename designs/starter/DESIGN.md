@@ -821,6 +821,7 @@ Horizontal milestone journey with a central axis line. Nodes sit on the axis; a 
 
 Rules:
 - Position nodes with `left: X%` inline style. For N nodes, space them at `(100 / (N + 1)) * k %` or manually distribute to show real time gaps.
+- Treat `left: X%` as the milestone centreline. The label, tip dot, stem, and axis dot must remain centered on that same x-position; do not left-align the label block away from the marker.
 - Each node may set `--tjh-item-color` inline. Prefer existing neutral theme tokens such as `--accent-primary`, `--accent-secondary`, `--accent-danger`, or a derived local accent.
 - Up node DOM order is `label -> tip-dot -> stem -> axis-dot`; down node DOM order is `axis-dot -> stem -> tip-dot -> label`.
 - Keep `.tjh-text` short, usually 1-2 lines. The column width limits wrapping naturally.
@@ -872,12 +873,11 @@ Vertical milestone journey with a central axis line. Nodes sit on the axis; a ho
   height: 100%;
 }
 .tjv-axis { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--line-strong); transform: translateX(-50%); }
-.tjv-item { position: absolute; display: flex; align-items: center; height: 78px; transform: translateY(-50%); }
-.tjv-item--left { right: 50%; flex-direction: row-reverse; }
-.tjv-item--right { left: 50%; flex-direction: row; }
+.tjv-item { position: absolute; display: flex; align-items: center; min-width: 220px; height: 78px; transform: translateY(-50%); }
+.tjv-item--left { right: calc(50% - var(--tjv-node) / 2); flex-direction: row-reverse; }
+.tjv-item--right { left: calc(50% - var(--tjv-node) / 2); flex-direction: row; }
 .tjv-axis-dot { width: var(--tjv-node); height: var(--tjv-node); border-radius: 999px; background: var(--tjv-item-color, var(--accent-primary)); flex-shrink: 0; position: relative; z-index: 1; }
-.tjv-item--left .tjv-axis-dot { margin-right: calc(-1 * var(--tjv-node) / 2); }
-.tjv-item--right .tjv-axis-dot { margin-left: calc(-1 * var(--tjv-node) / 2); }
+.tjv-item--left .tjv-axis-dot, .tjv-item--right .tjv-axis-dot { margin: 0; }
 .tjv-tip-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--tjv-item-color, var(--accent-primary)); flex-shrink: 0; }
 .tjv-stem { width: var(--tjv-stem-w); height: 1px; background-image: repeating-linear-gradient(to right, var(--line-strong) 0 4px, transparent 4px 8px); flex-shrink: 0; }
 .tjv-label { display: flex; flex-direction: column; gap: 4px; }
@@ -891,6 +891,9 @@ Vertical milestone journey with a central axis line. Nodes sit on the axis; a ho
 Rules:
 - DOM order is identical for left and right nodes: `axis-dot -> stem -> tip-dot -> label`. Direction is controlled by CSS (`row-reverse` for left, `row` for right).
 - Position each node with `top: Y%` inline style. For N nodes, distribute evenly with `(100 / (N + 1)) * k %` or manually to reflect time proportions.
+- Treat `top: Y%` as the milestone row centre. The axis dot, stem, tip dot, and label row must stay vertically centered on that same y-position.
+- Anchor left/right rows at `calc(50% - var(--tjv-node) / 2)` rather than using negative margins on `.tjv-axis-dot`; this keeps the marker centered on the axis without creating export/QA overflow.
+- Give `.tjv-item` an explicit `min-width` large enough to include label + tip + stem + axis-dot, rather than relying on intrinsic content width.
 - Each node may set `--tjv-item-color` inline. Prefer current theme tokens rather than hard-coded project colors.
 - Alternate left and right nodes for rhythm. Avoid consecutive same-side nodes unless the story needs clustering.
 - The parent container must have a defined height. Use `height: 100%` inside a layout slot, or set an explicit height when standalone.

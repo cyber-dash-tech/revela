@@ -120,12 +120,11 @@
     .tjh-text, .tjv-text { font-size: 13px; line-height: 1.45; color: var(--text-secondary); }
     .tjv { --tjv-node: 14px; --tjv-stem-w: 36px; position: relative; width: 100%; height: 100%; min-height: 420px; overflow: visible; }
     .tjv-axis { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--line-strong); transform: translateX(-50%); }
-    .tjv-item { position: absolute; display: flex; align-items: center; min-height: 116px; transform: translateY(-50%); overflow: visible; }
-    .tjv-item--left { right: 50%; flex-direction: row-reverse; }
-    .tjv-item--right { left: 50%; flex-direction: row; }
+    .tjv-item { position: absolute; display: flex; align-items: center; min-width: 260px; min-height: 116px; transform: translateY(-50%); overflow: visible; }
+    .tjv-item--left { right: calc(50% - var(--tjv-node) / 2); flex-direction: row-reverse; }
+    .tjv-item--right { left: calc(50% - var(--tjv-node) / 2); flex-direction: row; }
     .tjv-axis-dot, .tjv-tip-dot { width: var(--tjv-node); height: var(--tjv-node); background: var(--tjv-item-color); flex-shrink: 0; }
-    .tjv-item--left .tjv-axis-dot { margin-right: calc(-1 * var(--tjv-node) / 2); }
-    .tjv-item--right .tjv-axis-dot { margin-left: calc(-1 * var(--tjv-node) / 2); }
+    .tjv-item--left .tjv-axis-dot, .tjv-item--right .tjv-axis-dot { margin: 0; }
     .tjv-stem { width: var(--tjv-stem-w); height: 1px; background-image: repeating-linear-gradient(to right, var(--line-strong) 0 4px, transparent 4px 8px); flex-shrink: 0; }
     .tjv-label { display: flex; flex-direction: column; gap: 5px; overflow: visible; }
     .tjv-item--left .tjv-label { text-align: right; align-items: flex-end; padding-right: 14px; max-width: 340px; }
@@ -133,18 +132,12 @@
     .timeline-preview { display: grid; grid-template-rows: 1fr 58px 1fr; gap: var(--space-3); height: 100%; }
     .timeline-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); align-items: end; }
     .timeline-row--bottom { align-items: start; }
-    .timeline-node { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-    .timeline-row--top .timeline-node:nth-child(even), .timeline-row--bottom .timeline-node:nth-child(odd) { opacity: 0; }
-    .timeline-axis-preview { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; }
+    .timeline-node { display: flex; flex-direction: column; align-items: center; justify-self: center; gap: 5px; width: min(240px, 100%); min-width: 0; text-align: center; }
+    .timeline-row--top .timeline-node:nth-child(even), .timeline-row--bottom .timeline-node:nth-child(odd) { visibility: hidden; }
+    .timeline-axis-preview { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); align-items: center; }
     .timeline-axis-preview::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--line-strong); }
     .timeline-dot { position: relative; z-index: 1; width: 14px; height: 14px; background: var(--dot); justify-self: center; }
-    .vertical-timeline-preview { position: relative; display: grid; grid-template-rows: repeat(4, 1fr); gap: var(--space-3); height: 100%; }
-    .vertical-timeline-preview::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--line-strong); }
-    .vertical-node { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 34px 1fr; align-items: center; gap: var(--space-2); min-height: 0; }
-    .vertical-node::before { content: ""; width: 14px; height: 14px; background: var(--dot); justify-self: center; grid-column: 2; grid-row: 1; }
-    .vertical-node .timeline-node { max-width: 300px; }
-    .vertical-node--left .timeline-node { grid-column: 1; text-align: right; justify-self: end; }
-    .vertical-node--right .timeline-node { grid-column: 3; text-align: left; justify-self: start; }
+    .vertical-timeline-preview { display: block; position: relative; height: 100%; min-height: 420px; }
   </style>
 </head>
 <body>
@@ -177,7 +170,7 @@
   </section>
 
   <section class="slide" slide-qa="false" data-slide-index="8" data-slide-role="closing" data-preview-component="roadmap-vertical">
-    <div class="slide-canvas"><div class="page alt"><p class="preview-label">component fixture / roadmap-vertical + steps</p><div class="layout-title"><div><p class="eyebrow">Closing fixture</p><h2>Vertical expedition timeline and next steps stay inside the paper page.</h2></div></div><div class="grid halves-grid"><div class="roadmap-vertical vertical-timeline-preview"><div class="vertical-node vertical-node--left" style="--dot:var(--accent-earth);"><div class="timeline-node"><span class="tjv-date" style="--tjv-item-color:var(--accent-earth);">Measure</span><span class="tjv-title">Baseline</span><span class="tjv-text">Set terrain.</span></div></div><div class="vertical-node vertical-node--right" style="--dot:var(--accent-gold);"><div class="timeline-node"><span class="tjv-date" style="--tjv-item-color:var(--accent-gold);">Reduce</span><span class="tjv-title">Levers</span><span class="tjv-text">Assign owners.</span></div></div><div class="vertical-node vertical-node--left" style="--dot:var(--accent-olive);"><div class="timeline-node"><span class="tjv-date" style="--tjv-item-color:var(--accent-olive);">Verify</span><span class="tjv-title">Audit</span><span class="tjv-text">Check source.</span></div></div><div class="vertical-node vertical-node--right" style="--dot:var(--accent-rust);"><div class="timeline-node"><span class="tjv-date" style="--tjv-item-color:var(--accent-rust);">Decide</span><span class="tjv-title">Scale</span><span class="tjv-text">Name action.</span></div></div></div><ol class="steps" data-preview-component="steps"><li><h3>1</h3><p>Keep the claim direct.</p></li><li><h3>2</h3><p>Keep evidence bounded.</p></li><li><h3>3</h3><p>Export after QA.</p></li></ol></div><div class="page-number">08</div></div></div>
+    <div class="slide-canvas"><div class="page alt"><p class="preview-label">component fixture / roadmap-vertical + steps</p><div class="layout-title"><div><p class="eyebrow">Closing fixture</p><h2>Vertical expedition timeline and next steps stay inside the paper page.</h2></div></div><div class="grid halves-grid"><div class="roadmap-vertical tjv vertical-timeline-preview" data-preview-component="roadmap-vertical"><div class="tjv-axis"></div><div class="tjv-item tjv-item--left" style="top:16%;--tjv-item-color:var(--accent-earth);"><div class="tjv-axis-dot"></div><div class="tjv-stem"></div><div class="tjv-tip-dot"></div><div class="tjv-label"><span class="tjv-date">Measure</span><span class="tjv-title">Baseline</span><span class="tjv-text">Set terrain.</span></div></div><div class="tjv-item tjv-item--right" style="top:38%;--tjv-item-color:var(--accent-gold);"><div class="tjv-axis-dot"></div><div class="tjv-stem"></div><div class="tjv-tip-dot"></div><div class="tjv-label"><span class="tjv-date">Reduce</span><span class="tjv-title">Levers</span><span class="tjv-text">Assign owners.</span></div></div><div class="tjv-item tjv-item--left" style="top:60%;--tjv-item-color:var(--accent-olive);"><div class="tjv-axis-dot"></div><div class="tjv-stem"></div><div class="tjv-tip-dot"></div><div class="tjv-label"><span class="tjv-date">Verify</span><span class="tjv-title">Audit</span><span class="tjv-text">Check source.</span></div></div><div class="tjv-item tjv-item--right" style="top:82%;--tjv-item-color:var(--accent-rust);"><div class="tjv-axis-dot"></div><div class="tjv-stem"></div><div class="tjv-tip-dot"></div><div class="tjv-label"><span class="tjv-date">Decide</span><span class="tjv-title">Scale</span><span class="tjv-text">Name action.</span></div></div></div><ol class="steps" data-preview-component="steps"><li><h3>1</h3><p>Keep the claim direct.</p></li><li><h3>2</h3><p>Keep evidence bounded.</p></li><li><h3>3</h3><p>Export after QA.</p></li></ol></div><div class="page-number">08</div></div></div>
   </section>
 
   <script>

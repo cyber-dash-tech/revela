@@ -3,6 +3,7 @@ import type { DesignClassVocabulary } from "../design/designs"
 import { formatReport, runQA } from "./index"
 import { runComplianceQA } from "./compliance"
 import type { QAReport } from "./checks"
+import { basename, dirname } from "path"
 
 export interface ArtifactQAReport {
   file: string
@@ -39,12 +40,14 @@ export async function runArtifactQA(input: {
     sections.push("**[deck HTML contract]**\n\n" + formatDeckHtmlContractReport(contract))
   }
 
-  const compliance = runComplianceQA(input.filePath, input.vocabulary)
-  const complianceErrors = hardErrors(compliance)
-  if (compliance.totalIssues > 0) {
-    hardErrorCount += complianceErrors
-    warningCount += warnings(compliance)
-    sections.push("**[component compliance]**\n\n" + formatReport(compliance))
+  if (shouldRunArtifactCompliance(input.filePath)) {
+    const compliance = runComplianceQA(input.filePath, input.vocabulary)
+    const complianceErrors = hardErrors(compliance)
+    if (compliance.totalIssues > 0) {
+      hardErrorCount += complianceErrors
+      warningCount += warnings(compliance)
+      sections.push("**[component compliance]**\n\n" + formatReport(compliance))
+    }
   }
 
   try {
@@ -67,6 +70,17 @@ export async function runArtifactQA(input: {
     warningCount,
     sections,
   }
+}
+
+export function shouldRunArtifactCompliance(filePath: string): boolean {
+  return !isDesignPreviewFile(filePath)
+}
+
+function isDesignPreviewFile(filePath: string): boolean {
+  const normalizedPath = filePath.replace(/\\/g, "/")
+  if (basename(normalizedPath) !== "preview.html") return false
+  const parts = dirname(normalizedPath).split("/")
+  return parts.length >= 2 && parts[parts.length - 2] === "designs"
 }
 
 export function formatArtifactQAReport(report: ArtifactQAReport): string {

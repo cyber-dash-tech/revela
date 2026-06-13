@@ -101,7 +101,7 @@ Revela 内置多个 deck design：
 <p align="center">
   <img src="assets/img/lucent-01.jpg" alt="Lucent design cover preview" width="32%" />
   <img src="assets/img/lucent-02.jpg" alt="Lucent design narrative layout preview" width="32%" />
-  <img src="assets/img/lucent-03.jpg" alt="Lucent design chart module preview" width="32%" />
+  <img src="assets/img/lucent-03.jpg" alt="Lucent design roadmap preview" width="32%" />
 </p>
 
 `starter` 是简洁默认演示风格。

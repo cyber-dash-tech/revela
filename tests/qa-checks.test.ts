@@ -3,6 +3,7 @@ import { writeFileSync } from "fs"
 import { join } from "path"
 import { runChecks, formatReport } from "../lib/qa/checks"
 import { runComplianceQA } from "../lib/qa/compliance"
+import { shouldRunArtifactCompliance } from "../lib/qa/artifact"
 import { CANVAS_W, CANVAS_H } from "../lib/qa/measure"
 import type { SlideMetrics, ElementInfo, Rect, ScrollbarMetrics, SlideNavigationMetrics } from "../lib/qa/measure"
 import type { DesignClassVocabulary } from "../lib/design/designs"
@@ -319,6 +320,13 @@ describe("navigation model", () => {
 })
 
 describe("static compliance", () => {
+  it("skips deck component compliance for design preview files", () => {
+    expect(shouldRunArtifactCompliance("/workspace/designs/lucent/preview.html")).toBe(false)
+    expect(shouldRunArtifactCompliance("designs\\summit\\preview.html")).toBe(false)
+    expect(shouldRunArtifactCompliance("/workspace/output/lucent-preview.html")).toBe(true)
+    expect(shouldRunArtifactCompliance("/workspace/designs/lucent/reference.html")).toBe(true)
+  })
+
   it("flags unknown HTML classes on each slide", () => {
     const file = htmlFile(`
       <html><style>.known-rule { color: red; }</style><body>

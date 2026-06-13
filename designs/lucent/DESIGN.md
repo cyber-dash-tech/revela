@@ -172,7 +172,7 @@ Structured table component with `.table-panel`, tabular numbers, muted headers, 
 <!-- @component:data-table:end -->
 
 <!-- @component:roadmap-horizontal:start -->
-Four-phase horizontal roadmap with alternating cards around a gradient axis. Use for staged plans, milestones, or migration paths.
+Four-phase horizontal roadmap with alternating cards around a gradient axis. Use for staged plans, milestones, or migration paths. The dot is the milestone marker, not card decoration: place each marker on the shared axis and connect the card back to that marker so the phase label, card, and axis read as one anchored event.
 <!-- @component:roadmap-horizontal:end -->
 
 <!-- @component:steps:start -->
