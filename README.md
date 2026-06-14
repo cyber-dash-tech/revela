@@ -10,7 +10,7 @@
 
 Revela is a Codex plugin for turning source materials, research, data, and intent into trusted, traceable, presentation-ready decision artifacts.
 
-In your local workspace, Revela reviews materials, saves source-linked research, builds an explicit `deck-plan.md`, generates HTML decks, reviews them, and exports PDF/PPTX/PNG artifacts.
+In your local workspace, Revela reviews materials, saves source-linked research, builds an explicit `deck-plan.md`, generates HTML decks, opens them in Codex Browser for annotation, and exports PDF/PPTX/PNG artifacts.
 
 ## Install
 
@@ -20,7 +20,6 @@ Requirements:
 
 - The Codex CLI must be installed and the `codex` command must be available in your shell.
 - Your environment must be able to run `bun`; Revela uses `bun ./mcp/revela-server.ts` from the installed Codex plugin cache to start the MCP server.
-- For interactive Review Apply actions, `codex exec` must also work because the Review UI uses it after saved comments are applied.
 
 Optional preflight:
 
@@ -50,7 +49,7 @@ You do not need to run `bun install` inside the Codex marketplace clone.
 
 Start a new Codex thread after installing so Codex loads the Revela skills, MCP tools, and hooks.
 
-Codex uses nine Revela skills: `revela` for routing the next workflow step, `revela-spec` for writing root-level `spec.md`, `revela-helper` for status and active design/domain, `revela-design` for custom design creation/validation/activation, `revela-domain` for custom narrative domain creation/validation/activation, `revela-research` for local and web research saved under `researches/` plus the design-aware `deck-plan.md` handoff, `revela-make-deck` for generating `decks/*.html` from an existing plan, `revela-review` for the Review UI, and `revela-export` for PDF/PPTX/PNG.
+Codex uses eight Revela skills: `revela` for routing the next workflow step, `revela-spec` for writing root-level `spec.md`, `revela-helper` for status and active design/domain, `revela-design` for custom design creation/validation/activation, `revela-domain` for custom narrative domain creation/validation/activation, `revela-research` for local and web research saved under `researches/` plus the design-aware `deck-plan.md` handoff, `revela-make-deck` for generating `decks/*.html` from an existing plan and opening the QA-passed deck in Codex Browser, and `revela-export` for PDF/PPTX/PNG.
 
 For release-aligned local validation, run `bun run smoke:mcp-pack`. It packs the current checkout to a temporary npm tarball, extracts it, and starts the MCP server through the packaged Codex plugin launcher path without requiring a registry publish.
 
@@ -156,9 +155,9 @@ Revela may ask for references or constraints, then creates and validates the des
 
 > [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), make the deck from the current deck plan.
 
-8. Review the generated deck for Artifact QA and targeted edits.
+8. Review and annotate the generated deck in Codex Browser after make-deck opens it.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), review the generated deck.
+Use Codex Browser's native annotation tools on the opened HTML deck.
 
 9. Export a PDF after deck QA passes.
 
@@ -172,16 +171,6 @@ Revela may ask for references or constraints, then creates and validates the des
 
 > [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), export the deck to PNG.
 
-## Review A Deck
+## Annotate A Deck
 
-Use Review after generating an HTML deck:
-
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), review the generated deck.
-
-<p align="center">
-  <img src="assets/img/review-ui.png" alt="Revela Review UI showing @ref comments and deck QA" width="900" />
-</p>
-
-Review opens a local deck workspace for QA and targeted edits:
-
-- Comment lets you request targeted edits on the deck, such as layout, copy, hierarchy, spacing, or visual changes.
+After `revela-make-deck` generates an HTML deck and Artifact QA passes, Codex opens the deck in Codex Browser. Use the browser's native annotation tools for targeted edits such as layout, copy, hierarchy, spacing, or visual changes.

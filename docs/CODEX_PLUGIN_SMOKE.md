@@ -18,7 +18,7 @@ Expected:
 
 - `doctor` returns JSON with `ok: true`.
 - Both MCP smokes return `initialize` and `tools/list` responses containing `revela_doctor`, `revela_story_read`, `revela_review_deck_read`, `revela_review_deck_open`, `revela_design_activate`, and `revela_domain_activate`.
-- `revela review-read --file <deck.html>` is available for CLI-level Review diagnostics after a deck exists.
+- `revela review-read --file <deck.html>` remains available for compatibility-only CLI diagnostics after a deck exists.
 
 ## Install Or Refresh
 
@@ -87,16 +87,16 @@ Use Revela Story to show the current claim flow, evidence support, caveats, unsu
 Use Revela to create or update the deck plan before generating HTML. Read the current narrative, inspect any existing deck-plan/, define the slide order, chapter structure, evidence trace, caveats, and visual intent, then report the plan diagnostics.
 ```
 
-7. Make an HTML deck from the deck plan and repair hard QA errors.
+7. Make an HTML deck from the deck plan, repair hard QA errors, and open it in Codex Browser.
 
 ```text
-Use Revela to make a deck from the current deck plan and narrative. Generate an HTML deck under decks/, run deck QA, and repair hard QA errors before review or export.
+Use Revela to make a deck from the current deck plan and narrative. Generate an HTML deck under decks/, run deck QA, repair hard QA errors, and open the QA-passed deck in Codex Browser.
 ```
 
-8. Review the generated deck.
+8. Annotate the generated deck in Codex Browser.
 
 ```text
-Use Revela to review the generated deck. Open the Review UI for the HTML deck and also summarize diagnostics.
+Use Codex Browser's native annotations on the opened HTML deck for any targeted review notes.
 ```
 
 9. Export PDF.
@@ -111,7 +111,7 @@ Use Revela to export the deck to PDF.
 Use Revela to export the deck to PPTX.
 ```
 
-During the smoke, confirm Codex uses the corresponding MCP tools: `revela_doctor`, `revela_domain_activate`, `revela_design_activate`, `revela_design_pack`, `revela_design_install_archive`, `revela_markdown_qa`, `revela_compile_narrative`, `revela_research_targets`, `revela_research_save`, `revela_evaluate_research_findings`, `revela_bind_research_findings`, `revela_story_read`, `revela_read_deck_plan`, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_review_deck_open`, `revela_review_deck_read`, `revela_export_pdf`, and `revela_export_pptx`.
+During the smoke, confirm Codex uses the corresponding MCP tools: `revela_doctor`, `revela_domain_activate`, `revela_design_activate`, `revela_design_pack`, `revela_design_install_archive`, `revela_markdown_qa`, `revela_compile_narrative`, `revela_research_targets`, `revela_research_save`, `revela_evaluate_research_findings`, `revela_bind_research_findings`, `revela_story_read`, `revela_read_deck_plan`, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_export_pdf`, and `revela_export_pptx`. `revela_review_deck_open` and `revela_review_deck_read` may remain discoverable as compatibility-only tools, but they are not the Codex product review path.
 
 ## Expected Result
 
@@ -123,8 +123,8 @@ During the smoke, confirm Codex uses the corresponding MCP tools: `revela_doctor
 - Design list/read/author/install/activate tools are discoverable, and active design guidance is read before selecting layouts/components.
 - Artifact QA passes with `hardErrorCount: 0`.
 - Story reading returns a deterministic map or Markdown view from `revela-narrative/`.
-- Review deck open returns a local Review URL hosted by the MCP process with saved comments and the `codex-exec` Apply bridge.
-- Review deck reading returns artifact QA, deck-plan/narrative diagnostics, and skipped legacy inspection context when diagnostics are explicitly requested.
+- The QA-passed HTML deck opens in Codex Browser for native annotation.
+- Compatibility-only Review deck reading can still return artifact QA and deck-plan/narrative diagnostics when diagnostics are explicitly requested.
 
 ## Known Smoke Notes
 

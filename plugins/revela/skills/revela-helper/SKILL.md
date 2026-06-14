@@ -12,7 +12,7 @@ Use this skill when the user asks what Revela is, what the current workspace sta
 - This is a read-only helper and orientation surface.
 - `revela` is the main workflow router; this skill explains status and capabilities.
 - It may inspect runtime, design, domain, and workspace artifact status.
-- It must not perform research, write files, create `spec.md`, create `deck-plan.md`, generate decks, open Review UI, or export artifacts.
+- It must not perform research, write files, create `spec.md`, create `deck-plan.md`, generate decks, open deck browser views, or export artifacts.
 - Keep the answer short and operational.
 
 ## Preconditions
@@ -46,7 +46,7 @@ Report:
   - `spec.md` exists but no `researches/`: run `revela-research`.
   - Research exists but no `deck-plan.md`: continue `revela-research` to the Planning Handoff.
   - Valid `deck-plan.md` but no deck artifact: run `revela-make-deck`.
-  - Existing deck artifact: run `revela-review` or `revela-export` depending on the user goal.
+  - Existing deck artifact: open the HTML deck in Codex Browser for native annotation, or run `revela-export` for PDF/PPTX/PNG.
 
 ## Must Not
 
@@ -54,5 +54,5 @@ Report:
 - Do not do external web research.
 - Do not generate or repair `spec.md`.
 - Do not generate or repair `deck-plan.md`.
-- Do not generate, review, patch, or export deck artifacts.
+- Do not generate, annotate, patch, or export deck artifacts.
 - Do not create, install, or activate designs or domains; route those requests to `revela-design` or `revela-domain`.

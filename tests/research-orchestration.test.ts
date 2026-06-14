@@ -14,7 +14,7 @@ const codexDomainSkill = readFileSync(join(import.meta.dir, "..", "plugins", "re
 const codexResearchSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-research", "SKILL.md"), "utf-8")
 const codexStorySkillPath = join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-story", "SKILL.md")
 const codexMakeDeckSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-make-deck", "SKILL.md"), "utf-8")
-const codexReviewSkill = readFileSync(join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-review", "SKILL.md"), "utf-8")
+const codexReviewSkillPath = join(import.meta.dir, "..", "plugins", "revela", "skills", "revela-review", "SKILL.md")
 const codexCapabilityMatrix = readFileSync(join(import.meta.dir, "..", "docs", "CODEX_PLUGIN_CAPABILITY_MATRIX.md"), "utf-8")
 const codexProductPlan = readFileSync(join(import.meta.dir, "..", "docs", "CODEX_PLUGIN_PRODUCT_PLAN.md"), "utf-8")
 const readme = readFileSync(join(import.meta.dir, "..", "README.md"), "utf-8")
@@ -154,7 +154,8 @@ describe("Codex revela router skill", () => {
     expect(codexRouterSkill).toContain("use `revela-research`")
     expect(codexRouterSkill).toContain("Valid `deck-plan.md` exists")
     expect(codexRouterSkill).toContain("use `revela-make-deck`")
-    expect(codexRouterSkill).toContain("use `revela-review`")
+    expect(codexRouterSkill).toContain("Codex Browser's native browsing/annotation flow")
+    expect(codexRouterSkill).not.toContain("use `revela-review`")
     expect(codexRouterSkill).toContain("use `revela-export`")
     expect(codexRouterSkill).toContain("Do not write or patch files")
     expect(codexRouterSkill).toContain("Do not create or repair `spec.md` or `deck-plan.md`")
@@ -213,6 +214,7 @@ describe("Codex revela-helper skill", () => {
     expect(codexHelperSkill).toContain("`spec.md` exists but no `researches/`: run `revela-research`")
     expect(codexHelperSkill).toContain("Research exists but no `deck-plan.md`: continue `revela-research` to the Planning Handoff")
     expect(codexHelperSkill).toContain("Valid `deck-plan.md` but no deck artifact: run `revela-make-deck`")
+    expect(codexHelperSkill).toContain("Existing deck artifact: open the HTML deck in Codex Browser")
     expect(codexHelperSkill).toContain("Custom visual system requested: use `revela-design`")
     expect(codexHelperSkill).toContain("Custom narrative domain guidance requested: use `revela-domain`")
     expect(codexHelperSkill).toContain("Do not create, install, or activate designs or domains")
@@ -221,11 +223,12 @@ describe("Codex revela-helper skill", () => {
 
 describe("Codex skill discoverability docs", () => {
   it("documents design and domain skills in the public Codex skill list", () => {
-    expect(readme).toContain("Codex uses nine Revela skills")
+    expect(readme).toContain("Codex uses eight Revela skills")
     expect(readme).toContain("`revela` for routing the next workflow step")
     expect(readme).toContain("`revela-spec` for writing root-level `spec.md`")
     expect(readme).toContain("`revela-design` for custom design creation/validation/activation")
     expect(readme).toContain("`revela-domain` for custom narrative domain creation/validation/activation")
+    expect(readme).not.toContain("`revela-review`")
   })
 })
 
@@ -385,49 +388,23 @@ describe("Codex revela-make-deck skill", () => {
     expect(codexMakeDeckSkill).toContain("design inventory")
     expect(codexMakeDeckSkill).toContain("Do not write a new `deck-plan.md` when it is missing")
     expect(codexMakeDeckSkill).toContain("`decks/*.html`")
+    expect(codexMakeDeckSkill).toContain("After the final `revela_run_deck_qa` passes with zero hard errors, open the generated `decks/*.html` in Codex Browser")
+    expect(codexMakeDeckSkill).toContain("http://127.0.0.1:<port>/decks/<file>.html")
 
     expect(codexMakeDeckSkill.indexOf("revela_design_inventory")).toBeLessThan(codexMakeDeckSkill.indexOf("revela_read_deck_plan"))
     expect(codexMakeDeckSkill.indexOf("revela_read_deck_plan")).toBeLessThan(codexMakeDeckSkill.indexOf("revela_create_deck_foundation"))
   })
 })
 
-describe("Codex revela-review skill", () => {
-  it("opens the Review UI by default and keeps diagnostics explicit", () => {
-    expect(codexReviewSkill).toContain("For a plain review request, call `revela_review_deck_open`")
-    expect(codexReviewSkill).toContain("Use `revela_review_deck_read`, normally with `format: \"markdown\"`, only when the user explicitly asks")
-    expect(codexReviewSkill).toContain("Review UI is QA + Leave Comment / Apply. Insight/Inspect is removed")
-    expect(codexReviewSkill).toContain("Do not call `revela_run_deck_qa` separately for a normal Review UI open")
-    expect(codexReviewSkill).toContain("revela_review_deck_open")
-    expect(codexReviewSkill).toContain("format: \"markdown\"")
-    expect(codexReviewSkill).toContain("is read-only")
-    expect(codexReviewSkill).toContain("Content changes that affect the deck argument should update `deck-plan.md` first")
-  })
-
-  it("marks Codex Review deck reading as tool-backed in the capability matrix", () => {
-    expect(codexCapabilityMatrix).toContain("| Review deck UI and diagnostics |")
-    expect(codexCapabilityMatrix).toContain("`revela_review_deck_open` QA/Comment UI")
-    expect(codexCapabilityMatrix).toContain("`revela_review_deck_read` aggregate diagnostics tool")
-    expect(codexCapabilityMatrix).toContain("Tool-backed MVP")
-  })
-
-  it("keeps the product plan honest about Review read versus Review UI", () => {
-    expect(codexProductPlan).toContain("Review deck read")
-    expect(codexProductPlan).toContain("revela review-read --file <deck.html>")
-    expect(codexProductPlan).toContain("revela_review_deck_read")
-    expect(codexProductPlan).toContain("`pending` bridge")
-    expect(codexProductPlan).toContain("`codex-exec` / Codex SDK bridge")
-    expect(codexProductPlan).toContain("codex exec --json --ephemeral -C <workspace>")
-    expect(codexProductPlan).toContain("`codex-app-server` bridge")
-    expect(codexProductPlan).toContain("Applying saved comments may patch artifacts for pure visual edits")
-    expect(codexProductPlan).toContain("Review event-stream reliability remains a follow-up")
-    expect(codexProductPlan).toContain('`{"type":"turn.started"}` are start/progress signals only')
-    expect(codexProductPlan).toContain("/api/comment-events")
-    expect(codexProductPlan).not.toContain("/api/inspect-events")
-    expect(codexProductPlan).toContain("heartbeat comments")
-    expect(codexProductPlan).toContain("Bun's default idle timeout")
-    expect(codexProductPlan).toContain("Frontend fallback polling must still surface terminal `completed`, `failed`, or `timeout` request states")
-    expect(codexProductPlan).toContain("Deck-version updates remain authoritative for preview refresh")
-    expect(codexProductPlan).toContain("OpenCode `client.session.prompt`")
+describe("Codex Browser deck annotation", () => {
+  it("removes the public revela-review skill and keeps review tools compatibility-only", () => {
+    expect(existsSync(codexReviewSkillPath)).toBe(false)
+    expect(codexCapabilityMatrix).toContain("| Deck annotation after make |")
+    expect(codexCapabilityMatrix).toContain("Codex Browser native annotation")
+    expect(codexCapabilityMatrix).toContain("no public `revela-review` Codex skill")
+    expect(codexProductPlan).toContain("Codex Browser is the default post-make surface")
+    expect(codexProductPlan).toContain("revela_review_deck_open` and `revela_review_deck_read` remain compatibility-only")
+    expect(codexProductPlan).not.toContain("Review UI Roadmap")
   })
 })
 

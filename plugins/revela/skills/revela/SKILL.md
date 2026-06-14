@@ -11,7 +11,7 @@ Use this skill as the main Revela entrypoint in Codex. It should inspect intent 
 
 - This is a non-mutating router.
 - It may inspect runtime, active design/domain, and workspace artifact status.
-- It must not write `spec.md`, save research findings, write `deck-plan.md`, generate deck HTML, open Review UI, or export artifacts.
+- It must not write `spec.md`, save research findings, write `deck-plan.md`, generate deck HTML, open deck browser views, or export artifacts.
 - Route quickly once the next workflow is clear.
 
 ## Required Tools
@@ -29,7 +29,7 @@ Use this skill as the main Revela entrypoint in Codex. It should inspect intent 
 - `spec.md` exists but source support, material review, or findings are missing: use `revela-research`.
 - `spec.md` and sufficient findings exist but `deck-plan.md` is missing or needs normal authoring: use `revela-research` Planning Handoff.
 - Valid `deck-plan.md` exists and the user asks to make, generate, render, or update a deck: use `revela-make-deck`.
-- Existing deck artifact and the user asks to review, diagnose, QA, or refine: use `revela-review`.
+- Existing deck artifact and the user asks to review, annotate, diagnose, QA, or refine: use Codex Browser's native browsing/annotation flow. If the deck was not just generated, recommend opening the existing `decks/*.html` artifact in Codex Browser and using native annotations; route export requests to `revela-export`.
 - Existing deck artifact and the user asks for PDF, PPTX, or PNG output: use `revela-export`.
 - If the next step is still ambiguous after inspection, ask the smallest missing question and recommend the safest next specialist skill.
 
@@ -47,5 +47,5 @@ Report:
 - Do not write or patch files.
 - Do not do external web research.
 - Do not create or repair `spec.md` or `deck-plan.md`.
-- Do not generate, review, patch, or export deck artifacts.
+- Do not generate, annotate, patch, or export deck artifacts.
 - Do not install or activate designs or domains; route those requests to `revela-design` or `revela-domain`.

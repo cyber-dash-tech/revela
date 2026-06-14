@@ -296,7 +296,7 @@ const tools = [
   },
   {
     name: "revela_review_deck_read",
-    description: "Read-only aggregate Review diagnostics for a Revela HTML deck: artifact QA, deck-plan diagnostics, and export/readiness signals.",
+    description: "Compatibility-only read of aggregate Review diagnostics for a Revela HTML deck: artifact QA, deck-plan diagnostics, and export/readiness signals.",
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       file: requiredStringProp("Workspace-relative or absolute HTML deck path."),
@@ -305,7 +305,7 @@ const tools = [
   },
   {
     name: "revela_review_deck_open",
-    description: "Open a local Codex-backed Review UI for a Revela HTML deck from the current MCP server process.",
+    description: "Compatibility-only opener for the legacy local Codex-backed Review UI for a Revela HTML deck.",
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       file: requiredStringProp("Workspace-relative or absolute HTML deck path."),

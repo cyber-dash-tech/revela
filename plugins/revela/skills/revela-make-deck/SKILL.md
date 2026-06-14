@@ -15,6 +15,7 @@ Use this skill when the user asks to make, generate, render, or update a Revela 
 - Active/requested design tools define valid layouts, slots, components, nesting hints, structure contracts, and HTML writing rules.
 - Active/requested domain guidance may inform communication framing, but it is not source evidence.
 - Generated artifacts live under `decks/*.html`.
+- After final Artifact QA passes, the generated HTML deck should be opened in Codex Browser for native browsing and annotation.
 - Do not require a Narrative Vault before generating a deck.
 - This skill does not own normal plan authoring; `revela-research` owns source preparation and `deck-plan.md` planning handoff.
 - `deck-plan.md` is required for normal deck generation.
@@ -82,12 +83,15 @@ Use this phase when the user asks to make, generate, render, or update an HTML d
 9. Preserve positive 1-based `data-slide-index` values.
 10. Every slide must have exactly one direct `.slide-canvas` child.
 11. Keep the HTML valid after each write.
-12. After every HTML write, call `revela_run_deck_qa` and repair hard errors before continuing, review, or export.
+12. After every HTML write, call `revela_run_deck_qa` and repair hard errors before continuing or export.
+13. After the final `revela_run_deck_qa` passes with zero hard errors, open the generated `decks/*.html` in Codex Browser.
+14. Prefer a local `http://127.0.0.1:<port>/decks/<file>.html` URL served from the workspace root when Browser cannot safely open `file://` URLs. Keep the server read-only and report the exact URL.
 
 ## Outputs
 
 - `decks/*.html`.
 - Artifact QA status.
+- Codex Browser URL/open status for the QA-passed HTML deck.
 - Unresolved render/design issues and any plan diagnostics that require `revela-research` Planning Handoff.
 
 ## Must Not
