@@ -29,7 +29,7 @@ Use this skill as the main Revela entrypoint in Codex. It should inspect intent 
 - `spec.md` exists but source support, material review, or findings are missing: use `revela-research`.
 - `spec.md` and sufficient findings exist but `deck-plan.md` is missing or needs normal authoring: use `revela-research` Planning Handoff.
 - Valid `deck-plan.md` exists and the user asks to make, generate, render, or update a deck: use `revela-make-deck`.
-- Existing deck artifact and the user asks to review, annotate, diagnose, QA, or refine: use Codex Browser's native browsing/annotation flow. If the deck was not just generated, recommend opening the existing `decks/*.html` artifact in Codex Browser and using native annotations; route export requests to `revela-export`.
+- Existing deck artifact and the user asks to review, annotate, diagnose, QA, or refine: use Codex Browser's native browsing/annotation flow. If the deck was not just generated, reply with the existing deck as a website card/link and use native annotations after it opens; route export requests to `revela-export`.
 - Existing deck artifact and the user asks for PDF, PPTX, or PNG output: use `revela-export`.
 - If the next step is still ambiguous after inspection, ask the smallest missing question and recommend the safest next specialist skill.
 

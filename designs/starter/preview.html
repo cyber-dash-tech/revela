@@ -52,6 +52,11 @@
     .editorial-list { list-style: none; display: flex; flex-direction: column; gap: 14px; }
     .editorial-list li { position: relative; padding-left: 20px; font-size: var(--font-size-body); line-height: 1.58; color: var(--text-secondary); }
     .editorial-list li::before { content: ''; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; background: var(--accent-primary); }
+    .editorial-list li.editorial-list__red { color: var(--accent-danger); }
+    .editorial-list li.editorial-list__red::before { background: var(--accent-danger); }
+    .editorial-list li.editorial-list__wide { width: 1200px; min-height: 36px; line-height: 36px; }
+    .editorial-list li.editorial-list__green { color: #16a34a; }
+    .editorial-list li.editorial-list__green::before { background: #16a34a; }
     .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1), transform 0.55s cubic-bezier(0.22, 1, 0.36, 1); }
     .reveal.visible { opacity: 1; transform: translateY(0); }
 
@@ -238,12 +243,12 @@
       <div class="page" style="padding:0;">
         <div class="narrative-grid">
           <div class="text-panel text-panel--light reveal" data-preview-component="text-panel">
-            <div class="text-panel-body"><p class="eyebrow">Visual schema first</p><h2>Preserve composition before changing style</h2><ul class="editorial-list"><li><strong>Reference type.</strong> Identify whether the source is vector, photo, UI, page, or motif.</li><li><strong>Scale and anchor.</strong> Keep a bottom strip low, a corner motif small, and a hero visual dominant only when requested.</li><li><strong>Implementation path.</strong> Use SVG for flat motifs; use image/surface rules for photo and UI references.</li></ul></div>
+            <div class="text-panel-body"><p class="eyebrow">Visual schema first</p><h2>Preserve composition before changing style</h2><ul class="editorial-list"><li class="editorial-list__red"><strong>Reference type.</strong> Identify whether the source is vector, photo, UI, page, or motif.</li><li class="editorial-list__wide"><strong>Scale and anchor.</strong> Keep a bottom strip low, a corner motif small, and a hero visual dominant only when requested.</li><li class="editorial-list__green"><strong>Implementation path.</strong> Use SVG for flat motifs; use image/surface rules for photo and UI references.</li></ul></div>
             <div class="text-panel-footer"><span class="caption">Authoring constraint</span><span class="caption">03</span></div>
           </div>
           <div class="text-panel text-panel--dark reveal">
             <div class="text-panel-body"><p class="eyebrow">CSS scope</p><h3>Stable containers, replaceable skins</h3><p>Derived designs should modify tokens, type, component surfaces, and motif components before rewriting layout CSS.</p></div>
-            <div class="stat-card" data-preview-component="stat-card"><div class="stat-card-value">6</div><p>Baseline layouts remain available as neutral structure.</p></div>
+            <div class="stat-card" data-preview-component="stat-card"><div class="stat-card-value">67</div><p>Baseline layouts remain available as neutral structure.</p></div>
           </div>
         </div>
       </div>

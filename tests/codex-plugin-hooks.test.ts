@@ -4,7 +4,7 @@ import { join } from "path"
 import { designRead } from "../lib/runtime"
 import { extractDeckHtmlPatchTargets, extractNarrativeCachePatchTargets, runPreWriteChecks } from "../plugins/revela/hooks/revela_guard"
 import { commandFromInput, runMaterialReadNotice } from "../plugins/revela/hooks/revela_material_notice"
-import { extractDeckHtmlTargets, formatDeckBrowserHandoffNotice, runPostWriteChecks, workspaceRootFromInput } from "../plugins/revela/hooks/revela_post_write_notice"
+import { extractDeckHtmlTargets, formatDeckWebsiteCardHandoffNotice, runPostWriteChecks, workspaceRootFromInput } from "../plugins/revela/hooks/revela_post_write_notice"
 import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("Codex plugin hooks", () => {
@@ -16,6 +16,16 @@ describe("Codex plugin hooks", () => {
 *** End Patch`)
 
     expect(targets).toEqual(["decks/demo.html"])
+  })
+
+  it("ignores deck paths mentioned outside apply_patch file headers", () => {
+    const targets = extractDeckHtmlTargets(`*** Begin Patch
+*** Update File: notes/readme.md
+@@
++Mention decks/demo.html in prose.
+*** End Patch`)
+
+    expect(targets).toEqual([])
   })
 
   it("extracts deck HTML targets only from patch file headers for pre-write checks", () => {
@@ -41,27 +51,36 @@ describe("Codex plugin hooks", () => {
 
       expect(result.ok).toBe(true)
       expect(result.messages.join("\n")).toContain("Artifact QA: PASSED")
-      expect(result.messages.join("\n")).toContain("Open deck in Codex Browser")
-      expect(result.messages.join("\n")).toContain("http://127.0.0.1:<port>/decks/demo.html")
+      expect(result.messages.join("\n")).toContain("Deck website card ready")
+      expect(result.messages.join("\n")).toContain("Open in Browser website card")
+      expect(result.messages.join("\n")).toContain(`file://${root}/decks/demo.html`)
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
   }, 10000)
 
-  it("formats a Codex Browser handoff notice for QA-passed deck patches", () => {
-    const notice = formatDeckBrowserHandoffNotice("decks/demo.html")
+  it("formats a website card handoff notice for QA-passed deck patches", () => {
+    const root = workspace()
+    try {
+      writeDeck(root, validDeckHtml())
+      const notice = formatDeckWebsiteCardHandoffNotice(root, "decks/demo.html")
 
-    expect(notice).toContain("Artifact QA passed")
-    expect(notice).toContain("Open this deck in Codex Browser now")
-    expect(notice).toContain("Codex Browser automation may reject direct `file://` deck URLs")
-    expect(notice).toContain("http://127.0.0.1:<port>/decks/demo.html")
+      expect(notice).toContain("Artifact QA passed")
+      expect(notice).toContain("standalone deck link")
+      expect(notice).toContain("Open in Browser website card")
+      expect(notice).toContain("[Demo](file://")
+      expect(notice).toContain("/decks/demo.html")
+      expect(notice).toContain("http://127.0.0.1:<port>/decks/demo.html")
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 
   it("fails when a touched deck has no direct slide-canvas", async () => {
     const root = workspace()
     try {
       writeDeck(root, `
-        <html><head><style>
+        <html><head><title>Demo</title><style>
           body { margin: 0; }
           .slide { width: 1920px; height: 1080px; }
         </style></head><body>
@@ -74,7 +93,7 @@ describe("Codex plugin hooks", () => {
       expect(result.ok).toBe(false)
       expect(result.messages.join("\n")).toContain("missing_slide_canvas")
       expect(result.messages.join("\n")).toContain("**Artifact QA failed**")
-      expect(result.messages.join("\n")).not.toContain("Open deck in Codex Browser")
+      expect(result.messages.join("\n")).not.toContain("Deck website card ready")
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
@@ -269,7 +288,7 @@ function hookPayload(root: string, file: string): string {
 
 function validDeckHtml(): string {
   return `
-    <html><head><style>
+    <html><head><title>Demo</title><style>
       body { margin: 0; }
       .slide { min-height: 100dvh; display: flex; align-items: center; justify-content: center; }
       .slide-canvas { width: 1920px; height: 1080px; }

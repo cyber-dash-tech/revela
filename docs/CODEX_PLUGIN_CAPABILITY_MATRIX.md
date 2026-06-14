@@ -8,7 +8,7 @@
 | Init workspace | `/revela init`, OpenCode tools | Folded into `revela-research`: local material prepare/extract/review/intake before findings | MVP |
 | Research workflow | `/revela research`, research-save tool | `revela-research` skill reads `spec.md` when present + active domain read + `revela_research_save`; for deck goals, Planning Handoff reads active design inventory and writes validated `deck-plan.md` | Tool-backed MVP |
 | Deck planning | `/revela plan --deck`, deck-plan prompt | Folded into `revela-research` Planning Handoff: `deck-plan.md` is written after `revela_design_list`, `revela_design_read`, and `revela_design_inventory`; `revela_read_deck_plan` provides QA/diagnostics | MVP |
-| Make deck | `/revela make --deck`, deck-render prompt | `revela-make-deck` Render phase requires existing `deck-plan.md`, reads `htmlWritingBatches`, creates foundation, performs layout/component design reads, runs artifact QA, and opens the QA-passed deck in Codex Browser for native annotation | MVP |
+| Make deck | `/revela make --deck`, deck-render prompt | `revela-make-deck` Render phase requires existing `deck-plan.md`, reads `htmlWritingBatches`, creates foundation, performs layout/component design reads, runs artifact QA, and surfaces the QA-passed deck as a Codex Browser website card for native annotation | MVP |
 | Deck foundation | `revela-deck-foundation` OpenCode tool | `revela_create_deck_foundation` MCP tool | MVP |
 | Artifact QA | post-write hook and `revela-qa` tool | `revela_run_deck_qa` MCP tool + hook reminders | MVP |
 | PDF export | `/revela export --deck pdf`, `revela-pdf` tool | `revela_export_pdf` MCP tool | MVP |

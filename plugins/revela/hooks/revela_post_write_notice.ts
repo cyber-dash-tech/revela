@@ -1,4 +1,5 @@
-import { dirname, resolve } from "path"
+import { basename, dirname, resolve } from "path"
+import { existsSync, readFileSync } from "fs"
 import { fileURLToPath, pathToFileURL } from "url"
 import { resolveRevelaRuntime } from "../mcp/runtime-resolver"
 
@@ -9,15 +10,13 @@ interface HookResult {
 
 export function extractDeckHtmlTargets(input: string): string[] {
   const targets = new Set<string>()
-  const patterns = [
-    /\bdecks\/[^\s"'`<>]+\.html\b/g,
-    /(?:^\*\*\* Update File: |^\*\*\* Add File: )([^\r\n]+decks\/[^\r\n]+\.html)\s*$/gm,
-  ]
+  const pattern = /(?:^\*\*\* Update File: |^\*\*\* Add File: )((?:[^\r\n]*\/)?decks\/[^\s"'`<>*?\r\n]+\.html)\s*$/gm
 
-  for (const pattern of patterns) {
+  for (const patch of patchPayloadsFromInput(input)) {
     let match: RegExpExecArray | null
-    while ((match = pattern.exec(input))) {
-      targets.add((match[1] ?? match[0]).trim())
+    while ((match = pattern.exec(patch))) {
+      const target = match[1].trim()
+      if (!target.includes("*") && !target.includes("?")) targets.add(target)
     }
   }
 
@@ -59,15 +58,29 @@ export function workspaceRootFromInput(input: string): string {
   return resolve(process.env.CODEX_WORKSPACE_ROOT || process.env.PWD || process.cwd())
 }
 
-export function formatDeckBrowserHandoffNotice(target: string): string {
+function titleFromDeckHtml(absolutePath: string): string {
+  try {
+    if (!existsSync(absolutePath)) return basename(absolutePath)
+    const html = readFileSync(absolutePath, "utf-8")
+    const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim()
+    return title || basename(absolutePath)
+  } catch {
+    return basename(absolutePath)
+  }
+}
+
+export function formatDeckWebsiteCardHandoffNotice(workspaceRoot: string, target: string): string {
+  const absolutePath = resolve(workspaceRoot, target)
+  const deckUrl = pathToFileURL(absolutePath).href
+  const title = titleFromDeckHtml(absolutePath)
   return [
-    "**Open deck in Codex Browser**",
+    "**Deck website card ready**",
     "",
-    `Artifact QA passed for \`${target}\`. Open this deck in Codex Browser now for native annotation.`,
+    `Artifact QA passed for \`${target}\`. Reply with this standalone deck link so Codex renders an Open in Browser website card:`,
     "",
-    "Codex Browser automation may reject direct `file://` deck URLs. If direct file navigation is unavailable, start a read-only local static server from the workspace root and open:",
+    `[${title}](${deckUrl})`,
     "",
-    `\`http://127.0.0.1:<port>/${target}\``,
+    `If the card or direct \`file://\` navigation is unavailable, start a read-only local static server from the workspace root and link to \`http://127.0.0.1:<port>/${target}\` instead.`,
   ].join("\n")
 }
 
@@ -109,12 +122,13 @@ export async function runPostWriteChecks(input: string): Promise<HookResult> {
   }
 
   for (const target of deckTargets) {
+    if (!existsSync(resolve(workspaceRoot, target))) continue
     const result = await runtimeModule.runDeckQa({ workspaceRoot, file: target })
     messages.push(result.markdown ?? JSON.stringify(result, null, 2))
     const notice = runtimeModule.formatArtifactQaUserNotice?.(result.report)
     if (notice) messages.push(notice)
     if (result.ok) {
-      messages.push(formatDeckBrowserHandoffNotice(target))
+      messages.push(formatDeckWebsiteCardHandoffNotice(workspaceRoot, target))
     } else {
       ok = false
     }

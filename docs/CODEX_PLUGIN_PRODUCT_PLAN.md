@@ -121,7 +121,7 @@ The first Codex smoke run proved the file-native workflow can complete through t
 
 ## Codex Browser Handoff
 
-Codex Browser is the default post-make surface. After `revela-make-deck` produces `decks/*.html` and Artifact QA passes, Codex should open the generated deck in Browser and use native annotations for review/refinement. Prefer a workspace-local `http://127.0.0.1:<port>/decks/<file>.html` URL when Browser cannot safely open `file://` URLs. Legacy Review UI runtime and MCP tools remain compatibility-only and are not advertised as a Codex workflow skill.
+Codex Browser is the default post-make surface. After `revela-make-deck` produces an HTML deck artifact and Artifact QA passes, Codex should reply with a standalone `file://` website link so the client renders an Open in Browser card for native annotation. Use a workspace-local `http://127.0.0.1:<port>/decks/<file>.html` link only when the card or direct file navigation is unavailable. Legacy Review UI runtime and MCP tools remain compatibility-only and are not advertised as a Codex workflow skill.
 
 ## Non-Goals
 

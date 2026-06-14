@@ -87,10 +87,10 @@ Use Revela Story to show the current claim flow, evidence support, caveats, unsu
 Use Revela to create or update the deck plan before generating HTML. Read the current narrative, inspect any existing deck-plan/, define the slide order, chapter structure, evidence trace, caveats, and visual intent, then report the plan diagnostics.
 ```
 
-7. Make an HTML deck from the deck plan, repair hard QA errors, and open it in Codex Browser.
+7. Make an HTML deck from the deck plan, repair hard QA errors, and reply with a website card that opens it in Codex Browser.
 
 ```text
-Use Revela to make a deck from the current deck plan and narrative. Generate an HTML deck under decks/, run deck QA, repair hard QA errors, and open the QA-passed deck in Codex Browser.
+Use Revela to make a deck from the current deck plan and narrative. Generate an HTML deck under decks/, run deck QA, repair hard QA errors, and reply with a website card for the QA-passed deck.
 ```
 
 8. Annotate the generated deck in Codex Browser.
@@ -123,7 +123,7 @@ During the smoke, confirm Codex uses the corresponding MCP tools: `revela_doctor
 - Design list/read/author/install/activate tools are discoverable, and active design guidance is read before selecting layouts/components.
 - Artifact QA passes with `hardErrorCount: 0`.
 - Story reading returns a deterministic map or Markdown view from `revela-narrative/`.
-- The QA-passed HTML deck opens in Codex Browser for native annotation.
+- The QA-passed HTML deck is surfaced as a website card that opens in Codex Browser for native annotation.
 - Compatibility-only Review deck reading can still return artifact QA and deck-plan/narrative diagnostics when diagnostics are explicitly requested.
 
 ## Known Smoke Notes

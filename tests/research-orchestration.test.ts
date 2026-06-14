@@ -214,7 +214,7 @@ describe("Codex revela-helper skill", () => {
     expect(codexHelperSkill).toContain("`spec.md` exists but no `researches/`: run `revela-research`")
     expect(codexHelperSkill).toContain("Research exists but no `deck-plan.md`: continue `revela-research` to the Planning Handoff")
     expect(codexHelperSkill).toContain("Valid `deck-plan.md` but no deck artifact: run `revela-make-deck`")
-    expect(codexHelperSkill).toContain("Existing deck artifact: open the HTML deck in Codex Browser")
+    expect(codexHelperSkill).toContain("Existing deck artifact: surface the HTML deck as a website card/link")
     expect(codexHelperSkill).toContain("Custom visual system requested: use `revela-design`")
     expect(codexHelperSkill).toContain("Custom narrative domain guidance requested: use `revela-domain`")
     expect(codexHelperSkill).toContain("Do not create, install, or activate designs or domains")
@@ -388,7 +388,7 @@ describe("Codex revela-make-deck skill", () => {
     expect(codexMakeDeckSkill).toContain("design inventory")
     expect(codexMakeDeckSkill).toContain("Do not write a new `deck-plan.md` when it is missing")
     expect(codexMakeDeckSkill).toContain("`decks/*.html`")
-    expect(codexMakeDeckSkill).toContain("After the final `revela_run_deck_qa` passes with zero hard errors, open the generated `decks/*.html` in Codex Browser")
+    expect(codexMakeDeckSkill).toContain("After the final `revela_run_deck_qa` passes with zero hard errors, reply with a standalone Markdown link")
     expect(codexMakeDeckSkill).toContain("http://127.0.0.1:<port>/decks/<file>.html")
 
     expect(codexMakeDeckSkill.indexOf("revela_design_inventory")).toBeLessThan(codexMakeDeckSkill.indexOf("revela_read_deck_plan"))
