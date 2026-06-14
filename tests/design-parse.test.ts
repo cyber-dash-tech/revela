@@ -9,6 +9,7 @@ import {
   extractDesignClasses,
   DEFAULT_PREFIX_EXEMPTIONS,
   getDesignInventory,
+  extractDesignComponentContracts,
 } from "../lib/design/designs"
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -393,7 +394,7 @@ describe("generateComponentIndex", () => {
   it("generates a table with Component Index heading", () => {
     const result = generateComponentIndex({ card: "#### Card (.card)\nSome description" })
     expect(result).toContain("### Component Index")
-    expect(result).toContain("| Component | Description |")
+    expect(result).toContain("| Component | Contract | Description |")
   })
 
   it("strips markdown heading markers from first line description", () => {
@@ -449,6 +450,25 @@ describe("generateComponentIndex", () => {
     const result = generateComponentIndex({ x: "#### X" })
     expect(result).toContain("revela_design_read_component")
     expect(result).toContain("component")
+  })
+
+  it("marks structured timeline components with a contract indicator", () => {
+    const result = generateComponentIndex({
+      "roadmap-vertical": "#### Roadmap Vertical\n.tjv-axis .tjv-item .tjv-axis-dot .tjv-stem .tjv-tip-dot .tjv-label",
+      box: "#### Box\nPlain container",
+    })
+
+    expect(result).toContain("| `roadmap-vertical` | ✓ |")
+    expect(result).toContain("| `box` | — |")
+  })
+
+  it("exposes structure contracts in design inventory", () => {
+    const inventory = getDesignInventory("summit")
+    const vertical = inventory.components.find((component) => component.name === "roadmap-vertical")
+    const contracts = extractDesignComponentContracts("summit")
+
+    expect(vertical?.contract?.variants[0].requiredItemClasses).toEqual(["tjv-axis-dot", "tjv-stem", "tjv-tip-dot", "tjv-label"])
+    expect(contracts.map((contract) => contract.component)).toContain("roadmap-vertical")
   })
 
   it("keeps Monet aligned to the standard render component vocabulary", () => {

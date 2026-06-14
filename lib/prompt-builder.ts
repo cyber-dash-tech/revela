@@ -190,6 +190,10 @@ function buildDesignLayer(designName: string): string {
   const componentIndex = generateComponentIndex(components)
   if (componentIndex) {
     layerParts.push(componentIndex)
+    layerParts.push([
+      "Components marked `✓` in the Contract column have required internal structure.",
+      "Fetch the component details before using them and preserve the required DOM/classes instead of hand-rolling a simpler lookalike.",
+    ].join(" "))
   }
 
   // 5. On-demand note

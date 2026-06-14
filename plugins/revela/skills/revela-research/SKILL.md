@@ -49,6 +49,7 @@ Use this skill when the user asks to start from a goal, inspect local materials,
     - Call `revela_design_list`.
     - Call `revela_design_read` with `section: "rules"` for the active/requested design.
     - Call `revela_design_inventory`.
+    - When a chosen component has a `contract` field, preserve that contract in the visual brief/render notes so Make Deck renders the required internal structure instead of a simplified lookalike.
     - Write `deck-plan.md` directly from reviewed materials, saved findings, assets, user intent, active domain framing, and active design vocabulary.
     - Call `revela_read_deck_plan` after writing `deck-plan.md`.
     - If diagnostics report `sourceLinks`, layout, slot, component, or `children` issues, patch `deck-plan.md` directly and call `revela_read_deck_plan` again.

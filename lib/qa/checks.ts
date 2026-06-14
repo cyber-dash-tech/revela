@@ -30,7 +30,7 @@ export interface LayoutIssue {
       | "centroid_offset" | "bottom_gap" | "sparse"
       | "height_mismatch" | "density_mismatch"
       | "gap_variance"
-      | "unknown_class" | "novel_css_rule"
+      | "unknown_class" | "novel_css_rule" | "component_contract"
       | "remote_url" | "refine_proxy" | "missing_file"
   severity: IssueSeverity
   /** Human-readable description for the LLM to act on */

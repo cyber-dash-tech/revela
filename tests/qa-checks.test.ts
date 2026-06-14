@@ -3,10 +3,11 @@ import { writeFileSync } from "fs"
 import { join } from "path"
 import { runChecks, formatReport } from "../lib/qa/checks"
 import { runComplianceQA } from "../lib/qa/compliance"
+import { runComponentContractQA } from "../lib/qa/component-contracts"
 import { shouldRunArtifactCompliance } from "../lib/qa/artifact"
 import { CANVAS_W, CANVAS_H } from "../lib/qa/measure"
 import type { SlideMetrics, ElementInfo, Rect, ScrollbarMetrics, SlideNavigationMetrics } from "../lib/qa/measure"
-import type { DesignClassVocabulary } from "../lib/design/designs"
+import type { DesignClassVocabulary, DesignComponentContract } from "../lib/design/designs"
 import { tempWorkspace } from "./helpers/tool-helpers"
 
 function makeRect(left: number, top: number, right: number, bottom: number): Rect {
@@ -111,6 +112,20 @@ function htmlFile(html: string): string {
 const vocabulary: DesignClassVocabulary = {
   classes: new Set(["slide", "slide-canvas", "title", "card", "known-rule"]),
   prefixExemptions: ["lucide-", "echarts-"],
+}
+
+const verticalTimelineContract: DesignComponentContract = {
+  component: "roadmap-vertical",
+  kind: "structure",
+  requiredRootClasses: ["roadmap-vertical"],
+  variants: [{
+    name: "timeline-journey-vertical",
+    requiredDescendantClasses: ["tjv-axis"],
+    repeatedItemClass: "tjv-item",
+    requiredItemClasses: ["tjv-axis-dot", "tjv-stem", "tjv-tip-dot", "tjv-label"],
+    requireAlternatingClasses: ["tjv-item--left", "tjv-item--right"],
+  }],
+  guidance: "Use the full vertical timeline structure.",
 }
 
 describe("overflow", () => {
@@ -384,6 +399,54 @@ describe("static compliance", () => {
     expect(report.totalIssues).toBeGreaterThan(0)
     expect(report.slides[0].issues.some((i) => i.data?.class === "editable-hover")).toBe(true)
     expect(report.slides[0].issues.some((i) => i.data?.class === "editable-label")).toBe(true)
+  })
+})
+
+describe("component structure contracts", () => {
+  it("flags roadmap-vertical that lacks timeline stem and tip structure", () => {
+    const file = htmlFile(`
+      <html><body>
+        <section class="slide"><div class="slide-canvas">
+          <div class="roadmap-vertical" data-preview-component="roadmap-vertical">
+            <div class="tjv-axis"></div>
+            <div class="vertical-node vertical-node--left">Research</div>
+            <div class="vertical-node vertical-node--right">Plan</div>
+          </div>
+        </div></section>
+      </body></html>
+    `)
+
+    const report = runComponentContractQA(file, [verticalTimelineContract])
+    const issue = report.slides[0].issues.find((i) => i.sub === "component_contract")
+
+    expect(issue?.severity).toBe("error")
+    expect(issue?.detail).toContain("roadmap-vertical")
+    expect(issue?.data?.variants).toContain("tjv-stem")
+    expect(issue?.data?.variants).toContain("tjv-tip-dot")
+  })
+
+  it("passes roadmap-vertical with axis, stems, tip dots, labels, and alternating items", () => {
+    const file = htmlFile(`
+      <html><body>
+        <section class="slide"><div class="slide-canvas">
+          <div class="roadmap-vertical timeline-journey-vertical" data-preview-component="roadmap-vertical">
+            <div class="tjv-axis"></div>
+            <div class="tjv-item tjv-item--left" style="top:20%;">
+              <div class="tjv-axis-dot"></div><div class="tjv-stem"></div><div class="tjv-tip-dot"></div>
+              <div class="tjv-label"><span>Research</span></div>
+            </div>
+            <div class="tjv-item tjv-item--right" style="top:60%;">
+              <div class="tjv-axis-dot"></div><div class="tjv-stem"></div><div class="tjv-tip-dot"></div>
+              <div class="tjv-label"><span>Plan</span></div>
+            </div>
+          </div>
+        </div></section>
+      </body></html>
+    `)
+
+    const report = runComponentContractQA(file, [verticalTimelineContract])
+
+    expect(report.totalIssues).toBe(0)
   })
 })
 

@@ -1,7 +1,9 @@
 import { formatDeckHtmlContractReport, validateDeckHtmlContract } from "../deck-html/contract"
-import type { DesignClassVocabulary } from "../design/designs"
+import { activeDesign, extractDesignComponentContracts } from "../design/designs"
+import type { DesignClassVocabulary, DesignComponentContract } from "../design/designs"
 import { formatReport, runQA } from "./index"
 import { runComplianceQA } from "./compliance"
+import { runComponentContractQA } from "./component-contracts"
 import type { QAReport } from "./checks"
 import { basename, dirname } from "path"
 
@@ -25,6 +27,7 @@ export async function runArtifactQA(input: {
   workspaceRoot: string
   filePath: string
   vocabulary?: DesignClassVocabulary
+  componentContracts?: DesignComponentContract[]
 }): Promise<ArtifactQAReport> {
   const sections: string[] = []
   let hardErrorCount = 0
@@ -50,6 +53,17 @@ export async function runArtifactQA(input: {
     }
   }
 
+  const componentContracts = input.componentContracts ?? componentContractsForArtifact(input.filePath)
+  if (componentContracts.length > 0) {
+    const componentContractReport = runComponentContractQA(input.filePath, componentContracts)
+    const contractErrors = hardErrors(componentContractReport)
+    if (componentContractReport.totalIssues > 0) {
+      hardErrorCount += contractErrors
+      warningCount += warnings(componentContractReport)
+      sections.push("**[component structure contracts]**\n\n" + formatReport(componentContractReport))
+    }
+  }
+
   try {
     const browser = await runQA(input.filePath)
     const browserErrors = hardErrors(browser)
@@ -72,6 +86,15 @@ export async function runArtifactQA(input: {
   }
 }
 
+function componentContractsForArtifact(filePath: string): DesignComponentContract[] {
+  const designName = designNameFromPreviewPath(filePath)
+  try {
+    return extractDesignComponentContracts(designName || activeDesign())
+  } catch {
+    return []
+  }
+}
+
 export function shouldRunArtifactCompliance(filePath: string): boolean {
   return !isDesignPreviewFile(filePath)
 }
@@ -81,6 +104,14 @@ function isDesignPreviewFile(filePath: string): boolean {
   if (basename(normalizedPath) !== "preview.html") return false
   const parts = dirname(normalizedPath).split("/")
   return parts.length >= 2 && parts[parts.length - 2] === "designs"
+}
+
+function designNameFromPreviewPath(filePath: string): string | undefined {
+  const normalizedPath = filePath.replace(/\\/g, "/")
+  if (basename(normalizedPath) !== "preview.html") return undefined
+  const parts = dirname(normalizedPath).split("/")
+  if (parts.length >= 2 && parts[parts.length - 2] === "designs") return parts[parts.length - 1]
+  return undefined
 }
 
 export function formatArtifactQAReport(report: ArtifactQAReport): string {

@@ -12,7 +12,7 @@ Use this skill when the user asks to make, generate, render, or update a Revela 
 - Deck execution planning comes from canonical `deck-plan.md`.
 - Local materials, material reviews, `researches/`, `assets/`, and user intent provide source context.
 - Slide argument copy comes from `deck-plan.md` `Claim`, `Reasoning`, and `Audience takeaway` fields when present; raw findings are evidence/source context, not default body copy.
-- Active/requested design tools define valid layouts, slots, components, nesting hints, and HTML writing rules.
+- Active/requested design tools define valid layouts, slots, components, nesting hints, structure contracts, and HTML writing rules.
 - Active/requested domain guidance may inform communication framing, but it is not source evidence.
 - Generated artifacts live under `decks/*.html`.
 - Do not require a Narrative Vault before generating a deck.
@@ -42,13 +42,14 @@ Before render preflight:
 1. Call `revela_design_list`.
 2. Call `revela_design_read` with `section: "rules"` for the active/requested design.
 3. Call `revela_design_inventory`.
+4. Review each component's `contract` field. Components with structure contracts must be planned from structured content and rendered with the required internal DOM/classes, not simplified freehand markup.
 
 Before HTML writing:
 
 1. Call `revela_read_deck_plan`.
 2. Read the returned `htmlWritingBatches`.
 3. Call `revela_design_read_layout` for each layout used in the current batch.
-4. Call `revela_design_read_component` for each component used in the current batch.
+4. Call `revela_design_read_component` for each component used in the current batch. For contract components, treat the returned CSS/HTML as executable grammar and preserve the required root, descendant, item, and alternating classes.
 5. Fetch chart rules before creating or modifying ECharts.
 
 ## Plan Preflight And Repair
@@ -96,6 +97,7 @@ Use this phase when the user asks to make, generate, render, or update an HTML d
 - Do not write a new `deck-plan.md` when it is missing.
 - Do not use design inventory names, slots, or components that were not returned by the active/requested design tools.
 - Do not use a slot that does not belong to the selected layout.
+- Do not hand-roll simplified internal DOM for contract components such as timelines. If the required structure cannot be satisfied, choose a simpler valid component or stop with the contract issue.
 - Do not patch more than 5 slide sections in one HTML write.
 - Do not invent source links, quotes, URLs, page references, caveats, or licenses.
 - Do not write remote image candidates directly into deck HTML; save them as workspace assets first.

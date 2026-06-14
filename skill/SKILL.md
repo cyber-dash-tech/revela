@@ -143,6 +143,9 @@ Rules for the slide plan:
 - Use exact layout names from the Layout Index and exact component names from
   the Component Index. Use only slots returned by the selected layout inventory.
   Do not invent layout, slot, or component names.
+- Components marked in the Component Index Contract column have mandatory
+  internal structure. Preserve their required DOM/classes in render notes and
+  HTML generation; do not describe them as generic visual ideas.
 - Use `box.children` when several child components support one semantic idea.
   Do not duplicate a child component both inside `box.children` and as a
   separate top-level component plan entry.
@@ -217,8 +220,11 @@ Before writing or materially changing HTML:
    layout names, comma-separated.
 5. Call `revela-designs` with `action: "read"` and `component` set to all
    required component names, comma-separated.
-6. Fetch `section: "chart-rules"` before using ECharts.
-7. Do not update legacy `requiredInputs`; design fetching is an execution step,
+6. For any component with a Contract marker, copy the fetched component
+   structure closely and keep its required root, descendant, item, and
+   alternating classes.
+7. Fetch `section: "chart-rules"` before using ECharts.
+8. Do not update legacy `requiredInputs`; design fetching is an execution step,
    not a workflow permission gate.
 
 Never generate HTML from memory or prior knowledge of a design. Copy the fetched
@@ -279,6 +285,9 @@ The active design defines a closed vocabulary of layouts and components.
 
 - Every slide must use exactly one layout class from the Layout Index.
 - Every content block must use component classes from the Component Index.
+- Contract components must satisfy their fetched structure contract. Do not
+  replace a timeline, roadmap, chart frame, or other structured component with
+  a visual approximation that only resembles it.
 - Do not invent layout classes, component names, CSS variables, custom grids, or
   custom visual effects.
 - Do not define new class rules in the deck `<style>` block unless the fetched

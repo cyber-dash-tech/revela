@@ -788,6 +788,23 @@ export interface DesignInventoryComponent {
     acceptsChildren: boolean
     allowedChildren?: string[]
   }
+  contract?: DesignComponentContract
+}
+
+export interface DesignComponentContractVariant {
+  name: string
+  requiredDescendantClasses: string[]
+  repeatedItemClass?: string
+  requiredItemClasses?: string[]
+  requireAlternatingClasses?: string[]
+}
+
+export interface DesignComponentContract {
+  component: string
+  kind: "structure"
+  requiredRootClasses: string[]
+  variants: DesignComponentContractVariant[]
+  guidance: string
 }
 
 export interface DesignInventory {
@@ -862,17 +879,19 @@ export function generateComponentIndex(components: Record<string, string>): stri
     const desc = firstLine
       ? firstLine.replace(/^#+\s*/, "").replace(/\(.*?\)/, "").trim()
       : ""
-    return `| \`${name}\` | ${desc} |`
+    const contract = inferComponentContract(name, body)
+    const contractLabel = contract ? "✓" : "—"
+    return `| \`${name}\` | ${contractLabel} | ${desc} |`
   })
 
   return [
     "### Component Index",
     "",
-    "| Component | Description |",
-    "|---|---|",
+    "| Component | Contract | Description |",
+    "|---|---|---|",
     ...rows,
     "",
-    "_Use `revela_design_read_component` with `component: \"<name>\"` to get full CSS/HTML for any component._",
+    "_Use `revela_design_read_component` with `component: \"<name>\"` to get full CSS/HTML and any structure contract for a component._",
   ].join("\n")
 }
 
@@ -932,10 +951,47 @@ export function getDesignInventory(designName?: string): DesignInventory {
       name: componentName,
       description: designBlockDescription(content),
       nesting: inferComponentNesting(componentName),
+      contract: inferComponentContract(componentName, content),
     })),
     assets: listDesignAssetsInDir(designDir),
     hasMarkers,
   }
+}
+
+export function extractDesignComponentContracts(designName?: string): DesignComponentContract[] {
+  const name = normalizeDesignName(designName || activeDesign())
+  const designDir = resolveDesignDir(name)
+  if (!designDir) return []
+  const mdPath = join(designDir, "DESIGN.md")
+  const text = readFileSync(mdPath, "utf-8")
+  const { body } = parseFrontmatter(text)
+  const { components, hasMarkers } = parseDesignSections(body)
+  if (!hasMarkers) return []
+  return Object.entries(components)
+    .map(([componentName, content]) => inferComponentContract(componentName, content))
+    .filter((contract): contract is DesignComponentContract => Boolean(contract))
+}
+
+function inferComponentContract(name: string, content: string): DesignComponentContract | undefined {
+  const mentions = (value: string) => content.includes(value)
+
+  if (name === "roadmap-vertical" && ["tjv-axis", "tjv-item", "tjv-axis-dot", "tjv-stem", "tjv-tip-dot", "tjv-label"].every(mentions)) {
+    return {
+      component: name,
+      kind: "structure",
+      requiredRootClasses: ["roadmap-vertical"],
+      variants: [{
+        name: "timeline-journey-vertical",
+        requiredDescendantClasses: ["tjv-axis"],
+        repeatedItemClass: "tjv-item",
+        requiredItemClasses: ["tjv-axis-dot", "tjv-stem", "tjv-tip-dot", "tjv-label"],
+        requireAlternatingClasses: ["tjv-item--left", "tjv-item--right"],
+      }],
+      guidance: "Use structured milestone props/content to render axis-dot -> stem -> tip-dot -> label rows. Do not hand-roll a simplified axis plus labels.",
+    }
+  }
+
+  return undefined
 }
 
 function inferLayoutSlots(name: string, content: string): string[] {
