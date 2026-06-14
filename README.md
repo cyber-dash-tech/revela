@@ -39,7 +39,7 @@ npm_config_cache=/tmp/revela-npm-cache bun run smoke:mcp-pack
 Install Revela through the Codex Git marketplace:
 
 ```bash
-codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.18.15
+codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.18.16
 codex plugin add revela@revela
 ```
 
@@ -107,7 +107,7 @@ Revela includes built-in deck designs:
 
 To switch designs in Codex, ask:
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), use summit as the design.
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md), use summit as the design.
 
 In Codex, ask Revela to list or switch designs; the plugin uses the active design when making decks.
 
@@ -115,7 +115,7 @@ In Codex, ask Revela to list or switch designs; the plugin uses the active desig
 
 Domains add topic-specific communication guidance, such as consulting, product, or investor communication. Use them when you want Revela to adapt deck framing to a specific context.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), list available domains.
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md), list available domains.
 
 In Codex, ask Revela to list or switch domains; the active domain guides deck framing during init, research, and planning.
 
@@ -125,35 +125,35 @@ Use these prompts in Codex from the workspace that contains your source material
 
 1. Choose the narrative domain before authoring so Revela frames the audience, decision, risks, and objections for your context.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), use consulting as the domain.
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md), use consulting as the domain.
 
 2. Choose the deck design before rendering so generated artifacts use the intended visual language.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), use summit as the design.
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md), use summit as the design.
 
 3. Create a custom design when you want a different visual direction.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), create a new design named neon-finance with a crisp financial-dashboard style: dark surfaces, precise grids, and bright green accents.
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md), create a new design named neon-finance with a crisp financial-dashboard style: dark surfaces, precise grids, and bright green accents.
 
 Revela may ask for references or constraints, then creates and validates the design. When it is ready, switch to it:
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), use neon-finance as the design.
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md), use neon-finance as the design.
 
 4. Initialize local material intake. Init scans, extracts, and reviews workspace sources; it does not create a Narrative Vault.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), help me init this workspace from the local materials.
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md), help me init this workspace from the local materials.
 
 5. Research source-linked deck inputs and save findings.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), research the public evidence and examples needed for this deck.
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md), research the public evidence and examples needed for this deck.
 
 6. Create or update the deck plan before generating HTML so slide order, chapter structure, source links, unresolved inputs, source limitations, and visual intent are explicit.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), create or update the deck plan before generating HTML.
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md), create or update the deck plan before generating HTML.
 
 7. Make an HTML deck from the current deck plan.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), make the deck from the current deck plan.
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md), make the deck from the current deck plan.
 
 8. Review and annotate the generated deck from the website card after make-deck completes.
 
@@ -161,15 +161,15 @@ Use Codex Browser's native annotation tools on the opened HTML deck.
 
 9. Export a PDF after deck QA passes.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), export the deck to PDF.
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md), export the deck to PDF.
 
 10. Export an editable PPTX after deck QA passes.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), export the deck to PPTX.
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md), export the deck to PPTX.
 
 11. Export per-slide PNG files after deck QA passes.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.15/skills/revela/SKILL.md), export the deck to PNG.
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md), export the deck to PNG.
 
 ## Annotate A Deck
 
