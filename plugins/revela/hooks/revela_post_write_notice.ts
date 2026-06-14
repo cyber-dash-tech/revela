@@ -59,6 +59,18 @@ export function workspaceRootFromInput(input: string): string {
   return resolve(process.env.CODEX_WORKSPACE_ROOT || process.env.PWD || process.cwd())
 }
 
+export function formatDeckBrowserHandoffNotice(target: string): string {
+  return [
+    "**Open deck in Codex Browser**",
+    "",
+    `Artifact QA passed for \`${target}\`. Open this deck in Codex Browser now for native annotation.`,
+    "",
+    "Codex Browser automation may reject direct `file://` deck URLs. If direct file navigation is unavailable, start a read-only local static server from the workspace root and open:",
+    "",
+    `\`http://127.0.0.1:<port>/${target}\``,
+  ].join("\n")
+}
+
 export async function runPostWriteChecks(input: string): Promise<HookResult> {
   const messages: string[] = []
   const deckTargets = extractDeckHtmlTargets(input)
@@ -101,7 +113,11 @@ export async function runPostWriteChecks(input: string): Promise<HookResult> {
     messages.push(result.markdown ?? JSON.stringify(result, null, 2))
     const notice = runtimeModule.formatArtifactQaUserNotice?.(result.report)
     if (notice) messages.push(notice)
-    if (!result.ok) ok = false
+    if (result.ok) {
+      messages.push(formatDeckBrowserHandoffNotice(target))
+    } else {
+      ok = false
+    }
   }
 
   return { ok, messages }

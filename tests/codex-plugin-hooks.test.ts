@@ -4,7 +4,7 @@ import { join } from "path"
 import { designRead } from "../lib/runtime"
 import { extractDeckHtmlPatchTargets, extractNarrativeCachePatchTargets, runPreWriteChecks } from "../plugins/revela/hooks/revela_guard"
 import { commandFromInput, runMaterialReadNotice } from "../plugins/revela/hooks/revela_material_notice"
-import { extractDeckHtmlTargets, runPostWriteChecks, workspaceRootFromInput } from "../plugins/revela/hooks/revela_post_write_notice"
+import { extractDeckHtmlTargets, formatDeckBrowserHandoffNotice, runPostWriteChecks, workspaceRootFromInput } from "../plugins/revela/hooks/revela_post_write_notice"
 import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("Codex plugin hooks", () => {
@@ -41,10 +41,21 @@ describe("Codex plugin hooks", () => {
 
       expect(result.ok).toBe(true)
       expect(result.messages.join("\n")).toContain("Artifact QA: PASSED")
+      expect(result.messages.join("\n")).toContain("Open deck in Codex Browser")
+      expect(result.messages.join("\n")).toContain("http://127.0.0.1:<port>/decks/demo.html")
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
   }, 10000)
+
+  it("formats a Codex Browser handoff notice for QA-passed deck patches", () => {
+    const notice = formatDeckBrowserHandoffNotice("decks/demo.html")
+
+    expect(notice).toContain("Artifact QA passed")
+    expect(notice).toContain("Open this deck in Codex Browser now")
+    expect(notice).toContain("Codex Browser automation may reject direct `file://` deck URLs")
+    expect(notice).toContain("http://127.0.0.1:<port>/decks/demo.html")
+  })
 
   it("fails when a touched deck has no direct slide-canvas", async () => {
     const root = workspace()
@@ -63,6 +74,7 @@ describe("Codex plugin hooks", () => {
       expect(result.ok).toBe(false)
       expect(result.messages.join("\n")).toContain("missing_slide_canvas")
       expect(result.messages.join("\n")).toContain("**Artifact QA failed**")
+      expect(result.messages.join("\n")).not.toContain("Open deck in Codex Browser")
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
