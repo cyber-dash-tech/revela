@@ -28,6 +28,7 @@ import {
   saveConfig,
 } from "../config"
 import { childLog } from "../log"
+import { PAGE_TEMPLATE_CLASSES, listPageTemplateVocabulary } from "../page-templates"
 
 const designLog = childLog("designs")
 
@@ -812,6 +813,12 @@ export interface DesignInventory {
   sections: string[]
   layouts: DesignInventoryLayout[]
   components: DesignInventoryComponent[]
+  pageTemplates: Array<{
+    templateId: string
+    slots: string[]
+    requiredClasses: string[]
+    contractNotes: string[]
+  }>
   assets: DesignPackageAssetInfo[]
   hasMarkers: boolean
 }
@@ -952,6 +959,12 @@ export function getDesignInventory(designName?: string): DesignInventory {
       description: designBlockDescription(content),
       nesting: inferComponentNesting(componentName),
       contract: inferComponentContract(componentName, content),
+    })),
+    pageTemplates: listPageTemplateVocabulary().map((template) => ({
+      templateId: template.templateId,
+      slots: template.slots.map((slot) => slot.name),
+      requiredClasses: template.requiredClasses,
+      contractNotes: template.contractNotes,
     })),
     assets: listDesignAssetsInDir(designDir),
     hasMarkers,
@@ -1225,6 +1238,7 @@ const UNIVERSAL_CLASSES = new Set([
   "overlay",
   "alt",
   "strong",
+  ...PAGE_TEMPLATE_CLASSES,
 ])
 
 /**

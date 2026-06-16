@@ -1,0 +1,2 @@
+export { templateDeckCss } from "./render"
+

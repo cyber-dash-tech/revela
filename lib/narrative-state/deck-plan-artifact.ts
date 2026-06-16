@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, wri
 import { dirname, join, relative } from "path"
 import { createHash } from "crypto"
 import type { DeckSpec, SlideSpec } from "../decks-state"
+import { listPageTemplates } from "../page-templates"
 import { parseVaultFrontmatter } from "../narrative-vault/frontmatter"
 import { splitMarkdownSections } from "../narrative-vault/markdown"
 import { stableVaultRelationId } from "../narrative-vault/relations"
@@ -92,6 +93,8 @@ export interface DeckPlanSlideProjection {
   slideIndex?: number
   title: string
   chapter: string
+  template?: string
+  templateContent?: Record<string, any>
   layout: string
   components: string[]
   componentPlan: DeckPlanSlideComponentPlan[]
@@ -575,6 +578,8 @@ function readDeckPlanSlideFiles(workspaceRoot: string, knownNodeIds?: Set<string
       slideIndex: numberField(parsed.frontmatter, "slideIndex"),
       title: stringField(parsed.frontmatter, "title") || id,
       chapter: stringField(parsed.frontmatter, "chapter"),
+      template: stringField(parsed.frontmatter, "template"),
+      templateContent: parseTemplateContent(split.sections["template-content"] ?? ""),
       layout: stringField(parsed.frontmatter, "layout"),
       components: arrayField(parsed.frontmatter, "components"),
       componentPlan,
@@ -623,6 +628,8 @@ function readDeckPlanSlidesFromSingleFile(workspaceRoot: string, absolutePath: s
       slideIndex,
       title,
       chapter: fields.chapter || "",
+      template: fields.template || "",
+      templateContent: parseTemplateContent(singleFileSubsection(block, "Template Content")),
       layout: fields.layout || "",
       components: parseCsv(fields.components || componentPlan.map((component) => component.name).join(", ")),
       componentPlan,
@@ -671,6 +678,8 @@ function readDeckPlanSeparatorSlidesFromSingleFile(workspaceRoot: string, absolu
       slideIndex,
       title,
       chapter: stringField(parsed.frontmatter, "chapter") || fields.chapter || "",
+      template: stringField(parsed.frontmatter, "template") || fields.template || "",
+      templateContent: parseTemplateContent(singleFileSubsection(block, "Template Content")),
       layout: stringField(parsed.frontmatter, "layout") || fields.layout || "",
       components: arrayField(parsed.frontmatter, "components").length > 0 ? arrayField(parsed.frontmatter, "components") : parseCsv(fields.components || componentPlan.map((component) => component.name).join(", ")),
       componentPlan,
@@ -700,6 +709,27 @@ function parseSlideBlockFields(block: string): Record<string, string> {
     fields[key[0].toLowerCase() + key.slice(1)] = cleanPlanValue(match[2])
   }
   return fields
+}
+
+function parseTemplateContent(section: string): Record<string, any> | undefined {
+  const trimmed = section.trim()
+  if (!trimmed) return undefined
+  const fenced = /^```(?:json)?\s*\n([\s\S]*?)\n```$/i.exec(trimmed)
+  const body = fenced ? fenced[1].trim() : trimmed
+  if (body.startsWith("{")) {
+    try {
+      return JSON.parse(body)
+    } catch {
+      return { raw: body }
+    }
+  }
+  const result: Record<string, any> = {}
+  for (const rawLine of body.split(/\r?\n/)) {
+    const match = /^-\s+([A-Za-z][A-Za-z0-9 _-]*):\s*(.*)$/.exec(rawLine.trim())
+    if (!match) continue
+    result[match[1].trim().replace(/\s+/g, "_").toLowerCase()] = cleanPlanValue(match[2])
+  }
+  return Object.keys(result).length > 0 ? result : { raw: body }
 }
 
 function singleFileSubsection(block: string, heading: string): string {
@@ -906,9 +936,11 @@ function slideDiagnostics(slide: DeckPlanSlideProjection, knownNodeIds?: Set<str
   const diagnostics: DeckPlanProjectionDiagnostic[] = []
   if (!slide.structural && linksCount(slide.sourceLinks) === 0) diagnostics.push({ severity: "warning", code: "slide_source_link_missing", message: `Non-structural deck-plan slide ${slide.id} has no material, finding, asset, or URL source link.`, file: slide.path, nodeId: slide.id })
   if (!slide.structural && linksCount(slide.sourceLinks) > 0) diagnostics.push(...slideSynthesisDiagnostics(slide))
-  if (!slide.layout) diagnostics.push({ severity: "warning", code: "slide_layout_missing", message: `Deck-plan slide ${slide.id} is missing a layout.`, file: slide.path, nodeId: slide.id })
-  if (slide.components.length === 0) diagnostics.push({ severity: "warning", code: "slide_components_missing", message: `Deck-plan slide ${slide.id} has no component names in frontmatter.`, file: slide.path, nodeId: slide.id })
-  if (slide.componentPlan.length === 0) diagnostics.push({ severity: "warning", code: "slide_component_plan_missing", message: `Deck-plan slide ${slide.id} is missing structured ## Component Plan entries.`, file: slide.path, nodeId: slide.id })
+  if (slide.template && !knownTemplateIds().has(slide.template)) diagnostics.push({ severity: "warning", code: "slide_template_unknown", message: `Deck-plan slide ${slide.id} uses unknown page template '${slide.template}'.`, file: slide.path, nodeId: slide.id })
+  if (slide.template && !slide.templateContent) diagnostics.push({ severity: "warning", code: "slide_template_content_missing", message: `Deck-plan slide ${slide.id} uses template '${slide.template}' but has no #### Template Content section.`, file: slide.path, nodeId: slide.id })
+  if (!slide.template && !slide.layout) diagnostics.push({ severity: "warning", code: "slide_layout_missing", message: `Deck-plan slide ${slide.id} is missing a layout.`, file: slide.path, nodeId: slide.id })
+  if (!slide.template && slide.components.length === 0) diagnostics.push({ severity: "warning", code: "slide_components_missing", message: `Deck-plan slide ${slide.id} has no component names in frontmatter.`, file: slide.path, nodeId: slide.id })
+  if (!slide.template && slide.componentPlan.length === 0) diagnostics.push({ severity: "warning", code: "slide_component_plan_missing", message: `Deck-plan slide ${slide.id} is missing structured ## Component Plan entries.`, file: slide.path, nodeId: slide.id })
   for (const component of slide.componentPlan) {
     for (const key of ["name", "slot", "position", "purpose", "content"] as const) {
       if (!component[key] || (Array.isArray(component[key]) && component[key].length === 0)) diagnostics.push({ severity: "warning", code: "slide_component_plan_incomplete", message: `Deck-plan slide ${slide.id} has incomplete component plan entry for ${component.name || "unnamed component"}: missing ${key}.`, file: slide.path, nodeId: slide.id })
@@ -920,6 +952,10 @@ function slideDiagnostics(slide: DeckPlanSlideProjection, knownNodeIds?: Set<str
     }
   }
   return diagnostics
+}
+
+function knownTemplateIds(): Set<string> {
+  return new Set(listPageTemplates().templates.map((template) => template.id))
 }
 
 function slideSynthesisDiagnostics(slide: DeckPlanSlideProjection): DeckPlanProjectionDiagnostic[] {
@@ -958,6 +994,7 @@ export function deckPlanDesignDiagnostics(projection: DeckPlanProjection | undef
   const components = new Set(inventory.components)
   const diagnostics: DeckPlanProjectionDiagnostic[] = []
   for (const slide of projection.slides) {
+    if (slide.template) continue
     if (slide.layout && !layouts.has(slide.layout)) diagnostics.push({ severity: "warning", code: "slide_layout_unknown", message: `Deck-plan slide ${slide.id} uses layout '${slide.layout}' outside the active design inventory.`, file: slide.path, nodeId: slide.id })
     for (const component of slide.componentPlan) diagnostics.push(...componentDesignDiagnostics(slide, component, inventory, components))
   }

@@ -30,6 +30,7 @@ import { runNarrativeMarkdownQa, type MarkdownQaOptions } from "../narrative-vau
 import { formatArtifactQaUserNotice, formatMarkdownQaUserNotice } from "../hook-notifications"
 import { deckPlanDesignDiagnostics, readDeckPlanArtifact, upsertDeckPlanSlideArtifact, type DeckPlanSlideUpsertInput } from "../narrative-state/deck-plan-artifact"
 import { extractDesignClasses } from "../design/designs"
+import { addTemplateScaffold as addPageTemplateScaffold, addTemplateSlide as addPageTemplateSlide, getPageTemplateFoundation, getPageTemplateVocabulary, listPageTemplates as listBuiltinPageTemplates, renderTemplateScaffold as renderPageTemplateScaffold, renderTemplateSlide as renderPageTemplateSlide } from "../page-templates"
 import { recordRenderedArtifact, workspaceRelative } from "../workspace-state/rendered-artifacts"
 import { existingWorkspaceMetaPath, workspaceMetaPath } from "../workspace-meta"
 import { checkMaterialIntake, extractMaterial, materialIntakeNoticeForCommand, prepareLocalMaterials, recordMaterialReview } from "../material-intake"
@@ -82,6 +83,32 @@ export interface RuntimeDesignComponentReadInput {
 
 export interface RuntimeDeckPlanSlideUpsertInput extends RuntimeWorkspaceInput, DeckPlanSlideUpsertInput {
   designName?: string
+}
+
+export interface RuntimeTemplateSlideInput extends RuntimeWorkspaceInput {
+  templateId: string
+  slideIndex: number
+  content: Record<string, any>
+  designName?: string
+}
+
+export interface RuntimeTemplateSlideAddInput extends RuntimeTemplateSlideInput {
+  outputPath: string
+}
+
+export interface RuntimeTemplateScaffoldInput extends RuntimeWorkspaceInput {
+  templateId: string
+  slideIndex: number
+  seed?: Record<string, any>
+  designName?: string
+}
+
+export interface RuntimeTemplateScaffoldAddInput extends RuntimeTemplateScaffoldInput {
+  outputPath: string
+}
+
+export interface RuntimePageTemplateReadInput {
+  templateId: string
 }
 
 export interface RuntimeDesignCreateInput {
@@ -216,6 +243,58 @@ export function createDeckFoundation(input: RuntimeDeckFoundationInput) {
     mode: input.mode,
     overwrite: input.overwrite ?? false,
   })
+}
+
+export function listPageTemplates() {
+  return listBuiltinPageTemplates()
+}
+
+export function renderTemplateSlide(input: RuntimeTemplateSlideInput) {
+  return renderPageTemplateSlide({
+    templateId: requiredString(input?.templateId, "templateId"),
+    slideIndex: input.slideIndex,
+    content: input.content ?? {},
+    designName: input.designName || activeDesign(),
+  })
+}
+
+export function renderTemplateScaffold(input: RuntimeTemplateScaffoldInput) {
+  return renderPageTemplateScaffold({
+    templateId: requiredString(input?.templateId, "templateId"),
+    slideIndex: input.slideIndex,
+    seed: input.seed ?? {},
+    designName: input.designName || activeDesign(),
+  })
+}
+
+export function addTemplateSlide(input: RuntimeTemplateSlideAddInput) {
+  return addPageTemplateSlide({
+    workspaceRoot: root(input.workspaceRoot),
+    outputPath: requiredString(input?.outputPath, "outputPath"),
+    templateId: requiredString(input?.templateId, "templateId"),
+    slideIndex: input.slideIndex,
+    content: input.content ?? {},
+    designName: input.designName || activeDesign(),
+  })
+}
+
+export function addTemplateScaffold(input: RuntimeTemplateScaffoldAddInput) {
+  return addPageTemplateScaffold({
+    workspaceRoot: root(input.workspaceRoot),
+    outputPath: requiredString(input?.outputPath, "outputPath"),
+    templateId: requiredString(input?.templateId, "templateId"),
+    slideIndex: input.slideIndex,
+    seed: input.seed ?? {},
+    designName: input.designName || activeDesign(),
+  })
+}
+
+export function pageTemplateFoundation(input: RuntimePageTemplateReadInput) {
+  return { ok: true, foundation: getPageTemplateFoundation(requiredString(input?.templateId, "templateId")) }
+}
+
+export function pageTemplateVocabulary(input: RuntimePageTemplateReadInput) {
+  return { ok: true, vocabulary: getPageTemplateVocabulary(requiredString(input?.templateId, "templateId")) }
 }
 
 export async function runDeckQa(input: RuntimeFileInput) {

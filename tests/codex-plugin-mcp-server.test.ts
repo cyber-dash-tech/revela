@@ -34,6 +34,13 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).not.toContain("revela_upsert_deck_plan\\\"")
     expect(text.stdout).toContain("revela_upsert_deck_plan_slide")
     expect(text.stdout).toContain("Compatibility/repair helper")
+    expect(text.stdout).toContain("revela_list_page_templates")
+    expect(text.stdout).toContain("revela_render_template_slide")
+    expect(text.stdout).toContain("revela_add_template_slide")
+    expect(text.stdout).toContain("revela_page_template_foundation")
+    expect(text.stdout).toContain("revela_page_template_vocabulary")
+    expect(text.stdout).toContain("revela_render_template_scaffold")
+    expect(text.stdout).toContain("revela_add_template_scaffold")
     expect(text.stdout).toContain("revela_research_save")
     expect(text.stdout).toContain("revela_export_png")
     expect(text.stdout).toContain("revela_review_deck_read")
@@ -519,6 +526,93 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("\\\"position\\\": \\\"left-top\\\"")
     expect(text.stdout).toContain("\\\"ok\\\": false")
     expect(readFileSync(join(root, "deck-plan.md"), "utf-8")).toContain("#### Design Plan")
+  })
+
+  it("lists and renders built-in page templates through MCP tools", async () => {
+    const root = tempWorkspace("revela-mcp-page-template-")
+    const home = tempWorkspace("revela-mcp-page-template-home-")
+    createDeckFoundation({
+      workspaceRoot: root,
+      outputPath: "decks/templates.html",
+      title: "Template MCP",
+      language: "en",
+      designName: "lucent",
+    })
+    const child = spawn("bun", [serverPath], {
+      env: { ...process.env, HOME: home },
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    const output = collectOutput(child)
+
+    child.stdin.write(frame({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }))
+    child.stdin.write(frame({ jsonrpc: "2.0", method: "notifications/initialized" }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "revela_list_page_templates", arguments: {} },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: {
+        name: "revela_add_template_slide",
+        arguments: {
+          workspaceRoot: root,
+          outputPath: "decks/templates.html",
+          designName: "lucent",
+          templateId: "timeline-roadmap",
+          slideIndex: 1,
+          content: {
+            title: "Journey",
+            milestones: [
+              { date: "Mar 2019", label: "Launch", description: "Baseline mapping." },
+              { date: "Nov 2019", label: "Audit", description: "Evidence sprint." },
+              { date: "May 2020", label: "Scale", description: "Operating cadence." },
+            ],
+          },
+        },
+      },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "revela_page_template_foundation", arguments: { templateId: "timeline-roadmap" } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: { name: "revela_page_template_vocabulary", arguments: { templateId: "timeline-roadmap" } },
+    }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 6,
+      method: "tools/call",
+      params: {
+        name: "revela_add_template_scaffold",
+        arguments: {
+          workspaceRoot: root,
+          outputPath: "decks/templates.html",
+          designName: "lucent",
+          templateId: "claim-supporting-visual",
+          slideIndex: 2,
+          seed: { title: "Claim scaffold" },
+        },
+      },
+    }))
+
+    const text = await output.until((item) => item.stdout.includes("\"id\":6") && item.stdout.includes("template-visual-slot-panel"))
+    child.kill()
+
+    expect(text.stdout).toContain("timeline-roadmap")
+    expect(text.stdout).toContain("claim-supporting-visual")
+    expect(text.stdout).toContain("\\\"inserted\\\": true")
+    const html = readFileSync(join(root, "decks/templates.html"), "utf-8")
+    expect(html).toContain('data-template="timeline-roadmap"')
+    expect(html).toContain('data-template="claim-supporting-visual"')
   })
 
   it("reads bundled design inventory, layouts, components, and validation without seeding user config", async () => {

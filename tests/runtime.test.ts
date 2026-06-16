@@ -7,7 +7,7 @@ import { DECKS_STATE_FILE } from "../lib/decks-state"
 import { seedBuiltinDesigns } from "../lib/design/designs"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
-import { bindResearchFindings, checkDesignRulesReadiness, checkMaterialIntake, designCreate, designDraftCreate, designDraftInstall, designDraftValidate, designInstallArchive, designList, designPack, designRead, designValidate, doctor, domainCreate, domainDraftCreate, domainDraftInstall, domainDraftValidate, domainList, domainValidate, evaluateResearchFindings, extractMaterial, prepareLocalMaterials, readDeckPlan, recordMaterialReview, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead, upsertDeckPlanSlide } from "../lib/runtime"
+import { addTemplateScaffold, addTemplateSlide, bindResearchFindings, checkDesignRulesReadiness, checkMaterialIntake, designCreate, designDraftCreate, designDraftInstall, designDraftValidate, designInstallArchive, designInventory, designList, designPack, designRead, designValidate, doctor, domainCreate, domainDraftCreate, domainDraftInstall, domainDraftValidate, domainList, domainValidate, evaluateResearchFindings, extractMaterial, listPageTemplates, pageTemplateFoundation, pageTemplateVocabulary, prepareLocalMaterials, readDeckPlan, recordMaterialReview, renderTemplateScaffold, renderTemplateSlide, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead, upsertDeckPlanSlide } from "../lib/runtime"
 import { stopRefineServer } from "../lib/refine/server"
 import { readTarArchive, writeTarArchive } from "../lib/design/archive"
 import pkg from "../package.json"
@@ -30,6 +30,87 @@ describe("runtime facade", () => {
     })
     expect(typeof result.activeDomain).toBe("string")
     expect(typeof result.activeDomainDescription).toBe("string")
+  })
+
+  it("lists and renders built-in page templates through the runtime facade", () => {
+    const root = tempWorkspace("revela-runtime-page-template-")
+    createDeckFoundation({
+      workspaceRoot: root,
+      outputPath: "decks/templates.html",
+      title: "Template Test",
+      language: "en",
+      designName: "lucent",
+    })
+
+    const listed = listPageTemplates()
+    expect(listed.templates).toHaveLength(15)
+    expect(listed.templates.every((template) => template.status === "renderable")).toBe(true)
+    expect(listed.templates[0]).toHaveProperty("vocabulary")
+
+    const foundation = pageTemplateFoundation({ templateId: "timeline-roadmap" })
+    const vocabulary = pageTemplateVocabulary({ templateId: "timeline-roadmap" })
+    expect(foundation.foundation.html).toContain('data-template="timeline-roadmap"')
+    expect(vocabulary.vocabulary.requiredClasses).toContain("template-timeline-dot")
+
+    const rendered = renderTemplateSlide({
+      workspaceRoot: root,
+      designName: "lucent",
+      templateId: "timeline-roadmap",
+      slideIndex: 1,
+      content: {
+        title: "Journey",
+        milestones: [
+          { date: "Mar 2019", label: "Launch", description: "Baseline mapping." },
+          { date: "Nov 2019", label: "Audit", description: "Evidence sprint." },
+          { date: "May 2020", label: "Scale", description: "Operating cadence." },
+        ],
+      },
+    })
+
+    expect(rendered.html).toContain('data-template="timeline-roadmap"')
+    expect(rendered.html).toContain("template-timeline-dot")
+    expect(rendered.html).toContain("template-timeline-copy")
+
+    const added = addTemplateSlide({
+      workspaceRoot: root,
+      outputPath: "decks/templates.html",
+      designName: "lucent",
+      templateId: "timeline-roadmap",
+      slideIndex: 1,
+      content: {
+        title: "Journey",
+        milestones: [
+          { date: "Mar 2019", label: "Launch", description: "Baseline mapping." },
+          { date: "Nov 2019", label: "Audit", description: "Evidence sprint." },
+          { date: "May 2020", label: "Scale", description: "Operating cadence." },
+        ],
+      },
+    })
+
+    expect(added.inserted).toBe(true)
+    const html = readFileSync(join(root, "decks/templates.html"), "utf-8")
+    expect(html).toContain("template-slide")
+    expect(html).toContain("template-timeline")
+
+    const scaffold = renderTemplateScaffold({
+      workspaceRoot: root,
+      designName: "lucent",
+      templateId: "claim-supporting-visual",
+      slideIndex: 2,
+      seed: { title: "Claim scaffold" },
+    })
+    expect(scaffold.scaffold).toBe(true)
+    expect(scaffold.html).toContain('data-template-slot="visual"')
+
+    const addedScaffold = addTemplateScaffold({
+      workspaceRoot: root,
+      outputPath: "decks/templates.html",
+      designName: "lucent",
+      templateId: "chart-takeaways",
+      slideIndex: 2,
+      seed: { title: "Chart scaffold" },
+    })
+    expect(addedScaffold.inserted).toBe(true)
   })
 
   it("exposes the package version through CLI doctor", () => {
@@ -240,6 +321,25 @@ describe("runtime facade", () => {
       content: "Use the source-backed opening claim.",
       renderNotes: ["Keep title readable."],
     })
+  })
+
+  it("reads template-first deck-plan slides without requiring layout components", () => {
+    const root = tempWorkspace("revela-runtime-template-plan-")
+    writeFileSync(join(root, "deck-plan.md"), templateDeckPlanMarkdown(), "utf-8")
+
+    const result = readDeckPlan({ workspaceRoot: root })
+    const codes = result.projection?.diagnostics.map((item) => item.code) ?? []
+
+    expect(result.ok).toBe(true)
+    expect(result.projection?.slides[0]).toMatchObject({
+      slideIndex: 1,
+      template: "timeline-roadmap",
+      title: "Journey",
+    })
+    expect(result.projection?.slides[0].templateContent?.milestones).toHaveLength(3)
+    expect(codes).not.toContain("slide_layout_missing")
+    expect(codes).not.toContain("slide_components_missing")
+    expect(codes).not.toContain("slide_component_plan_missing")
   })
 
   it("re-upserting the same slideIndex updates the existing slide block", () => {
@@ -866,11 +966,14 @@ sources:
     const root = tempWorkspace("revela-runtime-design-rules-")
 
     const result = designRead({ workspaceRoot: root, section: "rules" })
+    const inventory = designInventory()
     const readiness = checkDesignRulesReadiness({ workspaceRoot: root })
 
     expect(result).toMatchObject({ ok: true, section: "rules" })
     expect(result.markdown).toContain("Canonical slide canvas")
     expect(result.markdown).not.toContain("@design:foundation:start")
+    expect(inventory.pageTemplates.map((template) => template.templateId)).toContain("timeline-roadmap")
+    expect(inventory.pageTemplates.find((template) => template.templateId === "timeline-roadmap")?.requiredClasses).toContain("template-timeline-dot")
     expect(readiness).toMatchObject({ ok: true, activeDesign: result.name })
     expect(existsSync(join(root, ".revela", "codex-hooks", "design-rules-read.json"))).toBe(true)
   })
@@ -1384,6 +1487,91 @@ URLs:
   Use the source-backed opening claim.
 - Source notes: Source material and findings.
 - Render notes: Keep title readable.
+
+## Unresolved Inputs
+
+- None.
+
+## HTML Contract
+
+- Use positive 1-based data-slide-index values.
+`
+}
+
+function templateDeckPlanMarkdown(): string {
+  return `---
+id: deck-plan
+designName: lucent
+outputPath: decks/foo.html
+---
+
+# Deck Plan
+
+## Goal
+
+Demonstrate template-first deck planning.
+
+## Audience
+
+Revela maintainers.
+
+## Design
+
+- Design: lucent
+
+## Source Authority
+
+- Use only linked workspace materials, findings, assets, URLs, and user intent.
+
+## Chapter Map
+
+- Flow: slides 1
+
+## Slides
+
+---
+slideIndex: 1
+id: slide-journey
+title: Journey
+chapter: Flow
+role: Show the timeline template contract.
+template: timeline-roadmap
+structural: false
+---
+
+#### Content Plan
+
+- Claim: Timeline structure is now template-owned.
+- Reasoning: The milestone dot and copy are rendered from one stable skeleton.
+- Audience takeaway: Template pages can avoid recurring alignment regressions.
+
+#### Template Content
+
+\`\`\`json
+{
+  "title": "Journey",
+  "orientation": "vertical",
+  "milestones": [
+    { "date": "Mar 2019", "label": "Launch", "description": "Baseline mapping." },
+    { "date": "Nov 2019", "label": "Audit", "description": "Evidence sprint." },
+    { "date": "May 2020", "label": "Scale", "description": "Operating cadence." }
+  ]
+}
+\`\`\`
+
+#### Source Links
+
+Materials:
+- [[materials/source.md]]
+
+Findings:
+- None.
+
+Assets:
+- None.
+
+URLs:
+- None.
 
 ## Unresolved Inputs
 

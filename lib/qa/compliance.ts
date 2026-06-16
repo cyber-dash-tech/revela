@@ -103,9 +103,13 @@ function extractCssDefinedClasses(html: string): ClassUse[] {
   while ((styleMatch = styleRe.exec(html)) !== null) {
     const styleBody = styleMatch[1]
     const bodyOffset = styleMatch.index + styleMatch[0].indexOf(styleBody)
+    const scanBody = styleBody
+      .replace(/url\([^)]*\)/gi, "url()")
+      .replace(/"[^"]*"/g, '""')
+      .replace(/'[^']*'/g, "''")
     classRe.lastIndex = 0
     let classMatch: RegExpExecArray | null
-    while ((classMatch = classRe.exec(styleBody)) !== null) {
+    while ((classMatch = classRe.exec(scanBody)) !== null) {
       const cls = classMatch[1]
       if (classes.has(cls)) continue
 

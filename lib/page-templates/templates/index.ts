@@ -1,0 +1,19 @@
+import { listPageTemplateVocabulary } from "../vocabulary"
+
+export const BUILTIN_PAGE_TEMPLATE_IDS = listPageTemplateVocabulary().map((template) => template.templateId)
+
+export * from "./agenda"
+export * from "./chart-takeaways"
+export * from "./claim-supporting-visual"
+export * from "./closing"
+export * from "./cover"
+export * from "./executive-summary"
+export * from "./key-message-evidence"
+export * from "./metric-highlight"
+export * from "./problem-context"
+export * from "./process-steps"
+export * from "./recommendation-decision"
+export * from "./risks-tradeoffs"
+export * from "./section-divider"
+export * from "./table-comparison"
+export * from "./timeline-roadmap"

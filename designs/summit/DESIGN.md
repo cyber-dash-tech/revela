@@ -2658,6 +2658,20 @@ Rules:
 
 <!-- @design:components:end -->
 
+<!-- @design:page-templates:start -->
+
+### Page Template Mapping
+
+Summit skins Revela built-in page templates with editorial hierarchy, broad whitespace, and borderless content containers. The template renderer owns required fields, DOM skeletons, and template QA; Summit supplies typography, contrast, rhythm, and visual weight.
+
+- `cover`, `section-divider`, `closing`: use strong editorial title pages.
+- `agenda`, `executive-summary`, `problem-context`, `key-message-evidence`, `claim-supporting-visual`: use borderless narrative groupings with clear hierarchy.
+- `metric-highlight`, `chart-takeaways`, `table-comparison`: use evidence-first data regions without outer container borders.
+- `timeline-roadmap`: dots remain milestone anchors inside each timeline item; do not position detached decorative markers.
+- `process-steps`, `recommendation-decision`, `risks-tradeoffs`: use decisive action panels with minimal framing.
+
+<!-- @design:page-templates:end -->
+
 <!-- @design:chart-rules:start -->
 
 ### Data Visualization (ECharts)

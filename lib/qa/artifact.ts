@@ -4,6 +4,7 @@ import type { DesignClassVocabulary, DesignComponentContract } from "../design/d
 import { formatReport, runQA } from "./index"
 import { runComplianceQA } from "./compliance"
 import { runComponentContractQA } from "./component-contracts"
+import { formatPageTemplateContractReport, validatePageTemplateContracts } from "../page-templates"
 import type { QAReport } from "./checks"
 import { basename, dirname } from "path"
 
@@ -62,6 +63,13 @@ export async function runArtifactQA(input: {
       warningCount += warnings(componentContractReport)
       sections.push("**[component structure contracts]**\n\n" + formatReport(componentContractReport))
     }
+  }
+
+  const templateContracts = validatePageTemplateContracts(input.filePath)
+  if (templateContracts.issues.length > 0) {
+    hardErrorCount += templateContracts.issues.filter((issue) => issue.severity === "error").length
+    warningCount += templateContracts.issues.filter((issue) => issue.severity === "warning").length
+    sections.push("**[page template contracts]**\n\n" + formatPageTemplateContractReport(templateContracts))
   }
 
   try {

@@ -9,7 +9,7 @@ Use this skill when the user asks to create, customize, edit, validate, package,
 
 ## Contract
 
-- Designs define deck visual systems: rules, foundation, layouts, components, chart rules, and preview coverage.
+- Designs define deck visual systems: rules, foundation, layouts, components, chart rules, page-template foundation styling, and preview coverage.
 - Designs should define executable visual contracts, not only mood, fonts, and palettes. Capture grid/safe-area, spacing scale, type scale, surface behavior, chart tokens, component states, and preview fixtures in the design package.
 - Designs may include package-owned `assets/**` such as cover or closing backgrounds; design tools surface these as design elements, not source evidence.
 - When the user uploads or provides logo, cover, closing, background, texture, brand image, or similar design material, store it inside the design package with `revela_design_draft_create.assets`; use paths under `assets/**` only.
@@ -25,19 +25,21 @@ Use this skill when the user asks to create, customize, edit, validate, package,
 For status, inspection, activation, or selection:
 
 1. Call `revela_design_list`.
-2. Call `revela_design_read`, `revela_design_inventory`, `revela_design_read_layout`, or `revela_design_read_component` as needed.
+2. Call `revela_design_read`, `revela_design_inventory`, `revela_design_read_layout`, `revela_design_read_component`, or `revela_page_template_foundation` as needed.
 3. Call `revela_design_activate` only when the user asks to use a design.
 
 For new or edited designs:
 
 1. Call `revela_design_list`.
 2. Read the requested base design or active design with `revela_design_read`.
-3. Draft complete `DESIGN.md` and complete `preview.html` content.
-4. Call `revela_design_draft_create`; when uploaded or local design material exists, pass `assets: [{ path: "assets/...", contentBase64|content|sourcePath }]` so the files are written into the draft package.
-5. Call `revela_design_draft_validate`.
-6. If validation fails, revise the draft content and repeat draft create/validate.
-7. Call `revela_design_draft_install` only after the draft validates and the user intent is to install it.
-8. Call `revela_design_activate` only when the user asks to make it active.
+3. Call `revela_design_inventory` and inspect its `pageTemplates` summary.
+4. Call `revela_page_template_foundation` for any built-in page templates the design should style or preview.
+5. Draft complete `DESIGN.md` and complete `preview.html` content.
+6. Call `revela_design_draft_create`; when uploaded or local design material exists, pass `assets: [{ path: "assets/...", contentBase64|content|sourcePath }]` so the files are written into the draft package.
+7. Call `revela_design_draft_validate`.
+8. If validation fails, revise the draft content and repeat draft create/validate.
+9. Call `revela_design_draft_install` only after the draft validates and the user intent is to install it.
+10. Call `revela_design_activate` only when the user asks to make it active.
 
 For sharing or installing design archives:
 
@@ -55,6 +57,7 @@ Use `revela_design_create` only when the user explicitly requests direct local c
 - `DESIGN.md` must include valid frontmatter and complete design marker sections.
 - Include design rules, foundation guidance, at least one layout, and at least one component.
 - In `@design:foundation`, document the design contract: grid columns or layout rails, safe area, spacing/baseline scale, typography scale, surfaces/borders/shadows, and chart tokens when charts are supported.
+- Use page-template foundation as the starting point for built-in template styling. Style template classes, but do not remove structural classes or `data-template-slot` semantics.
 - Layouts must declare stable slots and use grid/flex structure as the source of alignment. Avoid one-off absolute positioning that bypasses the declared layout contract.
 - Components should describe normal, dense, and long-copy behavior where relevant. Chart, table, media, and source-note components need stable container dimensions.
 - Optional assets must live under `assets/**`; reference them as package-relative paths like `assets/cover-background.png`.

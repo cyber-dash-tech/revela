@@ -13,6 +13,13 @@ type RuntimeModule = {
   readDeckPlan(input?: any): any
   upsertDeckPlanSlide(input: any): any
   createDeckFoundation(input: any): any
+  listPageTemplates(): any
+  renderTemplateSlide(input: any): any
+  addTemplateSlide(input: any): any
+  renderTemplateScaffold(input: any): any
+  addTemplateScaffold(input: any): any
+  pageTemplateFoundation(input: any): any
+  pageTemplateVocabulary(input: any): any
   runDeckQa(input: any): Promise<any>
   exportPdf(input: any): Promise<any>
   exportPptx(input: any): Promise<any>
@@ -93,6 +100,71 @@ const tools = [
       mode: enumProp(["create", "repair"], "Create or repair mode."),
       overwrite: booleanProp("Whether create mode may overwrite an existing file."),
     }, ["outputPath", "title", "language"]),
+  },
+  {
+    name: "revela_list_page_templates",
+    description: "List built-in Revela page templates with semantic fields, content rules, and template QA contracts.",
+    inputSchema: objectSchema({}),
+  },
+  {
+    name: "revela_render_template_slide",
+    description: "Render one built-in page template into a stable Revela slide HTML skeleton using the active/requested design.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      designName: stringProp("Optional design name. Defaults to the active design."),
+      templateId: requiredStringProp("Built-in template id, such as timeline-roadmap."),
+      slideIndex: requiredNumberProp("Positive 1-based slide index."),
+      content: objectProp("Template content fields. The built-in template renderer owns the HTML skeleton."),
+    }, ["templateId", "slideIndex", "content"]),
+  },
+  {
+    name: "revela_page_template_foundation",
+    description: "Read the built-in template foundation for custom design authoring: scaffold HTML, CSS hooks, slots, and contract notes.",
+    inputSchema: objectSchema({
+      templateId: requiredStringProp("Built-in template id, such as timeline-roadmap."),
+    }, ["templateId"]),
+  },
+  {
+    name: "revela_page_template_vocabulary",
+    description: "Read machine-readable classes, slots, editable regions, replaceable regions, and contract notes for one page template.",
+    inputSchema: objectSchema({
+      templateId: requiredStringProp("Built-in template id, such as timeline-roadmap."),
+    }, ["templateId"]),
+  },
+  {
+    name: "revela_render_template_scaffold",
+    description: "Render one built-in page template scaffold with stable editable slots using minimal seed content.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      designName: stringProp("Optional design name. Defaults to the active design."),
+      templateId: requiredStringProp("Built-in template id, such as timeline-roadmap."),
+      slideIndex: requiredNumberProp("Positive 1-based slide index."),
+      seed: objectProp("Optional scaffold seed fields. This is not the final authoring interface."),
+    }, ["templateId", "slideIndex"]),
+  },
+  {
+    name: "revela_add_template_scaffold",
+    description: "Render and append one built-in page template scaffold into an existing Revela deck HTML file between slide markers.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      outputPath: requiredStringProp("Workspace-relative HTML deck path."),
+      designName: stringProp("Optional design name. Defaults to the active design."),
+      templateId: requiredStringProp("Built-in template id, such as timeline-roadmap."),
+      slideIndex: requiredNumberProp("Positive 1-based slide index."),
+      seed: objectProp("Optional scaffold seed fields. LLM should bounded-edit the inserted slide after scaffold creation."),
+    }, ["outputPath", "templateId", "slideIndex"]),
+  },
+  {
+    name: "revela_add_template_slide",
+    description: "Compatibility path: render and append one built-in page template slide from full content JSON into an existing deck HTML file.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      outputPath: requiredStringProp("Workspace-relative HTML deck path."),
+      designName: stringProp("Optional design name. Defaults to the active design."),
+      templateId: requiredStringProp("Built-in template id, such as timeline-roadmap."),
+      slideIndex: requiredNumberProp("Positive 1-based slide index."),
+      content: objectProp("Template content fields. Prefer scaffold-first flow for new deck creation."),
+    }, ["outputPath", "templateId", "slideIndex", "content"]),
   },
   {
     name: "revela_run_deck_qa",
@@ -421,6 +493,13 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_read_deck_plan") return r.readDeckPlan(args)
   if (name === "revela_upsert_deck_plan_slide") return r.upsertDeckPlanSlide(args)
   if (name === "revela_create_deck_foundation") return r.createDeckFoundation(args)
+  if (name === "revela_list_page_templates") return r.listPageTemplates()
+  if (name === "revela_render_template_slide") return r.renderTemplateSlide(args)
+  if (name === "revela_add_template_slide") return r.addTemplateSlide(args)
+  if (name === "revela_page_template_foundation") return r.pageTemplateFoundation(args)
+  if (name === "revela_page_template_vocabulary") return r.pageTemplateVocabulary(args)
+  if (name === "revela_render_template_scaffold") return r.renderTemplateScaffold(args)
+  if (name === "revela_add_template_scaffold") return r.addTemplateScaffold(args)
   if (name === "revela_run_deck_qa") return r.runDeckQa(args)
   if (name === "revela_export_pdf") return r.exportPdf(args)
   if (name === "revela_export_pptx") return r.exportPptx(args)
@@ -494,6 +573,10 @@ function enumProp(values: string[], description: string) {
 
 function arrayProp(description: string) {
   return { type: "array", items: { type: "string" }, description }
+}
+
+function objectProp(description: string) {
+  return { type: "object", description, additionalProperties: true }
 }
 
 function stringOrArrayProp(description: string) {

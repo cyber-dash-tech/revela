@@ -73,6 +73,68 @@ Asset policy:
 - Use `assets/toc-orb.png` only when transparency is needed for the Lucent glass orb.
 - Use `assets/soft-texture.jpg`, `assets/card-lens.jpg`, and `assets/report-visual.jpg` as subtle report accents; never inline base64 images in generated decks.
 
+```javascript
+class SlidePresentation {
+    constructor() {
+        this.slides = document.querySelectorAll('.slide');
+        this.currentSlide = 0;
+        this.setupScaling();
+        this.setupIntersectionObserver();
+        this.setupKeyboardNav();
+        this.setupTouchNav();
+        this.setupMouseWheel();
+    }
+    setupScaling() {
+        const canvases = document.querySelectorAll('.slide-canvas');
+        const BASE_W = 1920;
+        const BASE_H = 1080;
+        const update = () => {
+            const scale = Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H);
+            canvases.forEach((canvas) => { canvas.style.transform = `scale(${scale})`; });
+        };
+        window.addEventListener('resize', update);
+        update();
+    }
+    setupIntersectionObserver() {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) entry.target.querySelectorAll('.reveal').forEach((el) => el.classList.add('visible'));
+            });
+        }, { threshold: 0.2 });
+        this.slides.forEach((slide) => observer.observe(slide));
+    }
+    setupKeyboardNav() {
+        document.addEventListener('keydown', (event) => {
+            if (['ArrowDown', 'ArrowRight', ' ', 'PageDown'].includes(event.key)) { event.preventDefault(); this.goTo(this.currentSlide + 1); }
+            else if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(event.key)) { event.preventDefault(); this.goTo(this.currentSlide - 1); }
+        });
+    }
+    setupTouchNav() {
+        let startY = 0;
+        document.addEventListener('touchstart', (event) => { startY = event.touches[0].clientY; }, { passive: true });
+        document.addEventListener('touchend', (event) => {
+            const deltaY = startY - event.changedTouches[0].clientY;
+            if (Math.abs(deltaY) > 40) this.goTo(this.currentSlide + (deltaY > 0 ? 1 : -1));
+        }, { passive: true });
+    }
+    setupMouseWheel() {
+        let last = 0;
+        document.addEventListener('wheel', (event) => {
+            const now = Date.now();
+            if (now - last < 800) return;
+            last = now;
+            this.goTo(this.currentSlide + (event.deltaY > 0 ? 1 : -1));
+        }, { passive: true });
+    }
+    goTo(index) {
+        const clamped = Math.max(0, Math.min(this.slides.length - 1, index));
+        this.slides[clamped].scrollIntoView({ behavior: 'smooth' });
+        this.currentSlide = clamped;
+    }
+}
+new SlidePresentation();
+```
+
 <!-- @design:foundation:end -->
 
 <!-- @design:rules:start -->
@@ -188,6 +250,20 @@ Small top-right logo or brand mark. Keep it clear, restrained, and never use log
 <!-- @component:brand-watermark:end -->
 
 <!-- @design:components:end -->
+
+<!-- @design:page-templates:start -->
+
+### Page Template Mapping
+
+Lucent skins Revela built-in page templates without owning their semantic structure. The template renderer owns required fields, DOM skeletons, and template QA; Lucent supplies bright report surfaces, blue-violet-cyan accents, fixed-pixel typography, and local assets.
+
+- `cover`, `section-divider`, `closing`: use full-bleed hero treatment with Lucent package assets.
+- `agenda`, `executive-summary`, `problem-context`, `key-message-evidence`, `claim-supporting-visual`: use report-story/card-grid language with quiet surfaces.
+- `metric-highlight`, `chart-takeaways`, `table-comparison`: use data-forward Lucent panels with explicit interpretation regions.
+- `timeline-roadmap`: map to the roadmap visual system. Dots remain milestone anchors inside each timeline item; do not absolutely position detached decorative dots.
+- `process-steps`, `recommendation-decision`, `risks-tradeoffs`: use recommendation and steps surfaces with no nested card-in-card framing.
+
+<!-- @design:page-templates:end -->
 
 <!-- @design:chart-rules:start -->
 

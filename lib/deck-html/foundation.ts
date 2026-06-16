@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "fs"
-import { dirname, isAbsolute, normalize, resolve } from "path"
+import { dirname, isAbsolute, normalize, relative, resolve } from "path"
 import { activeDesign, getDesignSection } from "../design/designs"
+import { templateDeckCss } from "../page-templates"
 
 export type DeckFoundationMode = "create" | "repair"
 export type DeckFoundationStatus = "created" | "updated"
@@ -54,7 +55,7 @@ export function createDeckFoundation(input: CreateDeckFoundationInput): CreateDe
     language: input.language || "en",
     title: input.title || "Revela Deck",
     fontLinks: parts.fontLinks,
-    css: parts.cssBlocks.join("\n\n"),
+    css: [parts.cssBlocks.join("\n\n"), templateDeckCss({ designName: design, designAssetBasePath: designAssetBasePath(input.workspaceRoot, outputPath, design) })].join("\n\n"),
     script: parts.scriptBlocks.map(guardEmptyDeckNavigation).join("\n\n"),
   })
 
@@ -78,6 +79,13 @@ export function createDeckFoundation(input: CreateDeckFoundationInput): CreateDe
       "Patch slides between the revela-slides markers chapter by chapter, then run artifact QA.",
     ],
   }
+}
+
+function designAssetBasePath(workspaceRoot: string, outputPath: string, designName: string): string | undefined {
+  if (!existsSync(resolve(workspaceRoot, `designs/${designName}/assets`))) return undefined
+  const fromDir = dirname(outputPath)
+  const assetPath = normalize(relative(fromDir, `designs/${designName}/assets`)).replace(/\\/g, "/")
+  return assetPath.startsWith(".") ? assetPath : `./${assetPath}`
 }
 
 export function normalizeOutputPath(outputPath: string): string {
