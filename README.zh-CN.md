@@ -77,33 +77,47 @@ Git marketplace ref 和 `.mcp.json` plugin launcher 属于同一个 release arti
 
 ## 内置设计
 
-Revela 内置多个 deck design。Design preview 由内置 page-template preview fixture 加上当前 design CSS 生成。
+Revela 内置多个 deck design。Design preview 由内置 page-template preview fixture 加上当前 design CSS 生成。下面截图统一展示 cover、agenda 和 timeline-roadmap 三页。
+
+### starter
+
+<p align="center">
+  <img src="assets/img/starter-01.jpg" alt="Starter design cover preview" width="32%" />
+  <img src="assets/img/starter-02.jpg" alt="Starter design agenda preview" width="32%" />
+  <img src="assets/img/starter-03.jpg" alt="Starter design timeline-roadmap preview" width="32%" />
+</p>
 
 ### summit
 
 <p align="center">
   <img src="assets/img/summit-01.jpg" alt="Summit design cover preview" width="32%" />
-  <img src="assets/img/summit-02.jpg" alt="Summit design narrative layout preview" width="32%" />
-  <img src="assets/img/summit-03.jpg" alt="Summit design timeline preview" width="32%" />
+  <img src="assets/img/summit-02.jpg" alt="Summit design agenda preview" width="32%" />
+  <img src="assets/img/summit-03.jpg" alt="Summit design timeline-roadmap preview" width="32%" />
 </p>
 
 ### monet
 
 <p align="center">
   <img src="assets/img/monet-01.jpg" alt="Monet design cover preview" width="32%" />
-  <img src="assets/img/monet-02.jpg" alt="Monet design narrative layout preview" width="32%" />
-  <img src="assets/img/monet-03.jpg" alt="Monet design timeline preview" width="32%" />
+  <img src="assets/img/monet-02.jpg" alt="Monet design agenda preview" width="32%" />
+  <img src="assets/img/monet-03.jpg" alt="Monet design timeline-roadmap preview" width="32%" />
 </p>
 
 ### lucent
 
 <p align="center">
   <img src="assets/img/lucent-01.jpg" alt="Lucent design cover preview" width="32%" />
-  <img src="assets/img/lucent-02.jpg" alt="Lucent design narrative layout preview" width="32%" />
-  <img src="assets/img/lucent-03.jpg" alt="Lucent design roadmap preview" width="32%" />
+  <img src="assets/img/lucent-02.jpg" alt="Lucent design agenda preview" width="32%" />
+  <img src="assets/img/lucent-03.jpg" alt="Lucent design timeline-roadmap preview" width="32%" />
 </p>
 
-`starter` 是简洁默认演示风格。
+### lucent-dark
+
+<p align="center">
+  <img src="assets/img/lucent-dark-01.jpg" alt="Lucent Dark design cover preview" width="32%" />
+  <img src="assets/img/lucent-dark-02.jpg" alt="Lucent Dark design agenda preview" width="32%" />
+  <img src="assets/img/lucent-dark-03.jpg" alt="Lucent Dark design timeline-roadmap preview" width="32%" />
+</p>
 
 在 Codex 中切换 design，可以这样问：
 
@@ -135,7 +149,7 @@ Domain 提供特定场景的沟通 guidance，例如 consulting、product 或 in
 
 > [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md)，创建一个名为 neon-finance 的新 design：金融仪表盘风格，深色界面、精密网格、亮绿色重点色。
 
-Revela 可能会继续询问参考图、风格约束或禁忌项，然后创建并校验 design。创建完成后再切换使用：
+Revela 可能会继续询问参考图、风格约束或禁忌项，然后在 workspace draft 中创建 `DESIGN.md`、`design.css` 和需要的本地 `assets/**`。它会用内置 page-template fixture 加上这份 CSS 生成 preview，让你在 install 前先检查 cover、agenda、timeline、chart、table、card 和 visual slot。创建完成后再切换使用：
 
 > [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md)，使用 neon-finance 作为 design。
 

@@ -744,7 +744,7 @@ sources:
       const previewHtml = readFileSync(preview.previewPath, "utf-8")
       expect(preview).toMatchObject({ ok: true, name, source: "draft" })
       expect(preview.files).toEqual(expect.arrayContaining(["preview.html", "design.css", "assets/report-visual.jpg"]))
-      expect(previewHtml.match(/class="slide template-slide"/g)).toHaveLength(15)
+      expect(previewHtml.match(/class="slide template-slide"/g)).toHaveLength(16)
       expect(result).toMatchObject({ ok: true, name, sourcePath: draft.path, overwritten: false })
       expect(existsSync(join(result.path, "DESIGN.md"))).toBe(true)
       expect(() => designDraftInstall({ workspaceRoot: root, name })).toThrow("already exists")

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
-import { mkdirSync, writeFileSync } from "fs"
+import { mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
-import { PAGE_TEMPLATE_CLASSES, getPageTemplateFoundation, getPageTemplateVocabulary, listPageTemplates, renderTemplateScaffold, renderTemplateSlide, validateBoundedTemplateEdit, validatePageTemplateContracts } from "../lib/page-templates"
+import { PAGE_TEMPLATE_CLASSES, builtInPreviewFixtures, getPageTemplateFoundation, getPageTemplateVocabulary, listPageTemplates, renderBuiltInPreviewHtml, renderTemplateScaffold, renderTemplateSlide, validateBoundedTemplateEdit, validatePageTemplateContracts } from "../lib/page-templates"
 import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("page templates", () => {
@@ -53,6 +53,16 @@ describe("page templates", () => {
     expect(rendered.html).toContain('data-template-slot="claim"')
     expect(rendered.html).toContain('data-template-slot="visual"')
     expect(rendered.html).toContain("Replace with one visual claim.")
+  })
+
+  it("keeps the tracked built-in preview generated from template fixtures", () => {
+    const previewPath = join(import.meta.dir, "..", "lib", "page-templates", "built-in-preview.html")
+    const tracked = readFileSync(previewPath, "utf-8")
+    const generated = renderBuiltInPreviewHtml()
+
+    expect(builtInPreviewFixtures()).toHaveLength(16)
+    expect(builtInPreviewFixtures().filter((fixture) => fixture.templateId === "timeline-roadmap")).toHaveLength(2)
+    expect(tracked).toBe(generated)
   })
 
   it("renders timeline milestones with dot and copy anchored in each item", () => {

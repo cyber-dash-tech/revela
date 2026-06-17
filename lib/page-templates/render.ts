@@ -86,6 +86,11 @@ export interface BoundedTemplateEditInput {
   slideIndex: number
 }
 
+export interface BuiltInPreviewFixture {
+  templateId: string
+  content: Record<string, any>
+}
+
 const templates: PageTemplateDefinition[] = [
   define("cover", "Cover", "Open the deck with one clear artifact title and context.", [
     field("eyebrow", "string", "Small context label."),
@@ -198,6 +203,177 @@ export function renderTemplateSlide(input: RenderTemplateSlideInput): RenderTemp
   return { ok: true, templateId: template.id, slideIndex, designName, html, warnings }
 }
 
+export function builtInPreviewFixtures(): BuiltInPreviewFixture[] {
+  return [
+    fixture("cover", { title: "cover" }),
+    fixture("section-divider", { title: "section-divider" }),
+    fixture("closing", { title: "closing" }),
+    fixture("agenda", {
+      title: "agenda",
+      items: [
+        { label: "Frame the decision" },
+        { label: "Show the evidence" },
+        { label: "Compare options" },
+        { label: "Close with action" },
+      ],
+    }),
+    fixture("executive-summary", {
+      title: "executive-summary",
+      items: [
+        { label: "Decision is ready", description: "The facts support moving from discussion to selection without adding another analysis cycle." },
+        { label: "Risk is bounded", description: "Known caveats are visible, named, and can be managed through rollout gates." },
+        { label: "Next step is narrow", description: "A pilot decision creates more learning without overcommitting capital or team capacity." },
+      ],
+    }),
+    fixture("problem-context", {
+      title: "problem-context",
+      body: "Use this template when the audience needs the situation, tension, and implication before seeing recommendations.",
+      items: [
+        { label: "Situation", description: "A shift has changed the operating baseline." },
+        { label: "Tension", description: "Current process cannot absorb the new variance cleanly." },
+        { label: "Implication", description: "Delay increases rework and weakens decision confidence." },
+      ],
+    }),
+    fixture("key-message-evidence", {
+      title: "key-message-evidence",
+      body: "This key message stays large and readable, while the supporting evidence is separated into traceable slots for source-backed proof.",
+      items: [
+        { label: "Evidence 1", description: "The generated HTML separates the key-message panel from the evidence grid, so the claim cannot collapse into generic card content." },
+        { label: "Evidence 2", description: "Each evidence slot has a stable title and explanation area, giving the agent a predictable place for proof, caveat, or source-backed detail." },
+        { label: "Evidence 3", description: "QA can inspect the DOM contract before visual styling, which keeps template structure from depending on a design skin." },
+      ],
+    }),
+    fixture("claim-supporting-visual", {
+      title: "claim-supporting-visual",
+      claim: "A single visual should carry one argument.",
+      body: "The template reserves a stable visual region while keeping explanatory copy close enough to guide interpretation.",
+      items: [
+        { label: "Anchor", description: "State what the reader should inspect first." },
+        { label: "Callout", description: "Use short labels instead of a second paragraph." },
+      ],
+    }),
+    fixture("metric-highlight", {
+      title: "metric-highlight",
+      metrics: [
+        { value: "67%", label: "Adoption signal", description: "Primary number plus interpretation." },
+        { value: "3x", label: "Review speed", description: "Comparison is stated beside the metric." },
+        { value: "14d", label: "Pilot window", description: "Time bound keeps the ask concrete." },
+      ],
+      insightTitle: "Read the signal",
+      insightIcon: "scan-search",
+      insightBody: "Treat the metric row as the evidence surface, then use this panel to state the decision implication, caveat, or next reading step.",
+    }),
+    fixture("chart-takeaways", {
+      title: "chart-takeaways",
+      takeawaysTitle: "What to read",
+      items: [
+        { label: "Trend", description: "Call out the movement or comparison the chart is meant to prove, including the direction and the comparison baseline." },
+        { label: "Driver", description: "Name the likely reason without overclaiming; separate observed movement from the interpretation or hypothesis." },
+        { label: "Decision use", description: "Explain how the chart changes the recommendation, what threshold matters, and what follow-up evidence would reduce risk." },
+      ],
+    }),
+    fixture("table-comparison", {
+      title: "table-comparison",
+      columns: ["Layer", "Owns", "Agent task"],
+      rows: [
+        ["Template", "Structure and DOM contract", "Select the page pattern"],
+        ["Content", "Claim, evidence, caveat", "Fill the meaning"],
+        ["Design", "Color, type, surfaces", "Skin stable classes"],
+      ],
+      insightTitle: "Insight",
+      insightIcon: "lightbulb",
+      insightBody: "The template layer owns structure, while the design layer owns visual treatment. This keeps agent edits bounded without freezing the final look.",
+    }),
+    fixture("timeline-roadmap", {
+      title: "timeline-roadmap",
+      orientation: "horizontal",
+      milestones: [
+        { date: "2022", label: "Signal", description: "Map the baseline." },
+        { date: "2023", label: "Proof", description: "Validate the evidence threshold." },
+        { date: "2024", label: "Inflection", description: "Use the pivotal moment to frame the shift." },
+        { date: "2025", label: "Scale", description: "Use a taller card for the highlighted milestone.", highlight: true },
+        { date: "2026", label: "Decision", description: "Commit to the next path." },
+      ],
+    }),
+    fixture("timeline-roadmap", {
+      title: "timeline-roadmap-vertical",
+      orientation: "vertical",
+      insightTitle: "Reading the journey",
+      insightBody: "The timeline should show sequence and decision rhythm, while the side panel explains why the milestones matter.",
+      milestones: [
+        { date: "Mar 2019", label: "Launch", description: "Baseline mapping." },
+        { date: "Nov 2019", label: "Audit", description: "Evidence sprint." },
+        { date: "May 2020", label: "Scale", description: "Operating cadence." },
+        { date: "Feb 2021", label: "Review", description: "QA before export." },
+      ],
+    }),
+    fixture("process-steps", {
+      title: "process-steps",
+      steps: [
+        { label: "Choose", description: "Select the page template that matches the communication job." },
+        { label: "Fill", description: "Provide only the content fields the template needs." },
+        { label: "Style", description: "Let the active design control type, color, and surfaces." },
+        { label: "QA", description: "Run contract and visual checks before export." },
+      ],
+    }),
+    fixture("recommendation-decision", {
+      title: "recommendation-decision",
+      recommendation: "Adopt page templates as the structural layer, with designs remaining user-customizable.",
+      image: "./assets/card-lens.jpg",
+      imageAlt: "Lucent design asset",
+      imageCaption: "Design asset example",
+      items: [
+        { label: "Rationale", description: "This keeps generation reliable while leaving style expressive and replaceable." },
+      ],
+      steps: [
+        { label: "Pilot", description: "Use the built-in preview to tune every template." },
+        { label: "Validate", description: "Promote only contracts that pass QA and browser review." },
+        { label: "Ship", description: "Document the add-slide workflow for agents." },
+      ],
+    }),
+    fixture("risks-tradeoffs", {
+      title: "risks-tradeoffs",
+      items: [
+        { label: "Constraint", description: "Templates can over-constrain if they become decorative presets instead of communication jobs.", image: "./assets/report-visual.jpg", imageAlt: "Report visual", imageCaption: "Design asset example" },
+        { label: "Mitigation", description: "Keep bounded HTML edit flow after scaffold insertion so agents can improve the page directly." },
+        { label: "Tradeoff", description: "More structure improves QA, but only if template contracts stay small and semantic." },
+      ],
+    }),
+  ]
+}
+
+export function renderBuiltInPreviewHtml(): string {
+  const fixtures = builtInPreviewFixtures()
+  const slides = fixtures
+    .map((item, index) => renderTemplateSlide({
+      templateId: item.templateId,
+      slideIndex: index + 1,
+      designName: "built-in-preview",
+      content: {
+        eyebrow: previewEyebrow(index + 1, fixtures.length),
+        ...item.content,
+      },
+    }).html)
+    .join("\n")
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Revela Page Templates</title>
+    <link rel="stylesheet" href="./design.css">
+</head>
+<body>
+    <!-- revela-slides:start -->
+${slides}
+    <!-- revela-slides:end -->
+${slidePresentationRuntime()}
+</body>
+</html>
+`
+  return ensureInlineLucideRuntime(html)
+}
+
 export function addTemplateSlide(input: AddTemplateSlideInput): AddTemplateSlideResult {
   const outputPath = normalizeOutputPath(input.outputPath)
   const targetPath = resolve(input.workspaceRoot, outputPath)
@@ -239,6 +415,16 @@ export function addTemplateScaffold(input: AddTemplateScaffoldInput): AddTemplat
 
 function deckFoundationMarkers(): { start: string; end: string } {
   return { start: "<!-- revela-slides:start -->", end: "<!-- revela-slides:end -->" }
+}
+
+function fixture(templateId: string, content: Record<string, any>): BuiltInPreviewFixture {
+  return { templateId, content }
+}
+
+function previewEyebrow(slideIndex: number, total: number): string {
+  const index = String(slideIndex).padStart(2, "0")
+  const count = String(total).padStart(2, "0")
+  return `Template ${index} / ${count}`
 }
 
 function normalizeOutputPath(outputPath: string): string {
@@ -523,6 +709,70 @@ revelaRenderLucideIcons();
   return html.replace("</body>", `    ${runtime}\n</body>`)
 }
 
+function slidePresentationRuntime(): string {
+  return `    <script>
+class SlidePresentation {
+    constructor() {
+        this.slides = document.querySelectorAll('.slide');
+        this.currentSlide = 0;
+        this.setupScaling();
+        this.setupIntersectionObserver();
+        this.setupKeyboardNav();
+        this.setupTouchNav();
+        this.setupMouseWheel();
+    }
+    setupScaling() {
+        const canvases = document.querySelectorAll('.slide-canvas');
+        const BASE_W = 1920;
+        const BASE_H = 1080;
+        const update = () => {
+            const scale = Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H);
+            canvases.forEach((canvas) => { canvas.style.transform = \`scale(\${scale})\`; });
+        };
+        window.addEventListener('resize', update);
+        update();
+    }
+    setupIntersectionObserver() {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) entry.target.querySelectorAll('.reveal').forEach((el) => el.classList.add('visible'));
+            });
+        }, { threshold: 0.2 });
+        this.slides.forEach((slide) => observer.observe(slide));
+    }
+    setupKeyboardNav() {
+        document.addEventListener('keydown', (event) => {
+            if (['ArrowDown', 'ArrowRight', ' ', 'PageDown'].includes(event.key)) { event.preventDefault(); this.goTo(this.currentSlide + 1); }
+            else if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(event.key)) { event.preventDefault(); this.goTo(this.currentSlide - 1); }
+        });
+    }
+    setupTouchNav() {
+        let startY = 0;
+        document.addEventListener('touchstart', (event) => { startY = event.touches[0].clientY; }, { passive: true });
+        document.addEventListener('touchend', (event) => {
+            const deltaY = startY - event.changedTouches[0].clientY;
+            if (Math.abs(deltaY) > 40) this.goTo(this.currentSlide + (deltaY > 0 ? 1 : -1));
+        }, { passive: true });
+    }
+    setupMouseWheel() {
+        let last = 0;
+        document.addEventListener('wheel', (event) => {
+            const now = Date.now();
+            if (now - last < 800) return;
+            last = now;
+            this.goTo(this.currentSlide + (event.deltaY > 0 ? 1 : -1));
+        }, { passive: true });
+    }
+    goTo(index) {
+        const clamped = Math.max(0, Math.min(this.slides.length - 1, index));
+        this.slides[clamped].scrollIntoView({ behavior: 'smooth' });
+        this.currentSlide = clamped;
+    }
+}
+if (document.querySelector(".slide")) { new SlidePresentation(); }
+    </script>`
+}
+
 function cssUrl(value: string): string {
   return value.replace(/\\/g, "/").replace(/"/g, "%22").replace(/\n|\r|\f/g, "")
 }
@@ -647,9 +897,11 @@ function getPageTemplate(templateId: string): PageTemplateDefinition {
 
 function renderSlideShell(input: { template: PageTemplateDefinition; slideIndex: number; designName: string; title: string; body: string; catalog?: any }): string {
   const hero = ["cover", "section-divider", "closing"].includes(input.template.id)
+  const slideQa = hero ? "false" : "true"
+  const slideRole = input.template.id === "cover" || input.template.id === "closing" ? ` data-slide-role="${input.template.id}"` : ""
   const hasCatalog = Boolean(input.catalog)
   const heroModifier = hero ? ` template-hero--${input.template.id}` : ""
-  return `    <section class="slide template-slide" data-slide-index="${input.slideIndex}" data-design="${escapeAttribute(input.designName)}" data-template="${escapeAttribute(input.template.id)}">
+  return `    <section class="slide template-slide" slide-qa="${slideQa}" data-slide-index="${input.slideIndex}"${slideRole} data-design="${escapeAttribute(input.designName)}" data-template="${escapeAttribute(input.template.id)}">
         <div class="slide-canvas">
             <div class="template-frame${hero ? " template-hero" : ""}${heroModifier}${hasCatalog ? " template-frame--catalog" : ""}">
                 ${input.body}

@@ -521,10 +521,12 @@ describe("design package authoring", () => {
       expect(preview.files).toContain("preview.html")
       expect(preview.files).toContain("design.css")
       expect(html).toContain('<link rel="stylesheet" href="./design.css">')
-      expect(html.match(/class="slide template-slide"/g)).toHaveLength(15)
+      expect(html.match(/class="slide template-slide"/g)).toHaveLength(16)
+      expect(html.match(/data-template="timeline-roadmap"/g)).toHaveLength(2)
       expect(html).toContain('data-slide-role="cover"')
       expect(html).toContain('data-slide-role="closing"')
       expect(existsSync(join(preview.previewDir, "assets", "report-visual.jpg"))).toBe(true)
+      expect(existsSync(join(preview.previewDir, "assets", "card-lens.jpg"))).toBe(true)
     } finally {
       rmSync(workspaceRoot, { recursive: true, force: true })
     }

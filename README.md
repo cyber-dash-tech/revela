@@ -77,33 +77,47 @@ The Git marketplace ref and `.mcp.json` plugin launcher are part of the same rel
 
 ## Built-In Designs
 
-Revela includes built-in deck designs. Design previews are generated from the built-in page-template preview fixture plus the selected design CSS.
+Revela includes built-in deck designs. Design previews are generated from the built-in page-template preview fixture plus the selected design CSS. The screenshots below show cover, agenda, and timeline-roadmap pages from that shared preview.
+
+### starter
+
+<p align="center">
+  <img src="assets/img/starter-01.jpg" alt="Starter design cover preview" width="32%" />
+  <img src="assets/img/starter-02.jpg" alt="Starter design agenda preview" width="32%" />
+  <img src="assets/img/starter-03.jpg" alt="Starter design timeline-roadmap preview" width="32%" />
+</p>
 
 ### summit
 
 <p align="center">
   <img src="assets/img/summit-01.jpg" alt="Summit design cover preview" width="32%" />
-  <img src="assets/img/summit-02.jpg" alt="Summit design narrative layout preview" width="32%" />
-  <img src="assets/img/summit-03.jpg" alt="Summit design timeline preview" width="32%" />
+  <img src="assets/img/summit-02.jpg" alt="Summit design agenda preview" width="32%" />
+  <img src="assets/img/summit-03.jpg" alt="Summit design timeline-roadmap preview" width="32%" />
 </p>
 
 ### monet
 
 <p align="center">
   <img src="assets/img/monet-01.jpg" alt="Monet design cover preview" width="32%" />
-  <img src="assets/img/monet-02.jpg" alt="Monet design narrative layout preview" width="32%" />
-  <img src="assets/img/monet-03.jpg" alt="Monet design timeline preview" width="32%" />
+  <img src="assets/img/monet-02.jpg" alt="Monet design agenda preview" width="32%" />
+  <img src="assets/img/monet-03.jpg" alt="Monet design timeline-roadmap preview" width="32%" />
 </p>
 
 ### lucent
 
 <p align="center">
   <img src="assets/img/lucent-01.jpg" alt="Lucent design cover preview" width="32%" />
-  <img src="assets/img/lucent-02.jpg" alt="Lucent design narrative layout preview" width="32%" />
-  <img src="assets/img/lucent-03.jpg" alt="Lucent design roadmap preview" width="32%" />
+  <img src="assets/img/lucent-02.jpg" alt="Lucent design agenda preview" width="32%" />
+  <img src="assets/img/lucent-03.jpg" alt="Lucent design timeline-roadmap preview" width="32%" />
 </p>
 
-`starter` is the clean default presentation style.
+### lucent-dark
+
+<p align="center">
+  <img src="assets/img/lucent-dark-01.jpg" alt="Lucent Dark design cover preview" width="32%" />
+  <img src="assets/img/lucent-dark-02.jpg" alt="Lucent Dark design agenda preview" width="32%" />
+  <img src="assets/img/lucent-dark-03.jpg" alt="Lucent Dark design timeline-roadmap preview" width="32%" />
+</p>
 
 To switch designs in Codex, ask:
 
@@ -135,7 +149,7 @@ Use these prompts in Codex from the workspace that contains your source material
 
 > [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md), create a new design named neon-finance with a crisp financial-dashboard style: dark surfaces, precise grids, and bright green accents.
 
-Revela may ask for references or constraints, then creates and validates the design. When it is ready, switch to it:
+Revela may ask for references or constraints, then creates a workspace draft with `DESIGN.md`, `design.css`, and any local `assets/**`. It generates a preview from the built-in page-template fixture plus that CSS so you can review cover, agenda, timelines, charts, tables, cards, and visual slots before installing. When it is ready, switch to it:
 
 > [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md), use neon-finance as the design.
 

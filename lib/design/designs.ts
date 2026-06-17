@@ -909,7 +909,7 @@ function readDesignCssFromDir(name: string, designDir: string): { css: string; w
 function copyMissingBuiltInPreviewAssets(previewHtml: string, targetAssetsDir: string): void {
   const fallbackAssetsDir = join(SEED_DIR, PREVIEW_FALLBACK_ASSET_DESIGN, "assets")
   const assetRefs = new Set<string>()
-  const re = /(?:src|href)=["']assets\/([^"']+)["']/g
+  const re = /(?:src|href)=["'](?:\.\/)?assets\/([^"']+)["']/g
   let match: RegExpExecArray | null
   while ((match = re.exec(previewHtml)) !== null) assetRefs.add(match[1])
   if (assetRefs.size === 0) return
