@@ -86,8 +86,8 @@ describe("page templates", () => {
         milestones: [
           { date: "2022", label: "Signal", description: "Starting point." },
           { date: "2023", label: "Proof", description: "Evidence threshold." },
-          { date: "2024", label: "Inflection", description: "Pivotal moment.", highlight: true },
-          { date: "2025", label: "Scale", description: "Operating cadence." },
+          { date: "2024", label: "Inflection", description: "Pivotal moment." },
+          { date: "2025", label: "Scale", description: "Operating cadence.", highlight: true },
           { date: "2026", label: "Decision", description: "Next move." },
         ],
       },
@@ -96,7 +96,10 @@ describe("page templates", () => {
     expect(rendered.html).toContain("template-timeline--horizontal")
     expect(rendered.html.match(/<article class="template-timeline-item/g)).toHaveLength(5)
     expect(rendered.html.match(/template-timeline-copy template-card/g)).toHaveLength(5)
+    expect(rendered.html.match(/data-lucide="scan-search"/g)).toHaveLength(5)
+    expect(rendered.html).not.toContain("template-timeline-card-icon")
     expect(rendered.html).toContain("template-timeline-item--highlight")
+    expect(rendered.html).toContain("<h3>Scale</h3>")
     expect(rendered.html).toContain("2026")
   })
 

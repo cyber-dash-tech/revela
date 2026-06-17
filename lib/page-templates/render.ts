@@ -394,14 +394,17 @@ ${lucentClosingBackgroundCss}
 .template-timeline-layout .template-text-panel { background: linear-gradient(135deg, #7a7fe8 0%, #5f82c8 58%, #315eea 115%); color: white; box-shadow: 0 22px 56px rgba(49,94,234,0.22); }
 .template-timeline-layout .template-text-panel-title { color: white; }
 .template-timeline-layout .template-text-panel-body { color: rgba(255,255,255,0.78); }
-.template-timeline--horizontal { grid-template-columns: repeat(var(--timeline-count), 1fr); column-gap: 18px; align-items: stretch; }
-.template-timeline--horizontal::before { content: ""; position: absolute; left: 4%; right: 4%; top: 58%; border-top: 2px solid var(--line-strong); }
+.template-timeline--horizontal { grid-template-columns: repeat(var(--timeline-count), 1fr); column-gap: 18px; align-items: stretch; --timeline-axis-y: 86%; }
+.template-timeline--horizontal::before { content: ""; position: absolute; left: 4%; right: 4%; top: var(--timeline-axis-y); border-top: 2px solid var(--line-strong); transform: translateY(-1px); }
 .template-timeline-item { position: relative; min-height: 400px; display: grid; justify-items: center; align-items: center; }
 .template-timeline--horizontal .template-timeline-item { grid-template-rows: minmax(0, 1fr) 42px 86px; align-items: stretch; }
 .template-timeline-dot { z-index: 2; width: 22px; height: 22px; border-radius: 999px; background: var(--accent-primary); box-shadow: 0 0 0 8px rgba(49,94,234,0.12); }
 .template-timeline-copy { z-index: 2; width: 86%; padding: 18px 4px; background: transparent; border: 0; box-shadow: none; }
-.template-timeline--horizontal .template-timeline-copy.template-card { width: 94%; min-height: 186px; align-self: end; justify-self: center; display: flex; flex-direction: column; justify-content: center; padding: 24px; }
-.template-timeline--horizontal .template-timeline-item--highlight .template-timeline-copy.template-card { min-height: 254px; }
+.template-timeline--horizontal .template-timeline-copy.template-card { width: 94%; height: calc(100% - 55px); min-height: 254px; align-self: end; justify-self: center; display: flex; flex-direction: column; justify-content: flex-start; padding: 28px 24px 24px; margin-bottom: 22px; }
+.template-timeline--horizontal .template-timeline-item--highlight .template-timeline-copy.template-card { height: calc(100% - 22px); min-height: 254px; }
+.template-timeline--horizontal .template-insight-icon { width: 28px; height: 28px; margin: 0 auto 28px; color: var(--accent-primary); stroke-width: 2; flex: 0 0 auto; }
+.template-timeline--horizontal .template-timeline-item--highlight .template-insight-icon { color: #f37021; }
+.template-timeline--horizontal .template-timeline-item--highlight .template-timeline-copy h3 { color: #f37021; }
 .template-timeline--horizontal .template-timeline-dot { grid-row: 2; align-self: center; justify-self: center; }
 .template-timeline--horizontal .template-timeline-date { grid-row: 3; align-self: start; justify-self: center; margin: 8px 0 0; font-size: 38px; line-height: 1; font-weight: 300; letter-spacing: 0.03em; color: var(--text-muted); }
 .template-timeline-date { margin: 0 0 8px; font-size: 15px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--accent-primary); font-weight: 800; }
@@ -481,8 +484,9 @@ ${lucentClosingBackgroundCss}
 .template-frame--catalog .template-timeline-layout .template-text-panel-title { font-size: 25px; line-height: 1.3; }
 .template-frame--catalog .template-timeline-layout .template-text-panel-body { font-size: 18px; line-height: 1.4; }
 .template-frame--catalog .template-timeline--horizontal .template-timeline-item { grid-template-rows: minmax(0, 1fr) 32px 58px; min-height: 330px; }
-.template-frame--catalog .template-timeline--horizontal .template-timeline-copy.template-card { min-height: 132px; padding: 18px; }
-.template-frame--catalog .template-timeline--horizontal .template-timeline-item--highlight .template-timeline-copy.template-card { min-height: 178px; }
+.template-frame--catalog .template-timeline--horizontal .template-timeline-copy.template-card { height: calc(100% - 51px); min-height: 178px; padding: 20px 18px 18px; margin-bottom: 18px; }
+.template-frame--catalog .template-timeline--horizontal .template-timeline-item--highlight .template-timeline-copy.template-card { height: calc(100% - 18px); min-height: 178px; }
+.template-frame--catalog .template-timeline--horizontal .template-insight-icon { width: 22px; height: 22px; margin-bottom: 18px; }
 .template-frame--catalog .template-timeline--horizontal .template-timeline-date { font-size: 28px; }
 .template-frame--catalog .template-timeline-copy { padding: 8px 4px; }
 .template-frame--catalog .template-timeline-copy h3 { font-size: 21px; line-height: 1.18; margin-bottom: 4px; }
@@ -796,6 +800,7 @@ function timelineMilestone(item: any, orientation: "horizontal" | "vertical"): s
   if (orientation === "horizontal") {
     return `<article class="${itemClass}">
                         <div class="${copyClass}">
+                            <i class="template-insight-icon" data-lucide="scan-search" aria-hidden="true"></i>
                             <h3>${escapeHtml(stringValue(item.label))}</h3>
                             <p>${escapeHtml(stringValue(item.description))}</p>
                         </div>
@@ -875,7 +880,7 @@ function scaffoldSeed(templateId: string, seed: Record<string, any>): Record<str
   if (templateId === "metric-highlight") return { metrics: [{ value: "67%", label: "Metric", description: "Replace with interpretation." }, { value: "3x", label: "Comparison", description: "Replace with reading note." }, { value: "14d", label: "Window", description: "Replace with time context." }], insightTitle: "Read the signal", insightBody: "Replace with the decision implication, caveat, or next reading step.", ...base }
   if (templateId === "chart-takeaways") return { takeawaysTitle: "What to read", items: defaultItems(["Trend", "Driver", "Decision use"]), ...base }
   if (templateId === "table-comparison") return { columns: ["Dimension", "Current", "Target"], rows: [["Replace", "Current state", "Target state"], ["Caveat", "Known limit", "Next proof"]], insightTitle: "Insight", insightBody: "Replace with the table reading note or caveat.", ...base }
-  if (templateId === "timeline-roadmap") return { orientation: "horizontal", milestones: [{ date: "2022", label: "Signal", description: "Name the starting condition." }, { date: "2023", label: "Proof", description: "Show the evidence threshold." }, { date: "2024", label: "Inflection", description: "Use a taller card for the pivotal moment.", highlight: true }, { date: "2025", label: "Scale", description: "Describe operating cadence." }, { date: "2026", label: "Decision", description: "State what changes next." }], ...base }
+  if (templateId === "timeline-roadmap") return { orientation: "horizontal", milestones: [{ date: "2022", label: "Signal", description: "Name the starting condition." }, { date: "2023", label: "Proof", description: "Show the evidence threshold." }, { date: "2024", label: "Inflection", description: "Use the pivotal moment to frame the shift." }, { date: "2025", label: "Scale", description: "Use a taller card for the highlighted milestone.", highlight: true }, { date: "2026", label: "Decision", description: "State what changes next." }], ...base }
   if (templateId === "process-steps") return { steps: defaultItems(["Step 1", "Step 2", "Step 3"]), ...base }
   if (templateId === "recommendation-decision") return { recommendation: "Replace with the recommended decision.", items: defaultItems(["Rationale"]), steps: defaultItems(["Pilot", "Validate", "Ship"]), ...base }
   if (templateId === "risks-tradeoffs") return { items: defaultItems(["Risk", "Tradeoff", "Mitigation"]), ...base }
