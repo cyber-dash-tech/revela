@@ -77,14 +77,14 @@ Git marketplace ref 和 `.mcp.json` plugin launcher 属于同一个 release arti
 
 ## 内置设计
 
-Revela 内置多个 deck design。Design preview 由内置 page-template preview fixture 加上当前 design CSS 生成。下面截图统一展示 cover、agenda 和 timeline-roadmap 三页。
+Revela 内置多个 deck design。Design preview 由内置 page-template preview fixture 加上当前 design CSS 生成。每组截图保留 cover，并选择更能体现该 design 特征的代表性 template 页面。
 
 ### starter
 
 <p align="center">
   <img src="assets/img/starter-01.jpg" alt="Starter design cover preview" width="32%" />
-  <img src="assets/img/starter-02.jpg" alt="Starter design agenda preview" width="32%" />
-  <img src="assets/img/starter-03.jpg" alt="Starter design timeline-roadmap preview" width="32%" />
+  <img src="assets/img/starter-02.jpg" alt="Starter design executive-summary preview" width="32%" />
+  <img src="assets/img/starter-03.jpg" alt="Starter design process-steps preview" width="32%" />
 </p>
 
 ### summit
@@ -92,23 +92,23 @@ Revela 内置多个 deck design。Design preview 由内置 page-template preview
 <p align="center">
   <img src="assets/img/summit-01.jpg" alt="Summit design cover preview" width="32%" />
   <img src="assets/img/summit-02.jpg" alt="Summit design agenda preview" width="32%" />
-  <img src="assets/img/summit-03.jpg" alt="Summit design timeline-roadmap preview" width="32%" />
+  <img src="assets/img/summit-03.jpg" alt="Summit design vertical timeline-roadmap preview" width="32%" />
 </p>
 
 ### monet
 
 <p align="center">
   <img src="assets/img/monet-01.jpg" alt="Monet design cover preview" width="32%" />
-  <img src="assets/img/monet-02.jpg" alt="Monet design agenda preview" width="32%" />
-  <img src="assets/img/monet-03.jpg" alt="Monet design timeline-roadmap preview" width="32%" />
+  <img src="assets/img/monet-02.jpg" alt="Monet design claim-supporting-visual preview" width="32%" />
+  <img src="assets/img/monet-03.jpg" alt="Monet design table-comparison preview" width="32%" />
 </p>
 
 ### lucent
 
 <p align="center">
   <img src="assets/img/lucent-01.jpg" alt="Lucent design cover preview" width="32%" />
-  <img src="assets/img/lucent-02.jpg" alt="Lucent design agenda preview" width="32%" />
-  <img src="assets/img/lucent-03.jpg" alt="Lucent design timeline-roadmap preview" width="32%" />
+  <img src="assets/img/lucent-02.jpg" alt="Lucent design chart-takeaways preview" width="32%" />
+  <img src="assets/img/lucent-03.jpg" alt="Lucent design recommendation-decision preview" width="32%" />
 </p>
 
 ### lucent-dark
@@ -116,7 +116,7 @@ Revela 内置多个 deck design。Design preview 由内置 page-template preview
 <p align="center">
   <img src="assets/img/lucent-dark-01.jpg" alt="Lucent Dark design cover preview" width="32%" />
   <img src="assets/img/lucent-dark-02.jpg" alt="Lucent Dark design agenda preview" width="32%" />
-  <img src="assets/img/lucent-dark-03.jpg" alt="Lucent Dark design timeline-roadmap preview" width="32%" />
+  <img src="assets/img/lucent-dark-03.jpg" alt="Lucent Dark design horizontal timeline-roadmap preview" width="32%" />
 </p>
 
 在 Codex 中切换 design，可以这样问：
