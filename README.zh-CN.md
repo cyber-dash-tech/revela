@@ -39,7 +39,7 @@ npm_config_cache=/tmp/revela-npm-cache bun run smoke:mcp-pack
 通过 Codex Git marketplace 安装 Revela：
 
 ```bash
-codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.18.16
+codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.19.0
 codex plugin add revela@revela
 ```
 
