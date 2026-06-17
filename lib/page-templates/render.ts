@@ -90,16 +90,13 @@ const templates: PageTemplateDefinition[] = [
   define("cover", "Cover", "Open the deck with one clear artifact title and context.", [
     field("eyebrow", "string", "Small context label."),
     field("title", "string", "Deck title.", true),
-    field("subtitle", "string", "Short supporting line."),
   ], ["Use one dominant title.", "Keep source/evidence details out of the cover."], ["Has one h1.", "Uses hero structure."]),
   define("section-divider", "Section Divider", "Mark a chapter transition with a short label and thesis.", [
     field("eyebrow", "string", "Chapter label."),
     field("title", "string", "Section title.", true),
-    field("subtitle", "string", "Section setup."),
   ], ["Use between chapters only."], ["Has one h1.", "Counts as structural."]),
   define("closing", "Closing", "End with the final decision, ask, or next action.", [
     field("title", "string", "Closing line.", true),
-    field("subtitle", "string", "Optional final support."),
   ], ["Keep the close concise."], ["Has one h1.", "Uses closing/hero structure."]),
   define("agenda", "Agenda / TOC", "Orient the audience to the deck flow.", [
     field("title", "string", "Agenda title.", true),
@@ -150,7 +147,6 @@ const templates: PageTemplateDefinition[] = [
   ], ["Keep rows scannable.", "Do not use a table for pure prose."], ["Table has headers and body rows."]),
   define("timeline-roadmap", "Timeline / Roadmap", "Show dated phases, milestones, or journey steps.", [
     field("title", "string", "Slide title.", true),
-    field("subtitle", "string", "Short setup."),
     field("orientation", "string", "horizontal or vertical."),
     field("milestones", "milestones[]", "Timeline milestones.", true),
     field("insightTitle", "string", "Side panel title."),
@@ -301,12 +297,12 @@ body { margin: 0; background: var(--bg-frame, #07111f); color: var(--text-primar
 .template-eyebrow { margin: 0 0 14px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.18em; color: var(--text-muted); font-weight: 700; }
 .template-frame header { flex: 0 0 auto; padding-bottom: 8px; overflow: visible; }
 .template-title { margin: 0; max-width: 1320px; font-family: var(--font-display); font-size: 62px; line-height: 1.22; color: var(--text-primary); padding-bottom: 6px; overflow: visible; }
-.template-subtitle { margin: 18px 0 0; max-width: 980px; font-size: 25px; line-height: 1.45; color: var(--text-secondary); }
 .template-body { flex: 1; min-height: 0; }
 .template-grid { display: grid; gap: 24px; height: 100%; }
 .template-grid.cols-2 { grid-template-columns: 0.95fr 1.05fr; }
 .template-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
 .template-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+.template-chart-layout { grid-template-columns: 2fr 1fr; }
 .template-card { background: rgba(255,255,255,0.82); border: 1px solid var(--line); border-radius: var(--surface-radius); padding: 28px; box-shadow: 0 18px 44px var(--shadow-soft); }
 .template-card h2, .template-card h3 { margin: 0 0 12px; font-size: 28px; line-height: 1.32; padding-bottom: 4px; overflow: visible; }
 .template-card p { margin: 10px 0; font-size: 21px; line-height: 1.42; color: var(--text-secondary); }
@@ -322,11 +318,15 @@ body { margin: 0; background: var(--bg-frame, #07111f); color: var(--text-primar
 .template-list { display: grid; gap: 18px; margin: 0; padding: 0; list-style: none; }
 .template-list li { position: relative; padding-left: 24px; font-size: 24px; line-height: 1.38; color: var(--text-secondary); }
 .template-list li::before { content: ""; position: absolute; left: 0; top: 14px; width: 7px; height: 7px; background: var(--accent-primary); }
-.template-hero { margin-top: auto; max-width: 1180px; }
-.template-hero .template-title { font-size: 74px; line-height: 1.38; color: white; padding-bottom: 22px; }
-.template-hero .template-subtitle, .template-hero .template-eyebrow { color: rgba(255,255,255,0.78); }
-.template-slide[data-template="cover"] .template-frame { display: grid; grid-template-rows: 1fr auto; align-items: stretch; }
-.template-slide[data-template="cover"] .template-frame > header { align-self: center; }
+.template-hero { margin: 0; max-width: none; justify-content: center; align-items: flex-start; }
+.template-hero > [data-template-slot="hero"] { width: 100%; }
+.template-hero header { padding-bottom: 0; }
+.template-hero-title { font-size: 120px; line-height: 1.18; color: white; font-weight: 800; opacity: 0.8; padding: 12px 0 20px; max-width: 1320px; }
+.template-hero .template-eyebrow { color: rgba(255,255,255,0.78); }
+.template-hero--cover, .template-hero--section-divider { justify-content: center; align-items: flex-start; }
+.template-hero--closing { justify-content: flex-end; align-items: flex-end; }
+.template-hero--closing > [data-template-slot="hero"] { display: flex; justify-content: flex-end; text-align: right; }
+.template-hero--closing .template-hero-title { max-width: 1120px; }
 .template-slide[data-template="agenda"] .template-frame { display: grid; grid-template-rows: 1fr auto; gap: 28px; }
 .template-slide[data-template="cover"] .slide-canvas,
 .template-slide[data-template="section-divider"] .slide-canvas,
@@ -343,7 +343,6 @@ ${lucentClosingBackgroundCss}
 .template-agenda-header { display: flex; flex-direction: column; min-height: 0; padding: 10px 0 0; }
 .template-agenda-header .template-eyebrow { color: rgba(255,255,255,0.64); }
 .template-agenda-header .template-title { max-width: 440px; font-size: 54px; line-height: 1.16; letter-spacing: 0; text-transform: uppercase; color: white; padding-bottom: 8px; overflow: visible; }
-.template-agenda-note { margin: 150px 0 0; max-width: 340px; font-size: 17px; line-height: 1.68; letter-spacing: 0.02em; color: rgba(255,255,255,0.68); }
 .template-agenda-footer { margin: auto 0 0; font-size: 13px; line-height: 1.4; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 800; color: rgba(255,255,255,0.84); }
 .template-agenda-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: center; gap: 40px; height: 100%; }
 .template-agenda-item { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 44px; align-items: center; min-height: 58px; overflow: visible; }
@@ -358,12 +357,13 @@ ${lucentClosingBackgroundCss}
 .template-chart-placeholder { width: 76%; height: 56%; border-left: 2px solid var(--line-strong); border-bottom: 2px solid var(--line-strong); display: flex; align-items: end; gap: 28px; padding: 0 28px 24px; }
 .template-visual-slot-panel { width: 100%; min-height: 520px; border: 1px dashed var(--line-strong); border-radius: var(--surface-radius); background: linear-gradient(135deg, rgba(49,94,234,0.08), rgba(24,168,216,0.08)); display: grid; place-items: center; padding: 0; }
 .template-visual-slot-label { font-size: 13px; line-height: 1.35; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); font-weight: 800; }
-.template-chart-takeaway-panel { gap: 28px; }
+.template-text-panel.template-chart-takeaway-panel { gap: 28px; background: linear-gradient(135deg, #5f82c8 0%, var(--accent-primary) 58%, #18a8d8 115%); color: white; box-shadow: 0 22px 56px rgba(49,94,234,0.24); }
+.template-chart-takeaway-panel .template-text-panel-title { color: white; }
 .template-chart-takeaway-list { display: grid; gap: 22px; width: 100%; }
-.template-chart-takeaway-item { display: grid; gap: 7px; padding-top: 18px; border-top: 1px solid var(--line); }
+.template-chart-takeaway-item { display: grid; gap: 7px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.24); }
 .template-chart-takeaway-item:first-child { padding-top: 0; border-top: 0; }
-.template-chart-takeaway-item h3 { margin: 0; font-size: 25px; line-height: 1.24; color: var(--text-primary); }
-.template-chart-takeaway-item p { margin: 0; font-size: 20px; line-height: 1.46; color: var(--text-secondary); }
+.template-chart-takeaway-item h3 { margin: 0; font-size: 25px; line-height: 1.24; color: white; }
+.template-chart-takeaway-item p { margin: 0; font-size: 20px; line-height: 1.46; color: rgba(255,255,255,0.78); }
 .template-bar { flex: 1; background: linear-gradient(180deg, var(--accent-primary), var(--accent-cyan)); min-height: 80px; }
 .template-table-wrap { display: grid; grid-template-rows: minmax(0, auto) auto; gap: 22px; height: 100%; align-content: start; }
 .template-table { width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.86); box-shadow: 0 18px 44px var(--shadow-soft); }
@@ -384,14 +384,20 @@ ${lucentClosingBackgroundCss}
 .template-metric-layout .template-insight-icon { width: 20px; height: 20px; }
 .template-metric-layout .template-insight-body { font-size: 24px; line-height: 1.42; color: var(--text-primary); }
 .template-timeline { position: relative; height: 100%; display: grid; align-items: center; }
-.template-timeline-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 34px; height: 100%; align-items: stretch; }
-.template-timeline-layout--left { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.template-timeline-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 34px; height: 100%; align-items: stretch; }
+.template-timeline-layout--left { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
 .template-timeline-layout--left .template-side-panel { grid-column: 1; grid-row: 1; }
 .template-timeline-layout--left .template-timeline { grid-column: 2; grid-row: 1; }
+.template-timeline-layout--right { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.template-timeline-layout--right .template-timeline { grid-column: 1; grid-row: 1; }
+.template-timeline-layout--right .template-side-panel { grid-column: 2; grid-row: 1; }
+.template-timeline-layout .template-text-panel { background: linear-gradient(135deg, #7a7fe8 0%, #5f82c8 58%, #315eea 115%); color: white; box-shadow: 0 22px 56px rgba(49,94,234,0.22); }
+.template-timeline-layout .template-text-panel-title { color: white; }
+.template-timeline-layout .template-text-panel-body { color: rgba(255,255,255,0.78); }
 .template-timeline--horizontal { grid-template-columns: repeat(var(--timeline-count), 1fr); column-gap: 18px; }
 .template-timeline--horizontal::before { content: ""; position: absolute; left: 4%; right: 4%; top: 50%; border-top: 2px solid var(--line-strong); }
 .template-timeline-item { position: relative; min-height: 400px; display: grid; justify-items: center; align-items: center; }
-.template-timeline-dot { z-index: 2; width: 22px; height: 22px; background: var(--accent-primary); transform: rotate(-8deg); box-shadow: 0 0 0 8px rgba(49,94,234,0.12); }
+.template-timeline-dot { z-index: 2; width: 22px; height: 22px; border-radius: 999px; background: var(--accent-primary); box-shadow: 0 0 0 8px rgba(49,94,234,0.12); }
 .template-timeline-copy { z-index: 2; width: 86%; padding: 18px 4px; background: transparent; border: 0; box-shadow: none; }
 .template-timeline-item:nth-child(odd) .template-timeline-copy { align-self: start; }
 .template-timeline-item:nth-child(even) .template-timeline-copy { align-self: end; }
@@ -427,7 +433,6 @@ ${lucentClosingBackgroundCss}
 .template-catalog-list li { font-size: 14px; line-height: 1.3; color: var(--text-secondary); }
 .template-frame--catalog .template-title { font-size: 52px; line-height: 1.18; }
 .template-slide[data-template="agenda"] .template-frame--catalog .template-title { font-size: 54px; line-height: 1.04; }
-.template-frame--catalog .template-subtitle { margin-top: 12px; font-size: 22px; line-height: 1.34; }
 .template-frame--catalog .template-card { padding: 22px; }
 .template-frame--catalog .template-card h2,
 .template-frame--catalog .template-card h3 { font-size: 24px; line-height: 1.22; margin-bottom: 8px; }
@@ -466,8 +471,9 @@ ${lucentClosingBackgroundCss}
 .template-frame--catalog .template-insight-body { font-size: 16px; line-height: 1.32; }
 .template-frame--catalog .template-timeline--vertical { padding: 6px 0; }
 .template-frame--catalog .template-timeline--vertical .template-timeline-item { min-height: 96px; }
-.template-frame--catalog .template-timeline-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
-.template-frame--catalog .template-timeline-layout--left { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.template-frame--catalog .template-timeline-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 22px; }
+.template-frame--catalog .template-timeline-layout--left { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+.template-frame--catalog .template-timeline-layout--right { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
 .template-frame--catalog .template-timeline-layout .template-text-panel { padding: 22px; gap: 10px; }
 .template-frame--catalog .template-timeline-layout .template-text-panel-title { font-size: 25px; line-height: 1.3; }
 .template-frame--catalog .template-timeline-layout .template-text-panel-body { font-size: 18px; line-height: 1.4; }
@@ -631,9 +637,10 @@ function getPageTemplate(templateId: string): PageTemplateDefinition {
 function renderSlideShell(input: { template: PageTemplateDefinition; slideIndex: number; designName: string; title: string; body: string; catalog?: any }): string {
   const hero = ["cover", "section-divider", "closing"].includes(input.template.id)
   const hasCatalog = Boolean(input.catalog)
+  const heroModifier = hero ? ` template-hero--${input.template.id}` : ""
   return `    <section class="slide template-slide" data-slide-index="${input.slideIndex}" data-design="${escapeAttribute(input.designName)}" data-template="${escapeAttribute(input.template.id)}">
         <div class="slide-canvas">
-            <div class="template-frame${hero ? " template-hero" : ""}${hasCatalog ? " template-frame--catalog" : ""}">
+            <div class="template-frame${hero ? " template-hero" : ""}${heroModifier}${hasCatalog ? " template-frame--catalog" : ""}">
                 ${input.body}
                 ${renderCatalogPanel(input.template, input.catalog)}
             </div>
@@ -657,25 +664,24 @@ function renderCatalogPanel(template: PageTemplateDefinition, content: any): str
             </aside>`
 }
 
-function renderHeader(content: Record<string, any>, fallbackTitle = ""): string {
+function renderHeader(content: Record<string, any>, fallbackTitle = "", options: { hero?: boolean } = {}): string {
   const eyebrow = stringValue(content.eyebrow)
-  const subtitle = stringValue(content.subtitle)
+  const titleClass = options.hero ? "template-title template-hero-title" : "template-title"
   return `<header>
                     ${eyebrow ? `<p class="template-eyebrow">${escapeHtml(eyebrow)}</p>` : ""}
-                    <h1 class="template-title">${escapeHtml(stringValue(content.title) || fallbackTitle)}</h1>
-                    ${subtitle ? `<p class="template-subtitle">${escapeHtml(subtitle)}</p>` : ""}
+                    <h1 class="${titleClass}">${escapeHtml(stringValue(content.title) || fallbackTitle)}</h1>
                 </header>`
 }
 
 function renderBody(templateId: string, content: Record<string, any>): string {
-  if (["cover", "section-divider", "closing"].includes(templateId)) return `<div data-template-slot="hero">${renderHeader(content, templateId)}</div>`
+  if (["cover", "section-divider", "closing"].includes(templateId)) return `<div data-template-slot="hero">${renderHeader(content, templateId, { hero: true })}</div>`
   if (templateId === "agenda") return renderAgenda(content)
   if (templateId === "executive-summary") return `${renderHeader(content, "Executive Summary")}<div class="template-body template-grid cols-3" data-template-slot="summary-cards">${cards(items(content), "h2", { visualPlaceholder: true })}</div>`
   if (templateId === "problem-context") return `${renderHeader(content, "Problem / Context")}<div class="template-body template-grid cols-2"><div class="template-card" data-template-slot="context"><p>${escapeHtml(stringValue(content.body))}</p></div><div class="template-card" data-template-slot="supporting-points">${list(items(content))}</div></div>`
   if (templateId === "key-message-evidence") return `${renderHeader(content, "Key Message + Evidence")}<div class="template-body template-grid cols-2">${keyMessagePanel(content)}<div class="template-evidence-grid" data-template-slot="evidence">${evidenceCards(items(content))}</div></div>`
   if (templateId === "claim-supporting-visual") return `${renderHeader(content, "Claim + Supporting Visual")}<div class="template-body template-grid cols-2">${claimTextPanel(content)}${visualSlotPanel()}</div>`
   if (templateId === "metric-highlight") return `${renderHeader(content, "Metric Highlight")}<div class="template-body">${metricHighlight(content)}</div>`
-  if (templateId === "chart-takeaways") return `${renderHeader(content, "Chart + Takeaways")}<div class="template-body template-grid cols-2">${visualSlotPanel()}${chartTakeawayPanel(content)}</div>`
+  if (templateId === "chart-takeaways") return `${renderHeader(content, "Chart + Takeaways")}<div class="template-body template-grid template-chart-layout">${visualSlotPanel()}${chartTakeawayPanel(content)}</div>`
   if (templateId === "table-comparison") return `${renderHeader(content, "Table / Comparison")}<div class="template-body" data-template-slot="table">${table(content)}</div>`
   if (templateId === "timeline-roadmap") return `${renderHeader(content, "Timeline / Roadmap")}<div class="template-body">${timeline(content)}</div>`
   if (templateId === "process-steps") return `${renderHeader(content, "Process / Steps")}<div class="template-body"><div class="template-steps" data-template-slot="steps">${steps(content.steps)}</div></div>`
@@ -687,14 +693,12 @@ function renderBody(templateId: string, content: Record<string, any>): string {
 function renderAgenda(content: Record<string, any>): string {
   const agendaItems = items(content)
   const eyebrow = stringValue(content.eyebrow)
-  const subtitle = stringValue(content.subtitle)
   const footer = stringValue(content.footer) || "Structure-First-Design"
   return `<div class="template-body template-agenda-panel" data-template-slot="agenda">
                     <div class="template-agenda-inner">
                         <div class="template-agenda-header">
                             ${eyebrow ? `<p class="template-eyebrow">${escapeHtml(eyebrow)}</p>` : ""}
                             <h1 class="template-title">${escapeHtml(stringValue(content.title) || "Agenda")}</h1>
-                            ${subtitle ? `<p class="template-agenda-note">${escapeHtml(subtitle)}</p>` : ""}
                             <p class="template-agenda-footer">${escapeHtml(footer)}</p>
                         </div>
                         <ol class="template-agenda-list" data-template-slot="agenda-list">${agendaItems.map((item, index) => `<li class="template-agenda-item"><span>${String(index + 1).padStart(2, "0")}</span><strong>${escapeHtml(item.label)}</strong></li>`).join("")}</ol>
@@ -773,7 +777,7 @@ function timeline(content: Record<string, any>): string {
   const milestones = Array.isArray(content.milestones) ? content.milestones : []
   const orientation = stringValue(content.orientation) === "vertical" ? "vertical" : "horizontal"
   const sidePanel = renderSidePanel(content)
-  const side = stringValue(content.insightSide) === "left" ? "left" : "right"
+  const side = stringValue(content.insightSide) === "right" ? "right" : "left"
   const timelineHtml = `<div class="template-timeline template-timeline--${orientation}" data-template-slot="timeline" style="--timeline-count:${Math.max(1, milestones.length)}">${milestones.map((item) => `<article class="template-timeline-item">
                         <span class="template-timeline-dot" aria-hidden="true"></span>
                         <div class="template-timeline-copy">
@@ -815,7 +819,7 @@ function visualSlotPanel(): string {
 
 function steps(input: any): string {
   const values = Array.isArray(input) ? input : []
-  return values.slice(0, 5).map((item, index) => `<article class="template-card"><div class="template-step-number">${index + 1}</div><h2>${escapeHtml(stringValue(item.label) || `Step ${index + 1}`)}</h2><p>${escapeHtml(stringValue(item.description))}</p></article>`).join("")
+  return values.slice(0, 5).map((item, index) => `<article class="template-card"><div class="template-step-number">${index + 1}</div><h2>${escapeHtml(stringValue(item.label) || `Step ${index + 1}`)}</h2><p>${escapeHtml(stringValue(item.description))}</p>${visualPlaceholder()}</article>`).join("")
 }
 
 function orderedSteps(input: any): string {
@@ -837,9 +841,9 @@ function items(content: Record<string, any>): Array<{ label: string; description
 function scaffoldSeed(templateId: string, seed: Record<string, any>): Record<string, any> {
   const title = stringValue(seed.title) || getPageTemplate(templateId).title
   const base = { ...seed, title }
-  if (templateId === "cover") return { eyebrow: "Deck", subtitle: "Replace this subtitle with deck context.", ...base }
-  if (templateId === "section-divider") return { eyebrow: "Section", subtitle: "Replace this line with the section setup.", ...base }
-  if (templateId === "closing") return { subtitle: "Replace this line with the final ask or next action.", ...base }
+  if (templateId === "cover") return { eyebrow: "Deck", ...base }
+  if (templateId === "section-divider") return { eyebrow: "Section", ...base }
+  if (templateId === "closing") return { ...base }
   if (templateId === "agenda") return { items: defaultItems(["Situation", "Evidence", "Decision"]), ...base }
   if (templateId === "executive-summary") return { items: defaultItems(["Decision is ready", "Risk is bounded", "Next step is narrow"]), ...base }
   if (templateId === "problem-context") return { body: "Replace with context, tension, and why now.", items: defaultItems(["Context", "Implication"]), ...base }
@@ -848,7 +852,7 @@ function scaffoldSeed(templateId: string, seed: Record<string, any>): Record<str
   if (templateId === "metric-highlight") return { metrics: [{ value: "67%", label: "Metric", description: "Replace with interpretation." }, { value: "3x", label: "Comparison", description: "Replace with reading note." }, { value: "14d", label: "Window", description: "Replace with time context." }], insightTitle: "Read the signal", insightBody: "Replace with the decision implication, caveat, or next reading step.", ...base }
   if (templateId === "chart-takeaways") return { takeawaysTitle: "What to read", items: defaultItems(["Trend", "Driver", "Decision use"]), ...base }
   if (templateId === "table-comparison") return { columns: ["Dimension", "Current", "Target"], rows: [["Replace", "Current state", "Target state"], ["Caveat", "Known limit", "Next proof"]], insightTitle: "Insight", insightBody: "Replace with the table reading note or caveat.", ...base }
-  if (templateId === "timeline-roadmap") return { subtitle: "Replace with the timeline setup.", orientation: "vertical", insightTitle: "Reading the journey", insightBody: "Replace with the so-what for the milestone sequence.", milestones: [{ date: "Phase 1", label: "Start", description: "Replace milestone." }, { date: "Phase 2", label: "Build", description: "Replace milestone." }, { date: "Phase 3", label: "Decide", description: "Replace milestone." }], ...base }
+  if (templateId === "timeline-roadmap") return { orientation: "vertical", insightTitle: "Reading the journey", insightBody: "Replace with the so-what for the milestone sequence.", milestones: [{ date: "Phase 1", label: "Start", description: "Replace milestone." }, { date: "Phase 2", label: "Build", description: "Replace milestone." }, { date: "Phase 3", label: "Decide", description: "Replace milestone." }], ...base }
   if (templateId === "process-steps") return { steps: defaultItems(["Step 1", "Step 2", "Step 3"]), ...base }
   if (templateId === "recommendation-decision") return { recommendation: "Replace with the recommended decision.", items: defaultItems(["Rationale"]), steps: defaultItems(["Pilot", "Validate", "Ship"]), ...base }
   if (templateId === "risks-tradeoffs") return { items: defaultItems(["Risk", "Tradeoff", "Mitigation"]), ...base }

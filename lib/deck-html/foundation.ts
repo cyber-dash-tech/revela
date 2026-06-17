@@ -1,7 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "fs"
-import { dirname, isAbsolute, normalize, relative, resolve } from "path"
-import { activeDesign, getDesignSection } from "../design/designs"
-import { templateDeckCss } from "../page-templates"
+import { dirname, isAbsolute, normalize, resolve } from "path"
+import { activeDesign, getDesignSection, materializeDesignCssSnapshot } from "../design/designs"
 
 export type DeckFoundationMode = "create" | "repair"
 export type DeckFoundationStatus = "created" | "updated"
@@ -48,14 +47,14 @@ export function createDeckFoundation(input: CreateDeckFoundationInput): CreateDe
   const design = input.designName || activeDesign()
   const foundation = getDesignSection("foundation", design)
   const parts = parseFoundationParts(foundation)
-  if (parts.cssBlocks.length === 0) throw new Error(`Design '${design}' foundation does not include a CSS code block.`)
   if (parts.scriptBlocks.length === 0) throw new Error(`Design '${design}' foundation does not include a SlidePresentation JavaScript code block.`)
+  const snapshot = materializeDesignCssSnapshot({ workspaceRoot: input.workspaceRoot, outputPath, designName: design })
 
   const html = renderFoundationHtml({
     language: input.language || "en",
     title: input.title || "Revela Deck",
     fontLinks: parts.fontLinks,
-    css: [parts.cssBlocks.join("\n\n"), templateDeckCss({ designName: design, designAssetBasePath: designAssetBasePath(input.workspaceRoot, outputPath, design) })].join("\n\n"),
+    stylesheetHrefs: [snapshot.href],
     script: parts.scriptBlocks.map(guardEmptyDeckNavigation).join("\n\n"),
   })
 
@@ -69,7 +68,8 @@ export function createDeckFoundation(input: CreateDeckFoundationInput): CreateDe
     includedSections: [
       "design:foundation",
       parts.fontLinks.length > 0 ? "foundation:font-links" : "foundation:font-links:none",
-      "foundation:css",
+      snapshot.generatedFallback ? "design-css:fallback" : "design-css:snapshot",
+      snapshot.assetCount > 0 ? "design-assets:snapshot" : "design-assets:none",
       "foundation:SlidePresentation",
     ],
     status: existed ? "updated" : "created",
@@ -79,13 +79,6 @@ export function createDeckFoundation(input: CreateDeckFoundationInput): CreateDe
       "Patch slides between the revela-slides markers chapter by chapter, then run artifact QA.",
     ],
   }
-}
-
-function designAssetBasePath(workspaceRoot: string, outputPath: string, designName: string): string | undefined {
-  if (!existsSync(resolve(workspaceRoot, `designs/${designName}/assets`))) return undefined
-  const fromDir = dirname(outputPath)
-  const assetPath = normalize(relative(fromDir, `designs/${designName}/assets`)).replace(/\\/g, "/")
-  return assetPath.startsWith(".") ? assetPath : `./${assetPath}`
 }
 
 export function normalizeOutputPath(outputPath: string): string {
@@ -152,10 +145,11 @@ function renderFoundationHtml(input: {
   language: string
   title: string
   fontLinks: string[]
-  css: string
+  stylesheetHrefs: string[]
   script: string
 }): string {
   const fontLinks = input.fontLinks.map((link) => `    ${link}`).join("\n")
+  const stylesheetLinks = input.stylesheetHrefs.map((href) => `    <link rel="stylesheet" href="${escapeAttribute(href)}">`).join("\n")
   return [
     "<!DOCTYPE html>",
     `<html lang="${escapeAttribute(input.language)}">`,
@@ -164,9 +158,7 @@ function renderFoundationHtml(input: {
     "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">",
     `    <title>${escapeHtml(input.title)}</title>`,
     fontLinks,
-    "    <style>",
-    input.css,
-    "    </style>",
+    stylesheetLinks,
     "</head>",
     "<body>",
     `    ${SLIDES_START}`,

@@ -10,6 +10,7 @@ Use this skill when the user asks to create, customize, edit, validate, package,
 ## Contract
 
 - Designs define deck visual systems: rules, foundation, layouts, components, chart rules, page-template foundation styling, and preview coverage.
+- CSS-native designs include `design.css` as the executable visual source. `DESIGN.md` explains the design contract; `design.css` styles the stable template DOM classes.
 - Designs should define executable visual contracts, not only mood, fonts, and palettes. Capture grid/safe-area, spacing scale, type scale, surface behavior, chart tokens, component states, and preview fixtures in the design package.
 - Designs may include package-owned `assets/**` such as cover or closing backgrounds; design tools surface these as design elements, not source evidence.
 - When the user uploads or provides logo, cover, closing, background, texture, brand image, or similar design material, store it inside the design package with `revela_design_draft_create.assets`; use paths under `assets/**` only.
@@ -34,8 +35,8 @@ For new or edited designs:
 2. Read the requested base design or active design with `revela_design_read`.
 3. Call `revela_design_inventory` and inspect its `pageTemplates` summary.
 4. Call `revela_page_template_foundation` for any built-in page templates the design should style or preview.
-5. Draft complete `DESIGN.md` and complete `preview.html` content.
-6. Call `revela_design_draft_create`; when uploaded or local design material exists, pass `assets: [{ path: "assets/...", contentBase64|content|sourcePath }]` so the files are written into the draft package.
+5. Draft complete `DESIGN.md`, complete `design.css`, and complete `preview.html` content.
+6. Call `revela_design_draft_create` with `designCss`; when uploaded or local design material exists, pass `assets: [{ path: "assets/...", contentBase64|content|sourcePath }]` so the files are written into the draft package.
 7. Call `revela_design_draft_validate`.
 8. If validation fails, revise the draft content and repeat draft create/validate.
 9. Call `revela_design_draft_install` only after the draft validates and the user intent is to install it.
@@ -55,6 +56,7 @@ Use `revela_design_create` only when the user explicitly requests direct local c
 
 - Use a kebab-case design name.
 - `DESIGN.md` must include valid frontmatter and complete design marker sections.
+- `design.css` should be present for CSS-native designs and is the only executable CSS source for package-owned template styling.
 - Include design rules, foundation guidance, at least one layout, and at least one component.
 - In `@design:foundation`, document the design contract: grid columns or layout rails, safe area, spacing/baseline scale, typography scale, surfaces/borders/shadows, and chart tokens when charts are supported.
 - Use page-template foundation as the starting point for built-in template styling. Style template classes, but do not remove structural classes or `data-template-slot` semantics.
@@ -62,7 +64,7 @@ Use `revela_design_create` only when the user explicitly requests direct local c
 - Components should describe normal, dense, and long-copy behavior where relevant. Chart, table, media, and source-note components need stable container dimensions.
 - Optional assets must live under `assets/**`; reference them as package-relative paths like `assets/cover-background.png`.
 - `DESIGN.md` may reference package assets in rules, layouts, or components with `assets/...`; do not reference workspace `assets/` media manifest entries for design-owned visuals.
-- `preview.html` must use the fixed Revela preview canvas contract and visibly preview the design.
+- `preview.html` must reference `./design.css`, use the fixed Revela preview canvas contract, and visibly preview the design.
 - If design assets are present, `preview.html` must visibly use the saved `assets/...` files, for example a cover hero background or logo image.
 - Preview must include cover and closing examples and showcase every component.
 - Preview should showcase every layout with `data-preview-layout="<layout-name>"` and every component with `data-preview-component="<component-name>"`.
@@ -83,5 +85,6 @@ Use `revela_design_create` only when the user explicitly requests direct local c
 
 - Do not write `deck-plan.md`.
 - Do not write `decks/*.html`.
+- Do not patch `decks/_revela-design/**/design.css`; those files are regenerated deck-local snapshots.
 - Do not install or activate a design unless the user requested that outcome.
 - Do not invent licenses, asset provenance, or brand permissions.

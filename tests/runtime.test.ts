@@ -679,6 +679,7 @@ sources:
         name,
         base: "starter",
         designMd: validDesignMd(name, "Original"),
+        designCss: validDesignCss(),
         previewHtml: validPreviewHtml("Original"),
       })
       createdPath = created.path
@@ -689,13 +690,15 @@ sources:
         name,
         base: "starter",
         overwritten: false,
-        files: ["DESIGN.md", "preview.html"],
+        files: ["DESIGN.md", "design.css", "preview.html"],
       })
       expect(existsSync(join(created.path, "DESIGN.md"))).toBe(true)
+      expect(existsSync(join(created.path, "design.css"))).toBe(true)
       expect(validated).toMatchObject({
         ok: true,
         name,
         hasDesignMd: true,
+        hasDesignCss: true,
         hasPreview: true,
       })
 
@@ -1652,7 +1655,7 @@ version: 1.0.0
 
 function validPreviewHtml(label: string): string {
   return `<!doctype html>
-<html><head><style>
+<html><head><link rel="stylesheet" href="./design.css"><style>
 .slide { min-height: 100dvh; display: flex; }
 .slide-canvas { width: 1920px; height: 1080px; }
 </style></head><body>
@@ -1660,6 +1663,18 @@ function validPreviewHtml(label: string): string {
 <section class="slide" slide-qa="true"><div class="slide-canvas"><div data-preview-component="test-card" class="test-card">Card</div><span data-preview-component="test-badge" class="test-badge">${label} Badge</span></div></section>
 <section class="slide" slide-qa="false" data-slide-role="closing"><div class="slide-canvas">${label} Closing</div></section>
 </body></html>`
+}
+
+function validDesignCss(): string {
+  return `
+.slide { min-height: 100dvh; display: flex; }
+.slide-canvas { width: 1920px; height: 1080px; }
+.template-slide { color: #101a2b; }
+.template-frame { display: flex; }
+.template-title { font-size: 64px; }
+.template-card { padding: 24px; }
+.template-visual-slot-panel { display: grid; }
+`
 }
 
 function validDomainMd(name: string, label: string): string {

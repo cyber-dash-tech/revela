@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { mkdirSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { designRead } from "../lib/runtime"
-import { extractDeckHtmlPatchTargets, extractNarrativeCachePatchTargets, runPreWriteChecks } from "../plugins/revela/hooks/revela_guard"
+import { extractDeckHtmlPatchTargets, extractNarrativeCachePatchTargets, extractProtectedDesignCssPatchTargets, runPreWriteChecks } from "../plugins/revela/hooks/revela_guard"
 import { commandFromInput, runMaterialReadNotice } from "../plugins/revela/hooks/revela_material_notice"
 import { extractDeckHtmlTargets, formatDeckWebsiteCardHandoffNotice, runPostWriteChecks, workspaceRootFromInput } from "../plugins/revela/hooks/revela_post_write_notice"
 import { tempWorkspace } from "./helpers/tool-helpers"
@@ -207,6 +207,27 @@ type: claim
 
     expect(result.ok).toBe(true)
     expect(result.messages).toEqual([])
+  })
+
+  it("blocks source and deck-local design CSS patches outside draft design workflow", async () => {
+    const payload = `*** Begin Patch
+*** Update File: designs/lucent/design.css
+@@
+*** Update File: decks/_revela-design/lucent/design.css
+@@
+*** Update File: .revela/drafts/designs/custom/design.css
+@@
+*** End Patch`
+
+    expect(extractProtectedDesignCssPatchTargets(payload)).toEqual([
+      "decks/_revela-design/lucent/design.css",
+      "designs/lucent/design.css",
+    ])
+
+    const result = await runPreWriteChecks(payload)
+    expect(result.ok).toBe(false)
+    expect(result.messages.join("\n")).toContain("design CSS patches are blocked")
+    expect(result.messages.join("\n")).toContain(".revela/drafts/designs/<name>/design.css")
   })
 
   it("blocks direct narrative cache patches", async () => {

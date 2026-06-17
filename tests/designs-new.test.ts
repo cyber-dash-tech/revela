@@ -123,6 +123,22 @@ function validPreviewHtml(): string {
 </body></html>`
 }
 
+function validDesignCss(): string {
+  return `
+.slide { min-height: 100dvh; display: flex; }
+.slide-canvas { width: 1920px; height: 1080px; }
+.template-slide { color: #101a2b; }
+.template-frame { display: flex; }
+.template-title { font-size: 64px; }
+.template-card { padding: 24px; }
+.template-visual-slot-panel { display: grid; }
+`
+}
+
+function validPreviewHtmlWithDesignCss(): string {
+  return validPreviewHtml().replace("<html><head>", "<html><head><link rel=\"stylesheet\" href=\"./design.css\">")
+}
+
 function validPreviewHtmlForOneComponent(): string {
   return `<!doctype html>
 <html><head><style>
@@ -456,6 +472,24 @@ describe("design package authoring", () => {
     expect(validation.components).toContain("test-badge")
   })
 
+  it("creates and validates a CSS-native design package", () => {
+    const name = track("test-designs-new-css-package")
+    const result = createDesignPackage({
+      name,
+      base: "summit",
+      designMd: validDesignMd(name),
+      designCss: validDesignCss(),
+      previewHtml: validPreviewHtmlWithDesignCss(),
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.files).toContain("design.css")
+    expect(existsSync(join(DESIGNS_DIR, name, "design.css"))).toBe(true)
+
+    const validation = validateDesignPackage(name)
+    expect(validation).toMatchObject({ ok: true, hasDesignCss: true })
+  })
+
   it("does not overwrite existing designs by default", () => {
     const name = track("test-designs-new-existing")
     createDesignPackage({ name, designMd: validDesignMd(name), previewHtml: validPreviewHtml() })
@@ -500,7 +534,7 @@ describe("design package authoring", () => {
 
     const validation = validateDesignPackage(name)
     expect(validation.ok).toBe(false)
-    expect(validation.errors).toContain("preview.html must define .slide-canvas CSS with width: 1920px and height: 1080px")
+    expect(validation.errors).toContain("preview.html or design.css must define .slide-canvas CSS with width: 1920px and height: 1080px")
   })
 
   it("rejects created packages without fixed preview canvas CSS", () => {

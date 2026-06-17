@@ -6,7 +6,8 @@ import { runComplianceQA } from "./compliance"
 import { runComponentContractQA } from "./component-contracts"
 import { formatPageTemplateContractReport, validatePageTemplateContracts } from "../page-templates"
 import type { QAReport } from "./checks"
-import { basename, dirname } from "path"
+import { existsSync, readFileSync } from "fs"
+import { basename, dirname, resolve } from "path"
 
 export interface ArtifactQAReport {
   file: string
@@ -42,6 +43,16 @@ export async function runArtifactQA(input: {
   } else if (contract.warnings.length > 0) {
     warningCount += contract.warnings.length
     sections.push("**[deck HTML contract]**\n\n" + formatDeckHtmlContractReport(contract))
+  }
+
+  const designCss = validateLinkedDesignCss(input.filePath)
+  if (designCss.errors.length > 0 || designCss.warnings.length > 0) {
+    hardErrorCount += designCss.errors.length
+    warningCount += designCss.warnings.length
+    sections.push("**[design CSS snapshot]**\n\n" + [
+      ...designCss.errors.map((message) => `- ERROR: ${message}`),
+      ...designCss.warnings.map((message) => `- WARNING: ${message}`),
+    ].join("\n"))
   }
 
   if (shouldRunArtifactCompliance(input.filePath)) {
@@ -92,6 +103,52 @@ export async function runArtifactQA(input: {
     warningCount,
     sections,
   }
+}
+
+function validateLinkedDesignCss(filePath: string): { errors: string[]; warnings: string[] } {
+  if (isDesignPreviewFile(filePath)) return { errors: [], warnings: [] }
+  const errors: string[] = []
+  const warnings: string[] = []
+  let html = ""
+  try {
+    html = readFileSync(filePath, "utf-8")
+  } catch {
+    return { errors, warnings }
+  }
+  const hrefs = [...html.matchAll(/<link\b[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']*design\.css)["'][^>]*>/gi)].map((match) => match[1])
+  if (hrefs.length === 0) {
+    warnings.push("Deck does not reference a design.css snapshot.")
+    return { errors, warnings }
+  }
+  for (const href of hrefs) {
+    if (/^[a-z][a-z0-9+.-]*:/i.test(href)) continue
+    const cssPath = resolve(dirname(filePath), href)
+    if (!existsSync(cssPath)) {
+      errors.push(`Linked design CSS is missing: ${href}`)
+      continue
+    }
+    const css = readFileSync(cssPath, "utf-8")
+    for (const asset of cssAssetUrls(css)) {
+      const assetPath = resolve(dirname(cssPath), asset)
+      if (!existsSync(assetPath)) errors.push(`Linked design CSS references missing asset: ${href} -> ${asset}`)
+    }
+  }
+  return { errors, warnings }
+}
+
+function cssAssetUrls(css: string): string[] {
+  const urls: string[] = []
+  const seen = new Set<string>()
+  const urlRe = /url\(\s*["']?([^"')]+)["']?\s*\)/gi
+  let match: RegExpExecArray | null
+  while ((match = urlRe.exec(css)) !== null) {
+    const raw = match[1].trim()
+    if (!raw || raw.startsWith("data:") || /^[a-z][a-z0-9+.-]*:/i.test(raw) || raw.startsWith("#")) continue
+    if (seen.has(raw)) continue
+    seen.add(raw)
+    urls.push(raw)
+  }
+  return urls
 }
 
 function componentContractsForArtifact(filePath: string): DesignComponentContract[] {

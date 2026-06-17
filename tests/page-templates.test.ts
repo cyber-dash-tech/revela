@@ -75,7 +75,29 @@ describe("page templates", () => {
     expect(rendered.html.match(/template-timeline-copy/g)).toHaveLength(3)
   })
 
-  it("renders timeline insight as a template text panel", () => {
+  it("renders timeline insight as a left-side template text panel by default", () => {
+    const rendered = renderTemplateSlide({
+      templateId: "timeline-roadmap",
+      slideIndex: 1,
+      designName: "lucent",
+      content: {
+        title: "Timeline",
+        insightTitle: "Reading the journey",
+        insightBody: "Explain why the milestones matter.",
+        milestones: [
+          { date: "Mar 2019", label: "Launch", description: "Baseline mapping." },
+          { date: "Nov 2019", label: "Audit", description: "Evidence sprint." },
+          { date: "May 2020", label: "Scale", description: "Operating cadence." },
+        ],
+      },
+    })
+
+    expect(rendered.html).toContain("template-timeline-layout--left")
+    expect(rendered.html).toContain("template-text-panel")
+    expect(rendered.html).toContain("Reading the journey")
+  })
+
+  it("keeps explicit right-side timeline insight placement available", () => {
     const rendered = renderTemplateSlide({
       templateId: "timeline-roadmap",
       slideIndex: 1,
@@ -88,14 +110,11 @@ describe("page templates", () => {
         milestones: [
           { date: "Mar 2019", label: "Launch", description: "Baseline mapping." },
           { date: "Nov 2019", label: "Audit", description: "Evidence sprint." },
-          { date: "May 2020", label: "Scale", description: "Operating cadence." },
         ],
       },
     })
 
     expect(rendered.html).toContain("template-timeline-layout--right")
-    expect(rendered.html).toContain("template-text-panel")
-    expect(rendered.html).toContain("Reading the journey")
   })
 
   it("renders optional metric insight only when insight body is provided", () => {
@@ -142,6 +161,25 @@ describe("page templates", () => {
           { label: "Decision", description: "Ready to select." },
           { label: "Risk", description: "Bounded by gates." },
           { label: "Next step", description: "Narrow pilot." },
+        ],
+      },
+    })
+
+    expect(rendered.html.match(/class="template-visual-placeholder"/g)).toHaveLength(3)
+    expect(rendered.html).toContain("image / chart slot (optional)")
+  })
+
+  it("renders process step cards with visual placeholders", () => {
+    const rendered = renderTemplateSlide({
+      templateId: "process-steps",
+      slideIndex: 1,
+      designName: "lucent",
+      content: {
+        title: "Process",
+        steps: [
+          { label: "Choose", description: "Select the right template." },
+          { label: "Fill", description: "Add content fields." },
+          { label: "QA", description: "Check before export." },
         ],
       },
     })
@@ -213,6 +251,7 @@ describe("page templates", () => {
     })
 
     expect(rendered.html).toContain("template-chart-takeaway-panel")
+    expect(rendered.html).toContain("template-chart-layout")
     expect(rendered.html).toContain("template-visual-slot-panel")
     expect(rendered.html).toContain("template-visual-slot-label")
     expect(rendered.html).not.toContain("template-visual-placeholder")

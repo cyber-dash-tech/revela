@@ -23,14 +23,12 @@
 {
   "eyebrow": "Template 01 / 15",
   "title": "cover",
-  "subtitle": "Opening page for artifact title, audience context, and a single first impression.",
   "catalog": {
     "title": "Cover",
     "purpose": "Use once at the beginning to name the artifact and frame the conversation.",
     "fields": [
       "eyebrow",
-      "title",
-      "subtitle"
+      "title"
     ],
     "qa": [
       "One dominant H1",
@@ -58,14 +56,12 @@
 {
   "eyebrow": "Template 02 / 15",
   "title": "section-divider",
-  "subtitle": "Chapter transition page that resets attention before the next argument block.",
   "catalog": {
     "title": "Section Divider",
     "purpose": "Separate major chapters without introducing new evidence or dense content.",
     "fields": [
       "eyebrow",
-      "title",
-      "subtitle"
+      "title"
     ],
     "qa": [
       "One transition idea",
@@ -93,13 +89,11 @@
 {
   "eyebrow": "Template 03 / 15",
   "title": "closing",
-  "subtitle": "Final ask, decision, or principle stated with no competing message.",
   "catalog": {
     "title": "Closing",
     "purpose": "End with the action or decision the audience should remember.",
     "fields": [
-      "title",
-      "subtitle"
+      "title"
     ],
     "qa": [
       "One final ask",
@@ -127,7 +121,6 @@
 {
   "eyebrow": "Template 04 / 15",
   "title": "agenda",
-  "subtitle": "A compact map of the deck flow.",
   "items": [
     {
       "label": "Frame the decision",
@@ -179,7 +172,6 @@
 {
   "eyebrow": "Template 05 / 15",
   "title": "executive-summary",
-  "subtitle": "Decision logic compressed into a few scannable takeaways.",
   "items": [
     {
       "label": "Decision is ready",
@@ -227,7 +219,6 @@
 {
   "eyebrow": "Template 06 / 15",
   "title": "problem-context",
-  "subtitle": "Why this topic matters now.",
   "body": "Use this template when the audience needs the situation, tension, and implication before seeing recommendations.",
   "items": [
     {
@@ -277,7 +268,6 @@
 {
   "eyebrow": "Template 07 / 15",
   "title": "key-message-evidence",
-  "subtitle": "A claim on the left, evidence on the right.",
   "claim": "Template selection should preserve structure before style.",
   "body": "This key message stays large and readable, while the supporting evidence is separated into traceable slots for source-backed proof.",
   "items": [
@@ -329,7 +319,6 @@
 {
   "eyebrow": "Template 08 / 15",
   "title": "claim-supporting-visual",
-  "subtitle": "One claim paired with one bounded visual area.",
   "claim": "A single visual should carry one argument.",
   "body": "The template reserves a stable visual region while keeping explanatory copy close enough to guide interpretation.",
   "visualTitle": "Visual placeholder",
@@ -380,7 +369,6 @@
 {
   "eyebrow": "Template 09 / 15",
   "title": "metric-highlight",
-  "subtitle": "Let a small number set carry the page.",
   "insightTitle": "Read the signal",
   "insightIcon": "scan-search",
   "insightBody": "Treat the metric row as the evidence surface, then use this panel to state the decision implication, caveat, or next reading step.",
@@ -436,7 +424,6 @@
 {
   "eyebrow": "Template 10 / 15",
   "title": "chart-takeaways",
-  "subtitle": "A bounded chart region plus the conclusions to read from it.",
   "chartTitle": "Illustrative chart slot",
   "takeawaysTitle": "What to read",
   "items": [
@@ -488,7 +475,6 @@
 {
   "eyebrow": "Template 11 / 15",
   "title": "table-comparison",
-  "subtitle": "Compare options, states, or template responsibilities.",
   "columns": [
     "Dimension",
     "Template Layer",
@@ -554,11 +540,10 @@
 {
   "eyebrow": "Template 12 / 15",
   "title": "timeline-roadmap",
-  "subtitle": "A dated journey with alternating vertical milestones.",
   "orientation": "vertical",
   "insightTitle": "Reading the journey",
   "insightBody": "The timeline should show sequence and decision rhythm, while the side panel explains why the milestones matter.",
-  "insightSide": "right",
+  "insightSide": "left",
   "milestones": [
     {
       "date": "Mar 2019",
@@ -616,7 +601,6 @@
 {
   "eyebrow": "Template 13 / 15",
   "title": "process-steps",
-  "subtitle": "A short ordered process with action-first labels.",
   "steps": [
     {
       "label": "Choose",
@@ -668,7 +652,6 @@
 {
   "eyebrow": "Template 14 / 15",
   "title": "recommendation-decision",
-  "subtitle": "Make the ask explicit, then show rationale and next steps.",
   "recommendation": "Adopt page templates as the structural layer, with designs remaining user-customizable.",
   "image": "../designs/lucent/assets/report-visual.jpg",
   "imageAlt": "Lucent report visual texture",
@@ -729,7 +712,6 @@
 {
   "eyebrow": "Template 15 / 15",
   "title": "risks-tradeoffs",
-  "subtitle": "Keep uncertainty visible instead of hiding it in prose.",
   "items": [
     {
       "label": "Too rigid",

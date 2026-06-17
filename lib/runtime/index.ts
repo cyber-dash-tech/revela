@@ -115,6 +115,7 @@ export interface RuntimeDesignCreateInput {
   name: string
   base?: string
   designMd: string
+  designCss?: string
   previewHtml: string
   assets?: DesignPackageAssetInput[]
   overwrite?: boolean
@@ -441,6 +442,7 @@ export function designCreate(input: RuntimeDesignCreateInput) {
     name: requiredString(input?.name, "design name"),
     base: input.base,
     designMd: requiredString(input?.designMd, "designMd"),
+    designCss: input.designCss,
     previewHtml: requiredString(input?.previewHtml, "previewHtml"),
     assets: input.assets,
     overwrite: input.overwrite ?? false,
@@ -457,6 +459,7 @@ export function designDraftCreate(input: RuntimeDesignDraftCreateInput) {
     name: requiredString(input?.name, "design name"),
     base: input.base,
     designMd: requiredString(input?.designMd, "designMd"),
+    designCss: input.designCss,
     previewHtml: requiredString(input?.previewHtml, "previewHtml"),
     assets: input.assets,
     overwrite: input.overwrite ?? false,

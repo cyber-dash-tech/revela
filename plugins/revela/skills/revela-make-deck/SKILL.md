@@ -14,6 +14,7 @@ Use this skill when the user asks to make, generate, render, or update a Revela 
 - Slide argument copy comes from `deck-plan.md` `Claim`, `Reasoning`, and `Audience takeaway` fields when present; raw findings are evidence/source context, not default body copy.
 - Active/requested design tools define valid layouts, slots, components, nesting hints, structure contracts, and HTML writing rules.
 - Built-in page template tools define semantic page templates, foundation/scaffold HTML, editable slots, stable DOM contracts, and template QA contracts.
+- Deck-local `decks/_revela-design/**/design.css` files are generated design snapshots. Do not patch them during deck making; regenerate the deck foundation or enter the design workflow instead.
 - Active/requested domain guidance may inform communication framing, but it is not source evidence.
 - Generated artifacts live under `decks/*.html`.
 - After final Artifact QA passes, reply with the generated HTML deck as a standalone website link/card that opens in Codex Browser for native browsing and annotation.

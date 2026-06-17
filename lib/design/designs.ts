@@ -17,7 +17,7 @@ import {
   statSync,
   writeFileSync,
 } from "fs"
-import { dirname, join, resolve, basename, relative, sep } from "path"
+import { dirname, join, normalize, resolve, basename, relative, sep } from "path"
 import { tmpdir } from "os"
 import { parseFrontmatter } from "../frontmatter"
 import { collectDirectoryEntries, extractEntriesToDirectory, normalizePackageArchiveEntries, readTarArchive, writeTarArchive } from "./archive"
@@ -28,7 +28,7 @@ import {
   saveConfig,
 } from "../config"
 import { childLog } from "../log"
-import { PAGE_TEMPLATE_CLASSES, listPageTemplateVocabulary } from "../page-templates"
+import { PAGE_TEMPLATE_CLASSES, listPageTemplateVocabulary, templateDeckCss } from "../page-templates"
 
 const designLog = childLog("designs")
 
@@ -52,6 +52,7 @@ export interface CreateDesignPackageArgs {
   name: string
   base?: string
   designMd: string
+  designCss?: string
   previewHtml: string
   assets?: DesignPackageAssetInput[]
   overwrite?: boolean
@@ -86,6 +87,7 @@ export interface ValidateDesignPackageResult {
   name: string
   path: string
   hasDesignMd: boolean
+  hasDesignCss: boolean
   hasPreview: boolean
   hasMarkers: boolean
   sections: string[]
@@ -143,6 +145,18 @@ export interface DesignPreviewInfo {
   designDir: string
   previewPath: string
   hasPreview: boolean
+}
+
+export interface DesignCssSnapshotResult {
+  ok: true
+  design: string
+  sourcePath: string
+  snapshotDir: string
+  cssPath: string
+  href: string
+  assetCount: number
+  generatedFallback: boolean
+  warnings: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -301,6 +315,74 @@ export function resolveDesignPreview(name?: string): DesignPreviewInfo {
   }
 }
 
+export function resolveDesignPackageDir(name?: string): string {
+  const designName = normalizeDesignName(name || activeDesign())
+  const designDir = resolveDesignDir(designName)
+  if (!designDir) throw new Error(`Design '${designName}' is not installed`)
+  return designDir
+}
+
+export function readDesignCss(name?: string): { css: string; path?: string; generatedFallback: boolean; warnings: string[] } {
+  const designName = normalizeDesignName(name || activeDesign())
+  const designDir = resolveDesignPackageDir(designName)
+  const cssPath = join(designDir, "design.css")
+  if (existsSync(cssPath)) {
+    return { css: readFileSync(cssPath, "utf-8"), path: cssPath, generatedFallback: false, warnings: [] }
+  }
+
+  const foundation = getDesignSection("foundation", designName)
+  const cssBlocks = extractCssCodeBlocks(foundation)
+  if (cssBlocks.length === 0) throw new Error(`Design '${designName}' has no design.css and no CSS fallback in @design:foundation.`)
+  return {
+    css: [
+      "/* Generated compatibility CSS from DESIGN.md. Add design.css to make this design fully CSS-package native. */",
+      ...cssBlocks,
+      templateDeckCss({ designName, designAssetBasePath: "./assets" }),
+    ].join("\n\n"),
+    generatedFallback: true,
+    warnings: [`Design '${designName}' has no design.css; generated a deck-local compatibility CSS snapshot from DESIGN.md.`],
+  }
+}
+
+export function materializeDesignCssSnapshot(input: {
+  workspaceRoot: string
+  outputPath: string
+  designName?: string
+}): DesignCssSnapshotResult {
+  const designName = normalizeDesignName(input.designName || activeDesign())
+  const designDir = resolveDesignPackageDir(designName)
+  const outputDir = dirname(normalize(input.outputPath))
+  const snapshotRelDir = normalize(join(outputDir, "_revela-design", designName)).replace(/\\/g, "/")
+  const snapshotDir = resolve(input.workspaceRoot, snapshotRelDir)
+  const cssPath = join(snapshotDir, "design.css")
+  const cssRead = readDesignCss(designName)
+
+  mkdirSync(snapshotDir, { recursive: true })
+  writeFileSync(cssPath, cssRead.css.endsWith("\n") ? cssRead.css : `${cssRead.css}\n`, "utf-8")
+
+  const assetsDir = join(designDir, "assets")
+  let assetCount = 0
+  if (existsSync(assetsDir) && statSync(assetsDir).isDirectory()) {
+    const targetAssets = join(snapshotDir, "assets")
+    rmSync(targetAssets, { recursive: true, force: true })
+    cpSync(assetsDir, targetAssets, { recursive: true })
+    assetCount = listDesignPackageFiles(targetAssets).length
+  }
+
+  const href = normalize(relative(outputDir || ".", normalize(join(snapshotRelDir, "design.css")))).replace(/\\/g, "/")
+  return {
+    ok: true,
+    design: designName,
+    sourcePath: cssRead.path || join(designDir, "DESIGN.md"),
+    snapshotDir,
+    cssPath,
+    href: href.startsWith(".") ? href : `./${href}`,
+    assetCount,
+    generatedFallback: cssRead.generatedFallback,
+    warnings: cssRead.warnings,
+  }
+}
+
 /** Normalize and validate a design package name. */
 export function normalizeDesignName(name: string): string {
   const normalized = name.trim().toLowerCase()
@@ -314,6 +396,7 @@ export function normalizeDesignName(name: string): string {
 export function createDesignPackage(args: CreateDesignPackageArgs): CreateDesignPackageResult {
   const name = normalizeDesignName(args.name)
   const designMd = args.designMd?.trim()
+  const designCss = args.designCss?.trim()
   const previewHtml = args.previewHtml?.trim()
 
   if (!designMd) throw new Error("designMd is required")
@@ -331,6 +414,7 @@ export function createDesignPackage(args: CreateDesignPackageArgs): CreateDesign
   }
   mkdirSync(target, { recursive: true })
   writeFileSync(join(target, "DESIGN.md"), `${designMd}\n`, "utf-8")
+  if (designCss) writeFileSync(join(target, "design.css"), `${designCss}\n`, "utf-8")
   writeFileSync(join(target, "preview.html"), `${previewHtml}\n`, "utf-8")
   writeDesignAssets(target, args.assets)
 
@@ -354,6 +438,7 @@ export function createDesignPackage(args: CreateDesignPackageArgs): CreateDesign
 export function createDesignDraftPackage(args: CreateDesignDraftArgs): CreateDesignPackageResult {
   const name = normalizeDesignName(args.name)
   const designMd = args.designMd?.trim()
+  const designCss = args.designCss?.trim()
   const previewHtml = args.previewHtml?.trim()
 
   if (!designMd) throw new Error("designMd is required")
@@ -371,6 +456,7 @@ export function createDesignDraftPackage(args: CreateDesignDraftArgs): CreateDes
   }
   mkdirSync(target, { recursive: true })
   writeFileSync(join(target, "DESIGN.md"), `${designMd}\n`, "utf-8")
+  if (designCss) writeFileSync(join(target, "design.css"), `${designCss}\n`, "utf-8")
   writeFileSync(join(target, "preview.html"), `${previewHtml}\n`, "utf-8")
   writeDesignAssets(target, args.assets)
 
@@ -561,8 +647,10 @@ function validateDesignPackageAt(nameInput: string, dir: string): ValidateDesign
   }
 
   const mdPath = join(dir, "DESIGN.md")
+  const cssPath = join(dir, "design.css")
   const previewPath = join(dir, "preview.html")
   const hasDesignMd = existsSync(mdPath)
+  const hasDesignCss = existsSync(cssPath)
   const hasPreview = existsSync(previewPath)
   let hasMarkers = false
   let sections: string[] = []
@@ -573,6 +661,7 @@ function validateDesignPackageAt(nameInput: string, dir: string): ValidateDesign
   if (!existsSync(dir)) errors.push(`Design directory does not exist: ${dir}`)
   if (!hasDesignMd) errors.push("DESIGN.md is missing")
   if (!hasPreview) errors.push("preview.html is missing")
+  if (!hasDesignCss) warnings.push("design.css is missing; DESIGN.md CSS fallback remains compatibility-only and should be migrated.")
   if (existsSync(dir)) assets = listDesignAssetsInDir(dir)
 
   if (hasDesignMd) {
@@ -596,11 +685,13 @@ function validateDesignPackageAt(nameInput: string, dir: string): ValidateDesign
 
   if (hasPreview) {
     const preview = readFileSync(previewPath, "utf-8")
+    const designCss = hasDesignCss ? readFileSync(cssPath, "utf-8") : ""
     if (!preview.includes('<section class="slide"')) errors.push("preview.html must include slide sections")
     if (!preview.includes("slide-qa=")) errors.push("preview.html slides must include slide-qa attributes")
     if (!preview.includes("slide-canvas")) errors.push("preview.html must include .slide-canvas")
-    if (!hasFixedSizeCssRule(preview, "slide-canvas")) {
-      errors.push("preview.html must define .slide-canvas CSS with width: 1920px and height: 1080px")
+    if (hasDesignCss && !previewReferencesDesignCss(preview)) errors.push("preview.html must reference design.css")
+    if (!hasFixedSizeCssRule(`${preview}\n${designCss}`, "slide-canvas")) {
+      errors.push("preview.html or design.css must define .slide-canvas CSS with width: 1920px and height: 1080px")
     }
     if (!hasSlideRole(preview, "cover")) errors.push('preview.html must include a slide section with data-slide-role="cover"')
     if (!hasSlideRole(preview, "closing")) errors.push('preview.html must include a slide section with data-slide-role="closing"')
@@ -612,8 +703,13 @@ function validateDesignPackageAt(nameInput: string, dir: string): ValidateDesign
     if (missingLayoutPreviews.length > 0) {
       warnings.push(`preview.html should mark layout fixtures with data-preview-layout; missing: ${missingLayoutPreviews.join(", ")}`)
     }
+    if (hasDesignCss) {
+      const missingCoreClasses = requiredDesignCssClasses().filter((className) => !cssTextHasClassSelector(designCss, className))
+      if (missingCoreClasses.length > 0) errors.push(`design.css must style core template classes; missing: ${missingCoreClasses.map((item) => `.${item}`).join(", ")}`)
+      errors.push(...missingDesignCssAssetErrors(designCss, dir))
+    }
     const designText = hasDesignMd ? readFileSync(mdPath, "utf-8") : ""
-    const tokenWarnings = designContractTokenWarnings(`${designText}\n${preview}`)
+    const tokenWarnings = designContractTokenWarnings(`${designText}\n${preview}\n${designCss}`)
     warnings.push(...tokenWarnings)
   }
 
@@ -622,6 +718,7 @@ function validateDesignPackageAt(nameInput: string, dir: string): ValidateDesign
     name,
     path: dir,
     hasDesignMd,
+    hasDesignCss,
     hasPreview,
     hasMarkers,
     sections,
@@ -645,6 +742,59 @@ function designContractTokenWarnings(text: string): string[] {
     if (!check.pattern.test(text)) warnings.push(`DESIGN.md/preview.html should document ${check.label} design tokens or an equivalent contract`)
   }
   return warnings
+}
+
+function previewReferencesDesignCss(preview: string): boolean {
+  return /<link\b[^>]*href=["'][^"']*design\.css["'][^>]*>/i.test(preview)
+}
+
+function requiredDesignCssClasses(): string[] {
+  return [
+    "slide-canvas",
+    "template-slide",
+    "template-frame",
+    "template-title",
+    "template-card",
+    "template-visual-slot-panel",
+  ]
+}
+
+function cssTextHasClassSelector(css: string, className: string): boolean {
+  const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, "")
+  const ruleRe = /([^{}]+)\{[^{}]*\}/g
+  let match: RegExpExecArray | null
+  while ((match = ruleRe.exec(withoutComments)) !== null) {
+    if (cssRuleHasClassSelector(match[1] ?? "", className)) return true
+  }
+  return false
+}
+
+function missingDesignCssAssetErrors(css: string, designDir: string): string[] {
+  const errors: string[] = []
+  const seen = new Set<string>()
+  const urlRe = /url\(\s*["']?([^"')]+)["']?\s*\)/gi
+  let match: RegExpExecArray | null
+  while ((match = urlRe.exec(css)) !== null) {
+    const raw = match[1].trim()
+    if (!raw || raw.startsWith("data:") || /^[a-z][a-z0-9+.-]*:/i.test(raw) || raw.startsWith("#")) continue
+    const normalized = raw.replace(/^\.\/+/, "")
+    if (!normalized.startsWith("assets/")) continue
+    if (seen.has(normalized)) continue
+    seen.add(normalized)
+    if (!existsSync(join(designDir, ...normalized.split("/")))) errors.push(`design.css references missing asset: ${normalized}`)
+  }
+  return errors
+}
+
+function extractCssCodeBlocks(markdown: string): string[] {
+  const blocks: string[] = []
+  const fenceRe = /```css\n([\s\S]*?)```/g
+  let match: RegExpExecArray | null
+  while ((match = fenceRe.exec(markdown)) !== null) {
+    const body = match[1].trim()
+    if (body) blocks.push(body)
+  }
+  return blocks
 }
 
 function designDraftDir(workspaceRoot: string, name: string): string {
@@ -1373,6 +1523,9 @@ export function extractDesignClasses(designName?: string): DesignClassVocabulary
   for (const content of Object.values(components)) {
     extractFromSection(content)
   }
+
+  const cssPath = join(designDir, "design.css")
+  if (existsSync(cssPath)) extractFromCss(readFileSync(cssPath, "utf-8"))
 
   return { classes, prefixExemptions: DEFAULT_PREFIX_EXEMPTIONS }
 }

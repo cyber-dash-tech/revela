@@ -243,11 +243,12 @@ const tools = [
   },
   {
     name: "revela_design_create",
-    description: "Create and validate a local Revela design package from complete DESIGN.md and preview.html content.",
+    description: "Create and validate a local Revela design package from complete DESIGN.md, design.css, and preview.html content.",
     inputSchema: objectSchema({
       name: requiredStringProp("Design name in kebab-case."),
       base: stringProp("Optional base design used as structural scaffold."),
       designMd: requiredStringProp("Complete DESIGN.md content."),
+      designCss: stringProp("Complete design.css content. Required for CSS-native designs; omitted only for legacy compatibility."),
       previewHtml: requiredStringProp("Complete preview.html content."),
       assets: designAssetsProp(),
       overwrite: booleanProp("Whether to replace an existing local design package. Defaults to false."),
@@ -266,6 +267,7 @@ const tools = [
       name: requiredStringProp("Design name in kebab-case."),
       base: stringProp("Optional base design used as structural scaffold."),
       designMd: requiredStringProp("Complete DESIGN.md content."),
+      designCss: stringProp("Complete design.css content. Required for CSS-native designs; omitted only for legacy compatibility."),
       previewHtml: requiredStringProp("Complete preview.html content."),
       assets: designAssetsProp(),
       overwrite: booleanProp("Whether to replace an existing workspace draft. Defaults to false."),

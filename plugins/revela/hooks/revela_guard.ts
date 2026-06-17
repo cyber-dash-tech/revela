@@ -26,6 +26,16 @@ export async function runPreWriteChecks(input: string): Promise<HookResult> {
     ].join("\n"))
   }
 
+  const protectedDesignCssTargets = extractProtectedDesignCssPatchTargets(input)
+  if (protectedDesignCssTargets.length > 0) {
+    messages.push([
+      "Revela design CSS patches are blocked outside the design draft workflow.",
+      `Protected target(s): ${protectedDesignCssTargets.map((target) => `\`${target}\``).join(", ")}`,
+      "Create or edit designs under `.revela/drafts/designs/<name>/design.css`, then validate and install the draft.",
+      "Deck-local `decks/_revela-design/**/design.css` files are render snapshots and should be regenerated, not patched.",
+    ].join("\n"))
+  }
+
   const deckTargets = extractDeckHtmlPatchTargets(input)
   if (deckTargets.length > 0) {
     const pluginRoot = resolve(process.env.PLUGIN_ROOT || dirname(dirname(fileURLToPath(import.meta.url))))
@@ -72,6 +82,31 @@ export function extractNarrativeCachePatchTargets(input: string): string[] {
     while ((match = pattern.exec(patch))) targets.add(match[1].trim())
   }
   return [...targets].sort((a, b) => a.localeCompare(b))
+}
+
+export function extractProtectedDesignCssPatchTargets(input: string): string[] {
+  const targets = new Set<string>()
+  for (const patch of patchPayloads(input)) {
+    const pattern = /(?:^\*\*\* Update File: |^\*\*\* Add File: |^\*\*\* Delete File: |^\*\*\* Move to: )([^\r\n]*design\.css)\s*$/gm
+    let match: RegExpExecArray | null
+    while ((match = pattern.exec(patch))) {
+      const target = match[1].trim().replace(/\\/g, "/")
+      if (isAllowedDesignDraftCssTarget(target)) continue
+      if (isProtectedDesignCssTarget(target)) targets.add(target)
+    }
+  }
+  return [...targets].sort((a, b) => a.localeCompare(b))
+}
+
+function isAllowedDesignDraftCssTarget(target: string): boolean {
+  return /(^|\/)\.revela\/drafts\/designs\/[^/]+\/design\.css$/.test(target)
+}
+
+function isProtectedDesignCssTarget(target: string): boolean {
+  return /(^|\/)designs\/[^/]+\/design\.css$/.test(target)
+    || /(^|\/)decks\/_revela-design\/[^/]+\/design\.css$/.test(target)
+    || /(^|\/)_revela-design\/[^/]+\/design\.css$/.test(target)
+    || /(^|\/)\.config\/revela\/designs\/[^/]+\/design\.css$/.test(target)
 }
 
 function patchPayloads(input: string): string[] {
