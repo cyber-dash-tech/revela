@@ -80,16 +80,14 @@ const VISUAL_QUALITY_RULES = `Visual extraction and CSS quality rules:
 - If a reference is flat vector, doodle, mascot, blob, line-art, or geometric illustration, prefer a self-contained SVG component with a fixed viewBox. CSS should place the SVG; the SVG should draw the motif.
 - If a reference is photography, UI screenshot, webpage, or product surface, do not convert it to SVG. Extract palette, type scale, spacing, layout rhythm, borders, and image treatment instead.
 - For SVG motifs: set a viewBox, keep all eyes/mouths/decorations inside that coordinate system, and document intended placement/scale in the component notes.
-- Before saving, review the preview for text overlap, scale drift, lost anchoring, overflow, and whether the preview preserves the reference composition.`
+- Before saving, generate the built-in template preview with the new design CSS and review it for text overlap, scale drift, lost anchoring, overflow, and whether the preview preserves the reference composition.`
 
 const PREVIEW_REQUIREMENTS = `Preview requirements:
-- \`preview.html\` must include a cover slide and a closing slide. Mark their \`<section class="slide">\` elements with \`data-slide-role="cover"\` and \`data-slide-role="closing"\`.
-- \`preview.html\` must define an explicit CSS rule for \`.slide-canvas\` with \`width: 1920px\` and \`height: 1080px\`; every direct \`.slide-canvas\` is the fixed 1920px x 1080px export surface.
-- \`preview.html\` must showcase every \`@component:*\` defined in \`DESIGN.md\`. Mark each showcased component with \`data-preview-component="<component-name>"\`.
-- \`preview.html\` should showcase every \`@layout:*\` defined in \`DESIGN.md\`. Mark each layout fixture with \`data-preview-layout="<layout-name>"\`.
-- Preview slides should act as test fixtures: include at least one normal content slide, one dense content slide, one chart/table or data slide when supported, mixed Chinese/English copy when relevant, and visible source-note behavior.
-- Do not save with \`revela-designs-author\` until every component has a corresponding preview marker. If a component is decorative or abstract, include a visible labeled sample state.
-- When the design supports chart styling, \`preview.html\` should include a 3x3 ECharts gallery with at least 9 chart examples. This is a preview quality requirement, not a validation blocker.`
+- Do not hand-write package \`preview.html\` for ordinary CSS-native designs.
+- The preview is generated from Revela's built-in page-template fixture plus the package \`design.css\`.
+- \`design.css\` must style the stable template DOM classes while preserving structural classes and \`data-template-slot\` semantics.
+- Preview review should check cover, closing, agenda, cards, metric, chart takeaways, table, timeline, process steps, recommendation, risk, and image/chart slots.
+- If the design uses package assets, keep them under \`assets/**\` and reference them from \`design.css\` with package-relative paths.`
 
 export function buildDesignsNewPrompt({ name, base }: DesignsNewArgs): string {
   return `You are creating a new Revela visual design package.
@@ -115,7 +113,7 @@ You must replace unless the user explicitly requests otherwise:
 - decorative language
 - tone
 - composition rules
-- preview content
+- design.css content
 
 ${VISUAL_QUALITY_RULES}
 
@@ -128,8 +126,8 @@ Workflow:
 4. Collect a concise design brief covering intent, tone, density, content mode, industry fit, references, visual schema, must-have, and must-avoid.
 5. Summarize the brief and visual schema, then ask the user to confirm them.
 6. After confirmation, inspect the base design using the \`revela-designs\` tool.
-7. Generate a complete \`DESIGN.md\` and matching \`preview.html\`.
-8. Self-review the preview against the visual schema before saving.
+7. Generate a complete \`DESIGN.md\` and matching \`design.css\`.
+8. Save a draft package, generate the built-in preview from \`design.css\`, and self-review the preview against the visual schema.
 9. Save the package with \`revela-designs-author\` using action \`create\`.
 10. Validate it with \`revela-designs-author\` using action \`validate\`.
 11. Report the saved path and activation command: \`/revela design --use ${name}\`.
@@ -139,12 +137,7 @@ Hard requirements:
 - \`DESIGN.md\` must include valid \`@design\`, \`@layout\`, and \`@component\` markers.
 - \`DESIGN.md\` must include at least \`@design:foundation\`, \`@design:rules\`, one layout, and one component.
 - \`DESIGN.md\` should document the design contract: grid/safe-area, spacing scale, typography scale, surfaces, and chart tokens when charts are supported.
-- \`preview.html\` must be self-contained and directly openable in a browser.
-- \`preview.html\` must include an explicit CSS rule: \`.slide-canvas { width: 1920px; height: 1080px; }\`.
-- Every preview slide must include \`slide-qa="true"\` or \`slide-qa="false"\`.
-- \`preview.html\` must include \`data-slide-role="cover"\` and \`data-slide-role="closing"\` on slide sections.
-- \`preview.html\` must showcase every \`@component:*\` with \`data-preview-component="<component-name>"\` before saving.
-- \`preview.html\` should showcase every \`@layout:*\` with \`data-preview-layout="<layout-name>"\`.
+- \`design.css\` must include fixed \`.slide-canvas { width: 1920px; height: 1080px; }\` behavior and style the core template classes.
 - Do not save anything until the user confirms the brief.
 
 Start now by interviewing the user. Keep the first question concise.`
@@ -171,8 +164,8 @@ Workflow:
 3. Inspect the existing design using \`revela-designs\` with action \`read\` and name \`${name}\`. Fetch relevant layouts/components as needed.
 4. Summarize an edit brief covering current issue, desired direction, visual schema, must-preserve, and must-avoid.
 5. Ask the user to confirm the edit brief.
-6. After confirmation, generate the updated complete \`DESIGN.md\` and updated complete \`preview.html\`.
-7. Self-review the preview for text overlap, scale drift, lost anchoring, overflow, and whether the requested change is visible.
+6. After confirmation, generate the updated complete \`DESIGN.md\` and updated complete \`design.css\`.
+7. Save a draft package, generate the built-in preview from \`design.css\`, and self-review it for text overlap, scale drift, lost anchoring, overflow, and whether the requested change is visible.
 8. Save with \`revela-designs-author\` using action \`create\`, name \`${name}\`, and overwrite=true.
 9. Validate with \`revela-designs-author\` using action \`validate\`.
 10. Report the saved path and activation command: \`/revela design --use ${name}\`.
@@ -181,12 +174,7 @@ Hard requirements:
 - Preserve valid frontmatter and marker structure.
 - Preserve at least \`@design:foundation\`, \`@design:rules\`, one layout, and one component.
 - Preserve or add the design contract: grid/safe-area, spacing scale, typography scale, surfaces, and chart tokens when charts are supported.
-- \`preview.html\` must be self-contained and directly openable in a browser.
-- \`preview.html\` must include an explicit CSS rule: \`.slide-canvas { width: 1920px; height: 1080px; }\`.
-- Every preview slide must include \`slide-qa="true"\` or \`slide-qa="false"\`.
-- \`preview.html\` must include \`data-slide-role="cover"\` and \`data-slide-role="closing"\` on slide sections.
-- \`preview.html\` must showcase every \`@component:*\` with \`data-preview-component="<component-name>"\` before saving.
-- \`preview.html\` should showcase every \`@layout:*\` with \`data-preview-layout="<layout-name>"\`.
+- \`design.css\` must include fixed \`.slide-canvas { width: 1920px; height: 1080px; }\` behavior and style the core template classes.
 - Do not save anything until the user confirms the edit brief.
 
 Start now by asking what the user wants to change in \`${name}\`.`

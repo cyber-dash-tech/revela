@@ -7,7 +7,7 @@ import { DECKS_STATE_FILE } from "../lib/decks-state"
 import { seedBuiltinDesigns } from "../lib/design/designs"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
-import { addTemplateScaffold, addTemplateSlide, bindResearchFindings, checkDesignRulesReadiness, checkMaterialIntake, designCreate, designDraftCreate, designDraftInstall, designDraftValidate, designInstallArchive, designInventory, designList, designPack, designRead, designValidate, doctor, domainCreate, domainDraftCreate, domainDraftInstall, domainDraftValidate, domainList, domainValidate, evaluateResearchFindings, extractMaterial, listPageTemplates, pageTemplateFoundation, pageTemplateVocabulary, prepareLocalMaterials, readDeckPlan, recordMaterialReview, renderTemplateScaffold, renderTemplateSlide, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead, upsertDeckPlanSlide } from "../lib/runtime"
+import { addTemplateScaffold, addTemplateSlide, bindResearchFindings, checkDesignRulesReadiness, checkMaterialIntake, designCreate, designDraftCreate, designDraftInstall, designDraftValidate, designInstallArchive, designInventory, designList, designPack, designPreview, designRead, designValidate, doctor, domainCreate, domainDraftCreate, domainDraftInstall, domainDraftValidate, domainList, domainValidate, evaluateResearchFindings, extractMaterial, listPageTemplates, pageTemplateFoundation, pageTemplateVocabulary, prepareLocalMaterials, readDeckPlan, recordMaterialReview, renderTemplateScaffold, renderTemplateSlide, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead, upsertDeckPlanSlide } from "../lib/runtime"
 import { stopRefineServer } from "../lib/refine/server"
 import { readTarArchive, writeTarArchive } from "../lib/design/archive"
 import pkg from "../package.json"
@@ -680,7 +680,6 @@ sources:
         base: "starter",
         designMd: validDesignMd(name, "Original"),
         designCss: validDesignCss(),
-        previewHtml: validPreviewHtml("Original"),
       })
       createdPath = created.path
       const validated = designValidate({ name })
@@ -690,7 +689,7 @@ sources:
         name,
         base: "starter",
         overwritten: false,
-        files: ["DESIGN.md", "design.css", "preview.html"],
+        files: ["DESIGN.md", "design.css"],
       })
       expect(existsSync(join(created.path, "DESIGN.md"))).toBe(true)
       expect(existsSync(join(created.path, "design.css"))).toBe(true)
@@ -699,24 +698,23 @@ sources:
         name,
         hasDesignMd: true,
         hasDesignCss: true,
-        hasPreview: true,
+        hasPreview: false,
       })
 
       expect(() => designCreate({
         name,
         designMd: validDesignMd(name, "Duplicate"),
-        previewHtml: validPreviewHtml("Duplicate"),
       })).toThrow("already exists")
 
       const overwritten = designCreate({
         name,
         designMd: validDesignMd(name, "Updated"),
-        previewHtml: validPreviewHtml("Updated"),
+        designCss: validDesignCss(),
         overwrite: true,
       })
 
       expect(overwritten).toMatchObject({ ok: true, name, overwritten: true })
-      expect(readFileSync(join(overwritten.path, "preview.html"), "utf-8")).toContain("Updated")
+      expect(readFileSync(join(overwritten.path, "DESIGN.md"), "utf-8")).toContain("Updated design")
     } finally {
       if (createdPath) rmSync(createdPath, { recursive: true, force: true })
     }
@@ -730,7 +728,7 @@ sources:
       name,
       base: "starter",
       designMd: validDesignMd(name, "Draft"),
-      previewHtml: validPreviewHtml("Draft"),
+      designCss: validDesignCss(),
     })
     let installed = ""
 
@@ -741,7 +739,12 @@ sources:
       installed = result.path
 
       expect(draft).toMatchObject({ ok: true, name, path: join(root, ".revela", "drafts", "designs", name), overwritten: false })
-      expect(validated).toMatchObject({ ok: true, name, hasDesignMd: true, hasPreview: true })
+      expect(validated).toMatchObject({ ok: true, name, hasDesignMd: true, hasPreview: false })
+      const preview = designPreview({ workspaceRoot: root, name, source: "draft" })
+      const previewHtml = readFileSync(preview.previewPath, "utf-8")
+      expect(preview).toMatchObject({ ok: true, name, source: "draft" })
+      expect(preview.files).toEqual(expect.arrayContaining(["preview.html", "design.css", "assets/report-visual.jpg"]))
+      expect(previewHtml.match(/class="slide template-slide"/g)).toHaveLength(15)
       expect(result).toMatchObject({ ok: true, name, sourcePath: draft.path, overwritten: false })
       expect(existsSync(join(result.path, "DESIGN.md"))).toBe(true)
       expect(() => designDraftInstall({ workspaceRoot: root, name })).toThrow("already exists")
@@ -762,7 +765,7 @@ sources:
       name,
       base: "starter",
       designMd: validDesignMd(name, "Archive").replace("- Keep hierarchy clear.", "- Keep hierarchy clear.\n- Cover backgrounds may use `assets/cover-background.png`."),
-      previewHtml: validPreviewHtml("Archive").replace("Archive Cover", "Archive Cover <img src=\"assets/cover-background.png\" alt=\"\">"),
+      designCss: validDesignCss(),
       assets: [{
         path: "assets/cover-background.png",
         contentBase64: Buffer.from("fake png bytes", "utf-8").toString("base64"),
@@ -780,9 +783,7 @@ sources:
       expect(draft.assets).toEqual([expect.objectContaining({ path: "assets/cover-background.png", kind: "cover-background" })])
       expect(draft.assets[0]).toMatchObject({ mimeType: "image/png", bytes: "fake png bytes".length })
       expect(existsSync(join(root, ".revela", "drafts", "designs", name, "DESIGN.md"))).toBe(true)
-      expect(existsSync(join(root, ".revela", "drafts", "designs", name, "preview.html"))).toBe(true)
       expect(existsSync(join(root, ".revela", "drafts", "designs", name, "assets", "cover-background.png"))).toBe(true)
-      expect(readFileSync(join(root, ".revela", "drafts", "designs", name, "preview.html"), "utf-8")).toContain("assets/cover-background.png")
       expect(readFileSync(join(root, ".revela", "drafts", "designs", name, "DESIGN.md"), "utf-8")).toContain("assets/cover-background.png")
       expect(designDraftValidate({ workspaceRoot: root, name }).ok).toBe(true)
       expect(packed).toMatchObject({ ok: true, name, format: "tar.gz" })
@@ -791,7 +792,7 @@ sources:
       expect(packed.files).toContain("assets/cover-background.png")
       expect(archiveFiles).toEqual(expect.arrayContaining([
         `${name}/DESIGN.md`,
-        `${name}/preview.html`,
+        `${name}/design.css`,
         `${name}/assets/cover-background.png`,
       ]))
       expect(installedResult).toMatchObject({ ok: true, name, overwritten: false })
@@ -814,7 +815,6 @@ sources:
         workspaceRoot: root,
         name,
         designMd: validDesignMd(name, "Asset Path"),
-        previewHtml: validPreviewHtml("Asset Path"),
         assets: [{ path, contentBase64: Buffer.from("x").toString("base64") }],
       })).toThrow("Design asset path must be located under assets/")
     }
@@ -835,8 +835,14 @@ sources:
 
     const validated = designDraftValidate({ workspaceRoot: root, name })
 
-    expect(validated.ok).toBe(false)
-    expect(validated.errors).toContain("preview.html is missing")
+    expect(validated.ok).toBe(true)
+    expect(validated.hasPreview).toBe(false)
+    expect(validated.warnings.join("\n")).toContain("design.css is missing")
+    expect(() => designPreview({ workspaceRoot: root, name, source: "draft" })).not.toThrow()
+    rmSync(join(root, ".revela", "previews", "designs", name), { recursive: true, force: true })
+    writeFileSync(join(draftDir, "DESIGN.md"), `---\nname: ${name}\n---\n\nNo markers`, "utf-8")
+    const invalid = designDraftValidate({ workspaceRoot: root, name })
+    expect(invalid.ok).toBe(false)
     expect(() => designDraftInstall({ workspaceRoot: root, name })).toThrow("Design draft is invalid")
   })
 
@@ -950,7 +956,7 @@ sources:
     const created = designCreate({
       name,
       designMd: validDesignMd(name, "CLI"),
-      previewHtml: validPreviewHtml("CLI"),
+      designCss: validDesignCss(),
     })
 
     try {

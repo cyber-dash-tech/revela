@@ -32,6 +32,7 @@ type RuntimeModule = {
   designActivate(input: any): any
   designCreate(input: any): any
   designValidate(input: any): any
+  designPreview(input: any): any
   designDraftCreate(input: any): any
   designDraftValidate(input: any): any
   designDraftInstall(input: any): any
@@ -243,16 +244,16 @@ const tools = [
   },
   {
     name: "revela_design_create",
-    description: "Create and validate a local Revela design package from complete DESIGN.md, design.css, and preview.html content.",
+    description: "Create and validate a local Revela design package from complete DESIGN.md, design.css, and optional legacy preview.html content.",
     inputSchema: objectSchema({
       name: requiredStringProp("Design name in kebab-case."),
       base: stringProp("Optional base design used as structural scaffold."),
       designMd: requiredStringProp("Complete DESIGN.md content."),
       designCss: stringProp("Complete design.css content. Required for CSS-native designs; omitted only for legacy compatibility."),
-      previewHtml: requiredStringProp("Complete preview.html content."),
+      previewHtml: stringProp("Optional legacy preview.html content. Current design previews are generated with revela_design_preview."),
       assets: designAssetsProp(),
       overwrite: booleanProp("Whether to replace an existing local design package. Defaults to false."),
-    }, ["name", "designMd", "previewHtml"]),
+    }, ["name", "designMd"]),
   },
   {
     name: "revela_design_validate",
@@ -268,10 +269,10 @@ const tools = [
       base: stringProp("Optional base design used as structural scaffold."),
       designMd: requiredStringProp("Complete DESIGN.md content."),
       designCss: stringProp("Complete design.css content. Required for CSS-native designs; omitted only for legacy compatibility."),
-      previewHtml: requiredStringProp("Complete preview.html content."),
+      previewHtml: stringProp("Optional legacy preview.html content. Current design previews are generated with revela_design_preview."),
       assets: designAssetsProp(),
       overwrite: booleanProp("Whether to replace an existing workspace draft. Defaults to false."),
-    }, ["name", "designMd", "previewHtml"]),
+    }, ["name", "designMd"]),
   },
   {
     name: "revela_design_draft_validate",
@@ -279,6 +280,15 @@ const tools = [
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       name: requiredStringProp("Design draft name to validate."),
+    }, ["name"]),
+  },
+  {
+    name: "revela_design_preview",
+    description: "Generate a workspace-local preview for a draft, installed, or built-in Revela design using the built-in page template preview fixture plus the design.css file.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      name: requiredStringProp("Design name to preview."),
+      source: stringProp("Optional source: draft, installed, or builtin. Defaults to draft when present, otherwise installed/builtin."),
     }, ["name"]),
   },
   {
@@ -516,6 +526,7 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_design_validate") return r.designValidate(args)
   if (name === "revela_design_draft_create") return r.designDraftCreate(args)
   if (name === "revela_design_draft_validate") return r.designDraftValidate(args)
+  if (name === "revela_design_preview") return r.designPreview(args)
   if (name === "revela_design_draft_install") return r.designDraftInstall(args)
   if (name === "revela_design_pack") return r.designPack(args)
   if (name === "revela_design_install_archive") return r.designInstallArchive(args)

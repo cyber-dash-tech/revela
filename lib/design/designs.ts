@@ -3,7 +3,9 @@
  *
  * User designs are stored in ~/.config/revela/designs/<name>/.
  * Built-in designs are shipped read-only with this package under designs/<name>/.
- * Each design directory contains DESIGN.md (required) and optionally preview.html.
+ * Each design directory contains DESIGN.md (required), design.css for CSS-native styling,
+ * and optionally legacy preview.html. Current previews are generated from the built-in
+ * page-template fixture plus the design CSS.
  */
 
 import {
@@ -19,6 +21,7 @@ import {
 } from "fs"
 import { dirname, join, normalize, resolve, basename, relative, sep } from "path"
 import { tmpdir } from "os"
+import { pathToFileURL } from "url"
 import { parseFrontmatter } from "../frontmatter"
 import { collectDirectoryEntries, extractEntriesToDirectory, normalizePackageArchiveEntries, readTarArchive, writeTarArchive } from "./archive"
 import {
@@ -34,6 +37,8 @@ const designLog = childLog("designs")
 
 // Seed directory: built-in designs shipped with this package.
 const SEED_DIR = resolve(__dirname, "../..", "designs")
+const BUILT_IN_PREVIEW_PATH = resolve(__dirname, "..", "page-templates", "built-in-preview.html")
+const PREVIEW_FALLBACK_ASSET_DESIGN = "lucent"
 
 export interface DesignInfo {
   name: string
@@ -53,7 +58,7 @@ export interface CreateDesignPackageArgs {
   base?: string
   designMd: string
   designCss?: string
-  previewHtml: string
+  previewHtml?: string
   assets?: DesignPackageAssetInput[]
   overwrite?: boolean
 }
@@ -145,6 +150,25 @@ export interface DesignPreviewInfo {
   designDir: string
   previewPath: string
   hasPreview: boolean
+}
+
+export interface MaterializeDesignPreviewArgs {
+  workspaceRoot: string
+  name: string
+  source?: "draft" | "installed" | "builtin"
+}
+
+export interface MaterializeDesignPreviewResult {
+  ok: true
+  name: string
+  source: "draft" | "installed" | "builtin"
+  designDir: string
+  previewDir: string
+  previewPath: string
+  previewUrl: string
+  designCssPath: string
+  files: string[]
+  warnings: string[]
 }
 
 export interface DesignCssSnapshotResult {
@@ -315,6 +339,47 @@ export function resolveDesignPreview(name?: string): DesignPreviewInfo {
   }
 }
 
+export function materializeDesignPreview(args: MaterializeDesignPreviewArgs): MaterializeDesignPreviewResult {
+  const name = normalizeDesignName(args.name)
+  const { designDir, source } = resolveDesignPreviewSourceDir(args.workspaceRoot, name, args.source)
+  const previewDir = resolve(args.workspaceRoot, ".revela", "previews", "designs", name)
+  const previewPath = join(previewDir, "preview.html")
+  const designCssPath = join(previewDir, "design.css")
+  const warnings: string[] = []
+
+  if (!existsSync(BUILT_IN_PREVIEW_PATH)) {
+    throw new Error(`Built-in design preview fixture is missing: ${BUILT_IN_PREVIEW_PATH}`)
+  }
+
+  rmSync(previewDir, { recursive: true, force: true })
+  mkdirSync(previewDir, { recursive: true })
+
+  const previewHtml = readFileSync(BUILT_IN_PREVIEW_PATH, "utf-8").replace(/data-design="built-in-preview"/g, `data-design="${name}"`)
+  writeFileSync(previewPath, previewHtml, "utf-8")
+
+  const cssRead = readDesignCssFromDir(name, designDir)
+  warnings.push(...cssRead.warnings)
+  writeFileSync(designCssPath, `${cssRead.css.trim()}\n`, "utf-8")
+
+  const sourceAssets = join(designDir, "assets")
+  const targetAssets = join(previewDir, "assets")
+  if (existsSync(sourceAssets)) cpSync(sourceAssets, targetAssets, { recursive: true })
+  copyMissingBuiltInPreviewAssets(previewHtml, targetAssets)
+
+  return {
+    ok: true,
+    name,
+    source,
+    designDir,
+    previewDir,
+    previewPath,
+    previewUrl: pathToFileURL(previewPath).href,
+    designCssPath,
+    files: listDesignPackageFiles(previewDir),
+    warnings,
+  }
+}
+
 export function resolveDesignPackageDir(name?: string): string {
   const designName = normalizeDesignName(name || activeDesign())
   const designDir = resolveDesignDir(designName)
@@ -400,7 +465,6 @@ export function createDesignPackage(args: CreateDesignPackageArgs): CreateDesign
   const previewHtml = args.previewHtml?.trim()
 
   if (!designMd) throw new Error("designMd is required")
-  if (!previewHtml) throw new Error("previewHtml is required")
 
   const target = join(DESIGNS_DIR, name)
   const existed = existsSync(target)
@@ -415,7 +479,7 @@ export function createDesignPackage(args: CreateDesignPackageArgs): CreateDesign
   mkdirSync(target, { recursive: true })
   writeFileSync(join(target, "DESIGN.md"), `${designMd}\n`, "utf-8")
   if (designCss) writeFileSync(join(target, "design.css"), `${designCss}\n`, "utf-8")
-  writeFileSync(join(target, "preview.html"), `${previewHtml}\n`, "utf-8")
+  if (previewHtml) writeFileSync(join(target, "preview.html"), `${previewHtml}\n`, "utf-8")
   writeDesignAssets(target, args.assets)
 
   const validation = validateDesignPackage(name)
@@ -442,7 +506,6 @@ export function createDesignDraftPackage(args: CreateDesignDraftArgs): CreateDes
   const previewHtml = args.previewHtml?.trim()
 
   if (!designMd) throw new Error("designMd is required")
-  if (!previewHtml) throw new Error("previewHtml is required")
 
   const target = designDraftDir(args.workspaceRoot, name)
   const existed = existsSync(target)
@@ -457,7 +520,7 @@ export function createDesignDraftPackage(args: CreateDesignDraftArgs): CreateDes
   mkdirSync(target, { recursive: true })
   writeFileSync(join(target, "DESIGN.md"), `${designMd}\n`, "utf-8")
   if (designCss) writeFileSync(join(target, "design.css"), `${designCss}\n`, "utf-8")
-  writeFileSync(join(target, "preview.html"), `${previewHtml}\n`, "utf-8")
+  if (previewHtml) writeFileSync(join(target, "preview.html"), `${previewHtml}\n`, "utf-8")
   writeDesignAssets(target, args.assets)
 
   const validation = validateDesignDraftPackage(args.workspaceRoot, name)
@@ -660,7 +723,6 @@ function validateDesignPackageAt(nameInput: string, dir: string): ValidateDesign
 
   if (!existsSync(dir)) errors.push(`Design directory does not exist: ${dir}`)
   if (!hasDesignMd) errors.push("DESIGN.md is missing")
-  if (!hasPreview) errors.push("preview.html is missing")
   if (!hasDesignCss) warnings.push("design.css is missing; DESIGN.md CSS fallback remains compatibility-only and should be migrated.")
   if (existsSync(dir)) assets = listDesignAssetsInDir(dir)
 
@@ -703,15 +765,17 @@ function validateDesignPackageAt(nameInput: string, dir: string): ValidateDesign
     if (missingLayoutPreviews.length > 0) {
       warnings.push(`preview.html should mark layout fixtures with data-preview-layout; missing: ${missingLayoutPreviews.join(", ")}`)
     }
-    if (hasDesignCss) {
-      const missingCoreClasses = requiredDesignCssClasses().filter((className) => !cssTextHasClassSelector(designCss, className))
-      if (missingCoreClasses.length > 0) errors.push(`design.css must style core template classes; missing: ${missingCoreClasses.map((item) => `.${item}`).join(", ")}`)
-      errors.push(...missingDesignCssAssetErrors(designCss, dir))
-    }
-    const designText = hasDesignMd ? readFileSync(mdPath, "utf-8") : ""
-    const tokenWarnings = designContractTokenWarnings(`${designText}\n${preview}\n${designCss}`)
-    warnings.push(...tokenWarnings)
   }
+  if (hasDesignCss) {
+    const designCss = readFileSync(cssPath, "utf-8")
+    const missingCoreClasses = requiredDesignCssClasses().filter((className) => !cssTextHasClassSelector(designCss, className))
+    if (missingCoreClasses.length > 0) errors.push(`design.css must style core template classes; missing: ${missingCoreClasses.map((item) => `.${item}`).join(", ")}`)
+    errors.push(...missingDesignCssAssetErrors(designCss, dir))
+  }
+  const designText = hasDesignMd ? readFileSync(mdPath, "utf-8") : ""
+  const designCss = hasDesignCss ? readFileSync(cssPath, "utf-8") : ""
+  const tokenWarnings = designContractTokenWarnings(`${designText}\n${designCss}`)
+  warnings.push(...tokenWarnings)
 
   return {
     ok: errors.length === 0,
@@ -739,7 +803,7 @@ function designContractTokenWarnings(text: string): string[] {
     { label: "surface", pattern: /--surface|surface token|border token|shadow token/i },
   ]
   for (const check of checks) {
-    if (!check.pattern.test(text)) warnings.push(`DESIGN.md/preview.html should document ${check.label} design tokens or an equivalent contract`)
+    if (!check.pattern.test(text)) warnings.push(`DESIGN.md/design.css should document ${check.label} design tokens or an equivalent contract`)
   }
   return warnings
 }
@@ -799,6 +863,66 @@ function extractCssCodeBlocks(markdown: string): string[] {
 
 function designDraftDir(workspaceRoot: string, name: string): string {
   return resolve(workspaceRoot, ".revela", "drafts", "designs", name)
+}
+
+function resolveDesignPreviewSourceDir(
+  workspaceRoot: string,
+  name: string,
+  requested?: "draft" | "installed" | "builtin",
+): { designDir: string; source: "draft" | "installed" | "builtin" } {
+  const draftDir = designDraftDir(workspaceRoot, name)
+  if (requested === "draft") {
+    if (!existsSync(draftDir)) throw new Error(`Design draft '${name}' does not exist: ${draftDir}`)
+    return { designDir: draftDir, source: "draft" }
+  }
+
+  const installedDir = resolveDesignDir(name)
+  if (requested === "installed" || requested === "builtin") {
+    if (!installedDir) throw new Error(`Design '${name}' is not installed`)
+    const source = requested === "builtin" ? "builtin" : installedDir.startsWith(SEED_DIR + sep) ? "builtin" : "installed"
+    return { designDir: installedDir, source }
+  }
+
+  if (existsSync(draftDir)) return { designDir: draftDir, source: "draft" }
+  if (!installedDir) throw new Error(`Design '${name}' is not available as a workspace draft or installed design`)
+  return { designDir: installedDir, source: installedDir.startsWith(SEED_DIR + sep) ? "builtin" : "installed" }
+}
+
+function readDesignCssFromDir(name: string, designDir: string): { css: string; warnings: string[] } {
+  const cssPath = join(designDir, "design.css")
+  if (existsSync(cssPath)) return { css: readFileSync(cssPath, "utf-8"), warnings: [] }
+
+  const mdPath = join(designDir, "DESIGN.md")
+  const markdown = existsSync(mdPath) ? readFileSync(mdPath, "utf-8") : ""
+  const cssBlocks = extractCssCodeBlocks(markdown)
+  const css = [
+    "/* Generated preview compatibility CSS from DESIGN.md. Add design.css to make this design CSS-native. */",
+    templateDeckCss(),
+    ...cssBlocks,
+  ].join("\n\n")
+  return {
+    css,
+    warnings: [`Design '${name}' has no design.css; generated preview CSS from DESIGN.md compatibility blocks.`],
+  }
+}
+
+function copyMissingBuiltInPreviewAssets(previewHtml: string, targetAssetsDir: string): void {
+  const fallbackAssetsDir = join(SEED_DIR, PREVIEW_FALLBACK_ASSET_DESIGN, "assets")
+  const assetRefs = new Set<string>()
+  const re = /(?:src|href)=["']assets\/([^"']+)["']/g
+  let match: RegExpExecArray | null
+  while ((match = re.exec(previewHtml)) !== null) assetRefs.add(match[1])
+  if (assetRefs.size === 0) return
+
+  mkdirSync(targetAssetsDir, { recursive: true })
+  for (const rel of assetRefs) {
+    const target = resolve(targetAssetsDir, rel)
+    if (existsSync(target)) continue
+    const source = resolve(fallbackAssetsDir, rel)
+    if (!existsSync(source) || !statSync(source).isFile()) continue
+    mkdirSync(dirname(target), { recursive: true })
+    cpSync(source, target)
+  }
 }
 
 function designDraftExists(workspaceRoot: string, name: string): boolean {

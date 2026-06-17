@@ -1,4 +1,4 @@
-import { resolveDesignPreview } from "../design/designs"
+import { activeDesign, materializeDesignPreview } from "../design/designs"
 
 function openFile(filePath: string): void {
   if (process.platform === "darwin") {
@@ -22,14 +22,9 @@ export async function handleDesignsPreview(
   send: (text: string) => Promise<void>,
 ): Promise<void> {
   try {
-    const preview = resolveDesignPreview(name || undefined)
-    if (!preview.hasPreview) {
-      await send(`Design \`${preview.name}\` has no \`preview.html\`.`)
-      return
-    }
-
+    const preview = materializeDesignPreview({ workspaceRoot: process.cwd(), name: name || activeDesign() })
     openFile(preview.previewPath)
-    await send(`Opened preview for design \`${preview.name}\`: \`${preview.previewPath}\``)
+    await send(`Generated and opened preview for design \`${preview.name}\`: \`${preview.previewPath}\``)
   } catch (e: any) {
     await send(`**Preview failed:** ${e.message || String(e)}`)
   }

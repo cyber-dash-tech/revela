@@ -77,9 +77,9 @@ Git marketplace ref 和 `.mcp.json` plugin launcher 属于同一个 release arti
 
 ## 内置设计
 
-Revela 内置多个 deck design：
+Revela 内置多个 deck design。Design preview 由内置 page-template preview fixture 加上当前 design CSS 生成。
 
-### [summit](designs/summit/preview.html)
+### summit
 
 <p align="center">
   <img src="assets/img/summit-01.jpg" alt="Summit design cover preview" width="32%" />
@@ -87,7 +87,7 @@ Revela 内置多个 deck design：
   <img src="assets/img/summit-03.jpg" alt="Summit design timeline preview" width="32%" />
 </p>
 
-### [monet](designs/monet/preview.html)
+### monet
 
 <p align="center">
   <img src="assets/img/monet-01.jpg" alt="Monet design cover preview" width="32%" />
@@ -95,7 +95,7 @@ Revela 内置多个 deck design：
   <img src="assets/img/monet-03.jpg" alt="Monet design timeline preview" width="32%" />
 </p>
 
-### [lucent](designs/lucent/preview.html)
+### lucent
 
 <p align="center">
   <img src="assets/img/lucent-01.jpg" alt="Lucent design cover preview" width="32%" />

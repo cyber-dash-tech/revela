@@ -9,17 +9,17 @@ Use this skill when the user asks to create, customize, edit, validate, package,
 
 ## Contract
 
-- Designs define deck visual systems: rules, foundation, layouts, components, chart rules, page-template foundation styling, and preview coverage.
+- Designs define deck visual systems: rules, foundation, layouts, components, chart rules, and page-template foundation styling.
 - CSS-native designs include `design.css` as the executable visual source. `DESIGN.md` explains the design contract; `design.css` styles the stable template DOM classes.
 - Designs should define executable visual contracts, not only mood, fonts, and palettes. Capture grid/safe-area, spacing scale, type scale, surface behavior, chart tokens, component states, and preview fixtures in the design package.
 - Designs may include package-owned `assets/**` such as cover or closing backgrounds; design tools surface these as design elements, not source evidence.
 - When the user uploads or provides logo, cover, closing, background, texture, brand image, or similar design material, store it inside the design package with `revela_design_draft_create.assets`; use paths under `assets/**` only.
-- Generated `preview.html` must actually reference uploaded design assets with package-relative `assets/...` paths rather than describing them only in text.
+- Design previews are generated from Revela's built-in page-template preview plus the draft or installed `design.css`.
 - Default authoring is workspace draft first, then validate, then install only when appropriate.
 - Direct user-level creation is reserved for explicit create/install-now requests.
 - Shareable design archives are `.tar` or `.tar.gz`; install archives only from trusted local paths.
 - Do not use domain tools for visual design work.
-- Do not generate deck HTML while authoring a design.
+- Do not write `decks/*.html` while authoring a design. Use `revela_design_preview` to generate a workspace-local design preview.
 
 ## Required Tools
 
@@ -35,12 +35,13 @@ For new or edited designs:
 2. Read the requested base design or active design with `revela_design_read`.
 3. Call `revela_design_inventory` and inspect its `pageTemplates` summary.
 4. Call `revela_page_template_foundation` for any built-in page templates the design should style or preview.
-5. Draft complete `DESIGN.md`, complete `design.css`, and complete `preview.html` content.
+5. Draft complete `DESIGN.md` and complete `design.css` content.
 6. Call `revela_design_draft_create` with `designCss`; when uploaded or local design material exists, pass `assets: [{ path: "assets/...", contentBase64|content|sourcePath }]` so the files are written into the draft package.
 7. Call `revela_design_draft_validate`.
-8. If validation fails, revise the draft content and repeat draft create/validate.
-9. Call `revela_design_draft_install` only after the draft validates and the user intent is to install it.
-10. Call `revela_design_activate` only when the user asks to make it active.
+8. Call `revela_design_preview` for the draft and inspect the generated preview in Browser.
+9. If validation or preview review fails, revise the draft content and repeat draft create/validate/preview.
+10. Call `revela_design_draft_install` only after the draft validates and the user intent is to install it.
+11. Call `revela_design_activate` only when the user asks to make it active.
 
 For sharing or installing design archives:
 
@@ -64,16 +65,14 @@ Use `revela_design_create` only when the user explicitly requests direct local c
 - Components should describe normal, dense, and long-copy behavior where relevant. Chart, table, media, and source-note components need stable container dimensions.
 - Optional assets must live under `assets/**`; reference them as package-relative paths like `assets/cover-background.png`.
 - `DESIGN.md` may reference package assets in rules, layouts, or components with `assets/...`; do not reference workspace `assets/` media manifest entries for design-owned visuals.
-- `preview.html` must reference `./design.css`, use the fixed Revela preview canvas contract, and visibly preview the design.
-- If design assets are present, `preview.html` must visibly use the saved `assets/...` files, for example a cover hero background or logo image.
-- Preview must include cover and closing examples and showcase every component.
-- Preview should showcase every layout with `data-preview-layout="<layout-name>"` and every component with `data-preview-component="<component-name>"`.
-- Preview should behave like a design test fixture: include normal content, dense content, mixed-language text where relevant, chart/table examples when supported, readable media, and source-note behavior.
+- `revela_design_preview` must generate the visual preview; do not hand-write package `preview.html` for ordinary CSS-native design drafts.
+- If design assets are present, the generated preview should visibly use the saved `assets/...` files when the design CSS references them.
+- Generated preview should show the built-in page templates with normal, dense, chart/table, timeline, image, and source-note-like states.
 - Preserve source inspiration and limitations explicitly; do not copy copyrighted design text or assets into the package.
 
 ## Outputs
 
-- Design draft path/status or installed design name.
+- Design draft path/status, generated preview path/status, or installed design name.
 - Archive path/status when packaging or installing a shareable design.
 - Asset metadata surfaced by read/inventory tools when `assets/**` exists.
 - Saved asset paths and intended uses, for example `assets/cover-background.png -> cover hero background`.

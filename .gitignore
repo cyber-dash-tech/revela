@@ -6,10 +6,6 @@ AGENTS.md
 opencode.json
 .opencode/
 .revela/
-designs/*/preview.html
-!designs/starter/preview.html
-!designs/summit/preview.html
-!designs/monet/preview.html
 researches
 slides
 decks

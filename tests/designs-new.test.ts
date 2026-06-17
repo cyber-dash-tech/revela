@@ -6,6 +6,7 @@ import { DESIGNS_DIR } from "../lib/config"
 import {
   createDesignPackage,
   listDesigns,
+  materializeDesignPreview,
   parseDesignFile,
   parseDesignSections,
   resolveDesignPreview,
@@ -217,7 +218,7 @@ describe("buildDesignsNewPrompt", () => {
     expect(prompt).toContain("revela-designs-author")
     expect(prompt).toContain("/revela design --use neon-finance")
     expect(prompt).toContain(".slide-canvas { width: 1920px; height: 1080px; }")
-    expect(prompt).toContain("direct `.slide-canvas` is the fixed 1920px x 1080px export surface")
+    expect(prompt).toContain("The preview is generated from Revela's built-in page-template fixture plus the package `design.css`")
   })
 
   it("requires visual schema extraction and scoped CSS generation", () => {
@@ -226,9 +227,9 @@ describe("buildDesignsNewPrompt", () => {
     expect(prompt).toContain("Preserve composition, not just colors and shapes")
     expect(prompt).toContain("self-contained SVG component with a fixed viewBox")
     expect(prompt).toContain("Do not rewrite the entire base layout system from scratch")
-    expect(prompt).toContain("data-preview-component")
-    expect(prompt).toContain("data-slide-role=\"cover\"")
-    expect(prompt).toContain("3x3 ECharts gallery")
+    expect(prompt).toContain("data-template-slot")
+    expect(prompt).toContain("cover, closing, agenda, cards, metric")
+    expect(prompt).toContain("image/chart slots")
   })
 })
 
@@ -239,8 +240,8 @@ describe("buildDesignsEditPrompt", () => {
     expect(prompt).toContain("overwrite=true")
     expect(prompt).toContain("Ask the user to confirm the edit brief")
     expect(prompt).toContain("/revela design --use neon-finance")
-    expect(prompt).toContain("data-preview-component")
-    expect(prompt).toContain("data-slide-role=\"closing\"")
+    expect(prompt).toContain("built-in preview from `design.css`")
+    expect(prompt).toContain("data-template-slot")
     expect(prompt).toContain(".slide-canvas { width: 1920px; height: 1080px; }")
   })
 })
@@ -248,9 +249,7 @@ describe("buildDesignsEditPrompt", () => {
 describe("starter built-in design", () => {
   it("has the minimum neutral base coverage for designs-new", () => {
     const designPath = join(import.meta.dir, "..", "designs", "starter", "DESIGN.md")
-    const previewPath = join(import.meta.dir, "..", "designs", "starter", "preview.html")
     expect(existsSync(designPath)).toBe(true)
-    expect(existsSync(previewPath)).toBe(true)
 
     const raw = readFileSync(designPath, "utf-8")
     const { body } = parseFrontmatter(raw)
@@ -312,14 +311,6 @@ describe("starter built-in design", () => {
     const tableComponent = parsed.components["data-table"] ?? ""
     expect(tableComponent).toContain("table-caption source-note")
 
-    const preview = readFileSync(previewPath, "utf-8")
-    expect(preview).toContain("Starter Design System")
-    expect(preview).toContain("slide-qa=")
-    expect(preview).toContain("svg-motif")
-    expect(preview).toContain('data-slide-role="cover"')
-    expect(preview).toContain('data-slide-role="closing"')
-    expect(preview).toContain('data-preview-component="roadmap-horizontal"')
-    expect(preview).toContain('data-preview-component="roadmap-vertical"')
   })
 
   it("is marked internal and hidden from normal design listings", () => {
@@ -429,26 +420,6 @@ describe("summit built-in design", () => {
   })
 })
 
-describe("built-in vertical roadmap previews", () => {
-  it("showcases roadmap-vertical with axis, stems, tip dots, and alternating labels", () => {
-    for (const name of ["starter", "monet", "summit"]) {
-      const previewPath = join(import.meta.dir, "..", "designs", name, "preview.html")
-      const html = readFileSync(previewPath, "utf-8")
-      const match = html.match(/<div class="[^"]*roadmap-vertical[^"]*"[^>]*data-preview-component="roadmap-vertical"[\s\S]*?<\/div><ol class="steps"|<div class="[^"]*roadmap-vertical[^"]*"[^>]*data-preview-component="roadmap-vertical"[\s\S]*?<\/div>\s*<div class="roadmap-horizontal/)
-      const fixture = match?.[0] ?? ""
-
-      expect(fixture, name).toContain("tjv-axis")
-      expect(fixture, name).toContain("tjv-item tjv-item--left")
-      expect(fixture, name).toContain("tjv-item tjv-item--right")
-      expect(fixture, name).toContain("tjv-axis-dot")
-      expect(fixture, name).toContain("tjv-stem")
-      expect(fixture, name).toContain("tjv-tip-dot")
-      expect(fixture, name).toContain("tjv-label")
-      expect(fixture, name).not.toContain("vertical-node")
-    }
-  })
-})
-
 describe("design package authoring", () => {
   it("creates and validates a design package", () => {
     const name = track("test-designs-new-create")
@@ -456,13 +427,12 @@ describe("design package authoring", () => {
       name,
       base: "summit",
       designMd: validDesignMd(name),
-      previewHtml: validPreviewHtml(),
     })
 
     expect(result.ok).toBe(true)
     expect(result.name).toBe(name)
     expect(existsSync(join(DESIGNS_DIR, name, "DESIGN.md"))).toBe(true)
-    expect(existsSync(join(DESIGNS_DIR, name, "preview.html"))).toBe(true)
+    expect(existsSync(join(DESIGNS_DIR, name, "preview.html"))).toBe(false)
 
     const validation = validateDesignPackage(name)
     expect(validation.ok).toBe(true)
@@ -479,7 +449,6 @@ describe("design package authoring", () => {
       base: "summit",
       designMd: validDesignMd(name),
       designCss: validDesignCss(),
-      previewHtml: validPreviewHtmlWithDesignCss(),
     })
 
     expect(result.ok).toBe(true)
@@ -492,12 +461,11 @@ describe("design package authoring", () => {
 
   it("does not overwrite existing designs by default", () => {
     const name = track("test-designs-new-existing")
-    createDesignPackage({ name, designMd: validDesignMd(name), previewHtml: validPreviewHtml() })
+    createDesignPackage({ name, designMd: validDesignMd(name) })
 
     expect(() => createDesignPackage({
       name,
       designMd: validDesignMd(name),
-      previewHtml: validPreviewHtml(),
     })).toThrow("already exists")
   })
 
@@ -506,74 +474,20 @@ describe("design package authoring", () => {
     const dir = join(DESIGNS_DIR, name)
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, "DESIGN.md"), `---\nname: ${name}\n---\n\nNo markers`, "utf-8")
-    writeFileSync(join(dir, "preview.html"), validPreviewHtml(), "utf-8")
 
     const validation = validateDesignPackage(name)
     expect(validation.ok).toBe(false)
     expect(validation.errors).toContain("DESIGN.md must include marker sections")
   })
 
-  it("requires preview coverage for every component", () => {
-    const name = track("test-preview-components")
-    const dir = join(DESIGNS_DIR, name)
-    mkdirSync(dir, { recursive: true })
-    writeFileSync(join(dir, "DESIGN.md"), validDesignMd(name), "utf-8")
-    writeFileSync(join(dir, "preview.html"), validPreviewHtmlForOneComponent(), "utf-8")
-
-    const validation = validateDesignPackage(name)
-    expect(validation.ok).toBe(false)
-    expect(validation.errors).toContain("preview.html must showcase every @component; missing: test-badge")
-  })
-
-  it("requires fixed 1920x1080 CSS for preview slide-canvas", () => {
-    const name = track("test-preview-canvas-size")
-    const dir = join(DESIGNS_DIR, name)
-    mkdirSync(dir, { recursive: true })
-    writeFileSync(join(dir, "DESIGN.md"), validDesignMd(name), "utf-8")
-    writeFileSync(join(dir, "preview.html"), previewHtmlWithoutCanvasSize(), "utf-8")
-
-    const validation = validateDesignPackage(name)
-    expect(validation.ok).toBe(false)
-    expect(validation.errors).toContain("preview.html or design.css must define .slide-canvas CSS with width: 1920px and height: 1080px")
-  })
-
-  it("rejects created packages without fixed preview canvas CSS", () => {
+  it("rejects CSS-native packages that do not style core template classes", () => {
     const name = track("test-preview-create-size")
 
     expect(() => createDesignPackage({
       name,
       designMd: validDesignMd(name),
-      previewHtml: previewHtmlWithoutFixedSizes(),
+      designCss: ".slide-canvas { width: 1920px; height: 1080px; }",
     })).toThrow("Created design package is invalid")
-  })
-
-  it("requires cover and closing slide roles in preview", () => {
-    const name = track("test-preview-slide-roles")
-    const dir = join(DESIGNS_DIR, name)
-    mkdirSync(dir, { recursive: true })
-    writeFileSync(join(dir, "DESIGN.md"), designMdWithOneComponent(name), "utf-8")
-    writeFileSync(join(dir, "preview.html"), `<!doctype html>
-<html><body>
-<section class="slide" slide-qa="true"><div class="slide-canvas"><div data-preview-component="test-card">Card</div></div></section>
-</body></html>`, "utf-8")
-
-    const validation = validateDesignPackage(name)
-    expect(validation.ok).toBe(false)
-    expect(validation.errors).toContain('preview.html must include a slide section with data-slide-role="cover"')
-    expect(validation.errors).toContain('preview.html must include a slide section with data-slide-role="closing"')
-  })
-
-  it("warns when preview does not mark layout fixtures", () => {
-    const name = track("test-preview-layout-warnings")
-    const dir = join(DESIGNS_DIR, name)
-    mkdirSync(dir, { recursive: true })
-    writeFileSync(join(dir, "DESIGN.md"), validDesignMd(name), "utf-8")
-    writeFileSync(join(dir, "preview.html"), validPreviewHtml(), "utf-8")
-
-    const validation = validateDesignPackage(name)
-
-    expect(validation.ok).toBe(true)
-    expect(validation.warnings.join("\n")).toContain("preview.html should mark layout fixtures with data-preview-layout; missing: test-layout")
   })
 
   it("warns when design contract token families are missing", () => {
@@ -581,13 +495,39 @@ describe("design package authoring", () => {
     const dir = join(DESIGNS_DIR, name)
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, "DESIGN.md"), designMdWithOneComponent(name), "utf-8")
-    writeFileSync(join(dir, "preview.html"), validPreviewHtmlForOneComponent().replace("data-preview-component=\"test-card\"", "data-preview-layout=\"test-layout\" data-preview-component=\"test-card\""), "utf-8")
 
     const validation = validateDesignPackage(name)
 
     expect(validation.ok).toBe(true)
-    expect(validation.warnings.join("\n")).toContain("DESIGN.md/preview.html should document grid design tokens or an equivalent contract")
-    expect(validation.warnings.join("\n")).toContain("DESIGN.md/preview.html should document spacing design tokens or an equivalent contract")
+    expect(validation.warnings.join("\n")).toContain("DESIGN.md/design.css should document grid design tokens or an equivalent contract")
+    expect(validation.warnings.join("\n")).toContain("DESIGN.md/design.css should document spacing design tokens or an equivalent contract")
+  })
+
+  it("materializes a generated design preview from built-in template fixture and design.css", () => {
+    const name = track("test-generated-preview")
+    const workspaceRoot = join(import.meta.dir, "..", ".tmp-generated-preview")
+    rmSync(workspaceRoot, { recursive: true, force: true })
+    createDesignPackage({
+      name,
+      designMd: validDesignMd(name),
+      designCss: validDesignCss(),
+    })
+
+    try {
+      const preview = materializeDesignPreview({ workspaceRoot, name })
+      const html = readFileSync(preview.previewPath, "utf-8")
+
+      expect(preview.ok).toBe(true)
+      expect(preview.files).toContain("preview.html")
+      expect(preview.files).toContain("design.css")
+      expect(html).toContain('<link rel="stylesheet" href="./design.css">')
+      expect(html.match(/class="slide template-slide"/g)).toHaveLength(15)
+      expect(html).toContain('data-slide-role="cover"')
+      expect(html).toContain('data-slide-role="closing"')
+      expect(existsSync(join(preview.previewDir, "assets", "report-visual.jpg"))).toBe(true)
+    } finally {
+      rmSync(workspaceRoot, { recursive: true, force: true })
+    }
   })
 
   it("resolves preview path and missing-preview state", () => {

@@ -77,9 +77,9 @@ The Git marketplace ref and `.mcp.json` plugin launcher are part of the same rel
 
 ## Built-In Designs
 
-Revela includes built-in deck designs:
+Revela includes built-in deck designs. Design previews are generated from the built-in page-template preview fixture plus the selected design CSS.
 
-### [summit](designs/summit/preview.html)
+### summit
 
 <p align="center">
   <img src="assets/img/summit-01.jpg" alt="Summit design cover preview" width="32%" />
@@ -87,7 +87,7 @@ Revela includes built-in deck designs:
   <img src="assets/img/summit-03.jpg" alt="Summit design timeline preview" width="32%" />
 </p>
 
-### [monet](designs/monet/preview.html)
+### monet
 
 <p align="center">
   <img src="assets/img/monet-01.jpg" alt="Monet design cover preview" width="32%" />
@@ -95,7 +95,7 @@ Revela includes built-in deck designs:
   <img src="assets/img/monet-03.jpg" alt="Monet design timeline preview" width="32%" />
 </p>
 
-### [lucent](designs/lucent/preview.html)
+### lucent
 
 <p align="center">
   <img src="assets/img/lucent-01.jpg" alt="Lucent design cover preview" width="32%" />

@@ -82,12 +82,12 @@ export function buildPrompt(optionsOrDesignName?: BuildPromptOptions | string, l
   // Layer 1 — core skill for the selected prompt mode.
   const coreSkill = readFileSync(mode === "deck-render" ? SKILL_MD_PATH : NARRATIVE_SKILL_MD_PATH, "utf-8")
 
-  // Check for preview.html
+  // Check for CSS-native design styling.
   const designDir = join(DESIGNS_DIR, design)
-  const hasPreview = existsSync(join(designDir, "preview.html"))
-  const previewLine = hasPreview
-    ? "<!--   - preview.html — canonical visual reference (read this before generating slides) -->"
-    : "<!--   - (no preview.html for this design) -->"
+  const hasDesignCss = existsSync(join(designDir, "design.css"))
+  const previewLine = hasDesignCss
+    ? "<!--   - design.css — executable design styling; generated previews use the built-in page template fixture -->"
+    : "<!--   - (no design.css for this design; compatibility CSS may be generated from DESIGN.md) -->"
 
   // Layer 2 — DOMAIN.md skill text (narrative mode only). Deck-render mode
   // renders the approved canonical narrative and must not re-interpret domain

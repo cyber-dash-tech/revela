@@ -15,6 +15,7 @@ import {
   installDesignDraftPackage,
   listDesignAssets,
   listDesigns,
+  materializeDesignPreview,
   packDesignPackage,
   seedBuiltinDesigns,
   validateDesignDraftPackage,
@@ -116,12 +117,17 @@ export interface RuntimeDesignCreateInput {
   base?: string
   designMd: string
   designCss?: string
-  previewHtml: string
+  previewHtml?: string
   assets?: DesignPackageAssetInput[]
   overwrite?: boolean
 }
 
 export interface RuntimeDesignDraftCreateInput extends RuntimeDesignCreateInput, RuntimeWorkspaceInput {}
+
+export interface RuntimeDesignPreviewInput extends RuntimeWorkspaceInput {
+  name: string
+  source?: "draft" | "installed" | "builtin"
+}
 
 export interface RuntimeDomainCreateInput {
   name: string
@@ -443,7 +449,7 @@ export function designCreate(input: RuntimeDesignCreateInput) {
     base: input.base,
     designMd: requiredString(input?.designMd, "designMd"),
     designCss: input.designCss,
-    previewHtml: requiredString(input?.previewHtml, "previewHtml"),
+    previewHtml: input.previewHtml,
     assets: input.assets,
     overwrite: input.overwrite ?? false,
   })
@@ -460,7 +466,7 @@ export function designDraftCreate(input: RuntimeDesignDraftCreateInput) {
     base: input.base,
     designMd: requiredString(input?.designMd, "designMd"),
     designCss: input.designCss,
-    previewHtml: requiredString(input?.previewHtml, "previewHtml"),
+    previewHtml: input.previewHtml,
     assets: input.assets,
     overwrite: input.overwrite ?? false,
   })
@@ -468,6 +474,14 @@ export function designDraftCreate(input: RuntimeDesignDraftCreateInput) {
 
 export function designDraftValidate(input: RuntimeWorkspaceInput & RuntimeNameInput) {
   return validateDesignDraftPackage(root(input.workspaceRoot), requiredName(input, "design draft"))
+}
+
+export function designPreview(input: RuntimeDesignPreviewInput) {
+  return materializeDesignPreview({
+    workspaceRoot: root(input.workspaceRoot),
+    name: requiredName(input, "design"),
+    source: input.source,
+  })
 }
 
 export function designDraftInstall(input: RuntimeDraftInstallInput) {
