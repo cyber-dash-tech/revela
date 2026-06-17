@@ -10,6 +10,10 @@ preview:
 
 Apply this visual style when generating all slides in this session.
 
+### Asset Attribution
+
+- `assets/cover-background.jpg` and `assets/closing-background.jpg` are adapted from "Forest with mountains in the background" by Jernej Furman, licensed under CC BY 2.0 via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Forest_with_mountains_in_the_background_(44691741731).jpg
+
 <!-- @design:foundation:start -->
 
 ### Color Palette
