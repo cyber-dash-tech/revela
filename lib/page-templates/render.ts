@@ -152,7 +152,7 @@ const templates: PageTemplateDefinition[] = [
     field("insightTitle", "string", "Side panel title."),
     field("insightBody", "string", "Timeline interpretation, so-what, or caveat."),
     field("insightSide", "string", "left or right side panel placement."),
-  ], ["Use 3-6 milestones.", "Each dot belongs to the same DOM item as its copy."], ["Timeline root exists.", "Every milestone has dot and copy.", "Dot and copy are sibling anchors inside one timeline item."]),
+  ], ["Use 3-6 milestones.", "Horizontal timelines use card copy above the axis and year labels below it.", "Each dot belongs to the same DOM item as its copy."], ["Timeline root exists.", "Every milestone has dot and copy.", "Dot and copy are sibling anchors inside one timeline item."]),
   define("process-steps", "Process / Steps", "Show a short ordered process or execution sequence.", [
     field("title", "string", "Slide title.", true),
     field("steps", "steps[]", "Ordered steps.", true),
@@ -394,13 +394,16 @@ ${lucentClosingBackgroundCss}
 .template-timeline-layout .template-text-panel { background: linear-gradient(135deg, #7a7fe8 0%, #5f82c8 58%, #315eea 115%); color: white; box-shadow: 0 22px 56px rgba(49,94,234,0.22); }
 .template-timeline-layout .template-text-panel-title { color: white; }
 .template-timeline-layout .template-text-panel-body { color: rgba(255,255,255,0.78); }
-.template-timeline--horizontal { grid-template-columns: repeat(var(--timeline-count), 1fr); column-gap: 18px; }
-.template-timeline--horizontal::before { content: ""; position: absolute; left: 4%; right: 4%; top: 50%; border-top: 2px solid var(--line-strong); }
+.template-timeline--horizontal { grid-template-columns: repeat(var(--timeline-count), 1fr); column-gap: 18px; align-items: stretch; }
+.template-timeline--horizontal::before { content: ""; position: absolute; left: 4%; right: 4%; top: 58%; border-top: 2px solid var(--line-strong); }
 .template-timeline-item { position: relative; min-height: 400px; display: grid; justify-items: center; align-items: center; }
+.template-timeline--horizontal .template-timeline-item { grid-template-rows: minmax(0, 1fr) 42px 86px; align-items: stretch; }
 .template-timeline-dot { z-index: 2; width: 22px; height: 22px; border-radius: 999px; background: var(--accent-primary); box-shadow: 0 0 0 8px rgba(49,94,234,0.12); }
 .template-timeline-copy { z-index: 2; width: 86%; padding: 18px 4px; background: transparent; border: 0; box-shadow: none; }
-.template-timeline-item:nth-child(odd) .template-timeline-copy { align-self: start; }
-.template-timeline-item:nth-child(even) .template-timeline-copy { align-self: end; }
+.template-timeline--horizontal .template-timeline-copy.template-card { width: 94%; min-height: 186px; align-self: end; justify-self: center; display: flex; flex-direction: column; justify-content: center; padding: 24px; }
+.template-timeline--horizontal .template-timeline-item--highlight .template-timeline-copy.template-card { min-height: 254px; }
+.template-timeline--horizontal .template-timeline-dot { grid-row: 2; align-self: center; justify-self: center; }
+.template-timeline--horizontal .template-timeline-date { grid-row: 3; align-self: start; justify-self: center; margin: 8px 0 0; font-size: 38px; line-height: 1; font-weight: 300; letter-spacing: 0.03em; color: var(--text-muted); }
 .template-timeline-date { margin: 0 0 8px; font-size: 15px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--accent-primary); font-weight: 800; }
 .template-timeline-copy h3 { margin: 0 0 8px; font-size: 27px; line-height: 1.28; padding-bottom: 4px; overflow: visible; }
 .template-timeline-copy p:last-child { margin: 0; font-size: 19px; color: var(--text-secondary); }
@@ -408,7 +411,7 @@ ${lucentClosingBackgroundCss}
 .template-timeline--vertical::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; border-left: 2px solid var(--line-strong); }
 .template-timeline--vertical .template-timeline-item { min-height: 128px; grid-template-columns: 1fr 56px 1fr; justify-items: stretch; }
 .template-timeline--vertical .template-timeline-dot { grid-column: 2; grid-row: 1; justify-self: center; align-self: center; }
-.template-timeline--vertical .template-timeline-copy { grid-row: 1; width: auto; align-self: center; }
+.template-timeline--vertical .template-timeline-copy { grid-row: 1; width: auto; align-self: center; background: transparent; border: 0; box-shadow: none; }
 .template-timeline--vertical .template-timeline-item:nth-child(odd) .template-timeline-copy { grid-column: 1; text-align: right; align-self: center; }
 .template-timeline--vertical .template-timeline-item:nth-child(even) .template-timeline-copy { grid-column: 3; text-align: left; align-self: center; }
 .template-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
@@ -477,6 +480,10 @@ ${lucentClosingBackgroundCss}
 .template-frame--catalog .template-timeline-layout .template-text-panel { padding: 22px; gap: 10px; }
 .template-frame--catalog .template-timeline-layout .template-text-panel-title { font-size: 25px; line-height: 1.3; }
 .template-frame--catalog .template-timeline-layout .template-text-panel-body { font-size: 18px; line-height: 1.4; }
+.template-frame--catalog .template-timeline--horizontal .template-timeline-item { grid-template-rows: minmax(0, 1fr) 32px 58px; min-height: 330px; }
+.template-frame--catalog .template-timeline--horizontal .template-timeline-copy.template-card { min-height: 132px; padding: 18px; }
+.template-frame--catalog .template-timeline--horizontal .template-timeline-item--highlight .template-timeline-copy.template-card { min-height: 178px; }
+.template-frame--catalog .template-timeline--horizontal .template-timeline-date { font-size: 28px; }
 .template-frame--catalog .template-timeline-copy { padding: 8px 4px; }
 .template-frame--catalog .template-timeline-copy h3 { font-size: 21px; line-height: 1.18; margin-bottom: 4px; }
 .template-frame--catalog .template-timeline-date { font-size: 12px; margin-bottom: 4px; }
@@ -778,16 +785,32 @@ function timeline(content: Record<string, any>): string {
   const orientation = stringValue(content.orientation) === "vertical" ? "vertical" : "horizontal"
   const sidePanel = renderSidePanel(content)
   const side = stringValue(content.insightSide) === "right" ? "right" : "left"
-  const timelineHtml = `<div class="template-timeline template-timeline--${orientation}" data-template-slot="timeline" style="--timeline-count:${Math.max(1, milestones.length)}">${milestones.map((item) => `<article class="template-timeline-item">
+  const timelineHtml = `<div class="template-timeline template-timeline--${orientation}" data-template-slot="timeline" style="--timeline-count:${Math.max(1, milestones.length)}">${milestones.map((item) => timelineMilestone(item, orientation)).join("")}</div>`
+  if (!sidePanel) return timelineHtml
+  return `<div class="template-timeline-layout template-timeline-layout--${side}">${side === "left" ? `${sidePanel}${timelineHtml}` : `${timelineHtml}${sidePanel}`}</div>`
+}
+
+function timelineMilestone(item: any, orientation: "horizontal" | "vertical"): string {
+  const itemClass = item?.highlight ? "template-timeline-item template-timeline-item--highlight" : "template-timeline-item"
+  const copyClass = orientation === "horizontal" ? "template-timeline-copy template-card" : "template-timeline-copy"
+  if (orientation === "horizontal") {
+    return `<article class="${itemClass}">
+                        <div class="${copyClass}">
+                            <h3>${escapeHtml(stringValue(item.label))}</h3>
+                            <p>${escapeHtml(stringValue(item.description))}</p>
+                        </div>
                         <span class="template-timeline-dot" aria-hidden="true"></span>
-                        <div class="template-timeline-copy">
+                        <p class="template-timeline-date">${escapeHtml(stringValue(item.date))}</p>
+                    </article>`
+  }
+  return `<article class="${itemClass}">
+                        <span class="template-timeline-dot" aria-hidden="true"></span>
+                        <div class="${copyClass}">
                             <p class="template-timeline-date">${escapeHtml(stringValue(item.date))}</p>
                             <h3>${escapeHtml(stringValue(item.label))}</h3>
                             <p>${escapeHtml(stringValue(item.description))}</p>
                         </div>
-                    </article>`).join("")}</div>`
-  if (!sidePanel) return timelineHtml
-  return `<div class="template-timeline-layout template-timeline-layout--${side}">${side === "left" ? `${sidePanel}${timelineHtml}` : `${timelineHtml}${sidePanel}`}</div>`
+                    </article>`
 }
 
 function renderSidePanel(content: Record<string, any>): string {
@@ -852,7 +875,7 @@ function scaffoldSeed(templateId: string, seed: Record<string, any>): Record<str
   if (templateId === "metric-highlight") return { metrics: [{ value: "67%", label: "Metric", description: "Replace with interpretation." }, { value: "3x", label: "Comparison", description: "Replace with reading note." }, { value: "14d", label: "Window", description: "Replace with time context." }], insightTitle: "Read the signal", insightBody: "Replace with the decision implication, caveat, or next reading step.", ...base }
   if (templateId === "chart-takeaways") return { takeawaysTitle: "What to read", items: defaultItems(["Trend", "Driver", "Decision use"]), ...base }
   if (templateId === "table-comparison") return { columns: ["Dimension", "Current", "Target"], rows: [["Replace", "Current state", "Target state"], ["Caveat", "Known limit", "Next proof"]], insightTitle: "Insight", insightBody: "Replace with the table reading note or caveat.", ...base }
-  if (templateId === "timeline-roadmap") return { orientation: "vertical", insightTitle: "Reading the journey", insightBody: "Replace with the so-what for the milestone sequence.", milestones: [{ date: "Phase 1", label: "Start", description: "Replace milestone." }, { date: "Phase 2", label: "Build", description: "Replace milestone." }, { date: "Phase 3", label: "Decide", description: "Replace milestone." }], ...base }
+  if (templateId === "timeline-roadmap") return { orientation: "horizontal", milestones: [{ date: "2022", label: "Signal", description: "Name the starting condition." }, { date: "2023", label: "Proof", description: "Show the evidence threshold." }, { date: "2024", label: "Inflection", description: "Use a taller card for the pivotal moment.", highlight: true }, { date: "2025", label: "Scale", description: "Describe operating cadence." }, { date: "2026", label: "Decision", description: "State what changes next." }], ...base }
   if (templateId === "process-steps") return { steps: defaultItems(["Step 1", "Step 2", "Step 3"]), ...base }
   if (templateId === "recommendation-decision") return { recommendation: "Replace with the recommended decision.", items: defaultItems(["Rationale"]), steps: defaultItems(["Pilot", "Validate", "Ship"]), ...base }
   if (templateId === "risks-tradeoffs") return { items: defaultItems(["Risk", "Tradeoff", "Mitigation"]), ...base }

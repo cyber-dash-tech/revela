@@ -177,13 +177,16 @@ body { margin: 0; background: var(--bg-frame, #07111f); color: var(--text-primar
 .template-timeline-layout .template-text-panel { background: linear-gradient(135deg, #7a7fe8 0%, #5f82c8 58%, #315eea 115%); color: white; box-shadow: 0 22px 56px rgba(49,94,234,0.22); }
 .template-timeline-layout .template-text-panel-title { color: white; }
 .template-timeline-layout .template-text-panel-body { color: rgba(255,255,255,0.78); }
-.template-timeline--horizontal { grid-template-columns: repeat(var(--timeline-count), 1fr); column-gap: 18px; }
-.template-timeline--horizontal::before { content: ""; position: absolute; left: 4%; right: 4%; top: 50%; border-top: 2px solid var(--line-strong); }
+.template-timeline--horizontal { grid-template-columns: repeat(var(--timeline-count), 1fr); column-gap: 18px; align-items: stretch; }
+.template-timeline--horizontal::before { content: ""; position: absolute; left: 4%; right: 4%; top: 58%; border-top: 2px solid var(--line-strong); }
 .template-timeline-item { position: relative; min-height: 400px; display: grid; justify-items: center; align-items: center; }
+.template-timeline--horizontal .template-timeline-item { grid-template-rows: minmax(0, 1fr) 42px 86px; align-items: stretch; }
 .template-timeline-dot { z-index: 2; width: 22px; height: 22px; border-radius: 999px; background: var(--accent-primary); box-shadow: 0 0 0 8px rgba(49,94,234,0.12); }
 .template-timeline-copy { z-index: 2; width: 86%; padding: 18px 4px; background: transparent; border: 0; box-shadow: none; }
-.template-timeline-item:nth-child(odd) .template-timeline-copy { align-self: start; }
-.template-timeline-item:nth-child(even) .template-timeline-copy { align-self: end; }
+.template-timeline--horizontal .template-timeline-copy.template-card { width: 94%; min-height: 186px; align-self: end; justify-self: center; display: flex; flex-direction: column; justify-content: center; padding: 24px; }
+.template-timeline--horizontal .template-timeline-item--highlight .template-timeline-copy.template-card { min-height: 254px; }
+.template-timeline--horizontal .template-timeline-dot { grid-row: 2; align-self: center; justify-self: center; }
+.template-timeline--horizontal .template-timeline-date { grid-row: 3; align-self: start; justify-self: center; margin: 8px 0 0; font-size: 38px; line-height: 1; font-weight: 300; letter-spacing: 0.03em; color: var(--text-muted); }
 .template-timeline-date { margin: 0 0 8px; font-size: 15px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--accent-primary); font-weight: 800; }
 .template-timeline-copy h3 { margin: 0 0 8px; font-size: 27px; line-height: 1.28; padding-bottom: 4px; overflow: visible; }
 .template-timeline-copy p:last-child { margin: 0; font-size: 19px; color: var(--text-secondary); }
@@ -191,7 +194,7 @@ body { margin: 0; background: var(--bg-frame, #07111f); color: var(--text-primar
 .template-timeline--vertical::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; border-left: 2px solid var(--line-strong); }
 .template-timeline--vertical .template-timeline-item { min-height: 128px; grid-template-columns: 1fr 56px 1fr; justify-items: stretch; }
 .template-timeline--vertical .template-timeline-dot { grid-column: 2; grid-row: 1; justify-self: center; align-self: center; }
-.template-timeline--vertical .template-timeline-copy { grid-row: 1; width: auto; align-self: center; }
+.template-timeline--vertical .template-timeline-copy { grid-row: 1; width: auto; align-self: center; background: transparent; border: 0; box-shadow: none; }
 .template-timeline--vertical .template-timeline-item:nth-child(odd) .template-timeline-copy { grid-column: 1; text-align: right; align-self: center; }
 .template-timeline--vertical .template-timeline-item:nth-child(even) .template-timeline-copy { grid-column: 3; text-align: left; align-self: center; }
 .template-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
@@ -260,6 +263,10 @@ body { margin: 0; background: var(--bg-frame, #07111f); color: var(--text-primar
 .template-frame--catalog .template-timeline-layout .template-text-panel { padding: 22px; gap: 10px; }
 .template-frame--catalog .template-timeline-layout .template-text-panel-title { font-size: 25px; line-height: 1.3; }
 .template-frame--catalog .template-timeline-layout .template-text-panel-body { font-size: 18px; line-height: 1.4; }
+.template-frame--catalog .template-timeline--horizontal .template-timeline-item { grid-template-rows: minmax(0, 1fr) 32px 58px; min-height: 330px; }
+.template-frame--catalog .template-timeline--horizontal .template-timeline-copy.template-card { min-height: 132px; padding: 18px; }
+.template-frame--catalog .template-timeline--horizontal .template-timeline-item--highlight .template-timeline-copy.template-card { min-height: 178px; }
+.template-frame--catalog .template-timeline--horizontal .template-timeline-date { font-size: 28px; }
 .template-frame--catalog .template-timeline-copy { padding: 8px 4px; }
 .template-frame--catalog .template-timeline-copy h3 { font-size: 21px; line-height: 1.18; margin-bottom: 4px; }
 .template-frame--catalog .template-timeline-date { font-size: 12px; margin-bottom: 4px; }

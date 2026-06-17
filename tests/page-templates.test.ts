@@ -75,6 +75,31 @@ describe("page templates", () => {
     expect(rendered.html.match(/template-timeline-copy/g)).toHaveLength(3)
   })
 
+  it("renders horizontal timeline milestones as existing template cards with one highlighted item", () => {
+    const rendered = renderTemplateSlide({
+      templateId: "timeline-roadmap",
+      slideIndex: 1,
+      designName: "lucent",
+      content: {
+        title: "Timeline",
+        orientation: "horizontal",
+        milestones: [
+          { date: "2022", label: "Signal", description: "Starting point." },
+          { date: "2023", label: "Proof", description: "Evidence threshold." },
+          { date: "2024", label: "Inflection", description: "Pivotal moment.", highlight: true },
+          { date: "2025", label: "Scale", description: "Operating cadence." },
+          { date: "2026", label: "Decision", description: "Next move." },
+        ],
+      },
+    })
+
+    expect(rendered.html).toContain("template-timeline--horizontal")
+    expect(rendered.html.match(/<article class="template-timeline-item/g)).toHaveLength(5)
+    expect(rendered.html.match(/template-timeline-copy template-card/g)).toHaveLength(5)
+    expect(rendered.html).toContain("template-timeline-item--highlight")
+    expect(rendered.html).toContain("2026")
+  })
+
   it("renders timeline insight as a left-side template text panel by default", () => {
     const rendered = renderTemplateSlide({
       templateId: "timeline-roadmap",
@@ -82,6 +107,7 @@ describe("page templates", () => {
       designName: "lucent",
       content: {
         title: "Timeline",
+        orientation: "vertical",
         insightTitle: "Reading the journey",
         insightBody: "Explain why the milestones matter.",
         milestones: [
@@ -95,6 +121,7 @@ describe("page templates", () => {
     expect(rendered.html).toContain("template-timeline-layout--left")
     expect(rendered.html).toContain("template-text-panel")
     expect(rendered.html).toContain("Reading the journey")
+    expect(rendered.html).not.toContain("template-timeline-copy template-card")
   })
 
   it("keeps explicit right-side timeline insight placement available", () => {
@@ -104,6 +131,7 @@ describe("page templates", () => {
       designName: "lucent",
       content: {
         title: "Timeline",
+        orientation: "vertical",
         insightTitle: "Reading the journey",
         insightBody: "Explain why the milestones matter.",
         insightSide: "right",
