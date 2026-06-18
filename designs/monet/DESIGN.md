@@ -2886,6 +2886,7 @@ Monet skins Revela built-in page templates with soft editorial rhythm, painterly
 
 - `cover`, `section-divider`, `closing`: use expressive title-led structural pages.
 - `agenda`, `executive-summary`, `problem-context`, `key-message-evidence`, `claim-supporting-visual`: use soft narrative regions with no heavy outer box.
+- Agenda typography follows design tokens: title and numbers use `--font-display`; item labels and footer use `--font-body`.
 - `metric-highlight`, `chart-takeaways`, `table`, `table-comparison`: use calm data surfaces and readable interpretation zones.
 - Text panels use explicit variants: `template-text-panel--clear` is transparent with no border or background, `template-text-panel--plain` is theme-neutral, and `template-text-panel--color` is the multicolor emphasis treatment used by chart and timeline reading panels.
 - `milestone`: dots remain milestone anchors inside each horizontal milestone item; do not position detached decorative markers.

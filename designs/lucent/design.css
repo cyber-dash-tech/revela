@@ -125,12 +125,12 @@ body { margin: 0; background: var(--bg-frame, #07111f); color: var(--text-primar
 .template-agenda-inner { width: 100%; display: grid; grid-template-columns: 37% minmax(0, 1fr); align-items: stretch; gap: 76px; }
 .template-agenda-header { display: flex; flex-direction: column; min-height: 0; padding: 10px 0 0; }
 .template-agenda-header .template-eyebrow { color: rgba(255,255,255,0.64); }
-.template-agenda-header .template-title { max-width: 440px; font-size: 54px; line-height: 1.16; letter-spacing: 0; text-transform: uppercase; color: white; padding-bottom: 8px; overflow: visible; }
-.template-agenda-footer { margin: auto 0 0; font-size: 13px; line-height: 1.4; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 800; color: rgba(255,255,255,0.84); }
+.template-agenda-header .template-title { max-width: 440px; font-family: var(--font-display); font-size: 54px; line-height: 1.16; letter-spacing: 0; text-transform: uppercase; color: white; padding-bottom: 8px; overflow: visible; }
+.template-agenda-footer { margin: auto 0 0; font-family: var(--font-body); font-size: 13px; line-height: 1.4; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 800; color: rgba(255,255,255,0.84); }
 .template-agenda-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: center; gap: 40px; height: 100%; }
 .template-agenda-item { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 44px; align-items: center; min-height: 58px; overflow: visible; }
 .template-agenda-item span { font-family: var(--font-display); font-size: 44px; line-height: 1; letter-spacing: 0.03em; color: var(--accent-cyan, #18a8d8); font-weight: 800; font-variant-numeric: tabular-nums; }
-.template-agenda-item strong { font-size: 18px; line-height: 1.45; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; color: rgba(255,255,255,0.92); }
+.template-agenda-item strong { font-family: var(--font-body); font-size: 18px; line-height: 1.45; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; color: rgba(255,255,255,0.92); }
 .template-metric-layout { height: 100%; min-height: 0; display: grid; gap: 26px; }
 .template-metric-layout--insight-top { grid-template-rows: auto minmax(0, 1fr); }
 .template-metric-layout--insight-bottom { grid-template-rows: minmax(0, 1fr) auto; }

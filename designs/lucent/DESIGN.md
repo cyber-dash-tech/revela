@@ -259,6 +259,7 @@ Lucent skins Revela built-in page templates without owning their semantic struct
 
 - `cover`, `section-divider`, `closing`: use full-bleed hero treatment with Lucent package assets.
 - `agenda`, `executive-summary`, `problem-context`, `key-message-evidence`, `claim-supporting-visual`: use report-story/card-grid language with quiet surfaces.
+- Agenda typography follows design tokens: title and numbers use `--font-display`; item labels and footer use `--font-body`.
 - `metric-highlight`, `chart-takeaways`, `table`, `table-comparison`: use data-forward Lucent panels with explicit interpretation regions.
 - Text panels use explicit variants: `template-text-panel--clear` is transparent with no border or background, `template-text-panel--plain` is theme-neutral, and `template-text-panel--color` is the multicolor emphasis treatment used by chart and timeline reading panels.
 - `milestone`: map to the horizontal roadmap visual system. Dots remain milestone anchors inside each milestone item; do not absolutely position detached decorative dots.

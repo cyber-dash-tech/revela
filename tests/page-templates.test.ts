@@ -90,6 +90,33 @@ describe("page templates", () => {
     }
   })
 
+  it("keeps agenda typography wired to design font tokens", () => {
+    const designs = ["starter", "lucent", "lucent-dark", "monet", "summit"]
+
+    for (const design of designs) {
+      const cssPath = join(import.meta.dir, "..", "designs", design, "design.css")
+      const css = readFileSync(cssPath, "utf-8")
+
+      expect(css).toMatch(/\.template-agenda-header \.template-title\s*\{[^}]*font-family:\s*var\(--font-display\)/s)
+      expect(css).toMatch(/\.template-agenda-item span\s*\{[^}]*font-family:\s*var\(--font-display\)/s)
+      expect(css).toMatch(/\.template-agenda-item strong\s*\{[^}]*font-family:\s*var\(--font-body\)/s)
+      expect(css).toMatch(/\.template-agenda-footer\s*\{[^}]*font-family:\s*var\(--font-body\)/s)
+    }
+  })
+
+  it("does not leak design-specific preview selectors across built-in designs", () => {
+    const designs = ["starter", "lucent", "lucent-dark", "monet", "summit"]
+
+    for (const design of designs) {
+      const cssPath = join(import.meta.dir, "..", "designs", design, "design.css")
+      const css = readFileSync(cssPath, "utf-8")
+      const selectors = [...css.matchAll(/data-design="([^"]+)"/g)].map((match) => match[1])
+      const leaked = selectors.filter((selectorDesign) => selectorDesign !== design)
+
+      expect(leaked).toEqual([])
+    }
+  })
+
   it("renders timeline milestones with dot and copy anchored in each item", () => {
     const rendered = renderTemplateSlide({
       templateId: "timeline",
