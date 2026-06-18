@@ -142,6 +142,13 @@ const templates: PageTemplateDefinition[] = [
     field("takeawaysTitle", "string", "Title for the interpretation text panel."),
     field("items", "items[]", "Takeaways.", true),
   ], ["Chart area must be explicit and bounded."], ["Chart panel and takeaways both exist."]),
+  define("table", "Table", "Explain a structured table with a left reading card and right table region.", [
+    field("title", "string", "Slide title.", true),
+    field("textTitle", "string", "Left text card title."),
+    field("textBody", "string", "Left text card body."),
+    field("columns", "string[]", "Column labels.", true),
+    field("rows", "rows[]", "Table rows.", true),
+  ], ["Use the text card to tell the audience how to read the table.", "Keep table rows structured and scannable."], ["Left text card and right table region both exist.", "Table has headers and body rows."]),
   define("table-comparison", "Table / Comparison", "Compare options, segments, or facts in a structured table.", [
     field("title", "string", "Slide title.", true),
     field("columns", "string[]", "Column labels.", true),
@@ -275,6 +282,20 @@ export function builtInPreviewFixtures(): BuiltInPreviewFixture[] {
         { label: "Trend", description: "Call out the movement or comparison the chart is meant to prove, including the direction and the comparison baseline." },
         { label: "Driver", description: "Name the likely reason without overclaiming; separate observed movement from the interpretation or hypothesis." },
         { label: "Decision use", description: "Explain how the chart changes the recommendation, what threshold matters, and what follow-up evidence would reduce risk." },
+      ],
+    }),
+    fixture("table", {
+      title: "table",
+      textTitle: "Financial readout",
+      textBody: "Read top-line growth first, then check margin, cash conversion, and retention to see whether the plan is financially durable.",
+      columns: ["Line item", "FY2025", "FY2026 Plan", "YoY / note"],
+      rows: [
+        ["Revenue", "$84.2M", "$104.8M", "+24% planned growth"],
+        ["Gross margin", "68.4%", "71.2%", "+280 bps mix shift"],
+        ["Operating expense", "$42.7M", "$49.1M", "Scale hiring below revenue growth"],
+        ["EBITDA", "$14.9M", "$23.6M", "+58% operating leverage"],
+        ["Free cash flow", "$9.8M", "$16.4M", "Cash conversion improves to 69%"],
+        ["Net retention", "116%", "121%", "Expansion supports plan quality"],
       ],
     }),
     fixture("table-comparison", {
@@ -546,19 +567,27 @@ ${lucentClosingBackgroundCss}
 .template-chart-placeholder { width: 76%; height: 56%; border-left: 2px solid var(--line-strong); border-bottom: 2px solid var(--line-strong); display: flex; align-items: end; gap: 28px; padding: 0 28px 24px; }
 .template-visual-slot-panel { width: 100%; min-height: 520px; border: 1px dashed var(--line-strong); border-radius: var(--surface-radius); background: linear-gradient(135deg, rgba(49,94,234,0.08), rgba(24,168,216,0.08)); display: grid; place-items: center; padding: 0; }
 .template-visual-slot-label { font-size: 13px; line-height: 1.35; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); font-weight: 800; }
-.template-text-panel.template-chart-takeaway-panel { gap: 28px; background: linear-gradient(135deg, #5f82c8 0%, var(--accent-primary) 58%, #18a8d8 115%); color: white; box-shadow: 0 22px 56px rgba(49,94,234,0.24); }
-.template-chart-takeaway-panel .template-text-panel-title { color: white; }
+.template-text-panel.template-chart-takeaway-panel { gap: 28px; }
+.template-text-panel--plain { background: rgba(255,255,255,0.74); border: 1px solid transparent; box-shadow: none; }
+.template-text-panel--clear { background: transparent; border: 0; border-radius: 0; box-shadow: none; padding-left: 0; padding-right: 0; }
+.template-text-panel--color { background: linear-gradient(135deg, #5f82c8 0%, var(--accent-primary) 58%, #18a8d8 115%); color: white; box-shadow: 0 22px 56px rgba(49,94,234,0.24); }
+.template-text-panel--color .template-text-panel-title { color: white; }
+.template-text-panel--color .template-text-panel-body { color: rgba(255,255,255,0.78); }
 .template-chart-takeaway-list { display: grid; gap: 22px; width: 100%; }
 .template-chart-takeaway-item { display: grid; gap: 7px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.24); }
 .template-chart-takeaway-item:first-child { padding-top: 0; border-top: 0; }
 .template-chart-takeaway-item h3 { margin: 0; font-size: 25px; line-height: 1.24; color: white; }
 .template-chart-takeaway-item p { margin: 0; font-size: 20px; line-height: 1.46; color: rgba(255,255,255,0.78); }
 .template-bar { flex: 1; background: linear-gradient(180deg, var(--accent-primary), var(--accent-cyan)); min-height: 80px; }
+.template-table-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 34px; height: 100%; align-items: stretch; }
+.template-table-layout .template-side-panel { grid-column: 1; grid-row: 1; }
+.template-table-region { grid-column: 2; grid-row: 1; min-width: 0; min-height: 0; height: 100%; }
+.template-table-region .template-table-wrap { height: 100%; }
 .template-table-wrap { display: grid; grid-template-rows: minmax(0, auto) auto; gap: 22px; height: 100%; align-content: start; }
 .template-table { width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.86); box-shadow: 0 18px 44px var(--shadow-soft); }
 .template-table th, .template-table td { padding: 22px 24px; border-bottom: 1px solid var(--line); text-align: left; font-size: 21px; }
 .template-table th { color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.12em; font-size: 15px; }
-.template-text-panel { min-height: 0; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 20px; background: rgba(255,255,255,0.74); border-radius: var(--surface-radius); padding: 42px; }
+.template-text-panel { min-height: 0; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 20px; border-radius: var(--surface-radius); padding: 42px; }
 .template-text-panel-title { margin: 0; font-size: 34px; line-height: 1.28; color: var(--text-primary); padding-bottom: 4px; overflow: visible; }
 .template-text-panel-body { margin: 0; font-size: 23px; line-height: 1.52; color: var(--text-secondary); }
 .template-side-panel { align-self: stretch; }
@@ -580,9 +609,7 @@ ${lucentClosingBackgroundCss}
 .template-timeline-layout--right { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
 .template-timeline-layout--right .template-timeline { grid-column: 1; grid-row: 1; }
 .template-timeline-layout--right .template-side-panel { grid-column: 2; grid-row: 1; }
-.template-timeline-layout .template-text-panel { background: linear-gradient(135deg, #7a7fe8 0%, #5f82c8 58%, #315eea 115%); color: white; box-shadow: 0 22px 56px rgba(49,94,234,0.22); }
-.template-timeline-layout .template-text-panel-title { color: white; }
-.template-timeline-layout .template-text-panel-body { color: rgba(255,255,255,0.78); }
+.template-timeline-layout .template-text-panel--color { background: linear-gradient(135deg, #7a7fe8 0%, #5f82c8 58%, #315eea 115%); color: white; box-shadow: 0 22px 56px rgba(49,94,234,0.22); }
 .template-timeline--horizontal { grid-template-columns: repeat(var(--timeline-count), 1fr); column-gap: 18px; align-items: stretch; --timeline-axis-y: 86%; }
 .template-timeline--horizontal::before { content: ""; position: absolute; left: 4%; right: 4%; top: var(--timeline-axis-y); border-top: 2px solid var(--line-strong); transform: translateY(-1px); }
 .template-timeline-item { position: relative; min-height: 400px; display: grid; justify-items: center; align-items: center; }
@@ -656,6 +683,10 @@ ${lucentClosingBackgroundCss}
 .template-frame--catalog .template-chart-takeaway-item { gap: 4px; padding-top: 11px; }
 .template-frame--catalog .template-chart-takeaway-item h3 { font-size: 19px; line-height: 1.2; }
 .template-frame--catalog .template-chart-takeaway-item p { font-size: 15px; line-height: 1.3; }
+.template-frame--catalog .template-table-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 22px; }
+.template-frame--catalog .template-table-layout .template-text-panel { padding: 22px; gap: 10px; }
+.template-frame--catalog .template-table-layout .template-text-panel-title { font-size: 25px; line-height: 1.3; }
+.template-frame--catalog .template-table-layout .template-text-panel-body { font-size: 18px; line-height: 1.4; }
 .template-frame--catalog .template-table-wrap { gap: 16px; }
 .template-frame--catalog .template-table th,
 .template-frame--catalog .template-table td { padding: 14px 18px; font-size: 17px; line-height: 1.32; }
@@ -962,6 +993,7 @@ function renderBody(templateId: string, content: Record<string, any>): string {
   if (templateId === "claim-supporting-visual") return `${renderHeader(content, "Claim + Supporting Visual")}<div class="template-body template-grid cols-2">${claimTextPanel(content)}${visualSlotPanel()}</div>`
   if (templateId === "metric-highlight") return `${renderHeader(content, "Metric Highlight")}<div class="template-body">${metricHighlight(content)}</div>`
   if (templateId === "chart-takeaways") return `${renderHeader(content, "Chart + Takeaways")}<div class="template-body template-grid template-chart-layout">${visualSlotPanel()}${chartTakeawayPanel(content)}</div>`
+  if (templateId === "table") return `${renderHeader(content, "Table")}<div class="template-body">${tablePage(content)}</div>`
   if (templateId === "table-comparison") return `${renderHeader(content, "Table / Comparison")}<div class="template-body" data-template-slot="table">${table(content)}</div>`
   if (templateId === "milestone") return `${renderHeader(content, "Milestone")}<div class="template-body">${timeline({ ...content, orientation: "horizontal" })}</div>`
   if (templateId === "timeline") return `${renderHeader(content, "Timeline")}<div class="template-body">${timeline({ ...content, orientation: "vertical" })}</div>`
@@ -1010,7 +1042,7 @@ function evidenceCards(items: Array<{ label: string; description: string; image?
 function chartTakeawayPanel(content: Record<string, any>): string {
   const takeawayItems = items(content)
   const title = stringValue(content.takeawaysTitle) || "What to read"
-  return `<div class="template-text-panel template-chart-takeaway-panel" data-template-slot="takeaways">
+  return `<div class="template-text-panel template-text-panel--color template-chart-takeaway-panel" data-template-slot="takeaways">
                     <h2 class="template-text-panel-title">${escapeHtml(title)}</h2>
                     <div class="template-chart-takeaway-list">${takeawayItems.map((item) => `<section class="template-chart-takeaway-item"><h3>${escapeHtml(item.label)}</h3><p>${escapeHtml(item.description)}</p></section>`).join("")}</div>
                 </div>`
@@ -1042,6 +1074,14 @@ function table(content: Record<string, any>): string {
   const rows = Array.isArray(content.rows) ? content.rows : []
   const insight = renderInsightPanel(content)
   return `<div class="template-table-wrap"><table class="template-table"><thead><tr>${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${columns.map((column, index) => `<td>${escapeHtml(Array.isArray(row) ? stringValue(row[index]) : stringValue(row[column]) || stringValue(row[slug(column)]))}</td>`).join("")}</tr>`).join("")}</tbody></table>${insight}</div>`
+}
+
+function tablePage(content: Record<string, any>): string {
+  const panelContent = {
+    insightTitle: stringValue(content.textTitle) || "What to read",
+    insightBody: stringValue(content.textBody) || "Use this card to explain the comparison, caveat, or decision implication before the audience scans the table.",
+  }
+  return `<div class="template-table-layout">${renderTextPanel(panelContent, "text-card", "clear")}<div class="template-table-region" data-template-slot="table">${table({ ...content, insightTitle: "", insightBody: "" })}</div></div>`
 }
 
 function renderInsightPanel(content: Record<string, any>): string {
@@ -1090,14 +1130,14 @@ function timelineMilestone(item: any, orientation: "horizontal" | "vertical"): s
 }
 
 function renderSidePanel(content: Record<string, any>): string {
-  return renderTextPanel(content)
+  return renderTextPanel(content, "insight", "color")
 }
 
-function renderTextPanel(content: Record<string, any>): string {
+function renderTextPanel(content: Record<string, any>, slot = "insight", variant: "plain" | "clear" | "color" = "plain"): string {
   const body = stringValue(content.insightBody)
   if (!body) return ""
   const title = stringValue(content.insightTitle) || "Insight"
-  return `<div class="template-side-panel template-text-panel" data-template-slot="insight"><h2 class="template-side-panel-title template-text-panel-title">${escapeHtml(title)}</h2><p class="template-side-panel-body template-text-panel-body">${escapeHtml(body)}</p></div>`
+  return `<div class="template-side-panel template-text-panel template-text-panel--${variant}" data-template-slot="${escapeAttribute(slot)}"><h2 class="template-side-panel-title template-text-panel-title">${escapeHtml(title)}</h2><p class="template-side-panel-body template-text-panel-body">${escapeHtml(body)}</p></div>`
 }
 
 function imageCard(input: any): string {
@@ -1150,6 +1190,7 @@ function scaffoldSeed(templateId: string, seed: Record<string, any>): Record<str
   if (templateId === "claim-supporting-visual") return { claim: "Replace with one visual claim.", body: "Use this copy to guide how the visual should be read.", items: defaultItems(["Anchor", "Callout"]), ...base }
   if (templateId === "metric-highlight") return { metrics: [{ value: "67%", label: "Metric", description: "Replace with interpretation." }, { value: "3x", label: "Comparison", description: "Replace with reading note." }, { value: "14d", label: "Window", description: "Replace with time context." }], insightTitle: "Read the signal", insightBody: "Replace with the decision implication, caveat, or next reading step.", ...base }
   if (templateId === "chart-takeaways") return { takeawaysTitle: "What to read", items: defaultItems(["Trend", "Driver", "Decision use"]), ...base }
+  if (templateId === "table") return { textTitle: "Financial readout", textBody: "Replace with the table reading note, caveat, or decision implication.", columns: ["Line item", "FY2025", "FY2026 Plan", "YoY / note"], rows: [["Revenue", "$84.2M", "$104.8M", "+24% planned growth"], ["Gross margin", "68.4%", "71.2%", "+280 bps mix shift"], ["Operating expense", "$42.7M", "$49.1M", "Scale hiring below revenue growth"], ["EBITDA", "$14.9M", "$23.6M", "+58% operating leverage"], ["Free cash flow", "$9.8M", "$16.4M", "Cash conversion improves"], ["Net retention", "116%", "121%", "Expansion supports plan quality"]], ...base }
   if (templateId === "table-comparison") return { columns: ["Dimension", "Current", "Target"], rows: [["Replace", "Current state", "Target state"], ["Caveat", "Known limit", "Next proof"]], insightTitle: "Insight", insightBody: "Replace with the table reading note or caveat.", ...base }
   if (templateId === "milestone" || templateId === "timeline-roadmap") return { orientation: "horizontal", milestones: [{ date: "2022", label: "Signal", description: "Name the starting condition." }, { date: "2023", label: "Proof", description: "Show the evidence threshold." }, { date: "2024", label: "Inflection", description: "Use the pivotal moment to frame the shift." }, { date: "2025", label: "Scale", description: "Use a taller card for the highlighted milestone.", highlight: true }, { date: "2026", label: "Decision", description: "State what changes next." }], ...base }
   if (templateId === "timeline") return { orientation: "vertical", insightTitle: "Reading the journey", insightBody: "Replace with the timeline interpretation or caveat.", milestones: [{ date: "Mar 2019", label: "Launch", description: "Name the starting event." }, { date: "Nov 2019", label: "Audit", description: "Show the evidence threshold." }, { date: "May 2020", label: "Scale", description: "Explain the operating cadence." }, { date: "Feb 2021", label: "Review", description: "State what changes next." }], ...base }

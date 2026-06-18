@@ -5,7 +5,7 @@ import { PAGE_TEMPLATE_CLASSES, builtInPreviewFixtures, getPageTemplateFoundatio
 import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("page templates", () => {
-  it("exposes sixteen renderable built-in page templates", () => {
+  it("exposes seventeen renderable built-in page templates", () => {
     const listed = listPageTemplates()
 
     expect(listed.templates.map((template) => template.id)).toEqual([
@@ -19,6 +19,7 @@ describe("page templates", () => {
       "claim-supporting-visual",
       "metric-highlight",
       "chart-takeaways",
+      "table",
       "table-comparison",
       "milestone",
       "timeline",
@@ -40,6 +41,10 @@ describe("page templates", () => {
     expect(vocabulary.requiredClasses).toContain("template-timeline-dot")
     expect(vocabulary.contractNotes.join("\n")).toContain("dot and copy")
     expect(PAGE_TEMPLATE_CLASSES).toContain("template-visual-slot-panel")
+    expect(PAGE_TEMPLATE_CLASSES).toContain("template-table-layout")
+    expect(PAGE_TEMPLATE_CLASSES).toContain("template-text-panel--color")
+    expect(PAGE_TEMPLATE_CLASSES).toContain("template-text-panel--clear")
+    expect(PAGE_TEMPLATE_CLASSES).toContain("template-text-panel--plain")
   })
 
   it("renders scaffold slides from minimal seed content", () => {
@@ -61,10 +66,28 @@ describe("page templates", () => {
     const tracked = readFileSync(previewPath, "utf-8")
     const generated = renderBuiltInPreviewHtml()
 
-    expect(builtInPreviewFixtures()).toHaveLength(16)
+    expect(builtInPreviewFixtures()).toHaveLength(17)
+    expect(builtInPreviewFixtures().filter((fixture) => fixture.templateId === "table")).toHaveLength(1)
     expect(builtInPreviewFixtures().filter((fixture) => fixture.templateId === "milestone")).toHaveLength(1)
     expect(builtInPreviewFixtures().filter((fixture) => fixture.templateId === "timeline")).toHaveLength(1)
     expect(tracked).toBe(generated)
+  })
+
+  it("keeps preview classes defined by every built-in design css", () => {
+    const html = renderBuiltInPreviewHtml()
+    const previewClasses = [...html.matchAll(/class="([^"]+)"/g)]
+      .flatMap((match) => match[1].split(/\s+/))
+      .filter(Boolean)
+      .sort()
+    const uniqueClasses = [...new Set(previewClasses)]
+    const designs = ["starter", "lucent", "lucent-dark", "monet", "summit"]
+
+    for (const design of designs) {
+      const cssPath = join(import.meta.dir, "..", "designs", design, "design.css")
+      const css = readFileSync(cssPath, "utf-8")
+      const missing = uniqueClasses.filter((className) => !new RegExp(`\\.${escapeRegExp(className)}(?![A-Za-z0-9_-])`).test(css))
+      expect(missing).toEqual([])
+    }
   })
 
   it("renders timeline milestones with dot and copy anchored in each item", () => {
@@ -135,6 +158,7 @@ describe("page templates", () => {
 
     expect(rendered.html).toContain("template-timeline-layout--left")
     expect(rendered.html).toContain("template-text-panel")
+    expect(rendered.html).toContain("template-text-panel--color")
     expect(rendered.html).toContain("Reading the journey")
     expect(rendered.html).not.toContain("template-timeline-copy template-card")
   })
@@ -212,6 +236,34 @@ describe("page templates", () => {
     expect(withInsight.html).toContain("template-metric-layout--insight-bottom")
     expect(withInsight.html).toContain("template-insight-panel")
     expect(withInsight.html).toContain("Read the signal")
+  })
+
+  it("renders table template with a reused side text panel and structured table region", () => {
+    const rendered = renderTemplateSlide({
+      templateId: "table",
+      slideIndex: 1,
+      designName: "lucent",
+      content: {
+        title: "Table",
+        textTitle: "What to read",
+        textBody: "Scan the current and target columns before deciding.",
+        columns: ["Signal", "Current", "Target"],
+        rows: [
+          ["Adoption", "67%", "75%"],
+          ["Cycle time", "14d", "10d"],
+        ],
+      },
+    })
+
+    expect(rendered.html).toContain('data-template="table"')
+    expect(rendered.html).toContain("template-table-layout")
+    expect(rendered.html).toContain('class="template-side-panel template-text-panel template-text-panel--clear" data-template-slot="text-card"')
+    expect(rendered.html).toContain("template-side-panel-title template-text-panel-title")
+    expect(rendered.html).toContain("template-side-panel-body template-text-panel-body")
+    expect(rendered.html).toContain('class="template-table-region" data-template-slot="table"')
+    expect(rendered.html).toContain("<table class=\"template-table\">")
+    expect(rendered.html).toContain("<th>Signal</th>")
+    expect(rendered.html).not.toContain("template-insight-panel")
   })
 
   it("renders executive summary cards with visual placeholders", () => {
@@ -315,6 +367,7 @@ describe("page templates", () => {
     })
 
     expect(rendered.html).toContain("template-chart-takeaway-panel")
+    expect(rendered.html).toContain("template-text-panel--color")
     expect(rendered.html).toContain("template-chart-layout")
     expect(rendered.html).toContain("template-visual-slot-panel")
     expect(rendered.html).toContain("template-visual-slot-label")
@@ -387,3 +440,7 @@ describe("page templates", () => {
     expect(invalid.issues.map((issue) => issue.message).join("\n")).toContain("outside the target slide")
   })
 })
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
