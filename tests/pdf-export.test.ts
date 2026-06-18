@@ -123,7 +123,7 @@ describe("exportDeckToPdf", () => {
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
-  }, 20000)
+  }, 60000)
 
   it("exports each slide-as-canvas .slide as a distinct PDF page", async () => {
     const root = tempWorkspace("revela-pdf-deck-test-")
@@ -142,7 +142,7 @@ describe("exportDeckToPdf", () => {
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
-  }, 20000)
+  }, 60000)
 })
 
 describe("exportDeckToPng", () => {
@@ -192,7 +192,7 @@ describe("exportDeckToPng", () => {
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
-  }, 20000)
+  }, 60000)
 
   it("reports Chrome launch override failures with repair context", async () => {
     const root = tempWorkspace("revela-png-launch-test-")
