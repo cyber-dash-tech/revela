@@ -187,6 +187,54 @@ async function toDataUrlFromRef(ref: string, baseDir: string): Promise<string | 
   }
 }
 
+function withExportBaseHref(html: string, htmlFilePath: string): string {
+  const baseHref = pathToFileURL(`${dirname(resolve(htmlFilePath))}/`).href
+  const baseTag = `<base href="${baseHref}">`
+  if (/<base\b/i.test(html)) return html
+  if (/<head[^>]*>/i.test(html)) {
+    return html.replace(/<head([^>]*)>/i, `<head$1>\n${baseTag}`)
+  }
+  return `${baseTag}\n${html}`
+}
+
+async function prepareSlidesForExport(page: any): Promise<void> {
+  await page.evaluate((canvasWidth: number, canvasHeight: number) => {
+    document.documentElement.style.scrollSnapType = "none"
+    document.documentElement.style.overflow = "visible"
+    document.body.style.overflow = "visible"
+    document.body.style.margin = "0"
+
+    const style = document.createElement("style")
+    style.setAttribute("data-revela-export-style", "true")
+    style.textContent = `
+      html, body { scroll-snap-type: none !important; overflow: visible !important; }
+      .slide {
+        width: ${canvasWidth}px !important;
+        min-width: ${canvasWidth}px !important;
+        height: ${canvasHeight}px !important;
+        min-height: ${canvasHeight}px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        overflow: hidden !important;
+        scroll-snap-align: none !important;
+      }
+      .slide-canvas {
+        width: ${canvasWidth}px !important;
+        height: ${canvasHeight}px !important;
+        transform: none !important;
+        transform-origin: center center !important;
+      }
+    `
+    document.head.appendChild(style)
+
+    document.querySelectorAll<HTMLElement>(".slide-canvas").forEach((canvas) => {
+      canvas.style.transform = "none"
+      canvas.style.transformOrigin = "center center"
+    })
+  }, CANVAS_W, CANVAS_H)
+}
+
 export async function inlineImageAssetsForPdf(htmlContent: string, htmlFilePath: string): Promise<string> {
   const baseDir = dirname(resolve(htmlFilePath))
   const refs = extractImageAssetRefsForPdf(htmlContent)
@@ -358,7 +406,7 @@ async function screenshotDeckSlides(htmlFilePath: string, label: "pdf" | "png"):
   try {
     const originalHtml = readFileSync(abs, "utf-8")
     const localizedHtml = await localizeExternalImages(originalHtml, tmpDir)
-    const patchedHtml = await inlineImageAssetsForPdf(localizedHtml, abs)
+    const patchedHtml = withExportBaseHref(await inlineImageAssetsForPdf(localizedHtml, abs), abs)
     tmpHtmlPath = join(tmpDir, "index.html")
     writeFileSync(tmpHtmlPath, patchedHtml, "utf-8")
   } catch (err) {
@@ -386,13 +434,7 @@ async function screenshotDeckSlides(htmlFilePath: string, label: "pdf" | "png"):
     // Wait for fonts (Google Fonts may still be external) and CSS animations to settle
     await new Promise((r) => setTimeout(r, 2000))
 
-    // Disable scroll-snap so offsetParent-based clip coords are accurate.
-    // Also ensure html/body are tall enough to contain all slides without clipping.
-    await page.evaluate(() => {
-      document.documentElement.style.scrollSnapType = "none"
-      document.documentElement.style.overflow = "visible"
-      document.body.style.overflow = "visible"
-    })
+    await prepareSlidesForExport(page)
 
     const slideCount: number = await page.evaluate(
       () => document.querySelectorAll(".slide").length
@@ -417,32 +459,16 @@ async function screenshotDeckSlides(htmlFilePath: string, label: "pdf" | "png"):
       // Wait for CSS transitions and JS rendering (ECharts animations, etc.)
       await new Promise((r) => setTimeout(r, 800))
 
-      // Compute screenshot target absolute position by walking the offsetParent chain.
-      // getBoundingClientRect() returns viewport-relative coords (always near 0,0) —
-      // unusable as screenshot clip coordinates without adding scrollY.
-      // offsetParent walk gives document-absolute coords that Puppeteer clip expects.
-      const clipRect = await page.evaluate((i: number) => {
-        const slide = document.querySelectorAll(".slide")[i] as HTMLElement | null
-        if (!slide) return null
-        const target = (slide.querySelector(".slide-canvas") as HTMLElement | null) ?? slide
-        let top = 0
-        let left = 0
-        let el: HTMLElement | null = target
-        while (el) {
-          top += el.offsetTop
-          left += el.offsetLeft
-          el = el.offsetParent as HTMLElement | null
-        }
-        return { x: left, y: top, width: target.offsetWidth, height: target.offsetHeight }
-      }, idx)
+      const target = await page.$(`.slide:nth-of-type(${idx + 1}) > .slide-canvas`)
+        ?? await page.$(`.slide:nth-of-type(${idx + 1})`)
+      const box = target ? await target.boundingBox() : null
 
-      if (clipRect && clipRect.width > 0 && clipRect.height > 0) {
-        const buf = await page.screenshot({ type: "png", clip: clipRect })
-        screenshots.push(buf as Buffer)
+      if (target && box && box.width > 0 && box.height > 0) {
+        const buf = await target.screenshot({ type: "png" })
+        screenshots.push(Buffer.from(buf as Uint8Array))
       } else {
-        // Fallback: screenshot full viewport
         const buf = await page.screenshot({ type: "png" })
-        screenshots.push(buf as Buffer)
+        screenshots.push(Buffer.from(buf as Uint8Array))
       }
     }
   } finally {

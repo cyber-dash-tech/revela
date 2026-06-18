@@ -3,10 +3,12 @@ import { mkdirSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import {
   exportDeckToPdf,
+  exportDeckToPng,
   extractImageAssetRefsForPdf,
   inlineImageAssetsForPdf,
 } from "../lib/pdf/export"
 import { PDFDict, PDFDocument, PDFName, PDFRawStream } from "pdf-lib"
+import { Jimp } from "jimp"
 import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("extractImageAssetRefsForPdf", () => {
@@ -141,4 +143,78 @@ describe("exportDeckToPdf", () => {
       rmSync(root, { recursive: true, force: true })
     }
   }, 20000)
+})
+
+describe("exportDeckToPng", () => {
+  it("exports unscaled slide canvases while preserving relative preview CSS", async () => {
+    const root = tempWorkspace("revela-png-deck-test-")
+
+    try {
+      const deck = join(root, "preview.html")
+      const css = join(root, "design.css")
+      writeFileSync(css, `
+        html, body { margin: 0; padding: 0; overflow: visible; }
+        .slide { min-height: 100dvh; display: flex; align-items: center; justify-content: center; }
+        .slide-canvas { width: 1920px; height: 1080px; transform-origin: center center; position: relative; overflow: hidden; }
+        .marker { position: absolute; inset: 0; background: rgb(12, 34, 56); }
+        .corner { position: absolute; right: 0; bottom: 0; width: 240px; height: 180px; background: rgb(230, 180, 40); }
+      `)
+      writeFileSync(deck, `
+        <!doctype html>
+        <html>
+          <head>
+            <link rel="stylesheet" href="./design.css">
+          </head>
+          <body>
+            <section class="slide" data-slide-index="1">
+              <div class="slide-canvas">
+                <div class="marker"></div>
+                <div class="corner"></div>
+              </div>
+            </section>
+            <script>
+              document.querySelectorAll('.slide-canvas').forEach((canvas) => {
+                canvas.style.transform = 'scale(0.25)'
+              })
+            </script>
+          </body>
+        </html>
+      `)
+
+      const result = await exportDeckToPng(deck)
+      const image = await Jimp.read(result.files[0])
+
+      expect(result.slideCount).toBe(1)
+      expect(image.bitmap.width).toBe(1920)
+      expect(image.bitmap.height).toBe(1080)
+      expect(image.getPixelColor(12, 12)).toBe(0x0c2238ff)
+      expect(image.getPixelColor(1880, 1040)).toBe(0xe6b428ff)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  }, 20000)
+
+  it("reports Chrome launch override failures with repair context", async () => {
+    const root = tempWorkspace("revela-png-launch-test-")
+    const originalRevelaChromePath = process.env.REVELA_CHROME_PATH
+    const originalPuppeteerExecutablePath = process.env.PUPPETEER_EXECUTABLE_PATH
+
+    try {
+      const deck = join(root, "deck.html")
+      writeTwoSlideDeck(deck, "slide-canvas")
+      process.env.REVELA_CHROME_PATH = "/definitely/missing/chrome"
+      delete process.env.PUPPETEER_EXECUTABLE_PATH
+
+      await expect(exportDeckToPng(deck)).rejects.toThrow(/REVELA_CHROME_PATH/)
+      await expect(exportDeckToPng(deck)).rejects.toThrow(/valid Chrome\/Chromium binary/)
+    } finally {
+      if (originalRevelaChromePath === undefined) delete process.env.REVELA_CHROME_PATH
+      else process.env.REVELA_CHROME_PATH = originalRevelaChromePath
+
+      if (originalPuppeteerExecutablePath === undefined) delete process.env.PUPPETEER_EXECUTABLE_PATH
+      else process.env.PUPPETEER_EXECUTABLE_PATH = originalPuppeteerExecutablePath
+
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
 })
