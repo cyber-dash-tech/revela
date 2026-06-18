@@ -2671,7 +2671,8 @@ Summit skins Revela built-in page templates with editorial hierarchy, broad whit
 - `cover`, `section-divider`, `closing`: use strong editorial title pages.
 - `agenda`, `executive-summary`, `problem-context`, `key-message-evidence`, `claim-supporting-visual`: use borderless narrative groupings with clear hierarchy.
 - `metric-highlight`, `chart-takeaways`, `table-comparison`: use evidence-first data regions without outer container borders.
-- `timeline-roadmap`: dots remain milestone anchors inside each timeline item; do not position detached decorative markers.
+- `milestone`: dots remain milestone anchors inside each horizontal milestone item; do not position detached decorative markers.
+- `timeline`: dots remain event anchors inside each vertical timeline item; do not position detached decorative markers.
 - `process-steps`, `recommendation-decision`, `risks-tradeoffs`: use decisive action panels with minimal framing.
 
 <!-- @design:page-templates:end -->

@@ -564,7 +564,7 @@ describe("Codex plugin MCP server", () => {
           workspaceRoot: root,
           outputPath: "decks/templates.html",
           designName: "lucent",
-          templateId: "timeline-roadmap",
+          templateId: "milestone",
           slideIndex: 1,
           content: {
             title: "Journey",
@@ -581,13 +581,13 @@ describe("Codex plugin MCP server", () => {
       jsonrpc: "2.0",
       id: 4,
       method: "tools/call",
-      params: { name: "revela_page_template_foundation", arguments: { templateId: "timeline-roadmap" } },
+      params: { name: "revela_page_template_foundation", arguments: { templateId: "timeline" } },
     }))
     child.stdin.write(frame({
       jsonrpc: "2.0",
       id: 5,
       method: "tools/call",
-      params: { name: "revela_page_template_vocabulary", arguments: { templateId: "timeline-roadmap" } },
+      params: { name: "revela_page_template_vocabulary", arguments: { templateId: "timeline" } },
     }))
     child.stdin.write(frame({
       jsonrpc: "2.0",
@@ -609,11 +609,12 @@ describe("Codex plugin MCP server", () => {
     const text = await output.until((item) => item.stdout.includes("\"id\":6") && item.stdout.includes("template-visual-slot-panel"))
     child.kill()
 
-    expect(text.stdout).toContain("timeline-roadmap")
+    expect(text.stdout).toContain("milestone")
+    expect(text.stdout).toContain("timeline")
     expect(text.stdout).toContain("claim-supporting-visual")
     expect(text.stdout).toContain("\\\"inserted\\\": true")
     const html = readFileSync(join(root, "decks/templates.html"), "utf-8")
-    expect(html).toContain('data-template="timeline-roadmap"')
+    expect(html).toContain('data-template="milestone"')
     expect(html).toContain('data-template="claim-supporting-visual"')
   })
 

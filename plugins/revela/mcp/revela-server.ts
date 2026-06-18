@@ -113,7 +113,7 @@ const tools = [
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       designName: stringProp("Optional design name. Defaults to the active design."),
-      templateId: requiredStringProp("Built-in template id, such as timeline-roadmap."),
+      templateId: requiredStringProp("Built-in template id, such as milestone or timeline."),
       slideIndex: requiredNumberProp("Positive 1-based slide index."),
       content: objectProp("Template content fields. The built-in template renderer owns the HTML skeleton."),
     }, ["templateId", "slideIndex", "content"]),
@@ -122,14 +122,14 @@ const tools = [
     name: "revela_page_template_foundation",
     description: "Read the built-in template foundation for custom design authoring: scaffold HTML, CSS hooks, slots, and contract notes.",
     inputSchema: objectSchema({
-      templateId: requiredStringProp("Built-in template id, such as timeline-roadmap."),
+      templateId: requiredStringProp("Built-in template id, such as milestone or timeline."),
     }, ["templateId"]),
   },
   {
     name: "revela_page_template_vocabulary",
     description: "Read machine-readable classes, slots, editable regions, replaceable regions, and contract notes for one page template.",
     inputSchema: objectSchema({
-      templateId: requiredStringProp("Built-in template id, such as timeline-roadmap."),
+      templateId: requiredStringProp("Built-in template id, such as milestone or timeline."),
     }, ["templateId"]),
   },
   {
@@ -138,7 +138,7 @@ const tools = [
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       designName: stringProp("Optional design name. Defaults to the active design."),
-      templateId: requiredStringProp("Built-in template id, such as timeline-roadmap."),
+      templateId: requiredStringProp("Built-in template id, such as milestone or timeline."),
       slideIndex: requiredNumberProp("Positive 1-based slide index."),
       seed: objectProp("Optional scaffold seed fields. This is not the final authoring interface."),
     }, ["templateId", "slideIndex"]),
@@ -150,7 +150,7 @@ const tools = [
       workspaceRoot: stringProp("Optional workspace root."),
       outputPath: requiredStringProp("Workspace-relative HTML deck path."),
       designName: stringProp("Optional design name. Defaults to the active design."),
-      templateId: requiredStringProp("Built-in template id, such as timeline-roadmap."),
+      templateId: requiredStringProp("Built-in template id, such as milestone or timeline."),
       slideIndex: requiredNumberProp("Positive 1-based slide index."),
       seed: objectProp("Optional scaffold seed fields. LLM should bounded-edit the inserted slide after scaffold creation."),
     }, ["outputPath", "templateId", "slideIndex"]),
@@ -162,7 +162,7 @@ const tools = [
       workspaceRoot: stringProp("Optional workspace root."),
       outputPath: requiredStringProp("Workspace-relative HTML deck path."),
       designName: stringProp("Optional design name. Defaults to the active design."),
-      templateId: requiredStringProp("Built-in template id, such as timeline-roadmap."),
+      templateId: requiredStringProp("Built-in template id, such as milestone or timeline."),
       slideIndex: requiredNumberProp("Positive 1-based slide index."),
       content: objectProp("Template content fields. Prefer scaffold-first flow for new deck creation."),
     }, ["outputPath", "templateId", "slideIndex", "content"]),

@@ -57,7 +57,8 @@ export const PAGE_TEMPLATE_VOCABULARY: PageTemplateVocabulary[] = [
   vocab("metric-highlight", ["template-stat-grid"], ["metrics"], ["metrics", "insight"], ["Metric values should remain visible outside prose."]),
   vocab("chart-takeaways", ["template-chart-panel", "template-chart-takeaway-panel"], ["visual", "takeaways"], ["visual", "takeaways"], ["Chart/image slot and takeaway text panel must both remain present."]),
   vocab("table-comparison", ["template-table-wrap", "template-table"], ["table"], ["table", "insight"], ["Table headers and body should remain structured, not prose-only."]),
-  vocab("timeline-roadmap", ["template-timeline", "template-timeline-item", "template-timeline-dot", "template-timeline-copy", "template-insight-icon"], ["timeline"], ["timeline", "insight"], ["Each timeline item must keep dot and copy as sibling anchors inside one item.", "Horizontal timeline cards reuse .template-card; highlight uses the item modifier."]),
+  vocab("milestone", ["template-timeline", "template-timeline-item", "template-timeline-dot", "template-timeline-copy", "template-insight-icon"], ["timeline"], ["timeline"], ["Each milestone item must keep dot and copy as sibling anchors inside one item.", "Milestone cards reuse .template-card; highlight uses the item modifier."]),
+  vocab("timeline", ["template-timeline", "template-timeline-item", "template-timeline-dot", "template-timeline-copy"], ["timeline"], ["timeline", "insight"], ["Each timeline item must keep dot and copy as sibling anchors inside one item.", "The optional insight slot explains the sequence without replacing event copy."]),
   vocab("process-steps", ["template-steps", "template-step-number"], ["steps"], ["steps"], ["Steps should remain ordered in DOM order."]),
   vocab("recommendation-decision", ["template-card"], ["recommendation", "rationale", "next-steps"], ["recommendation", "rationale", "next-steps"], ["Keep recommendation, rationale, and next steps separate."]),
   vocab("risks-tradeoffs", ["template-card"], ["risks"], ["risks"], ["Risk/tradeoff cards should name uncertainty explicitly."]),
@@ -132,9 +133,10 @@ export function listPageTemplateVocabulary(): PageTemplateVocabulary[] {
 }
 
 export function getPageTemplateVocabulary(templateId: string): PageTemplateVocabulary {
-  const vocabulary = PAGE_TEMPLATE_VOCABULARY.find((item) => item.templateId === templateId)
+  const id = templateId === "timeline-roadmap" ? "milestone" : templateId
+  const vocabulary = PAGE_TEMPLATE_VOCABULARY.find((item) => item.templateId === id)
   if (!vocabulary) throw new Error(`Unknown page template vocabulary: ${templateId}`)
-  return vocabulary
+  return templateId === "timeline-roadmap" ? { ...vocabulary, templateId } : vocabulary
 }
 
 function vocab(templateId: string, requiredClasses: string[], slotNames: string[], replaceableSlots: string[], contractNotes: string[]): PageTemplateVocabulary {

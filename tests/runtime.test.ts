@@ -43,19 +43,19 @@ describe("runtime facade", () => {
     })
 
     const listed = listPageTemplates()
-    expect(listed.templates).toHaveLength(15)
+    expect(listed.templates).toHaveLength(16)
     expect(listed.templates.every((template) => template.status === "renderable")).toBe(true)
     expect(listed.templates[0]).toHaveProperty("vocabulary")
 
-    const foundation = pageTemplateFoundation({ templateId: "timeline-roadmap" })
-    const vocabulary = pageTemplateVocabulary({ templateId: "timeline-roadmap" })
-    expect(foundation.foundation.html).toContain('data-template="timeline-roadmap"')
+    const foundation = pageTemplateFoundation({ templateId: "timeline" })
+    const vocabulary = pageTemplateVocabulary({ templateId: "timeline" })
+    expect(foundation.foundation.html).toContain('data-template="timeline"')
     expect(vocabulary.vocabulary.requiredClasses).toContain("template-timeline-dot")
 
     const rendered = renderTemplateSlide({
       workspaceRoot: root,
       designName: "lucent",
-      templateId: "timeline-roadmap",
+      templateId: "timeline",
       slideIndex: 1,
       content: {
         title: "Journey",
@@ -67,15 +67,34 @@ describe("runtime facade", () => {
       },
     })
 
-    expect(rendered.html).toContain('data-template="timeline-roadmap"')
+    expect(rendered.html).toContain('data-template="timeline"')
+    expect(rendered.html).toContain("template-timeline--vertical")
     expect(rendered.html).toContain("template-timeline-dot")
     expect(rendered.html).toContain("template-timeline-copy")
+
+    const legacy = renderTemplateSlide({
+      workspaceRoot: root,
+      designName: "lucent",
+      templateId: "timeline-roadmap",
+      slideIndex: 1,
+      content: {
+        title: "Legacy journey",
+        orientation: "vertical",
+        milestones: [
+          { date: "Mar 2019", label: "Launch", description: "Baseline mapping." },
+          { date: "Nov 2019", label: "Audit", description: "Evidence sprint." },
+          { date: "May 2020", label: "Scale", description: "Operating cadence." },
+        ],
+      },
+    })
+    expect(legacy.html).toContain('data-template="timeline-roadmap"')
+    expect(legacy.html).toContain("template-timeline--vertical")
 
     const added = addTemplateSlide({
       workspaceRoot: root,
       outputPath: "decks/templates.html",
       designName: "lucent",
-      templateId: "timeline-roadmap",
+      templateId: "milestone",
       slideIndex: 1,
       content: {
         title: "Journey",
@@ -333,7 +352,7 @@ describe("runtime facade", () => {
     expect(result.ok).toBe(true)
     expect(result.projection?.slides[0]).toMatchObject({
       slideIndex: 1,
-      template: "timeline-roadmap",
+      template: "timeline",
       title: "Journey",
     })
     expect(result.projection?.slides[0].templateContent?.milestones).toHaveLength(3)
@@ -981,8 +1000,9 @@ sources:
     expect(result).toMatchObject({ ok: true, section: "rules" })
     expect(result.markdown).toContain("Canonical slide canvas")
     expect(result.markdown).not.toContain("@design:foundation:start")
-    expect(inventory.pageTemplates.map((template) => template.templateId)).toContain("timeline-roadmap")
-    expect(inventory.pageTemplates.find((template) => template.templateId === "timeline-roadmap")?.requiredClasses).toContain("template-timeline-dot")
+    expect(inventory.pageTemplates.map((template) => template.templateId)).toContain("milestone")
+    expect(inventory.pageTemplates.map((template) => template.templateId)).toContain("timeline")
+    expect(inventory.pageTemplates.find((template) => template.templateId === "timeline")?.requiredClasses).toContain("template-timeline-dot")
     expect(readiness).toMatchObject({ ok: true, activeDesign: result.name })
     expect(existsSync(join(root, ".revela", "codex-hooks", "design-rules-read.json"))).toBe(true)
   })
@@ -1544,7 +1564,7 @@ id: slide-journey
 title: Journey
 chapter: Flow
 role: Show the timeline template contract.
-template: timeline-roadmap
+template: timeline
 structural: false
 ---
 
@@ -1559,7 +1579,6 @@ structural: false
 \`\`\`json
 {
   "title": "Journey",
-  "orientation": "vertical",
   "milestones": [
     { "date": "Mar 2019", "label": "Launch", "description": "Baseline mapping." },
     { "date": "Nov 2019", "label": "Audit", "description": "Evidence sprint." },

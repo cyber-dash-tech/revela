@@ -2887,7 +2887,8 @@ Monet skins Revela built-in page templates with soft editorial rhythm, painterly
 - `cover`, `section-divider`, `closing`: use expressive title-led structural pages.
 - `agenda`, `executive-summary`, `problem-context`, `key-message-evidence`, `claim-supporting-visual`: use soft narrative regions with no heavy outer box.
 - `metric-highlight`, `chart-takeaways`, `table-comparison`: use calm data surfaces and readable interpretation zones.
-- `timeline-roadmap`: dots remain milestone anchors inside each timeline item; do not position detached decorative markers.
+- `milestone`: dots remain milestone anchors inside each horizontal milestone item; do not position detached decorative markers.
+- `timeline`: dots remain event anchors inside each vertical timeline item; do not position detached decorative markers.
 - `process-steps`, `recommendation-decision`, `risks-tradeoffs`: use quiet action and tradeoff panels.
 
 <!-- @design:page-templates:end -->

@@ -150,10 +150,13 @@ const templates: PageTemplateDefinition[] = [
     field("insightBody", "string", "Interpretation, reading note, or caveat below the table."),
     field("insightIcon", "string", "Lucide icon name for the insight title."),
   ], ["Keep rows scannable.", "Do not use a table for pure prose."], ["Table has headers and body rows."]),
-  define("timeline-roadmap", "Timeline / Roadmap", "Show dated phases, milestones, or journey steps.", [
+  define("milestone", "Milestone", "Show dated phases or milestones on a horizontal roadmap axis.", [
     field("title", "string", "Slide title.", true),
-    field("orientation", "string", "horizontal or vertical."),
-    field("milestones", "milestones[]", "Timeline milestones.", true),
+    field("milestones", "milestones[]", "Horizontal milestones.", true),
+  ], ["Use 3-6 milestones.", "Milestone cards sit above the axis and date labels sit below it.", "Each dot belongs to the same DOM item as its copy."], ["Timeline root exists.", "Every milestone has dot and copy.", "Dot and copy are sibling anchors inside one timeline item."]),
+  define("timeline", "Timeline", "Show dated events, journey steps, or sequence as a vertical timeline.", [
+    field("title", "string", "Slide title.", true),
+    field("milestones", "milestones[]", "Timeline events.", true),
     field("insightTitle", "string", "Side panel title."),
     field("insightBody", "string", "Timeline interpretation, so-what, or caveat."),
     field("insightSide", "string", "left or right side panel placement."),
@@ -188,19 +191,21 @@ export function listPageTemplates(): { ok: true; templates: PageTemplateDefiniti
 }
 
 export function renderTemplateSlide(input: RenderTemplateSlideInput): RenderTemplateSlideResult {
-  const template = getPageTemplate(input.templateId)
+  const requestedTemplateId = normalizeTemplateId(input.templateId)
+  const template = getPageTemplate(requestedTemplateId)
   const slideIndex = positiveIndex(input.slideIndex)
   const content = input.content ?? {}
   const designName = input.designName || "lucent"
   const warnings = validateRequiredFields(template, content)
+  const outputTemplate = requestedTemplateId === "timeline-roadmap" ? { ...template, id: "timeline-roadmap", title: "Timeline / Roadmap" } : template
   const html = renderSlideShell({
-    template,
+    template: outputTemplate,
     slideIndex,
     designName,
     title: stringValue(content.title) || template.title,
-    body: renderBody(template.id, content),
+    body: renderBody(requestedTemplateId, content),
   })
-  return { ok: true, templateId: template.id, slideIndex, designName, html, warnings }
+  return { ok: true, templateId: outputTemplate.id, slideIndex, designName, html, warnings }
 }
 
 export function builtInPreviewFixtures(): BuiltInPreviewFixture[] {
@@ -284,9 +289,8 @@ export function builtInPreviewFixtures(): BuiltInPreviewFixture[] {
       insightIcon: "lightbulb",
       insightBody: "The template layer owns structure, while the design layer owns visual treatment. This keeps agent edits bounded without freezing the final look.",
     }),
-    fixture("timeline-roadmap", {
-      title: "timeline-roadmap",
-      orientation: "horizontal",
+    fixture("milestone", {
+      title: "milestone",
       milestones: [
         { date: "2022", label: "Signal", description: "Map the baseline." },
         { date: "2023", label: "Proof", description: "Validate the evidence threshold." },
@@ -295,9 +299,8 @@ export function builtInPreviewFixtures(): BuiltInPreviewFixture[] {
         { date: "2026", label: "Decision", description: "Commit to the next path." },
       ],
     }),
-    fixture("timeline-roadmap", {
-      title: "timeline-roadmap-vertical",
-      orientation: "vertical",
+    fixture("timeline", {
+      title: "timeline",
       insightTitle: "Reading the journey",
       insightBody: "The timeline should show sequence and decision rhythm, while the side panel explains why the milestones matter.",
       milestones: [
@@ -785,7 +788,7 @@ export function validatePageTemplateContracts(filePath: string): PageTemplateCon
     const body = section[2]
     const slideIndex = Number(/data-slide-index=["'](\d+)["']/i.exec(section[0])?.[1])
     issues.push(...validateVocabularyContract(templateId, body, Number.isInteger(slideIndex) ? slideIndex : undefined))
-    if (templateId === "timeline-roadmap") issues.push(...validateTimelineContract(body, Number.isInteger(slideIndex) ? slideIndex : undefined))
+    if (isTimelineTemplateId(templateId)) issues.push(...validateTimelineContract(templateId, body, Number.isInteger(slideIndex) ? slideIndex : undefined))
   }
   return { ok: !issues.some((issue) => issue.severity === "error"), issues }
 }
@@ -815,7 +818,7 @@ export function validateBoundedTemplateEdit(input: BoundedTemplateEditInput): Pa
   } else {
     const templateId = /data-template=["']([^"']+)["']/i.exec(target)?.[1] || "unknown"
     issues.push(...validateVocabularyContract(templateId, target, slideIndex))
-    if (templateId === "timeline-roadmap") issues.push(...validateTimelineContract(target, slideIndex))
+    if (isTimelineTemplateId(templateId)) issues.push(...validateTimelineContract(templateId, target, slideIndex))
   }
   return { ok: !issues.some((issue) => issue.severity === "error"), issues }
 }
@@ -824,23 +827,23 @@ function define(id: string, title: string, purpose: string, fields: PageTemplate
   return { id, title, purpose, status: "renderable", fields, contentRules, qaRules }
 }
 
-function validateTimelineContract(html: string, slideIndex?: number): PageTemplateContractIssue[] {
+function validateTimelineContract(templateId: string, html: string, slideIndex?: number): PageTemplateContractIssue[] {
   const issues: PageTemplateContractIssue[] = []
   const root = /class=["'][^"']*\btemplate-timeline\b[^"']*["']/i.test(html)
   if (!root) {
-    issues.push({ severity: "error", templateId: "timeline-roadmap", slideIndex, message: "Missing .template-timeline root." })
+    issues.push({ severity: "error", templateId, slideIndex, message: "Missing .template-timeline root." })
     return issues
   }
   const itemMatches = [...html.matchAll(/<article\b[^>]*class=["'][^"']*\btemplate-timeline-item\b[^"']*["'][^>]*>([\s\S]*?)<\/article>/gi)]
-  if (itemMatches.length < 3) issues.push({ severity: "warning", templateId: "timeline-roadmap", slideIndex, message: "Timeline should usually contain at least three milestones." })
+  if (itemMatches.length < 3) issues.push({ severity: "warning", templateId, slideIndex, message: "Timeline should usually contain at least three milestones." })
   for (let index = 0; index < itemMatches.length; index++) {
     const item = itemMatches[index][1]
-    if (!/class=["'][^"']*\btemplate-timeline-dot\b[^"']*["']/i.test(item)) issues.push({ severity: "error", templateId: "timeline-roadmap", slideIndex, message: `Milestone ${index + 1} is missing .template-timeline-dot inside its item.` })
-    if (!/class=["'][^"']*\btemplate-timeline-copy\b[^"']*["']/i.test(item)) issues.push({ severity: "error", templateId: "timeline-roadmap", slideIndex, message: `Milestone ${index + 1} is missing .template-timeline-copy inside its item.` })
+    if (!/class=["'][^"']*\btemplate-timeline-dot\b[^"']*["']/i.test(item)) issues.push({ severity: "error", templateId, slideIndex, message: `Milestone ${index + 1} is missing .template-timeline-dot inside its item.` })
+    if (!/class=["'][^"']*\btemplate-timeline-copy\b[^"']*["']/i.test(item)) issues.push({ severity: "error", templateId, slideIndex, message: `Milestone ${index + 1} is missing .template-timeline-copy inside its item.` })
   }
   const dotCount = (html.match(/\btemplate-timeline-dot\b/g) ?? []).length
   const copyCount = (html.match(/\btemplate-timeline-copy\b/g) ?? []).length
-  if (dotCount !== copyCount) issues.push({ severity: "error", templateId: "timeline-roadmap", slideIndex, message: `Timeline dot count (${dotCount}) must match copy count (${copyCount}).` })
+  if (dotCount !== copyCount) issues.push({ severity: "error", templateId, slideIndex, message: `Timeline dot count (${dotCount}) must match copy count (${copyCount}).` })
   return issues
 }
 
@@ -889,10 +892,24 @@ function field(name: string, type: PageTemplateField["type"], description: strin
 }
 
 function getPageTemplate(templateId: string): PageTemplateDefinition {
-  const id = String(templateId || "").trim()
+  const id = canonicalTemplateId(templateId)
   const template = templates.find((item) => item.id === id)
   if (!template) throw new Error(`Unknown page template: ${templateId}`)
   return template
+}
+
+function normalizeTemplateId(templateId: string): string {
+  return String(templateId || "").trim()
+}
+
+function canonicalTemplateId(templateId: string): string {
+  const id = normalizeTemplateId(templateId)
+  if (id === "timeline-roadmap") return "milestone"
+  return id
+}
+
+function isTimelineTemplateId(templateId: string): boolean {
+  return ["milestone", "timeline", "timeline-roadmap"].includes(templateId)
 }
 
 function renderSlideShell(input: { template: PageTemplateDefinition; slideIndex: number; designName: string; title: string; body: string; catalog?: any }): string {
@@ -946,6 +963,8 @@ function renderBody(templateId: string, content: Record<string, any>): string {
   if (templateId === "metric-highlight") return `${renderHeader(content, "Metric Highlight")}<div class="template-body">${metricHighlight(content)}</div>`
   if (templateId === "chart-takeaways") return `${renderHeader(content, "Chart + Takeaways")}<div class="template-body template-grid template-chart-layout">${visualSlotPanel()}${chartTakeawayPanel(content)}</div>`
   if (templateId === "table-comparison") return `${renderHeader(content, "Table / Comparison")}<div class="template-body" data-template-slot="table">${table(content)}</div>`
+  if (templateId === "milestone") return `${renderHeader(content, "Milestone")}<div class="template-body">${timeline({ ...content, orientation: "horizontal" })}</div>`
+  if (templateId === "timeline") return `${renderHeader(content, "Timeline")}<div class="template-body">${timeline({ ...content, orientation: "vertical" })}</div>`
   if (templateId === "timeline-roadmap") return `${renderHeader(content, "Timeline / Roadmap")}<div class="template-body">${timeline(content)}</div>`
   if (templateId === "process-steps") return `${renderHeader(content, "Process / Steps")}<div class="template-body"><div class="template-steps" data-template-slot="steps">${steps(content.steps)}</div></div>`
   if (templateId === "recommendation-decision") return `${renderHeader(content, "Recommendation / Decision")}<div class="template-body template-grid cols-3"><div class="template-card" data-template-slot="recommendation"><h2>Recommendation</h2><p>${escapeHtml(stringValue(content.recommendation))}</p>${imageCard(content)}</div><div data-template-slot="rationale">${cards(items(content).slice(0, 1), "h3")}</div><div class="template-card" data-template-slot="next-steps"><h2>Next steps</h2>${orderedSteps(content.steps)}</div></div>`
@@ -1132,7 +1151,8 @@ function scaffoldSeed(templateId: string, seed: Record<string, any>): Record<str
   if (templateId === "metric-highlight") return { metrics: [{ value: "67%", label: "Metric", description: "Replace with interpretation." }, { value: "3x", label: "Comparison", description: "Replace with reading note." }, { value: "14d", label: "Window", description: "Replace with time context." }], insightTitle: "Read the signal", insightBody: "Replace with the decision implication, caveat, or next reading step.", ...base }
   if (templateId === "chart-takeaways") return { takeawaysTitle: "What to read", items: defaultItems(["Trend", "Driver", "Decision use"]), ...base }
   if (templateId === "table-comparison") return { columns: ["Dimension", "Current", "Target"], rows: [["Replace", "Current state", "Target state"], ["Caveat", "Known limit", "Next proof"]], insightTitle: "Insight", insightBody: "Replace with the table reading note or caveat.", ...base }
-  if (templateId === "timeline-roadmap") return { orientation: "horizontal", milestones: [{ date: "2022", label: "Signal", description: "Name the starting condition." }, { date: "2023", label: "Proof", description: "Show the evidence threshold." }, { date: "2024", label: "Inflection", description: "Use the pivotal moment to frame the shift." }, { date: "2025", label: "Scale", description: "Use a taller card for the highlighted milestone.", highlight: true }, { date: "2026", label: "Decision", description: "State what changes next." }], ...base }
+  if (templateId === "milestone" || templateId === "timeline-roadmap") return { orientation: "horizontal", milestones: [{ date: "2022", label: "Signal", description: "Name the starting condition." }, { date: "2023", label: "Proof", description: "Show the evidence threshold." }, { date: "2024", label: "Inflection", description: "Use the pivotal moment to frame the shift." }, { date: "2025", label: "Scale", description: "Use a taller card for the highlighted milestone.", highlight: true }, { date: "2026", label: "Decision", description: "State what changes next." }], ...base }
+  if (templateId === "timeline") return { orientation: "vertical", insightTitle: "Reading the journey", insightBody: "Replace with the timeline interpretation or caveat.", milestones: [{ date: "Mar 2019", label: "Launch", description: "Name the starting event." }, { date: "Nov 2019", label: "Audit", description: "Show the evidence threshold." }, { date: "May 2020", label: "Scale", description: "Explain the operating cadence." }, { date: "Feb 2021", label: "Review", description: "State what changes next." }], ...base }
   if (templateId === "process-steps") return { steps: defaultItems(["Step 1", "Step 2", "Step 3"]), ...base }
   if (templateId === "recommendation-decision") return { recommendation: "Replace with the recommended decision.", items: defaultItems(["Rationale"]), steps: defaultItems(["Pilot", "Validate", "Ship"]), ...base }
   if (templateId === "risks-tradeoffs") return { items: defaultItems(["Risk", "Tradeoff", "Mitigation"]), ...base }

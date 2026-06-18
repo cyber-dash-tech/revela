@@ -5,7 +5,7 @@ import { PAGE_TEMPLATE_CLASSES, builtInPreviewFixtures, getPageTemplateFoundatio
 import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("page templates", () => {
-  it("exposes fifteen renderable built-in page templates", () => {
+  it("exposes sixteen renderable built-in page templates", () => {
     const listed = listPageTemplates()
 
     expect(listed.templates.map((template) => template.id)).toEqual([
@@ -20,7 +20,8 @@ describe("page templates", () => {
       "metric-highlight",
       "chart-takeaways",
       "table-comparison",
-      "timeline-roadmap",
+      "milestone",
+      "timeline",
       "process-steps",
       "recommendation-decision",
       "risks-tradeoffs",
@@ -30,10 +31,10 @@ describe("page templates", () => {
   })
 
   it("exposes template foundation and machine vocabulary", () => {
-    const foundation = getPageTemplateFoundation("timeline-roadmap")
-    const vocabulary = getPageTemplateVocabulary("timeline-roadmap")
+    const foundation = getPageTemplateFoundation("timeline")
+    const vocabulary = getPageTemplateVocabulary("timeline")
 
-    expect(foundation.html).toContain('data-template="timeline-roadmap"')
+    expect(foundation.html).toContain('data-template="timeline"')
     expect(foundation.cssHooks).toContain("template-timeline")
     expect(foundation.slots.map((slot) => slot.name)).toContain("timeline")
     expect(vocabulary.requiredClasses).toContain("template-timeline-dot")
@@ -61,13 +62,14 @@ describe("page templates", () => {
     const generated = renderBuiltInPreviewHtml()
 
     expect(builtInPreviewFixtures()).toHaveLength(16)
-    expect(builtInPreviewFixtures().filter((fixture) => fixture.templateId === "timeline-roadmap")).toHaveLength(2)
+    expect(builtInPreviewFixtures().filter((fixture) => fixture.templateId === "milestone")).toHaveLength(1)
+    expect(builtInPreviewFixtures().filter((fixture) => fixture.templateId === "timeline")).toHaveLength(1)
     expect(tracked).toBe(generated)
   })
 
   it("renders timeline milestones with dot and copy anchored in each item", () => {
     const rendered = renderTemplateSlide({
-      templateId: "timeline-roadmap",
+      templateId: "timeline",
       slideIndex: 1,
       designName: "lucent",
       content: {
@@ -87,7 +89,7 @@ describe("page templates", () => {
 
   it("renders horizontal timeline milestones as existing template cards with one highlighted item", () => {
     const rendered = renderTemplateSlide({
-      templateId: "timeline-roadmap",
+      templateId: "milestone",
       slideIndex: 1,
       designName: "lucent",
       content: {
@@ -115,7 +117,7 @@ describe("page templates", () => {
 
   it("renders timeline insight as a left-side template text panel by default", () => {
     const rendered = renderTemplateSlide({
-      templateId: "timeline-roadmap",
+      templateId: "timeline",
       slideIndex: 1,
       designName: "lucent",
       content: {
@@ -139,7 +141,7 @@ describe("page templates", () => {
 
   it("keeps explicit right-side timeline insight placement available", () => {
     const rendered = renderTemplateSlide({
-      templateId: "timeline-roadmap",
+      templateId: "timeline",
       slideIndex: 1,
       designName: "lucent",
       content: {
@@ -156,6 +158,27 @@ describe("page templates", () => {
     })
 
     expect(rendered.html).toContain("template-timeline-layout--right")
+  })
+
+  it("keeps timeline-roadmap as a compatibility alias", () => {
+    const rendered = renderTemplateSlide({
+      templateId: "timeline-roadmap",
+      slideIndex: 1,
+      designName: "lucent",
+      content: {
+        title: "Legacy roadmap",
+        orientation: "vertical",
+        milestones: [
+          { date: "Mar 2019", label: "Launch", description: "Baseline mapping." },
+          { date: "Nov 2019", label: "Audit", description: "Evidence sprint." },
+          { date: "May 2020", label: "Scale", description: "Operating cadence." },
+        ],
+      },
+    })
+
+    expect(rendered.templateId).toBe("timeline-roadmap")
+    expect(rendered.html).toContain('data-template="timeline-roadmap"')
+    expect(rendered.html).toContain("template-timeline--vertical")
   })
 
   it("renders optional metric insight only when insight body is provided", () => {

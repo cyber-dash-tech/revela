@@ -911,7 +911,8 @@ Starter skins Revela built-in page templates as a neutral authoring system. The 
 - `cover`, `section-divider`, `closing`: use clear title-first structural pages.
 - `agenda`, `executive-summary`, `problem-context`, `key-message-evidence`, `claim-supporting-visual`: use plain narrative and card-grid surfaces.
 - `metric-highlight`, `chart-takeaways`, `table-comparison`: use direct data panels with minimal decoration.
-- `timeline-roadmap`: dots remain milestone anchors inside each timeline item; do not position detached decorative markers.
+- `milestone`: dots remain milestone anchors inside each horizontal milestone item; do not position detached decorative markers.
+- `timeline`: dots remain event anchors inside each vertical timeline item; do not position detached decorative markers.
 - `process-steps`, `recommendation-decision`, `risks-tradeoffs`: use simple step and decision panels.
 
 <!-- @design:page-templates:end -->

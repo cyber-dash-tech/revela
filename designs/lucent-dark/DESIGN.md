@@ -260,7 +260,8 @@ Lucent skins Revela built-in page templates without owning their semantic struct
 - `cover`, `section-divider`, `closing`: use full-bleed hero treatment with Lucent package assets.
 - `agenda`, `executive-summary`, `problem-context`, `key-message-evidence`, `claim-supporting-visual`: use report-story/card-grid language with quiet surfaces.
 - `metric-highlight`, `chart-takeaways`, `table-comparison`: use data-forward Lucent panels with explicit interpretation regions.
-- `timeline-roadmap`: map to the roadmap visual system. Dots remain milestone anchors inside each timeline item; do not absolutely position detached decorative dots.
+- `milestone`: map to the horizontal roadmap visual system. Dots remain milestone anchors inside each milestone item; do not absolutely position detached decorative dots.
+- `timeline`: map to the vertical timeline visual system. Dots remain event anchors inside each timeline item; do not absolutely position detached decorative dots.
 - `process-steps`, `recommendation-decision`, `risks-tradeoffs`: use recommendation and steps surfaces with no nested card-in-card framing.
 
 <!-- @design:page-templates:end -->
