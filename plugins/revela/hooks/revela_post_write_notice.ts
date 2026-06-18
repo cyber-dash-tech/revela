@@ -71,16 +71,16 @@ function titleFromDeckHtml(absolutePath: string): string {
 
 export function formatDeckWebsiteCardHandoffNotice(workspaceRoot: string, target: string): string {
   const absolutePath = resolve(workspaceRoot, target)
-  const deckUrl = pathToFileURL(absolutePath).href
   const title = titleFromDeckHtml(absolutePath)
+  const httpUrlTemplate = `http://127.0.0.1:<port>/${target}`
   return [
     "**Deck website card ready**",
     "",
-    `Artifact QA passed for \`${target}\`. Reply with this standalone deck link so Codex renders an Open in Browser website card:`,
+    `Artifact QA passed for \`${target}\`. Do not open the deck file directly. Start a read-only local static server from the workspace root, then reply with this standalone deck link so Codex renders an Open in Browser website card the user can click:`,
     "",
-    `[${title}](${deckUrl})`,
+    `[${title}](${httpUrlTemplate})`,
     "",
-    `If the card or direct \`file://\` navigation is unavailable, start a read-only local static server from the workspace root and link to \`http://127.0.0.1:<port>/${target}\` instead.`,
+    `Replace \`<port>\` with the actual localhost port. Keep \`file://\` only for non-Codex surfaces that allow direct local-file navigation.`,
   ].join("\n")
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "@cyber-dash-tech/revela",
-  "version": "0.19.0",
+  "version": "0.19.1",
   "description": "Codex-first CLI/MCP workspace for trusted narrative artifacts from local sources, research, and evidence",
   "type": "module",
   "main": "./index.ts",

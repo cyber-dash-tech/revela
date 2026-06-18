@@ -166,6 +166,12 @@ export interface MaterializeDesignPreviewResult {
   previewDir: string
   previewPath: string
   previewUrl: string
+  browserHandoff: {
+    serveRoot: string
+    path: string
+    urlTemplate: string
+    instructions: string
+  }
   designCssPath: string
   files: string[]
   warnings: string[]
@@ -374,6 +380,12 @@ export function materializeDesignPreview(args: MaterializeDesignPreviewArgs): Ma
     previewDir,
     previewPath,
     previewUrl: pathToFileURL(previewPath).href,
+    browserHandoff: {
+      serveRoot: previewDir,
+      path: "preview.html",
+      urlTemplate: "http://127.0.0.1:<port>/preview.html",
+      instructions: "Start a read-only local static server from serveRoot, then reply with the localhost URL so the user can click it open in Codex Browser. Do not open the file:// preview directly.",
+    },
     designCssPath,
     files: listDesignPackageFiles(previewDir),
     warnings,

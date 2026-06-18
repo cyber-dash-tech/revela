@@ -288,7 +288,7 @@ const tools = [
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       name: requiredStringProp("Design name to preview."),
-      source: stringProp("Optional source: draft, installed, or builtin. Defaults to draft when present, otherwise installed/builtin."),
+      source: enumProp(["draft", "installed", "builtin"], "Optional source. Defaults to draft when present, otherwise installed/builtin."),
     }, ["name"]),
   },
   {
@@ -476,10 +476,12 @@ async function handle(req: JsonRpcRequest): Promise<any | undefined> {
     bootLog("request", { id: req.id, method: req.method })
     if (req.method === "initialize") {
       bootLog("initialize-received", { id: req.id, protocolVersion: req.params?.protocolVersion })
+      const runtimeInfo = await runtime()
+      const doctor = runtimeInfo.doctor({})
       return result(req.id, {
         protocolVersion: req.params?.protocolVersion || "2024-11-05",
         capabilities: { tools: {} },
-        serverInfo: { name: "revela", version: "0.18.15" },
+        serverInfo: { name: "revela", version: doctor.version },
       })
     }
     if (req.method === "tools/list") {

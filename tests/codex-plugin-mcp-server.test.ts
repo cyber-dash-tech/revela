@@ -60,6 +60,8 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("revela_design_draft_install")
     expect(text.stdout).toContain("revela_design_pack")
     expect(text.stdout).toContain("revela_design_install_archive")
+    expect(text.stdout).toContain("revela_design_preview")
+    expect(text.stdout).toContain("\"builtin\"")
     expect(text.stdout).toContain("user-uploaded or local materials")
     expect(text.stdout).toContain("Must start with assets/")
     expect(text.stdout).toContain("revela_domain_list")

@@ -10,7 +10,7 @@
 
 Revela 是 Codex plugin，用来把来源材料、调研、数据和用户意图转成可信、可追踪、可直接用于决策沟通的 deck artifact。
 
-在你的本地 workspace 中，Revela 会审阅本地资料、保存 source-linked research、生成明确的 `deck-plan.md`、产出 HTML deck，并以可在 Codex Browser 打开的 website card 交付以便 annotation，并支持 PDF/PPTX/PNG 导出。
+在你的本地 workspace 中，Revela 会审阅本地资料、保存 source-linked research、生成明确的 `deck-plan.md`、产出 HTML deck，并以 localhost Codex Browser website card 交付以便 annotation，并支持 PDF/PPTX/PNG 导出。
 
 ## 安装
 
@@ -39,7 +39,7 @@ npm_config_cache=/tmp/revela-npm-cache bun run smoke:mcp-pack
 通过 Codex Git marketplace 安装 Revela：
 
 ```bash
-codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.19.0
+codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.19.1
 codex plugin add revela@revela
 ```
 
@@ -49,7 +49,7 @@ Git marketplace 安装的是 Codex plugin 壳、skills、hooks 和 MCP 配置。
 
 安装后开启一个新的 Codex thread，让 Codex 加载 Revela 的 skills、MCP tools 和 hooks。
 
-Codex 使用八个 Revela skills：`revela` 路由下一步 workflow，`revela-spec` 产出根目录 `spec.md`，`revela-helper` 查看状态和 active design/domain，`revela-design` 创建、验证、激活 custom design，`revela-domain` 创建、验证、激活 custom narrative domain，`revela-research` 调研本地与网络资料、保存到 `researches/`，并产出 design-aware `deck-plan.md` handoff；`revela-make-deck` 基于已有 plan 生成 HTML deck artifact，并在 QA 通过后以 Codex Browser website card 形式交付，`revela-export` 导出 PDF/PPTX/PNG。
+Codex 使用八个 Revela skills：`revela` 路由下一步 workflow，`revela-spec` 产出根目录 `spec.md`，`revela-helper` 查看状态和 active design/domain，`revela-design` 创建、验证、激活 custom design，`revela-domain` 创建、验证、激活 custom narrative domain，`revela-research` 调研本地与网络资料、保存到 `researches/`，并产出 design-aware `deck-plan.md` handoff；`revela-make-deck` 基于已有 plan 生成 HTML deck artifact，并在 QA 通过后以 localhost Codex Browser website card 形式交付，`revela-export` 导出 PDF/PPTX/PNG。
 
 如果要按发布路径做本地验证，运行 `bun run smoke:mcp-pack`。它会把当前 checkout 打成临时 npm tarball，解包后通过打包出的 Codex plugin launcher 路径启动 MCP server，不需要先发布到 registry。
 
@@ -121,7 +121,7 @@ Revela 内置多个 deck design。Design preview 由内置 page-template preview
 
 在 Codex 中切换 design，可以这样问：
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md)，use summit as design.
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.1/skills/revela/SKILL.md)，use summit as design.
 
 在 Codex 中，可以直接让 Revela 列出或切换 design；生成 deck 时会使用 active design。
 
@@ -129,7 +129,7 @@ Revela 内置多个 deck design。Design preview 由内置 page-template preview
 
 Domain 提供特定场景的沟通 guidance，例如 consulting、product 或 investor communication。需要让 Revela 按具体沟通场景调整 deck framing 时使用。
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md)，列出 available domains。
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.1/skills/revela/SKILL.md)，列出 available domains。
 
 在 Codex 中，可以直接让 Revela 列出或切换 domain；active domain 会用于 init、research 和 deck planning 阶段的 framing。
 
@@ -139,52 +139,52 @@ Domain 提供特定场景的沟通 guidance，例如 consulting、product 或 in
 
 1. 先选择 domain，让 Revela 按你的沟通场景 framing 受众、决策、风险和潜在质疑。
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md)，use consulting as domain.
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.1/skills/revela/SKILL.md)，use consulting as domain.
 
 2. 再选择 design，让后续生成的 deck 使用指定视觉风格。
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md)，use summit as design.
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.1/skills/revela/SKILL.md)，use summit as design.
 
 3. 如果需要不同的视觉方向，可以创建一个自定义 design。
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md)，创建一个名为 neon-finance 的新 design：金融仪表盘风格，深色界面、精密网格、亮绿色重点色。
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.1/skills/revela/SKILL.md)，创建一个名为 neon-finance 的新 design：金融仪表盘风格，深色界面、精密网格、亮绿色重点色。
 
 Revela 可能会继续询问参考图、风格约束或禁忌项，然后在 workspace draft 中创建 `DESIGN.md`、`design.css` 和需要的本地 `assets/**`。它会用内置 page-template fixture 加上这份 CSS 生成 preview，让你在 install 前先检查 cover、agenda、timeline、chart、table、card 和 visual slot。创建完成后再切换使用：
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md)，使用 neon-finance 作为 design。
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.1/skills/revela/SKILL.md)，使用 neon-finance 作为 design。
 
 4. 初始化本地 material intake。Init 会扫描、抽取并审阅 workspace source；它不会创建 Narrative Vault。
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md)，帮我 init 这个 workspace，先读本地材料。
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.1/skills/revela/SKILL.md)，帮我 init 这个 workspace，先读本地材料。
 
 5. 针对 deck 所需输入做 research，并保存带来源的 findings。
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md)，research 这个 deck 需要的公开证据、案例和 source。
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.1/skills/revela/SKILL.md)，research 这个 deck 需要的公开证据、案例和 source。
 
 6. 先创建或更新 deck plan，明确 slide 顺序、章节结构、source links、unresolved inputs、source limitations 和 visual intent，再生成 HTML。
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md)，生成 HTML 前先 create or update deck plan。
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.1/skills/revela/SKILL.md)，生成 HTML 前先 create or update deck plan。
 
 7. 基于当前 deck plan 生成 HTML deck。
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md)，基于当前 deck plan make deck。
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.1/skills/revela/SKILL.md)，基于当前 deck plan make deck。
 
-8. make-deck 完成后，从 website card 打开生成的 deck，并在 Codex Browser 中做 annotation 和定向修改。
+8. make-deck 完成后，从 localhost website card 打开生成的 deck，并在 Codex Browser 中做 annotation 和定向修改。
 
-使用 Codex Browser 原生 annotation 工具标注打开的 HTML deck。
+Revela 会通过 `http://127.0.0.1:<port>/decks/<file>.html` 服务 deck，你点击 card 后在 Codex Browser 中打开。使用 Codex Browser 原生 annotation 工具标注打开的 HTML deck。
 
 9. QA 通过后导出 PDF。
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md)，把 deck export 成 PDF。
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.1/skills/revela/SKILL.md)，把 deck export 成 PDF。
 
 10. QA 通过后导出可编辑 PPTX。
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md)，把 deck export 成 PPTX。
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.1/skills/revela/SKILL.md)，把 deck export 成 PPTX。
 
 11. QA 通过后导出每页 PNG。
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.18.16/skills/revela/SKILL.md)，把 deck export 成 PNG。
+> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.1/skills/revela/SKILL.md)，把 deck export 成 PNG。
 
 ## Annotate Deck
 
-`revela-make-deck` 生成 HTML deck 且 Artifact QA 通过后，会在对话中回复可用 Codex Browser 打开的 website card。使用 Codex Browser 原生 annotation 工具标注 layout、文案、层级、间距或视觉修改。
+`revela-make-deck` 生成 HTML deck 且 Artifact QA 通过后，会在对话中回复可点击打开的 localhost website card。使用 Codex Browser 原生 annotation 工具标注 layout、文案、层级、间距或视觉修改。

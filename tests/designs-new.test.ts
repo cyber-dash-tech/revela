@@ -520,6 +520,13 @@ describe("design package authoring", () => {
       expect(preview.ok).toBe(true)
       expect(preview.files).toContain("preview.html")
       expect(preview.files).toContain("design.css")
+      expect(preview.previewUrl).toStartWith("file://")
+      expect(preview.browserHandoff).toEqual({
+        serveRoot: preview.previewDir,
+        path: "preview.html",
+        urlTemplate: "http://127.0.0.1:<port>/preview.html",
+        instructions: expect.stringContaining("Do not open the file:// preview directly."),
+      })
       expect(html).toContain('<link rel="stylesheet" href="./design.css">')
       expect(html.match(/class="slide template-slide"/g)).toHaveLength(16)
       expect(html.match(/data-template="timeline-roadmap"/g)).toHaveLength(2)

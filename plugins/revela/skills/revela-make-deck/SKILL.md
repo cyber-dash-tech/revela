@@ -17,7 +17,7 @@ Use this skill when the user asks to make, generate, render, or update a Revela 
 - Deck-local `decks/_revela-design/**/design.css` files are generated design snapshots. Do not patch them during deck making; regenerate the deck foundation or enter the design workflow instead.
 - Active/requested domain guidance may inform communication framing, but it is not source evidence.
 - Generated artifacts live under `decks/*.html`.
-- After final Artifact QA passes, reply with the generated HTML deck as a standalone website link/card that opens in Codex Browser for native browsing and annotation.
+- After final Artifact QA passes, reply with the generated HTML deck as a standalone localhost website link/card that the user can click to open in Codex Browser for native browsing and annotation.
 - Do not require a Narrative Vault before generating a deck.
 - This skill does not own normal plan authoring; `revela-research` owns source preparation and `deck-plan.md` planning handoff.
 - `deck-plan.md` is required for normal deck generation.
@@ -93,8 +93,8 @@ Use this phase when the user asks to make, generate, render, or update an HTML d
 12. Every slide must have exactly one direct `.slide-canvas` child.
 13. Keep the HTML valid after each write.
 14. After every HTML write, call `revela_run_deck_qa` and repair hard errors before continuing or export.
-15. After the final `revela_run_deck_qa` passes with zero hard errors, reply with a standalone Markdown link to the generated HTML deck artifact so Codex renders an Open in Browser website card.
-16. Prefer an absolute `file://` URL for the card. If the card or direct file navigation is unavailable, start a read-only local static server from the workspace root and use the exact `http://127.0.0.1:<port>/decks/<file>.html` URL.
+15. After the final `revela_run_deck_qa` passes with zero hard errors, do not open the deck file directly. Start a read-only local static server from the workspace root and reply with a standalone Markdown link to the generated HTML deck artifact so the user can click it open in Codex Browser.
+16. Use the exact `http://127.0.0.1:<port>/decks/<file>.html` URL for the card, replacing `<port>` with the actual localhost port. Keep `file://` only for non-Codex surfaces that allow direct local-file navigation.
 
 ## Outputs
 

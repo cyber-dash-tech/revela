@@ -53,7 +53,9 @@ describe("Codex plugin hooks", () => {
       expect(result.messages.join("\n")).toContain("Artifact QA: PASSED")
       expect(result.messages.join("\n")).toContain("Deck website card ready")
       expect(result.messages.join("\n")).toContain("Open in Browser website card")
-      expect(result.messages.join("\n")).toContain(`file://${root}/decks/demo.html`)
+      expect(result.messages.join("\n")).toContain("http://127.0.0.1:<port>/decks/demo.html")
+      expect(result.messages.join("\n")).toContain("Do not open the deck file directly")
+      expect(result.messages.join("\n")).not.toContain(`file://${root}/decks/demo.html`)
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
@@ -68,9 +70,10 @@ describe("Codex plugin hooks", () => {
       expect(notice).toContain("Artifact QA passed")
       expect(notice).toContain("standalone deck link")
       expect(notice).toContain("Open in Browser website card")
-      expect(notice).toContain("[Demo](file://")
       expect(notice).toContain("/decks/demo.html")
-      expect(notice).toContain("http://127.0.0.1:<port>/decks/demo.html")
+      expect(notice).toContain("[Demo](http://127.0.0.1:<port>/decks/demo.html)")
+      expect(notice).toContain("Do not open the deck file directly")
+      expect(notice).not.toContain("[Demo](file://")
     } finally {
       rmSync(root, { recursive: true, force: true })
     }

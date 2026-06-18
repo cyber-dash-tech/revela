@@ -46,7 +46,7 @@ Report:
   - `spec.md` exists but no `researches/`: run `revela-research`.
   - Research exists but no `deck-plan.md`: continue `revela-research` to the Planning Handoff.
   - Valid `deck-plan.md` but no deck artifact: run `revela-make-deck`.
-  - Existing deck artifact: surface the HTML deck as a website card/link for Codex Browser native annotation, or run `revela-export` for PDF/PPTX/PNG.
+  - Existing deck artifact: start a read-only local static server from the workspace root and surface the HTML deck as a localhost website card/link for Codex Browser native annotation, or run `revela-export` for PDF/PPTX/PNG.
 
 ## Must Not
 

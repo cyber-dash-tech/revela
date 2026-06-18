@@ -38,7 +38,7 @@ For new or edited designs:
 5. Draft complete `DESIGN.md` and complete `design.css` content.
 6. Call `revela_design_draft_create` with `designCss`; when uploaded or local design material exists, pass `assets: [{ path: "assets/...", contentBase64|content|sourcePath }]` so the files are written into the draft package.
 7. Call `revela_design_draft_validate`.
-8. Call `revela_design_preview` for the draft and inspect the generated preview in Browser.
+8. Call `revela_design_preview` for the draft, start a read-only local static server from the returned `browserHandoff.serveRoot`, and reply with the resulting localhost preview link for the user to open in Codex Browser.
 9. If validation or preview review fails, revise the draft content and repeat draft create/validate/preview.
 10. Call `revela_design_draft_install` only after the draft validates and the user intent is to install it.
 11. Call `revela_design_activate` only when the user asks to make it active.
@@ -66,6 +66,7 @@ Use `revela_design_create` only when the user explicitly requests direct local c
 - Optional assets must live under `assets/**`; reference them as package-relative paths like `assets/cover-background.png`.
 - `DESIGN.md` may reference package assets in rules, layouts, or components with `assets/...`; do not reference workspace `assets/` media manifest entries for design-owned visuals.
 - `revela_design_preview` must generate the visual preview; do not hand-write package `preview.html` for ordinary CSS-native design drafts.
+- Do not open `file://` preview URLs in Codex Browser. Use the returned `browserHandoff` fields to serve the preview over `http://127.0.0.1:<port>/preview.html` and let the user click the link.
 - If design assets are present, the generated preview should visibly use the saved `assets/...` files when the design CSS references them.
 - Generated preview should show the built-in page templates with normal, dense, chart/table, timeline, image, and source-note-like states.
 - Preserve source inspiration and limitations explicitly; do not copy copyrighted design text or assets into the package.
