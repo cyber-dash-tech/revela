@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "child_process"
-import { existsSync, mkdirSync, readdirSync, rmSync } from "fs"
+import { existsSync, mkdirSync, readdirSync, rmSync, symlinkSync } from "fs"
 import { join, resolve } from "path"
 import { tmpdir } from "os"
 
@@ -19,6 +19,7 @@ mkdirSync(npmCache, { recursive: true })
 try {
   const tarballPath = packTarball()
   const packageRoot = extractTarball(tarballPath)
+  linkInstalledDependencies(packageRoot)
   await smokePackagedPluginMcp(packageRoot, tarballPath)
 } finally {
   if (!keepTemp && !process.env.REVELA_MCP_PACK_SMOKE_DIR) {
@@ -59,6 +60,14 @@ function extractTarball(tarballPath: string): string {
   const serverPath = join(packageRoot, "plugins", "revela", "mcp", "revela-server.ts")
   if (!existsSync(serverPath)) fail(`Packed Codex MCP server was not found: ${serverPath}`, { tarballPath })
   return packageRoot
+}
+
+function linkInstalledDependencies(packageRoot: string): void {
+  const sourceNodeModules = join(repoRoot, "node_modules")
+  if (!existsSync(sourceNodeModules)) {
+    fail("Packed MCP smoke requires installed dependencies. Run bun install before smoke:mcp-pack.", { packageRoot })
+  }
+  symlinkSync(sourceNodeModules, join(packageRoot, "node_modules"), "dir")
 }
 
 async function smokePackagedPluginMcp(packageRoot: string, tarballPath: string): Promise<void> {
@@ -102,11 +111,15 @@ async function smokePackagedPluginMcp(packageRoot: string, tarballPath: string):
     child.stdout.on("data", (data) => {
       stdout += data.toString()
       if (
+        stdout.includes("\"id\":1") &&
+        stdout.includes("\"serverInfo\"") &&
         stdout.includes("\"id\":2") &&
         stdout.includes("revela_doctor") &&
         stdout.includes("revela_read_deck_plan") &&
+        stdout.includes("revela_open_deck") &&
+        stdout.includes("revela_switch_deck_design") &&
         stdout.includes("revela_review_deck_read") &&
-        stdout.includes("revela_review_deck_open")
+        !stdout.includes("revela_review_deck_open")
       ) {
         finish(true)
       }
