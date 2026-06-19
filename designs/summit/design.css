@@ -99,24 +99,24 @@ body { margin: 0; background: var(--bg-frame, #07111f); color: var(--text-primar
     linear-gradient(135deg, #07111f, #101a2b 62%, #243a73);
 }
 
-.template-slide[data-design="summit"][data-template="cover"] .slide-canvas {
+.template-slide[data-template="cover"] .slide-canvas {
   background:
     linear-gradient(90deg, rgba(7,17,31,0.82), rgba(7,17,31,0.42) 52%, rgba(7,17,31,0.24)),
     url("./assets/cover-background.jpg") center center / cover no-repeat;
 }
-.template-slide[data-design="summit"][data-template="agenda"] .slide-canvas {
+.template-slide[data-template="agenda"] .slide-canvas {
   background:
     linear-gradient(90deg, rgba(7,17,31,0.86), rgba(7,17,31,0.58) 52%, rgba(7,17,31,0.32)),
     url("./assets/cover-background.jpg") center center / cover no-repeat;
 }
-.template-slide[data-design="summit"][data-template="section-divider"] .slide-canvas {
+.template-slide[data-template="section-divider"] .slide-canvas {
   background:
     linear-gradient(90deg, rgba(7,17,31,0.86), rgba(16,26,43,0.62) 58%, rgba(36,58,115,0.36)),
     url("./assets/cover-background.jpg") center center / cover no-repeat;
 }
 .template-slide[data-template="closing"] .slide-canvas { background: linear-gradient(135deg, #07111f, #315eea 58%, #18a8d8); }
 
-.template-slide[data-design="summit"][data-template="closing"] .slide-canvas {
+.template-slide[data-template="closing"] .slide-canvas {
   background:
     linear-gradient(90deg, rgba(7,17,31,0.82), rgba(49,94,234,0.42) 58%, rgba(24,168,216,0.24)),
     url("./assets/closing-background.jpg") center center / cover no-repeat;
@@ -162,10 +162,13 @@ body { margin: 0; background: var(--bg-frame, #07111f); color: var(--text-primar
 .text-panel-formula-fallback { display: block; white-space: normal; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82em; line-height: 1.35; color: inherit; }
 .text-panel-formula-caption { margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
 .template-chart-takeaway-list { display: grid; gap: 22px; width: 100%; }
-.template-chart-takeaway-item { display: grid; gap: 7px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.24); }
+.template-chart-takeaway-item { display: grid; gap: 7px; padding-top: 18px; border-top: 1px solid var(--line); }
+.template-text-panel--color .template-chart-takeaway-item { border-top-color: rgba(255,255,255,0.24); }
 .template-chart-takeaway-item:first-child { padding-top: 0; border-top: 0; }
-.template-chart-takeaway-item h3 { margin: 0; font-size: 25px; line-height: 1.24; color: white; }
-.template-chart-takeaway-item p { margin: 0; font-size: 20px; line-height: 1.46; color: rgba(255,255,255,0.78); }
+.template-chart-takeaway-item h3 { margin: 0; font-size: 25px; line-height: 1.24; color: var(--text-primary); }
+.template-text-panel--color .template-chart-takeaway-item h3 { color: white; }
+.template-chart-takeaway-item p { margin: 0; font-size: 20px; line-height: 1.46; color: var(--text-secondary); }
+.template-text-panel--color .template-chart-takeaway-item p { color: rgba(255,255,255,0.78); }
 .template-bar { flex: 1; background: linear-gradient(180deg, var(--accent-primary), var(--accent-cyan)); min-height: 80px; }
 .template-table-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 34px; height: 100%; align-items: stretch; }
 .template-table-layout .template-side-panel { grid-column: 1; grid-row: 1; }
@@ -345,14 +348,14 @@ body { margin: 0; background: var(--bg-frame, #07111f); color: var(--text-primar
 .template-timeline-layout .template-text-panel--color {
   background: linear-gradient(135deg, #176c63 0%, #2a8f84 54%, #b0822e 125%);
 }
-.template-slide[data-design="summit"][data-template="cover"] .slide-canvas,
-.template-slide[data-design="summit"][data-template="agenda"] .slide-canvas,
-.template-slide[data-design="summit"][data-template="section-divider"] .slide-canvas {
+.template-slide[data-template="cover"] .slide-canvas,
+.template-slide[data-template="agenda"] .slide-canvas,
+.template-slide[data-template="section-divider"] .slide-canvas {
   background:
     linear-gradient(90deg, rgba(10,16,16,0.84), rgba(10,16,16,0.46) 52%, rgba(10,16,16,0.18)),
     url("./assets/cover-background.jpg") center center / cover no-repeat;
 }
-.template-slide[data-design="summit"][data-template="closing"] .slide-canvas {
+.template-slide[data-template="closing"] .slide-canvas {
   background:
     linear-gradient(90deg, rgba(10,16,16,0.78), rgba(23,108,99,0.4) 58%, rgba(176,130,46,0.22)),
     url("./assets/closing-background.jpg") center center / cover no-repeat;

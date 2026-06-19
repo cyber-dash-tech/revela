@@ -27,7 +27,8 @@ For status, inspection, activation, or selection:
 
 1. Call `revela_design_list`.
 2. Call `revela_design_read`, `revela_design_inventory`, `revela_design_read_layout`, `revela_design_read_component`, or `revela_page_template_foundation` as needed.
-3. Call `revela_design_activate` only when the user asks to use a design.
+3. Call `revela_design_activate` only when the user asks to use a design for future planning/rendering.
+4. For an existing `decks/*.html` artifact, call `revela_switch_deck_design` with the deck file and design name. This refreshes the deck-local active design snapshot and can reopen the deck without rewriting slide content.
 
 For new or edited designs:
 
@@ -41,7 +42,7 @@ For new or edited designs:
 8. Call `revela_design_preview` for the draft, start a read-only local static server from the returned `browserHandoff.serveRoot`, and reply with the resulting localhost preview link for the user to open in Codex Browser.
 9. If validation or preview review fails, revise the draft content and repeat draft create/validate/preview.
 10. Call `revela_design_draft_install` only after the draft validates and the user intent is to install it.
-11. Call `revela_design_activate` only when the user asks to make it active.
+11. Call `revela_design_activate` only when the user asks to make it active for future work; use `revela_switch_deck_design` for an already-rendered deck.
 
 For sharing or installing design archives:
 
@@ -78,13 +79,13 @@ Use `revela_design_create` only when the user explicitly requests direct local c
 - Asset metadata surfaced by read/inventory tools when `assets/**` exists.
 - Saved asset paths and intended uses, for example `assets/cover-background.png -> cover hero background`.
 - Validation result and any remaining diagnostics.
-- Whether the design was activated.
+- Whether the design was activated or an existing deck was switched to that design.
 - Next step, usually `revela-research` for planning with the design or `revela-make-deck` when a valid `deck-plan.md` already exists.
 
 ## Must Not
 
 - Do not write `deck-plan.md`.
-- Do not write `decks/*.html`.
+- Do not rewrite slide content in `decks/*.html` while switching design; use `revela_switch_deck_design` to refresh the deck-local active CSS/assets snapshot.
 - Do not patch `decks/_revela-design/**/design.css`; those files are regenerated deck-local snapshots.
 - Do not install or activate a design unless the user requested that outcome.
 - Do not invent licenses, asset provenance, or brand permissions.

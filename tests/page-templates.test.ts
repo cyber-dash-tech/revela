@@ -119,16 +119,29 @@ describe("page templates", () => {
     }
   })
 
-  it("does not leak design-specific preview selectors across built-in designs", () => {
+  it("keeps built-in design template selectors portable across design switches", () => {
     const designs = ["starter", "lucent", "lucent-dark", "monet", "summit"]
 
     for (const design of designs) {
       const cssPath = join(import.meta.dir, "..", "designs", design, "design.css")
       const css = readFileSync(cssPath, "utf-8")
-      const selectors = [...css.matchAll(/data-design="([^"]+)"/g)].map((match) => match[1])
-      const leaked = selectors.filter((selectorDesign) => selectorDesign !== design)
 
-      expect(leaked).toEqual([])
+      expect(css).not.toMatch(/\.template-slide\[data-design=/)
+      expect(css).toContain('.template-slide[data-template="cover"]')
+    }
+  })
+
+  it("keeps chart takeaway text readable outside color text panels", () => {
+    const designs = ["starter", "lucent", "lucent-dark", "monet", "summit"]
+
+    for (const design of designs) {
+      const cssPath = join(import.meta.dir, "..", "designs", design, "design.css")
+      const css = readFileSync(cssPath, "utf-8")
+
+      expect(css).toMatch(/\.template-chart-takeaway-item h3\s*\{[^}]*color:\s*var\(--text-primary\)/s)
+      expect(css).toMatch(/\.template-chart-takeaway-item p\s*\{[^}]*color:\s*var\(--text-secondary\)/s)
+      expect(css).toMatch(/\.template-text-panel--color \.template-chart-takeaway-item h3\s*\{[^}]*color:\s*white/s)
+      expect(css).toMatch(/\.template-text-panel--color \.template-chart-takeaway-item p\s*\{[^}]*color:\s*rgba\(255,255,255,0\.78\)/s)
     }
   })
 

@@ -17,8 +17,8 @@ bun scripts/codex-mcp-smoke.ts bin/revela.ts mcp --raw
 Expected:
 
 - `doctor` returns JSON with `ok: true`.
-- Both MCP smokes return `initialize` and `tools/list` responses containing `revela_doctor`, `revela_story_read`, `revela_review_deck_read`, `revela_review_deck_open`, `revela_design_activate`, and `revela_domain_activate`.
-- `revela review-read --file <deck.html>` remains available for compatibility-only CLI diagnostics after a deck exists.
+- Both MCP smokes return `initialize` and `tools/list` responses containing `revela_doctor`, `revela_open_deck`, `revela_review_deck_read`, `revela_design_activate`, and `revela_domain_activate`.
+- `revela review-read --file <deck.html>` remains available for optional CLI diagnostics after a deck exists.
 
 ## Install Or Refresh
 
@@ -45,7 +45,7 @@ Expected:
 
 - `revela@revela` is installed and enabled.
 - MCP server `revela` is enabled.
-- The local MCP smoke through `bin/revela.ts mcp` prints an `initialize` response and a `tools/list` response containing `revela_doctor`, `revela_story_read`, `revela_review_deck_read`, `revela_review_deck_open`, `revela_design_activate`, and `revela_domain_activate`.
+- The local MCP smoke through `bin/revela.ts mcp` prints an `initialize` response and a `tools/list` response containing `revela_doctor`, `revela_open_deck`, `revela_review_deck_read`, `revela_design_activate`, and `revela_domain_activate`.
 
 ## Normal Smoke Flow
 
@@ -93,10 +93,10 @@ Use Revela to create or update the deck plan before generating HTML. Read the cu
 Use Revela to make a deck from the current deck plan and narrative. Generate an HTML deck under decks/, run deck QA, repair hard QA errors, and reply with a website card for the QA-passed deck.
 ```
 
-8. Annotate the generated deck in Codex Browser.
+8. Review the generated deck in Codex Browser.
 
 ```text
-Use Codex Browser's native annotations on the opened HTML deck for any targeted review notes.
+Use Revela to review @decks/<file>.html in Codex Browser.
 ```
 
 9. Export PDF.
@@ -111,7 +111,7 @@ Use Revela to export the deck to PDF.
 Use Revela to export the deck to PPTX.
 ```
 
-During the smoke, confirm Codex uses the corresponding MCP tools: `revela_doctor`, `revela_domain_activate`, `revela_design_activate`, `revela_design_pack`, `revela_design_install_archive`, `revela_markdown_qa`, `revela_compile_narrative`, `revela_research_targets`, `revela_research_save`, `revela_evaluate_research_findings`, `revela_bind_research_findings`, `revela_story_read`, `revela_read_deck_plan`, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_export_pdf`, and `revela_export_pptx`. `revela_review_deck_open` and `revela_review_deck_read` may remain discoverable as compatibility-only tools, but they are not the Codex product review path.
+During the smoke, confirm Codex uses the corresponding MCP tools: `revela_doctor`, `revela_domain_activate`, `revela_design_activate`, `revela_design_pack`, `revela_design_install_archive`, `revela_markdown_qa`, `revela_compile_narrative`, `revela_research_targets`, `revela_research_save`, `revela_evaluate_research_findings`, `revela_bind_research_findings`, `revela_read_deck_plan`, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_open_deck`, `revela_export_pdf`, and `revela_export_pptx`. Use `revela_review_deck_read` only when diagnostics, QA, or readiness are explicitly requested.
 
 ## Expected Result
 
@@ -123,8 +123,8 @@ During the smoke, confirm Codex uses the corresponding MCP tools: `revela_doctor
 - Design list/read/author/install/activate tools are discoverable, and active design guidance is read before selecting layouts/components.
 - Artifact QA passes with `hardErrorCount: 0`.
 - Story reading returns a deterministic map or Markdown view from `revela-narrative/`.
-- The QA-passed HTML deck is surfaced as a website card that opens in Codex Browser for native annotation.
-- Compatibility-only Review deck reading can still return artifact QA and deck-plan/narrative diagnostics when diagnostics are explicitly requested.
+- The HTML deck opens directly in Codex Browser.
+- Review deck reading can return artifact QA and deck-plan diagnostics when diagnostics are explicitly requested.
 
 ## Known Smoke Notes
 

@@ -44,7 +44,9 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("revela_research_save")
     expect(text.stdout).toContain("revela_export_png")
     expect(text.stdout).toContain("revela_review_deck_read")
-    expect(text.stdout).toContain("revela_review_deck_open")
+    expect(text.stdout).toContain("revela_open_deck")
+    expect(text.stdout).toContain("revela_switch_deck_design")
+    expect(text.stdout).not.toContain("revela_review_deck_open")
     expect(text.stdout).not.toContain("revela_research_targets")
     expect(text.stdout).not.toContain("revela_evaluate_research_findings")
     expect(text.stdout).not.toContain("revela_bind_research_findings")
@@ -289,6 +291,14 @@ describe("Codex plugin MCP server", () => {
 
   it("calls design and domain list/read/activate tools", async () => {
     const home = tempWorkspace("revela-mcp-design-domain-home-")
+    const root = tempWorkspace("revela-mcp-switch-design-")
+    createDeckFoundation({
+      workspaceRoot: root,
+      outputPath: "decks/switch.html",
+      title: "Switch",
+      language: "en",
+      designName: "starter",
+    })
     const child = spawn("bun", [serverPath], {
       env: { ...process.env, HOME: home },
       stdio: ["pipe", "pipe", "pipe"],
@@ -327,12 +337,20 @@ describe("Codex plugin MCP server", () => {
       method: "tools/call",
       params: { name: "revela_domain_list", arguments: {} },
     }))
+    child.stdin.write(frame({
+      jsonrpc: "2.0",
+      id: 7,
+      method: "tools/call",
+      params: { name: "revela_switch_deck_design", arguments: { workspaceRoot: root, file: "decks/switch.html", name: "summit", openBrowser: false } },
+    }))
 
-    const text = await output.until((item) => item.stdout.includes("\"id\":6") && item.stdout.includes("activeDomain"))
+    const text = await output.until((item) => item.stdout.includes("\"id\":7") && item.stdout.includes("switch-active"))
     child.kill()
 
     expect(text.stdout).toContain("activeDesign")
     expect(text.stdout).toContain("starter")
+    expect(text.stdout).toContain("summit")
+    expect(text.stdout).toContain("switch-active")
     expect(text.stdout).toContain("consulting")
     expect(text.stdout).toContain("activeDomain")
     expect(text.stdout).toContain("general")
@@ -1047,7 +1065,7 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("researches/local-materials/proposal-review.md")
   }, 10000)
 
-  it("opens a Codex-backed Review deck server from the MCP process", async () => {
+  it("opens a deck directly from the MCP process", async () => {
     seedBuiltinDesigns()
     const root = tempWorkspace("revela-mcp-review-open-")
     writeReviewDeck(root, "decks/review.html")
@@ -1060,17 +1078,18 @@ describe("Codex plugin MCP server", () => {
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "revela_review_deck_open", arguments: { workspaceRoot: root, file: "decks/review.html", openBrowser: false } },
+      params: { name: "revela_open_deck", arguments: { workspaceRoot: root, file: "decks/review.html", openBrowser: false } },
     }))
 
-    const text = await output.until((item) => item.stdout.includes("\"id\":2") && item.stdout.includes("codex-exec"), 60000)
+    const text = await output.until((item) => item.stdout.includes("\"id\":2") && item.stdout.includes("\\\"mode\\\": \\\"direct\\\""), 60000)
     child.kill()
 
     expect(text.stdout).toContain("\\\"ok\\\": true")
-    expect(text.stdout).toContain("\\\"bridge\\\": \\\"codex-exec\\\"")
-    expect(text.stdout).toContain("\\\"mode\\\": \\\"edit\\\"")
-    expect(text.stdout).toContain("/codex-review?token=")
-    expect(text.stdout).not.toContain("\\\"reviewRead\\\"")
+    expect(text.stdout).toContain("\\\"mode\\\": \\\"direct\\\"")
+    expect(text.stdout).toContain("\\\"readOnly\\\": true")
+    expect(text.stdout).toContain("/decks/review.html")
+    expect(text.stdout).not.toContain("/codex-review")
+    expect(text.stdout).not.toContain("token=")
   }, 60000)
 })
 
@@ -1124,7 +1143,7 @@ function writeReviewDeck(root: string, outputPath: string): void {
     <section class="slide" slide-qa="false" data-slide-index="1">
         <div class="slide-canvas">
             <div class="page">
-                <div class="eyebrow">Review</div>
+                <div class="template-eyebrow">Review</div>
                 <h2>MCP review smoke</h2>
                 <p>This slide validates the review read aggregate tool.</p>
             </div>

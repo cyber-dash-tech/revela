@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, writeFileSync } from "fs"
-import { dirname, isAbsolute, normalize, resolve } from "path"
+import { basename, dirname, isAbsolute, normalize, resolve } from "path"
 import { activeDesign, getDesignSection, materializeDesignCssSnapshot } from "../design/designs"
 
 export type DeckFoundationMode = "create" | "repair"
@@ -48,7 +48,12 @@ export function createDeckFoundation(input: CreateDeckFoundationInput): CreateDe
   const foundation = getDesignSection("foundation", design)
   const parts = parseFoundationParts(foundation)
   if (parts.scriptBlocks.length === 0) throw new Error(`Design '${design}' foundation does not include a SlidePresentation JavaScript code block.`)
-  const snapshot = materializeDesignCssSnapshot({ workspaceRoot: input.workspaceRoot, outputPath, designName: design })
+  const snapshot = materializeDesignCssSnapshot({
+    workspaceRoot: input.workspaceRoot,
+    outputPath,
+    designName: design,
+    snapshotName: activeDesignSnapshotName(outputPath),
+  })
 
   const html = renderFoundationHtml({
     language: input.language || "en",
@@ -69,6 +74,7 @@ export function createDeckFoundation(input: CreateDeckFoundationInput): CreateDe
       "design:foundation",
       parts.fontLinks.length > 0 ? "foundation:font-links" : "foundation:font-links:none",
       snapshot.generatedFallback ? "design-css:fallback" : "design-css:snapshot",
+      `design-css:active-snapshot:${snapshot.snapshotName}`,
       snapshot.assetCount > 0 ? "design-assets:snapshot" : "design-assets:none",
       "foundation:SlidePresentation",
     ],
@@ -79,6 +85,14 @@ export function createDeckFoundation(input: CreateDeckFoundationInput): CreateDe
       "Patch slides between the revela-slides markers chapter by chapter, then run artifact QA.",
     ],
   }
+}
+
+export function activeDesignSnapshotName(outputPath: string): string {
+  const stem = basename(normalizeOutputPath(outputPath), ".html")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+  return `${stem || "deck"}-active`
 }
 
 export function normalizeOutputPath(outputPath: string): string {

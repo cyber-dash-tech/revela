@@ -30,6 +30,7 @@ type RuntimeModule = {
   designReadLayout(input: any): any
   designReadComponent(input: any): any
   designActivate(input: any): any
+  switchDeckDesign(input: any): any
   designCreate(input: any): any
   designValidate(input: any): any
   designPreview(input: any): any
@@ -47,7 +48,7 @@ type RuntimeModule = {
   domainDraftValidate(input: any): any
   domainDraftInstall(input: any): any
   reviewDeckRead(input: any): Promise<any>
-  reviewDeckOpen(input: any): Promise<any>
+  openDeck(input: any): Promise<any>
   researchSave(input: any): any
   prepareLocalMaterials(input: any): Promise<any>
   extractMaterial(input: any): Promise<any>
@@ -243,6 +244,16 @@ const tools = [
     inputSchema: objectSchema({ name: requiredStringProp("Design name to activate.") }, ["name"]),
   },
   {
+    name: "revela_switch_deck_design",
+    description: "Switch one existing decks/*.html artifact to a design by refreshing its deck-local active design snapshot without rewriting slide content.",
+    inputSchema: objectSchema({
+      workspaceRoot: stringProp("Optional workspace root."),
+      file: requiredStringProp("Workspace-relative or absolute decks/*.html file."),
+      name: requiredStringProp("Design name to use for this deck."),
+      openBrowser: booleanProp("Whether to open the switched deck in Codex Browser. Defaults to true."),
+    }, ["file", "name"]),
+  },
+  {
     name: "revela_design_create",
     description: "Create and validate a local Revela design package from complete DESIGN.md, design.css, and optional legacy preview.html content.",
     inputSchema: objectSchema({
@@ -380,7 +391,7 @@ const tools = [
   },
   {
     name: "revela_review_deck_read",
-    description: "Compatibility-only read of aggregate Review diagnostics for a Revela HTML deck: artifact QA, deck-plan diagnostics, and export/readiness signals.",
+    description: "Read optional Review diagnostics for a Revela HTML deck: artifact QA, deck-plan diagnostics, and export/readiness signals.",
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       file: requiredStringProp("Workspace-relative or absolute HTML deck path."),
@@ -388,12 +399,11 @@ const tools = [
     }, ["file"]),
   },
   {
-    name: "revela_review_deck_open",
-    description: "Compatibility-only opener for the legacy local Codex-backed Review UI for a Revela HTML deck.",
+    name: "revela_open_deck",
+    description: "Open a Revela HTML deck directly in Codex Browser through a read-only localhost URL for user review.",
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       file: requiredStringProp("Workspace-relative or absolute HTML deck path."),
-      bridge: enumProp(["codex-exec"], "Prompt bridge for browser saved-comment Apply interactions."),
       openBrowser: booleanProp("Whether the tool should open the browser itself. Defaults to true when omitted."),
     }, ["file"]),
   },
@@ -524,6 +534,7 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_design_read_layout") return r.designReadLayout(args)
   if (name === "revela_design_read_component") return r.designReadComponent(args)
   if (name === "revela_design_activate") return r.designActivate(args)
+  if (name === "revela_switch_deck_design") return r.switchDeckDesign(args)
   if (name === "revela_design_create") return r.designCreate(args)
   if (name === "revela_design_validate") return r.designValidate(args)
   if (name === "revela_design_draft_create") return r.designDraftCreate(args)
@@ -541,7 +552,7 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_domain_draft_validate") return r.domainDraftValidate(args)
   if (name === "revela_domain_draft_install") return r.domainDraftInstall(args)
   if (name === "revela_review_deck_read") return r.reviewDeckRead(args)
-  if (name === "revela_review_deck_open") return r.reviewDeckOpen(args)
+  if (name === "revela_open_deck") return r.openDeck(args)
   if (name === "revela_research_save") return r.researchSave(args)
   if (name === "revela_prepare_local_materials") return r.prepareLocalMaterials(args)
   if (name === "revela_extract_document_materials") return r.extractMaterial(args)

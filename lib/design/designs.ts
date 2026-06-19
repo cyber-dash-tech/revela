@@ -180,6 +180,7 @@ export interface MaterializeDesignPreviewResult {
 export interface DesignCssSnapshotResult {
   ok: true
   design: string
+  snapshotName: string
   sourcePath: string
   snapshotDir: string
   cssPath: string
@@ -425,11 +426,13 @@ export function materializeDesignCssSnapshot(input: {
   workspaceRoot: string
   outputPath: string
   designName?: string
+  snapshotName?: string
 }): DesignCssSnapshotResult {
   const designName = normalizeDesignName(input.designName || activeDesign())
+  const snapshotName = normalizeDesignSnapshotName(input.snapshotName || designName)
   const designDir = resolveDesignPackageDir(designName)
   const outputDir = dirname(normalize(input.outputPath))
-  const snapshotRelDir = normalize(join(outputDir, "_revela-design", designName)).replace(/\\/g, "/")
+  const snapshotRelDir = normalize(join(outputDir, "_revela-design", snapshotName)).replace(/\\/g, "/")
   const snapshotDir = resolve(input.workspaceRoot, snapshotRelDir)
   const cssPath = join(snapshotDir, "design.css")
   const cssRead = readDesignCss(designName)
@@ -450,6 +453,7 @@ export function materializeDesignCssSnapshot(input: {
   return {
     ok: true,
     design: designName,
+    snapshotName,
     sourcePath: cssRead.path || join(designDir, "DESIGN.md"),
     snapshotDir,
     cssPath,
@@ -458,6 +462,14 @@ export function materializeDesignCssSnapshot(input: {
     generatedFallback: cssRead.generatedFallback,
     warnings: cssRead.warnings,
   }
+}
+
+function normalizeDesignSnapshotName(name: string): string {
+  const normalized = name.trim().toLowerCase()
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(normalized)) {
+    throw new Error("Design snapshot name must be kebab-case using lowercase letters, numbers, and hyphens")
+  }
+  return normalized
 }
 
 /** Normalize and validate a design package name. */

@@ -7,8 +7,7 @@ import { DECKS_STATE_FILE } from "../lib/decks-state"
 import { seedBuiltinDesigns } from "../lib/design/designs"
 import { computeNarrativeHash } from "../lib/narrative-state/hash"
 import { compileNarrativeVault } from "../lib/narrative-vault/compile"
-import { addTemplateScaffold, addTemplateSlide, bindResearchFindings, checkDesignRulesReadiness, checkMaterialIntake, designCreate, designDraftCreate, designDraftInstall, designDraftValidate, designInstallArchive, designInventory, designList, designPack, designPreview, designRead, designValidate, doctor, domainCreate, domainDraftCreate, domainDraftInstall, domainDraftValidate, domainList, domainValidate, evaluateResearchFindings, extractMaterial, listPageTemplates, pageTemplateFoundation, pageTemplateVocabulary, prepareLocalMaterials, readDeckPlan, recordMaterialReview, renderTemplateScaffold, renderTemplateSlide, researchSave, researchTargets, reviewDeckOpen, reviewDeckRead, storyRead, upsertDeckPlanSlide } from "../lib/runtime"
-import { stopRefineServer } from "../lib/refine/server"
+import { addTemplateScaffold, addTemplateSlide, bindResearchFindings, checkDesignRulesReadiness, checkMaterialIntake, designActivate, designCreate, designDraftCreate, designDraftInstall, designDraftValidate, designInstallArchive, designInventory, designList, designPack, designPreview, designRead, designValidate, doctor, domainCreate, domainDraftCreate, domainDraftInstall, domainDraftValidate, domainList, domainValidate, evaluateResearchFindings, extractMaterial, listPageTemplates, openDeck, pageTemplateFoundation, pageTemplateVocabulary, prepareLocalMaterials, readDeckPlan, recordMaterialReview, renderTemplateScaffold, renderTemplateSlide, researchSave, researchTargets, reviewDeckRead, stopOpenDeckServers, storyRead, switchDeckDesign, upsertDeckPlanSlide } from "../lib/runtime"
 import { readTarArchive, writeTarArchive } from "../lib/design/archive"
 import pkg from "../package.json"
 import { tempWorkspace } from "./helpers/tool-helpers"
@@ -131,6 +130,85 @@ describe("runtime facade", () => {
       seed: { title: "Chart scaffold" },
     })
     expect(addedScaffold.inserted).toBe(true)
+  })
+
+  it("switches one deck to a new active design snapshot without rewriting slides", () => {
+    const root = tempWorkspace("revela-runtime-switch-design-")
+    createDeckFoundation({
+      workspaceRoot: root,
+      outputPath: "decks/switchable.html",
+      title: "Switchable",
+      language: "en",
+      designName: "starter",
+    })
+    addTemplateSlide({
+      workspaceRoot: root,
+      outputPath: "decks/switchable.html",
+      designName: "starter",
+      templateId: "cover",
+      slideIndex: 1,
+      content: { title: "Switchable deck", subtitle: "Design should move through CSS." },
+    })
+
+    const htmlPath = join(root, "decks", "switchable.html")
+    const before = readFileSync(htmlPath, "utf-8")
+    const slideBefore = before.match(/<!-- revela-slides:start -->([\s\S]*?)<!-- revela-slides:end -->/)?.[1]
+
+    const switched = switchDeckDesign({
+      workspaceRoot: root,
+      file: "decks/switchable.html",
+      name: "summit",
+      openBrowser: false,
+    })
+
+    const after = readFileSync(htmlPath, "utf-8")
+    const slideAfter = after.match(/<!-- revela-slides:start -->([\s\S]*?)<!-- revela-slides:end -->/)?.[1]
+    expect(switched).toMatchObject({
+      ok: true,
+      file: "decks/switchable.html",
+      activeDesign: "summit",
+      design: "summit",
+      snapshotHref: "./_revela-design/switchable-active/design.css",
+      migratedLink: false,
+    })
+    expect(slideAfter).toBe(slideBefore)
+    expect(after).toContain('<link rel="stylesheet" href="./_revela-design/switchable-active/design.css">')
+    expect(readFileSync(join(root, "decks", "_revela-design", "switchable-active", "design.css"), "utf-8")).toContain("cover-background.jpg")
+    designActivate({ name: "starter" })
+  })
+
+  it("migrates a legacy named design stylesheet link during deck design switch", () => {
+    const root = tempWorkspace("revela-runtime-switch-legacy-")
+    createDeckFoundation({
+      workspaceRoot: root,
+      outputPath: "decks/legacy.html",
+      title: "Legacy",
+      language: "en",
+      designName: "starter",
+    })
+    const htmlPath = join(root, "decks", "legacy.html")
+    writeFileSync(
+      htmlPath,
+      readFileSync(htmlPath, "utf-8").replace(
+        "./_revela-design/legacy-active/design.css",
+        "./_revela-design/starter/design.css",
+      ),
+      "utf-8",
+    )
+
+    const switched = switchDeckDesign({
+      workspaceRoot: root,
+      file: "decks/legacy.html",
+      name: "lucent",
+      openBrowser: false,
+    })
+    const html = readFileSync(htmlPath, "utf-8")
+
+    expect(switched.migratedLink).toBe(true)
+    expect(html).toContain('href="./_revela-design/legacy-active/design.css"')
+    expect(html).toContain('data-revela-design-link="active"')
+    expect(html).not.toContain("./_revela-design/starter/design.css")
+    designActivate({ name: "starter" })
   })
 
   it("exposes the package version through CLI doctor", () => {
@@ -1019,14 +1097,14 @@ sources:
     expect(existsSync(join(root, ".revela", "codex-hooks", "design-rules-read.json"))).toBe(true)
   })
 
-  it("opens a Codex-backed Review server by default without creating compatibility state", async () => {
+  it("opens a deck directly for Codex Browser review without creating compatibility state", async () => {
     seedBuiltinDesigns()
     const root = tempWorkspace("revela-runtime-review-open-default-")
     writeMinimalDeck(root, "decks/review.html")
     const openedUrls: string[] = []
 
     try {
-      const result = await reviewDeckOpen({
+      const result = await openDeck({
         workspaceRoot: root,
         file: "decks/review.html",
         openUrl: (url) => openedUrls.push(url),
@@ -1035,43 +1113,41 @@ sources:
       expect(result).toMatchObject({
         ok: true,
         file: "decks/review.html",
-        bridge: "codex-exec",
-        mode: "edit",
+        mode: "direct",
+        readOnly: true,
         openedBrowser: true,
       })
-      expect(result.url).toContain("/codex-review?token=")
+      expect(result.url).toContain("/decks/review.html")
+      expect(result.url).not.toContain("/codex-review")
+      expect(result.url).not.toContain("token=")
       expect(openedUrls).toEqual([result.url])
-      expect(result.token).toBeString()
-      expect(result.deck).toMatchObject({ file: "decks/review.html", source: "file-path" })
-      expect(result).not.toHaveProperty("reviewRead")
       expect(existsSync(join(root, DECKS_STATE_FILE))).toBe(false)
     } finally {
-      stopRefineServer()
+      await stopOpenDeckServers()
     }
   }, 60000)
 
-  it("returns a Codex-backed Review URL when browser opening is disabled", async () => {
+  it("returns a direct deck URL when browser opening is disabled", async () => {
     seedBuiltinDesigns()
     const root = tempWorkspace("revela-runtime-review-open-")
     writeMinimalDeck(root, "decks/review.html")
 
     try {
-      const result = await reviewDeckOpen({ workspaceRoot: root, file: "decks/review.html", openBrowser: false })
+      const result = await openDeck({ workspaceRoot: root, file: "decks/review.html", openBrowser: false })
 
       expect(result).toMatchObject({
         ok: true,
         file: "decks/review.html",
-        bridge: "codex-exec",
-        mode: "edit",
+        mode: "direct",
+        readOnly: true,
         openedBrowser: false,
       })
-      expect(result.url).toContain("/codex-review?token=")
-      expect(result.token).toBeString()
-      expect(result.deck).toMatchObject({ file: "decks/review.html", source: "file-path" })
-      expect(result).not.toHaveProperty("reviewRead")
+      expect(result.url).toContain("/decks/review.html")
+      expect(result.url).not.toContain("/codex-review")
+      expect(result.url).not.toContain("token=")
       expect(existsSync(join(root, DECKS_STATE_FILE))).toBe(false)
     } finally {
-      stopRefineServer()
+      await stopOpenDeckServers()
     }
   }, 60000)
 })
@@ -1638,7 +1714,7 @@ function writeMinimalDeck(root: string, outputPath: string): void {
     <section class="slide" slide-qa="false" data-slide-index="1">
         <div class="slide-canvas">
             <div class="page">
-                <div class="eyebrow">Review</div>
+                <div class="template-eyebrow">Review</div>
                 <h2>Bounded pilot</h2>
                 <p>This minimal slide gives Review deck QA a valid canvas and slide identity.</p>
             </div>

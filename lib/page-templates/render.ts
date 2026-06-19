@@ -475,23 +475,23 @@ export function templateDeckCss(input: { designName?: string; designAssetBasePat
   const lucentCoverBackground = designName === "lucent" && assetBasePath ? cssUrl(`${assetBasePath}/cover-background.jpg`) : ""
   const lucentClosingBackground = designName === "lucent" && assetBasePath ? cssUrl(`${assetBasePath}/closing-background.jpg`) : ""
   const lucentCoverBackgroundCss = lucentCoverBackground ? `
-.template-slide[data-design="lucent"][data-template="cover"] .slide-canvas {
+.template-slide[data-template="cover"] .slide-canvas {
   background:
     linear-gradient(90deg, rgba(7,17,31,0.82), rgba(7,17,31,0.42) 52%, rgba(7,17,31,0.24)),
     url("${lucentCoverBackground}") center center / cover no-repeat;
 }
-.template-slide[data-design="lucent"][data-template="agenda"] .slide-canvas {
+.template-slide[data-template="agenda"] .slide-canvas {
   background:
     linear-gradient(90deg, rgba(7,17,31,0.86), rgba(7,17,31,0.58) 52%, rgba(7,17,31,0.32)),
     url("${lucentCoverBackground}") center center / cover no-repeat;
 }
-.template-slide[data-design="lucent"][data-template="section-divider"] .slide-canvas {
+.template-slide[data-template="section-divider"] .slide-canvas {
   background:
     linear-gradient(90deg, rgba(7,17,31,0.86), rgba(16,26,43,0.62) 58%, rgba(36,58,115,0.36)),
     url("${lucentCoverBackground}") center center / cover no-repeat;
 }` : ""
   const lucentClosingBackgroundCss = lucentClosingBackground ? `
-.template-slide[data-design="lucent"][data-template="closing"] .slide-canvas {
+.template-slide[data-template="closing"] .slide-canvas {
   background:
     linear-gradient(90deg, rgba(7,17,31,0.82), rgba(49,94,234,0.42) 58%, rgba(24,168,216,0.24)),
     url("${lucentClosingBackground}") center center / cover no-repeat;
@@ -591,10 +591,13 @@ ${lucentClosingBackgroundCss}
 .template-text-panel-formula-caption { margin: 0; font-size: 14px; line-height: 1.35; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
 .template-text-panel--color .template-text-panel-formula-caption { color: rgba(255,255,255,0.72); }
 .template-chart-takeaway-list { display: grid; gap: 22px; width: 100%; }
-.template-chart-takeaway-item { display: grid; gap: 7px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.24); }
+.template-chart-takeaway-item { display: grid; gap: 7px; padding-top: 18px; border-top: 1px solid var(--line); }
+.template-text-panel--color .template-chart-takeaway-item { border-top-color: rgba(255,255,255,0.24); }
 .template-chart-takeaway-item:first-child { padding-top: 0; border-top: 0; }
-.template-chart-takeaway-item h3 { margin: 0; font-size: 25px; line-height: 1.24; color: white; }
-.template-chart-takeaway-item p { margin: 0; font-size: 20px; line-height: 1.46; color: rgba(255,255,255,0.78); }
+.template-chart-takeaway-item h3 { margin: 0; font-size: 25px; line-height: 1.24; color: var(--text-primary); }
+.template-text-panel--color .template-chart-takeaway-item h3 { color: white; }
+.template-chart-takeaway-item p { margin: 0; font-size: 20px; line-height: 1.46; color: var(--text-secondary); }
+.template-text-panel--color .template-chart-takeaway-item p { color: rgba(255,255,255,0.78); }
 .template-bar { flex: 1; background: linear-gradient(180deg, var(--accent-primary), var(--accent-cyan)); min-height: 80px; }
 .template-table-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 34px; height: 100%; align-items: stretch; }
 .template-table-layout .template-side-panel { grid-column: 1; grid-row: 1; }

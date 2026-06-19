@@ -2,30 +2,31 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-730%20passing-brightgreen)](tests/) [![Codex MCP](https://img.shields.io/badge/Codex-MCP-blue)](https://github.com/openai/codex) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
+[![npm version](https://img.shields.io/npm/v/@cyber-dash-tech/revela)](https://www.npmjs.com/package/@cyber-dash-tech/revela) [![license](https://img.shields.io/npm/l/@cyber-dash-tech/revela)](LICENSE) [![tests](https://img.shields.io/badge/tests-772%20passing-brightgreen)](tests/) [![Codex MCP](https://img.shields.io/badge/Codex-MCP-blue)](https://github.com/openai/codex) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-orange)](https://bun.sh)
 
 <p align="center">
   <img src="assets/img/logo-wordmark.png" alt="Revela" width="320" />
 </p>
 
-Revela is a Codex plugin for turning source materials, research, data, and intent into trusted, traceable, presentation-ready decision artifacts.
+Revela is a Codex plugin for turning source materials, research, data, and intent into trusted, traceable, presentation-ready decision decks.
 
-In your local workspace, Revela reviews materials, saves source-linked research, builds an explicit `deck-plan.md`, generates HTML decks, surfaces them as localhost Codex Browser website cards for annotation, and exports PDF/PPTX/PNG artifacts.
+In a local workspace, Revela helps a Codex agent clarify the ask, organize source material, write `deck-plan.md`, render `decks/*.html`, open the deck in Codex Browser for review, and export PDF/PPTX/PNG.
 
 ## Install
 
 ### Codex
 
+This section is for a Codex agent helping a user install or refresh Revela in an environment where Codex plugin commands are available.
+
 Requirements:
 
-- The Codex CLI must be installed and the `codex` command must be available in your shell.
-- Your environment must be able to run `bun`; Revela uses `bun ./mcp/revela-server.ts` from the installed Codex plugin cache to start the MCP server.
+- Codex is installed and can install plugins from a Git marketplace.
+- The environment can run `bun`; the Revela plugin starts its MCP server with `bun ./mcp/revela-server.ts` from the installed plugin cache.
 
 Optional preflight:
 
 ```bash
-codex --version
-codex exec --help
+codex plugin --help
 bun --version
 ```
 
@@ -36,20 +37,20 @@ sudo chown -R "$(id -u):$(id -g)" ~/.npm
 npm_config_cache=/tmp/revela-npm-cache bun run smoke:mcp-pack
 ```
 
-Install Revela through the Codex Git marketplace:
+Install the latest Revela plugin from the Git marketplace:
 
 ```bash
-codex plugin marketplace add https://github.com/cyber-dash-tech/revela --ref v0.19.8
+codex plugin marketplace add https://github.com/cyber-dash-tech/revela
 codex plugin add revela@revela
 ```
 
-The Git marketplace install provides the Codex plugin shell, skills, hooks, and MCP configuration. When Codex starts the Revela MCP server, it runs `bun ./mcp/revela-server.ts` from the installed plugin cache and resolves the checked-out marketplace runtime.
+The Git marketplace install provides the Codex plugin shell, skills, hooks, and MCP configuration. When Codex starts Revela, it runs `bun ./mcp/revela-server.ts` from the installed plugin cache and resolves the marketplace runtime.
 
 You do not need to run `bun install` inside the Codex marketplace clone.
 
 Start a new Codex thread after installing so Codex loads the Revela skills, MCP tools, and hooks.
 
-Codex uses eight Revela skills: `revela` for routing the next workflow step, `revela-spec` for writing root-level `spec.md`, `revela-helper` for status and active design/domain, `revela-design` for custom design creation/validation/activation, `revela-domain` for custom narrative domain creation/validation/activation, `revela-research` for local and web research saved under `researches/` plus the design-aware `deck-plan.md` handoff, `revela-make-deck` for generating HTML deck artifacts from an existing plan and surfacing the QA-passed deck as a localhost Codex Browser website card, and `revela-export` for PDF/PPTX/PNG.
+Codex uses nine Revela skills: `revela` for routing the next workflow step, `revela-spec` for writing root-level `spec.md`, `revela-helper` for status and active design/domain, `revela-design` for custom design creation/validation/activation, `revela-domain` for custom narrative domain creation/validation/activation, `revela-research` for material review, saved findings, and the `deck-plan.md` handoff, `revela-make-deck` for rendering HTML decks, `revela-review` for opening HTML decks directly in Codex Browser, and `revela-export` for PDF/PPTX/PNG.
 
 For release-aligned local validation, run `bun run smoke:mcp-pack`. It packs the current checkout to a temporary npm tarball, extracts it, and starts the MCP server through the packaged Codex plugin launcher path without requiring a registry publish.
 
@@ -57,7 +58,7 @@ For release-aligned local validation, run `bun run smoke:mcp-pack`. It packs the
 
 In Codex, ask Revela to check the current runtime version; the plugin calls `revela_doctor` and reports the running `version`.
 
-For a fixed release tag, reinstall the plugin from that tag:
+To pin a specific release, reinstall from that tag:
 
 ```bash
 codex plugin remove revela@revela
@@ -121,70 +122,52 @@ Revela includes built-in deck designs. Design previews are generated from the bu
 
 To switch designs in Codex, ask:
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.8/skills/revela/SKILL.md), use summit as the design.
+> Use Revela to switch to the summit design.
 
-In Codex, ask Revela to list or switch designs; the plugin uses the active design when making decks.
+In Codex, ask Revela to list or switch designs; the plugin uses the active design when making new decks. For an existing deck, name the file so Revela can refresh that deck's local design snapshot without rewriting slide content:
+
+> Use Revela to switch @decks/<file>.html to the summit design.
 
 ## Domains
 
 Domains add topic-specific communication guidance, such as consulting, product, or investor communication. Use them when you want Revela to adapt deck framing to a specific context.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.8/skills/revela/SKILL.md), list available domains.
+> Use Revela to list available domains.
 
-In Codex, ask Revela to list or switch domains; the active domain guides deck framing during init, research, and planning.
+In Codex, ask Revela to list or switch domains; the active domain guides spec writing, planning, and deck framing.
 
 ## Quick Start
 
-Use these prompts in Codex from the workspace that contains your source materials.
+Use these prompts in Codex from the workspace that contains the user's source materials.
 
-1. Choose the narrative domain before authoring so Revela frames the audience, decision, risks, and objections for your context.
+1. **Spec**: capture the ask, audience, output, constraints, language, design preference, and acceptance criteria in `spec.md`.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.8/skills/revela/SKILL.md), use consulting as the domain.
+> Use Revela to turn this goal into a spec.md for a decision deck. Inspect the workspace, ask only for missing high-impact details, and recommend the next step.
 
-2. Choose the deck design before rendering so generated artifacts use the intended visual language.
+2. **Plan**: review the materials, save source-linked findings, and produce `deck-plan.md`.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.8/skills/revela/SKILL.md), use summit as the design.
+> Use Revela to review the materials, save useful findings, and produce deck-plan.md for this deck.
 
-3. Create a custom design when you want a different visual direction.
+3. **Render Deck**: generate `decks/*.html` from the plan.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.8/skills/revela/SKILL.md), create a new design named neon-finance with a crisp financial-dashboard style: dark surfaces, precise grids, and bright green accents.
+> Use Revela to render the deck from deck-plan.md.
 
-Revela may ask for references or constraints, then creates a workspace draft with `DESIGN.md`, `design.css`, and any local `assets/**`. It generates a preview from the built-in page-template fixture plus that CSS so you can review cover, agenda, timelines, charts, tables, cards, and visual slots before installing. When it is ready, switch to it:
+4. **Review**: open the HTML deck directly in Codex Browser. Replace `@decks/<file>.html` with the actual generated file path.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.8/skills/revela/SKILL.md), use neon-finance as the design.
+> Use Revela to review @decks/<file>.html in Codex Browser.
 
-4. Initialize local material intake. Init scans, extracts, and reviews workspace sources; it does not create a Narrative Vault.
+Use Review to inspect copy, argument flow, hierarchy, spacing, charts, tables, visuals, and export readiness. If you want a diagnostic report, ask Revela to diagnose or QA the same deck file.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.8/skills/revela/SKILL.md), help me init this workspace from the local materials.
+5. **Export**: export the reviewed HTML deck. Replace `@decks/<file>.html` with the actual generated file path.
 
-5. Research source-linked deck inputs and save findings.
+> Use Revela to export @decks/<file>.html as PDF.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.8/skills/revela/SKILL.md), research the public evidence and examples needed for this deck.
+> Use Revela to export @decks/<file>.html as editable PPTX.
 
-6. Create or update the deck plan before generating HTML so slide order, chapter structure, source links, unresolved inputs, source limitations, and visual intent are explicit.
+> Use Revela to export @decks/<file>.html as per-slide PNG files.
 
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.8/skills/revela/SKILL.md), create or update the deck plan before generating HTML.
+Optional setup:
 
-7. Make an HTML deck from the current deck plan.
-
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.8/skills/revela/SKILL.md), make the deck from the current deck plan.
-
-8. Review and annotate the generated deck from the localhost website card after make-deck completes.
-
-Revela serves the deck from `http://127.0.0.1:<port>/decks/<file>.html` so you can click the card and open it in Codex Browser. Use Codex Browser's native annotation tools on the opened HTML deck.
-
-9. Export a PDF after deck QA passes.
-
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.8/skills/revela/SKILL.md), export the deck to PDF.
-
-10. Export an editable PPTX after deck QA passes.
-
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.8/skills/revela/SKILL.md), export the deck to PPTX.
-
-11. Export per-slide PNG files after deck QA passes.
-
-> [$revela:revela](/Users/mengdigao/.codex/plugins/cache/revela/revela/0.19.8/skills/revela/SKILL.md), export the deck to PNG.
-
-## Annotate A Deck
-
-After `revela-make-deck` generates an HTML deck and Artifact QA passes, Codex replies with a localhost website card that you can click to open the deck in Codex Browser. Use the browser's native annotation tools for targeted edits such as layout, copy, hierarchy, spacing, or visual changes.
+- Use Revela to switch to the consulting domain.
+- Use Revela to switch to the summit design.
+- Use Revela to create a custom design named neon-finance with a crisp financial-dashboard style.

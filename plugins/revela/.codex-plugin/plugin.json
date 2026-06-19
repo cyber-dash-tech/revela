@@ -1,7 +1,7 @@
 {
   "name": "revela",
-  "version": "0.19.7",
-  "description": "Use Revela in Codex to specify, research, plan, make, and export trusted narrative decision artifacts.",
+  "version": "0.19.8",
+    "description": "Use Revela in Codex to specify, research, plan, make, review, and export trusted narrative decision artifacts.",
   "author": {
     "name": "cyber-dash-tech",
     "url": "https://github.com/cyber-dash-tech"
@@ -20,7 +20,7 @@
   "interface": {
     "displayName": "Revela",
     "shortDescription": "Trusted narrative artifacts from local sources and research.",
-    "longDescription": "Revela helps Codex route workspace workflows, capture requirements in spec.md, ingest local materials, save research findings, plan decks, generate HTML deck artifacts, open them in Codex Browser for annotation, and export PDF/PPTX/PNG outputs while preserving source traceability.",
+    "longDescription": "Revela helps Codex route workspace workflows, capture requirements in spec.md, ingest local materials, save research findings, plan decks, generate HTML deck artifacts, open them directly in Codex Browser, and export PDF/PPTX/PNG outputs while preserving source traceability.",
     "developerName": "cyber-dash-tech",
     "category": "Productivity",
     "capabilities": [
@@ -31,6 +31,7 @@
       "Use Revela to route the next workflow step for this workspace.",
       "Use Revela to write a spec.md for this deck objective.",
       "Use Revela to make a deck from the deck plan.",
+      "Use Revela to review this deck in Codex Browser.",
       "Use Revela to export this deck artifact."
     ],
     "brandColor": "#2563EB"

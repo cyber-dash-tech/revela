@@ -29,7 +29,7 @@ Codex support is built as the default adapter around existing Revela capabilitie
 1. CLI and shared runtime boundary
    - Purpose: provide the stable local contract Codex and other adapters can use without marketplace packaging.
    - Main surfaces: `bin/revela.ts`, `lib/runtime/`.
-   - Enables: JSON-safe commands and `revela mcp` for workspace doctor checks, narrative compile, Markdown QA, deck-plan read, deck foundation creation, artifact QA, PDF/PPTX export, design reads/activation, and domain reads/activation. Review read/open tools remain compatibility-only.
+   - Enables: JSON-safe commands and `revela mcp` for workspace doctor checks, narrative compile, Markdown QA, deck-plan read, deck foundation creation, artifact QA, PDF/PPTX export, design reads/activation, domain reads/activation, and Codex Browser deck review.
    - Does not own: duplicated compiler, QA, export, design, or state implementations; it wraps existing implementations.
 
 2. Codex plugin package
@@ -46,15 +46,15 @@ Codex support is built as the default adapter around existing Revela capabilitie
 
 4. Workflow skills
    - Purpose: give Codex workflow guidance that replaces OpenCode prompt injection for Codex sessions.
-   - Main surfaces: `plugins/revela/skills/revela`, `revela-spec`, `revela-helper`, `revela-design`, `revela-domain`, `revela-research`, `revela-make-deck`, and `revela-export`.
-   - Enables: workflow routing, file-native helper/status, Spec, Design authoring, Domain authoring, Research, Plan Deck, Make Deck with Codex Browser handoff, and Export workflows in Codex.
+   - Main surfaces: `plugins/revela/skills/revela`, `revela-spec`, `revela-helper`, `revela-design`, `revela-domain`, `revela-research`, `revela-make-deck`, `revela-review`, and `revela-export`.
+   - Enables: workflow routing, file-native helper/status, Spec, Design authoring, Domain authoring, Research, Plan Deck, Make Deck, direct Codex Browser deck review, and Export workflows in Codex.
    - Cross-cutting design/domain guidance is read through MCP tools inside these workflows: router/spec inspect active guidance, design/domain skills author packages, research uses domain/design tools, and make-deck uses design tools.
    - Does not own: hidden workflow state, approval gates, legacy OpenCode slash-command parity, or direct mutation of canonical compiled caches.
 
 5. MCP server
    - Purpose: expose shared runtime functions to Codex as tools over stdio JSON-RPC.
    - Main surfaces: `bin/revela.ts`, `plugins/revela/mcp/revela-server.ts`, `plugins/revela/mcp/runtime-resolver.ts`, `plugins/revela/.mcp.json`.
-   - Enables: Codex tool calls such as `revela_prepare_local_materials`, `revela_extract_document_materials`, `revela_research_save`, `revela_read_deck_plan`, `revela_upsert_deck_plan_slide` as a compatibility/repair helper, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_export_pdf`, `revela_export_pptx`, `revela_export_png`, `revela_design_list`, `revela_design_read`, `revela_design_inventory`, `revela_design_create`, `revela_design_draft_create`, `revela_design_draft_install`, `revela_design_activate`, `revela_domain_list`, `revela_domain_read`, `revela_domain_create`, `revela_domain_draft_create`, `revela_domain_draft_install`, and `revela_domain_activate`. `revela_review_deck_open` and `revela_review_deck_read` remain compatibility-only.
+   - Enables: Codex tool calls such as `revela_prepare_local_materials`, `revela_extract_document_materials`, `revela_research_save`, `revela_read_deck_plan`, `revela_upsert_deck_plan_slide` as a compatibility/repair helper, `revela_create_deck_foundation`, `revela_run_deck_qa`, `revela_open_deck`, `revela_review_deck_read`, `revela_export_pdf`, `revela_export_pptx`, `revela_export_png`, `revela_design_list`, `revela_design_read`, `revela_design_inventory`, `revela_design_create`, `revela_design_draft_create`, `revela_design_draft_install`, `revela_design_activate`, `revela_domain_list`, `revela_domain_read`, `revela_domain_create`, `revela_domain_draft_create`, `revela_domain_draft_install`, and `revela_domain_activate`.
    - Does not own: product workflow policy, broad orchestration, or legacy OpenCode tool replacement. Prefer `revela mcp` as the stable entry; plugin `.mcp.json` is a wrapper for Codex plugin installation.
 
 6. Codex hooks
@@ -87,7 +87,7 @@ Codex support is built as the default adapter around existing Revela capabilitie
    - Add minimal assets and install-surface metadata.
 
 3. Workflow skills
-   - Add `revela`, `revela-spec`, `revela-helper`, `revela-design`, `revela-domain`, `revela-research`, `revela-make-deck`, and `revela-export`.
+   - Add `revela`, `revela-spec`, `revela-helper`, `revela-design`, `revela-domain`, `revela-research`, `revela-make-deck`, `revela-review`, and `revela-export`.
    - Fold workflow routing into `revela`, demand discovery into `revela-spec`, design/domain package authoring into dedicated skills, local material init and design-aware `deck-plan.md` handoff into `revela-research`, and design-aware rendering into `revela-make-deck`.
    - Skills must refer to Codex MCP tools and normal file edits, not OpenCode-only slash commands or OpenCode tool names.
 
@@ -112,7 +112,7 @@ Codex support is built as the default adapter around existing Revela capabilitie
 The first Codex smoke run proved the file-native workflow can complete through the local plugin and MCP server. Backfill priorities:
 
 - Keep `revela mcp` and MCP discovery as the normal runtime path; direct JSON-RPC is debug-only.
-- Treat post-make deck review as a Codex Browser native annotation workflow. `revela_review_deck_open`, `revela review-read --file <deck.html>`, and `revela_review_deck_read` remain compatibility-only diagnostics/legacy surfaces.
+- Treat post-make deck review as a direct Codex Browser workflow. `revela-review` opens deck HTML through `revela_open_deck`; `revela_review_deck_read` is an optional diagnostics surface when the user asks for QA/readiness.
 - Document that browser-based QA and export may require command escalation in sandboxed Codex sessions.
 - Preserve the QA repair loop for text clipping and overflow.
 - Treat non-active legacy deck target warnings as non-blocking for standalone smoke artifacts when hard QA passes.
@@ -121,7 +121,7 @@ The first Codex smoke run proved the file-native workflow can complete through t
 
 ## Codex Browser Handoff
 
-Codex Browser is the default post-make surface. After `revela-make-deck` produces an HTML deck artifact and Artifact QA passes, Codex should reply with a standalone `file://` website link so the client renders an Open in Browser card for native annotation. Use a workspace-local `http://127.0.0.1:<port>/decks/<file>.html` link only when the card or direct file navigation is unavailable. Legacy Review UI runtime and MCP tools remain compatibility-only and are not advertised as a Codex workflow skill.
+Direct Codex Browser deck viewing is the default post-make surface. After `revela-make-deck` produces an HTML deck artifact, `revela-review` can open the deck through `revela_open_deck` without running QA first. Use `revela_review_deck_read` only when the user asks for diagnostics, QA, or readiness.
 
 ## Non-Goals
 

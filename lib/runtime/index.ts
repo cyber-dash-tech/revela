@@ -1,6 +1,6 @@
 import { createHash } from "crypto"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
-import { dirname, resolve } from "path"
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "fs"
+import { dirname, isAbsolute, resolve, sep } from "path"
 import {
   activeDesign,
   activateDesign,
@@ -16,13 +16,14 @@ import {
   listDesignAssets,
   listDesigns,
   materializeDesignPreview,
+  materializeDesignCssSnapshot,
   packDesignPackage,
   seedBuiltinDesigns,
   validateDesignDraftPackage,
   validateDesignPackage,
   type DesignPackageAssetInput,
 } from "../design/designs"
-import { createDeckFoundation as createDeckFoundationShell } from "../deck-html/foundation"
+import { activeDesignSnapshotName, createDeckFoundation as createDeckFoundationShell } from "../deck-html/foundation"
 import { activeDomain, activateDomain, createDomainDraftPackage, createDomainPackage, getDomainSkillMd, installDomainDraftPackage, listDomains, seedBuiltinDomains, validateDomainDraftPackage, validateDomainPackage } from "../domain/domains"
 import { compileNarrativeVault } from "../narrative-vault/compile"
 import { autoCompileNarrativeVault } from "../narrative-vault/auto-compile"
@@ -36,6 +37,8 @@ import { recordRenderedArtifact, workspaceRelative } from "../workspace-state/re
 import { existingWorkspaceMetaPath, workspaceMetaPath } from "../workspace-meta"
 import { checkMaterialIntake, extractMaterial, materialIntakeNoticeForCommand, prepareLocalMaterials, recordMaterialReview } from "../material-intake"
 import type { ReviewDeckOpenInput, ReviewDeckReadInput } from "./review"
+export type { OpenDeckInput } from "./open-deck"
+import { openDeck as openDeckDirect } from "./open-deck"
 import pkg from "../../package.json"
 export { bindResearchFindings, evaluateResearchFindings, researchSave, researchTargets } from "./research"
 export { storyRead } from "./story"
@@ -70,6 +73,12 @@ export interface RuntimeDesignReadInput {
 
 export interface RuntimeDesignInventoryInput {
   name?: string
+}
+
+export interface RuntimeDeckDesignSwitchInput extends RuntimeWorkspaceInput {
+  file: string
+  name: string
+  openBrowser?: boolean
 }
 
 export interface RuntimeDesignLayoutReadInput {
@@ -380,6 +389,16 @@ export async function reviewDeckOpen(input: ReviewDeckOpenInput) {
   return review.reviewDeckOpen(input)
 }
 
+export async function openDeck(input: RuntimeFileInput & { openBrowser?: boolean; openUrl?: (url: string) => void }) {
+  const direct = await import("./open-deck")
+  return direct.openDeck(input)
+}
+
+export async function stopOpenDeckServers() {
+  const direct = await import("./open-deck")
+  return direct.stopOpenDeckServers()
+}
+
 export function designList() {
   return {
     ok: true,
@@ -586,6 +605,50 @@ export function designActivate(input: RuntimeNameInput) {
   }
 }
 
+export function switchDeckDesign(input: RuntimeDeckDesignSwitchInput) {
+  seedBuiltinDesigns()
+  const workspaceRoot = root(input.workspaceRoot)
+  const file = normalizeDeckFile(workspaceRoot, requiredString(input.file, "file"))
+  const design = requiredName({ name: input.name }, "design")
+  activateDesign(design)
+
+  const snapshot = materializeDesignCssSnapshot({
+    workspaceRoot,
+    outputPath: file,
+    designName: design,
+    snapshotName: activeDesignSnapshotName(file),
+  })
+
+  const htmlPath = resolve(workspaceRoot, file)
+  const html = readFileSync(htmlPath, "utf-8")
+  const migratedHtml = migrateDeckDesignLink(html, snapshot.href)
+  const migratedLink = migratedHtml !== html
+  if (migratedLink) writeFileSync(htmlPath, migratedHtml, "utf-8")
+
+  const opened = input.openBrowser === false
+    ? undefined
+    : openDeckDirect({ workspaceRoot, file, openBrowser: input.openBrowser })
+
+  return {
+    ok: true,
+    file,
+    activeDesign: activeDesign(),
+    design,
+    snapshotHref: snapshot.href,
+    snapshotDir: workspaceRelative(workspaceRoot, snapshot.snapshotDir),
+    assetCount: snapshot.assetCount,
+    migratedLink,
+    opened: opened ? {
+      ok: opened.ok,
+      url: opened.url,
+      openedBrowser: opened.openedBrowser,
+      mode: opened.mode,
+      readOnly: opened.readOnly,
+    } : undefined,
+    warnings: snapshot.warnings,
+  }
+}
+
 export function domainList() {
   seedBuiltinDomains()
   return {
@@ -657,6 +720,35 @@ export function domainDraftInstall(input: RuntimeDraftInstallInput) {
 
 function root(workspaceRoot: string | undefined): string {
   return resolve(workspaceRoot || process.cwd())
+}
+
+function normalizeDeckFile(workspaceRoot: string, fileInput: string): string {
+  const requested = fileInput.trim()
+  const absolute = isAbsolute(requested) ? resolve(requested) : resolve(workspaceRoot, requested)
+  if (!isInside(workspaceRoot, absolute)) throw new Error(`Deck HTML file is outside the workspace: ${requested}`)
+  if (!existsSync(absolute) || !statSync(absolute).isFile()) throw new Error(`Deck HTML file not found: ${requested}`)
+  const file = workspaceRelative(workspaceRoot, absolute)
+  if (!file.startsWith("decks/") || !file.endsWith(".html")) throw new Error(`Deck HTML file must be under decks/*.html: ${file}`)
+  return file
+}
+
+function migrateDeckDesignLink(html: string, activeHref: string): string {
+  const escapedHref = activeHref.replace(/"/g, "&quot;")
+  if (html.includes(`href="${escapedHref}"`) || html.includes(`href='${escapedHref}'`)) return html
+  const linkRe = /<link\b(?=[^>]*\brel=(["'])stylesheet\1)(?=[^>]*\bhref=(["'])\.\/_revela-design\/[^"']+\/design\.css\2)[^>]*>/i
+  if (linkRe.test(html)) {
+    return html.replace(linkRe, `<link rel="stylesheet" href="${escapedHref}" data-revela-design-link="active">`)
+  }
+  if (/<\/head>/i.test(html)) {
+    return html.replace(/<\/head>/i, `  <link rel="stylesheet" href="${escapedHref}" data-revela-design-link="active">\n</head>`)
+  }
+  return html
+}
+
+function isInside(rootPath: string, candidate: string): boolean {
+  const normalizedRoot = resolve(rootPath)
+  const normalizedCandidate = resolve(candidate)
+  return normalizedCandidate === normalizedRoot || normalizedCandidate.startsWith(normalizedRoot.endsWith(sep) ? normalizedRoot : normalizedRoot + sep)
 }
 
 function safe<T>(fn: () => T): T | undefined {
