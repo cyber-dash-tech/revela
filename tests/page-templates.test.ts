@@ -45,6 +45,9 @@ describe("page templates", () => {
     expect(PAGE_TEMPLATE_CLASSES).toContain("template-text-panel--color")
     expect(PAGE_TEMPLATE_CLASSES).toContain("template-text-panel--clear")
     expect(PAGE_TEMPLATE_CLASSES).toContain("template-text-panel--plain")
+    expect(PAGE_TEMPLATE_CLASSES).toContain("template-text-panel-quote")
+    expect(PAGE_TEMPLATE_CLASSES).toContain("template-text-panel-formula")
+    expect(PAGE_TEMPLATE_CLASSES).toContain("template-text-panel-formula-fallback")
   })
 
   it("renders scaffold slides from minimal seed content", () => {
@@ -87,6 +90,18 @@ describe("page templates", () => {
       const css = readFileSync(cssPath, "utf-8")
       const missing = uniqueClasses.filter((className) => !new RegExp(`\\.${escapeRegExp(className)}(?![A-Za-z0-9_-])`).test(css))
       expect(missing).toEqual([])
+    }
+  })
+
+  it("keeps formula fallback classes defined by every built-in design css", () => {
+    const designs = ["starter", "lucent", "lucent-dark", "monet", "summit"]
+
+    for (const design of designs) {
+      const cssPath = join(import.meta.dir, "..", "designs", design, "design.css")
+      const css = readFileSync(cssPath, "utf-8")
+
+      expect(css).toContain(".template-text-panel-formula-fallback")
+      expect(css).toContain(".text-panel-formula-fallback")
     }
   })
 
@@ -274,6 +289,7 @@ describe("page templates", () => {
         title: "Table",
         textTitle: "What to read",
         textBody: "Scan the current and target columns before deciding.",
+        quote: "Financial quality is the alignment of growth, margin, and cash.",
         columns: ["Signal", "Current", "Target"],
         rows: [
           ["Adoption", "67%", "75%"],
@@ -287,6 +303,7 @@ describe("page templates", () => {
     expect(rendered.html).toContain('class="template-side-panel template-text-panel template-text-panel--clear" data-template-slot="text-card"')
     expect(rendered.html).toContain("template-side-panel-title template-text-panel-title")
     expect(rendered.html).toContain("template-side-panel-body template-text-panel-body")
+    expect(rendered.html).toContain("template-text-panel-quote")
     expect(rendered.html).toContain('class="template-table-region" data-template-slot="table"')
     expect(rendered.html).toContain("<table class=\"template-table\">")
     expect(rendered.html).toContain("<th>Signal</th>")
@@ -385,6 +402,9 @@ describe("page templates", () => {
       content: {
         title: "Chart takeaways",
         takeawaysTitle: "What to read",
+        quote: "Charts become useful when they change the next question.",
+        formulaLatex: "\\mathrm{ROI}=\\frac{\\mathrm{Gain}-\\mathrm{Cost}}{\\mathrm{Cost}}",
+        formulaCaption: "Formula text member",
         items: [
           { label: "Trend", description: "Read movement." },
           { label: "Driver", description: "Name the likely reason." },
@@ -398,9 +418,35 @@ describe("page templates", () => {
     expect(rendered.html).toContain("template-chart-layout")
     expect(rendered.html).toContain("template-visual-slot-panel")
     expect(rendered.html).toContain("template-visual-slot-label")
+    expect(rendered.html).toContain("template-text-panel-quote")
+    expect(rendered.html).toContain("template-text-panel-formula")
+    expect(rendered.html).toContain("data-latex=")
+    expect(rendered.html).toContain("<math")
+    expect(rendered.html).toContain("Formula text member")
     expect(rendered.html).not.toContain("template-visual-placeholder")
     expect(rendered.html.match(/template-chart-takeaway-item/g)).toHaveLength(3)
     expect(rendered.html.match(/template-card/g) ?? []).toHaveLength(0)
+  })
+
+  it("renders invalid formula text members as styled fallback code", () => {
+    const rendered = renderTemplateSlide({
+      templateId: "chart-takeaways",
+      slideIndex: 1,
+      designName: "lucent",
+      content: {
+        title: "Chart takeaways",
+        takeawaysTitle: "What to read",
+        formulaLatex: "\\notacommand{",
+        items: [
+          { label: "Trend", description: "Read movement." },
+        ],
+      },
+    })
+
+    expect(rendered.html).toContain("template-text-panel-formula")
+    expect(rendered.html).toContain("template-text-panel-formula-fallback")
+    expect(rendered.html).toContain("data-formula-error=")
+    expect(rendered.html).toContain("\\notacommand{")
   })
 
   it("renders claim supporting visual with the shared optional visual slot", () => {

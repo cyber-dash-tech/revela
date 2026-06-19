@@ -51,6 +51,7 @@ describe("runtime facade", () => {
     const vocabulary = pageTemplateVocabulary({ templateId: "timeline" })
     expect(foundation.foundation.html).toContain('data-template="timeline"')
     expect(vocabulary.vocabulary.requiredClasses).toContain("template-timeline-dot")
+    expect(pageTemplateVocabulary({ templateId: "chart-takeaways" }).vocabulary.contractNotes.join("\n")).toContain("formula text members")
 
     const rendered = renderTemplateSlide({
       workspaceRoot: root,
@@ -766,6 +767,9 @@ sources:
       expect(previewHtml.match(/class="slide template-slide"/g)).toHaveLength(17)
       expect(previewHtml).toContain('data-template="table"')
       expect(previewHtml).toContain("template-text-panel--clear")
+      expect(previewHtml).toContain("template-text-panel-quote")
+      expect(previewHtml).toContain("template-text-panel-formula")
+      expect(previewHtml).toContain("data-latex=")
       expect(previewHtml).toContain("FY2026 Plan")
       expect(result).toMatchObject({ ok: true, name, sourcePath: draft.path, overwritten: false })
       expect(existsSync(join(result.path, "DESIGN.md"))).toBe(true)
@@ -1008,6 +1012,9 @@ sources:
     expect(inventory.pageTemplates.map((template) => template.templateId)).toContain("table")
     expect(inventory.pageTemplates.find((template) => template.templateId === "table")?.requiredClasses).toContain("template-table-layout")
     expect(inventory.pageTemplates.find((template) => template.templateId === "timeline")?.requiredClasses).toContain("template-timeline-dot")
+    expect(inventory.pageTemplates.find((template) => template.templateId === "chart-takeaways")?.contractNotes.join("\n")).toContain("formula text members")
+    expect(inventory.components.map((component) => component.name)).not.toContain("quote")
+    expect(inventory.components.find((component) => component.name === "box")?.nesting?.allowedChildren).not.toContain("quote")
     expect(readiness).toMatchObject({ ok: true, activeDesign: result.name })
     expect(existsSync(join(root, ".revela", "codex-hooks", "design-rules-read.json"))).toBe(true)
   })

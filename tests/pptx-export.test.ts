@@ -5,6 +5,7 @@ import { basename, join } from "path"
 import {
   applySpeakerNotesToPptx,
   enforceMinimumPptxFontSize,
+  exportToPptx,
   extractImageAssetRefsForPptx,
   inlineImageAssets,
   resolveDomToPptxBundlePath,
@@ -61,6 +62,59 @@ describe("inlineImageAssets", () => {
       rmSync(tempRoot, { recursive: true, force: true })
     }
   })
+})
+
+describe("exportToPptx", () => {
+  it("rasterizes formula text members so PPTX preserves formula styling", async () => {
+    const tempRoot = tempWorkspace("revela-pptx-formula-test-")
+
+    try {
+      const deck = join(tempRoot, "formula.html")
+      writeFileSync(deck, `
+        <!doctype html>
+        <html>
+          <head>
+            <style>
+              html, body { margin: 0; padding: 0; }
+              .slide { width: 1920px; height: 1080px; position: relative; }
+              .slide-canvas { width: 1920px; height: 1080px; position: relative; background: #ffffff; font-family: Arial, sans-serif; }
+              .template-text-panel { position: absolute; left: 180px; top: 180px; width: 920px; display: grid; gap: 32px; color: #172033; }
+              .template-text-panel-title { margin: 0; font-size: 54px; }
+              .template-text-panel-formula { margin: 0; width: 720px; padding: 18px 20px; color: #172033; background: rgba(49,94,234,0.08); }
+              .template-text-panel-formula-caption { margin: 8px 0 0; font-size: 18px; color: #64748b; }
+              math { font-size: 34px; }
+            </style>
+          </head>
+          <body>
+            <section class="slide" data-slide-index="1">
+              <div class="slide-canvas">
+                <div class="template-text-panel">
+                  <h1 class="template-text-panel-title">Formula export</h1>
+                  <figure class="template-text-panel-formula" data-latex="\\mathrm{ROI}=\\frac{\\mathrm{Gain}-\\mathrm{Cost}}{\\mathrm{Cost}}">
+                    <math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+                      <mrow><mi>ROI</mi><mo>=</mo><mfrac><mrow><mi>Gain</mi><mo>-</mo><mi>Cost</mi></mrow><mi>Cost</mi></mfrac></mrow>
+                    </math>
+                    <p class="template-text-panel-formula-caption">Formula text member</p>
+                  </figure>
+                </div>
+              </div>
+            </section>
+          </body>
+        </html>
+      `, "utf-8")
+
+      const result = await exportToPptx(deck)
+      const files = unzipSync(await Bun.file(result.outputPath).bytes())
+      const mediaFiles = Object.keys(files).filter((path) => path.startsWith("ppt/media/"))
+      const slideXml = strFromU8(files["ppt/slides/slide1.xml"])
+
+      expect(result.slideCount).toBe(1)
+      expect(mediaFiles.length).toBeGreaterThan(0)
+      expect(slideXml).toContain("<a:blip")
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true })
+    }
+  }, 60000)
 })
 
 describe("enforceMinimumPptxFontSize", () => {

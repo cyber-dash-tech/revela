@@ -898,7 +898,7 @@ Use these components when a page needs repeatable editorial modules inside a lar
 <!-- @component:box:start -->
 #### Box
 
-Card/group primitive for one idea, case, evidence item, metric, objection, risk, or action. Put `text-panel`, `media`, `echart-panel`, `data-table`, `stat-card`, or `quote` inside a box when they support the same idea.
+Card/group primitive for one idea, case, evidence item, metric, objection, risk, or action. Put `text-panel`, `media`, `echart-panel`, `data-table`, or `stat-card` inside a box when they support the same idea.
 
 ```html
 <div class="box">
@@ -927,7 +927,7 @@ Card/group primitive for one idea, case, evidence item, metric, objection, risk,
 
 <!-- renamed from report-text-panel -->
 
-Unified narrative text container. Use inside any layout slot that needs a self-contained reading surface with heading, body copy, and optional footer metadata. The body zone accepts prose, a bullet list, or both — choose based on content, not convention.
+Unified narrative text container. Use inside any layout slot that needs a self-contained reading surface with heading, body copy, italic quote text, formula text, and optional footer metadata. The body zone accepts prose, a bullet list, quote, formula, or a mix — choose based on content, not convention.
 
 ```html
 <!-- variant A: prose only (--dark) -->
@@ -937,6 +937,11 @@ Unified narrative text container. Use inside any layout slot that needs a self-c
     <h2 style="margin-top:16px;font-size:60px;line-height:0.92;letter-spacing:-0.03em;text-transform:uppercase;color:#f0f4f7;max-width:360px;">Narrative heading</h2>
     <div class="text-panel-body" style="margin-top:20px;">
       <p style="font-size:17px;line-height:1.58;color:rgba(243,238,230,0.84);max-width:390px;">Use one or two compact paragraphs when continuous prose fits the content better than a list.</p>
+      <blockquote class="text-panel-quote">Italic quote text belongs inside the text panel body.</blockquote>
+      <figure class="text-panel-formula" data-latex="\mathrm{ROI}=\frac{\mathrm{Gain}-\mathrm{Cost}}{\mathrm{Cost}}">
+        <span class="katex">Rendered formula</span>
+        <p class="text-panel-formula-caption">Formula text member</p>
+      </figure>
     </div>
   </div>
   <div class="text-panel-footer" style="color:rgba(243,238,230,0.68);">
@@ -1011,6 +1016,38 @@ Unified narrative text container. Use inside any layout slot that needs a self-c
     gap: 12px;
 }
 
+.text-panel-quote {
+    margin: 0;
+    font-style: italic;
+    line-height: 1.46;
+    color: var(--text-secondary);
+}
+
+.text-panel-formula {
+    margin: 0;
+    display: grid;
+    gap: 8px;
+    color: var(--text-primary);
+}
+
+.text-panel-formula-fallback {
+    display: block;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.82em;
+    line-height: 1.35;
+    color: inherit;
+}
+
+.text-panel-formula-caption {
+    margin: 0;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
 /* renamed from .report-panel-footer */
 .text-panel-footer {
     display: flex;
@@ -1021,7 +1058,7 @@ Unified narrative text container. Use inside any layout slot that needs a self-c
 ```
 
 Rules:
-- `.text-panel-body` is the only required structural child. Place `<p>` elements, an `<ul class="editorial-list">`, or both inside it.
+- `.text-panel-body` is the only required structural child. Place `<p>` elements, an `<ul class="editorial-list">`, `<blockquote class="text-panel-quote">`, `<figure class="text-panel-formula">`, or a deliberate mix inside it. Use `.text-panel-formula-fallback` only inside formula figures when LaTeX cannot be rendered.
 - Eyebrow, heading, and footer are all optional — include them only when the content calls for them.
 - Choose `--dark` or `--light` to match the slide's tone. Do not mix variants within a single panel.
 - Pair with a visually dominant neighbor (image, chart) when the layout needs strong contrast against the text zone.
@@ -2292,130 +2329,6 @@ Catalogue-style table-of-contents panel for chaptered presentations. Use a compo
 - **Skip long summaries by default.** If a TOC needs explanation, use one short dek under the main title rather than per-row body copy.
 - **Page references stay understated.** Right-align page numbers and keep them visually secondary to the chapter title.
 <!-- @component:toc:end -->
-
-<!-- @component:quote:start -->
-#### Quote (.quote-block)
-
-Flat editorial quote block. Wide and short (width > height). Transparent background — place it inside any layout slot. The large decorative quotation mark is CSS-rendered (no icon dependency).
-
-```html
-<div class="quote-block">
-  <div class="quote-mark" aria-hidden="true">"</div>
-  <p class="quote-text">The mountains teach us that progress is measured not in speed, but in the ground gained against resistance.</p>
-  <div class="quote-attribution">
-    <!-- initials variant -->
-    <div class="quote-avatar" data-initials="JD" style="--qa-rot:-11deg;"></div>
-    <!-- photo variant: <div class="quote-avatar" style="--qa-rot:8deg;"><img src="avatar.jpg" alt="Jane Doe"></div> -->
-    <div class="quote-meta">
-      <p class="quote-name">Jane Doe</p>
-      <p class="caption">CEO, Acme Corporation</p>
-    </div>
-  </div>
-</div>
-```
-
-```css
-.quote-block {
-    position: relative;
-    padding: 36px 44px 32px;
-    overflow: hidden;
-}
-
-.quote-mark {
-    position: absolute;
-    top: -18px;
-    left: 28px;
-    font-family: Baskerville, Georgia, serif;
-    font-size: 140px;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--accent-sage);
-    opacity: 0.42;
-    pointer-events: none;
-    user-select: none;
-}
-
-.quote-text {
-    position: relative;
-    font-size: 20px;
-    font-style: italic;
-    line-height: 1.5;
-    color: var(--text-primary);
-    max-width: 860px;
-    padding-top: 48px; /* clears the decorative mark */
-}
-
-.quote-attribution {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-top: 24px;
-}
-
-.quote-avatar {
-    position: relative;
-    width: 52px;
-    height: 52px;
-    flex-shrink: 0;
-}
-
-.quote-avatar::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: #fff;
-    border: 1px solid var(--line-strong);
-}
-
-.quote-avatar::after {
-    content: attr(data-initials);
-    position: absolute;
-    inset: 0;
-    background: var(--accent-earth);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--font-display);
-    font-size: 14px;
-    font-weight: 700;
-    color: #fff;
-    transform: rotate(var(--qa-rot, -8deg));
-}
-
-.quote-avatar img {
-    position: absolute;
-    inset: 0;
-    width: 52px;
-    height: 52px;
-    object-fit: cover;
-    transform: rotate(var(--qa-rot, -8deg));
-    z-index: 1;
-}
-
-.quote-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.quote-name {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
-    line-height: 1.3;
-}
-```
-
-**Tips:**
-
-- **Dark background**: override text colors on the parent slot — `color: var(--bg-page)` for `.quote-text` and `.quote-name`; increase `.quote-mark` opacity to `0.15` (the sage hue reads better against dark at lower opacity).
-- **Avatar initials variant**: use `data-initials="JD"` and `style="--qa-rot:-11deg;"` on `.quote-avatar` (no child elements). The `::after` pseudo-element reads the initials and renders them on a rotated `--accent-earth` square over a white base square.
-- **Avatar photo variant**: add `<img>` inside `.quote-avatar` with `style="--qa-rot:8deg;"` on the parent. The image is fixed at `52×52px`, rotated by `--qa-rot`, and clips to the container via `overflow:hidden`. The white `::before` base square shows as corner peeking behind the rotated photo.
-- **Quote text length**: adjust `font-size` between `17px` (longer quotes, 3+ lines) and `24px` (short punchy quotes, 1 line). Keep `line-height: 1.5`.
-- **Opacity guidance**: on `--bg-page` (warm paper), `.quote-mark` opacity `0.25` works well. On dark `--bg-frame` backgrounds, reduce to `0.15`.
-- **Source-only attribution** (no person): omit `.quote-avatar` entirely and use `.quote-name` for the source text (e.g. a report title or publication name).
-
-<!-- @component:quote:end -->
 
 <!-- @component:brand-watermark:start -->
 #### Brand Watermark

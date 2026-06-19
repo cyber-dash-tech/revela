@@ -240,7 +240,7 @@ new SlidePresentation();
 - **Images for photographic references.** Use image treatment rules rather than fake SVG when the reference is photographic, UI, webpage, or product imagery.
 - **Content pages need a stable title block.** Except cover, TOC, closing, section divider, and full-bleed hero slides, every normal content slide should include a visible title block from the upper-left safe area. It should contain a compact chapter/section label plus a slide title written as the page's claim or takeaway.
 - **Do not hide the page title inside a card.** Body components may have their own headings, but the slide-level title block should remain separate and easy to scan unless the chosen layout explicitly defines a compact side-title variant.
-- **Text panels are not decorative rule panels.** Do not add a default left border, vertical accent bar, yellow/gold line, or inline rule to `text-panel`. Use typography, spacing, boxes, stats, quotes, or layout-level dividers for emphasis.
+- **Text panels are not decorative rule panels.** Do not add a default left border, vertical accent bar, yellow/gold line, or inline rule to `text-panel`. Use typography, spacing, boxes, stats, italic quote text inside `text-panel`, or layout-level dividers for emphasis.
 - **Preview must be real.** A design preview should show actual layout/component behavior, not empty placeholder boxes only.
 
 ### Common Mistakes
@@ -447,18 +447,18 @@ Structural intent:
 
 ### Components
 
-Components are reusable primitives. Use this hierarchy: `layout -> box/card -> text-panel + media/chart/table/stat/quote`.
+Components are reusable primitives. Use this hierarchy: `layout -> box/card -> text-panel + media/chart/table/stat`.
 
 LLM-facing vocabulary:
 - `box` — card/group primitive for one idea, case, evidence item, metric, objection, risk, or action.
-- `text-panel` — language module for title, body text, bullets, and source notes.
+- `text-panel` — language module for title, body text, bullets, italic quote text, formula text, and source notes.
 - `media` — normal image/screenshot/diagram/logo/portrait component; use `hero` instead for full-bleed covers.
 - `echart-panel` — chart frame with caption/source structure.
 - `data-table` — structured table component for tabular data and source notes.
 - `steps` — process or phase sequence; compatibility implementation may use `.flow-*` classes.
 - `roadmap-horizontal` and `roadmap-vertical` — dated phases, milestones, historical evolution, or future plans; compatibility implementation may use `.timeline-journey-*` classes.
 - `hero` — full-bleed cover, section divider, closing, or strong visual statement with overlaid title/subtitle.
-- `stat-card`, `quote`, and `toc` — pattern components for their specific use cases.
+- `stat-card` and `toc` — pattern components for their specific use cases.
 - `page-number` and `brand-watermark` — utility components.
 
 Do not expose `image-title`, `media--cover`, `editorial-*`, `flow-*`, `timeline-journey-*`, or `svg-motif` as new component choices. Old classes may remain in CSS as compatibility implementation details.
@@ -470,7 +470,7 @@ Density guidance: normal content slides usually need 2-4 boxes. Evidence slides 
 <!-- @component:box:start -->
 #### Box (.box)
 
-Card/group primitive for one idea, case, evidence item, metric, objection, risk, or action. Put `text-panel`, `media`, `echart-panel`, `data-table`, `stat-card`, or `quote` inside a box when they support the same idea.
+Card/group primitive for one idea, case, evidence item, metric, objection, risk, or action. Put `text-panel`, `media`, `echart-panel`, `data-table`, or `stat-card` inside a box when they support the same idea.
 
 ```html
 <div class="box">
@@ -494,15 +494,20 @@ Card/group primitive for one idea, case, evidence item, metric, objection, risk,
 <!-- @component:text-panel:start -->
 #### Text Panel (.text-panel)
 
-Language module for headings, body copy, lists, and footer/source metadata. It can sit inside `box` or directly in a layout slot.
+Language module for headings, body copy, lists, italic quote text, formula text, and footer/source metadata. It can sit inside `box` or directly in a layout slot.
 
-`text-panel` is a neutral language container. Do not add a default left border, vertical accent bar, yellow/gold rule, or decorative stripe to it. If a slide needs emphasis, use a `box`, `stat-card`, `quote`, `toc`, or a layout-level divider instead.
+`text-panel` is a neutral language container. Do not add a default left border, vertical accent bar, yellow/gold rule, or decorative stripe to it. If a slide needs emphasis, use a `box`, `stat-card`, `toc`, or a layout-level divider instead. Quotes and formulas are text members inside `.text-panel-body`, not standalone components.
 
 ```html
 <div class="text-panel text-panel--light">
   <div class="text-panel-body">
     <p class="eyebrow">Context</p>
     <h2>Panel heading</h2>
+    <blockquote class="text-panel-quote">Italic quote text belongs inside the text panel body.</blockquote>
+    <figure class="text-panel-formula" data-latex="\mathrm{ROI}=\frac{\mathrm{Gain}-\mathrm{Cost}}{\mathrm{Cost}}">
+      <span class="katex">Rendered formula</span>
+      <p class="text-panel-formula-caption">Formula text member</p>
+    </figure>
     <ul class="editorial-list"><li><strong>Signal.</strong> Supporting copy.</li></ul>
   </div>
   <div class="text-panel-footer"><span class="source">Source: dataset</span><span class="caption">01</span></div>
@@ -515,6 +520,10 @@ Language module for headings, body copy, lists, and footer/source metadata. It c
 .text-panel--light { background: var(--bg-page-alt); color: var(--text-primary); }
 .text-panel--dark { background: #1f242b; color: #f8fafc; --text-primary: #f8fafc; --text-secondary: #cbd5e1; --text-muted: #94a3b8; --line: rgba(248,250,252,0.16); }
 .text-panel-body { display: flex; flex-direction: column; gap: 14px; }
+.text-panel-quote { margin: 0; font-style: italic; line-height: 1.46; color: var(--text-secondary); }
+.text-panel-formula { margin: 0; display: grid; gap: 8px; color: var(--text-primary); }
+.text-panel-formula-fallback { display: block; white-space: normal; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82em; line-height: 1.35; color: inherit; }
+.text-panel-formula-caption { margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
 .text-panel-footer { display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; }
 ```
 <!-- @component:text-panel:end -->
@@ -710,23 +719,6 @@ Table of contents or section index.
 .toc-item strong { font-size: 17px; line-height: 1.35; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; color: var(--text-primary); }
 ```
 <!-- @component:toc:end -->
-
-<!-- @component:quote:start -->
-#### Quote (.quote-block)
-
-Large quotation or summary statement.
-
-```html
-<div class="quote-block"><p class="quote-mark">“</p><blockquote>Statement text goes here.</blockquote><p class="quote-source">Source</p></div>
-```
-
-```css
-.quote-block { height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 24px; max-width: 980px; }
-.quote-mark { font-size: 96px; line-height: 0.7; color: var(--accent-primary); }
-.quote-block blockquote { font-family: var(--font-display); font-size: 54px; line-height: 1.06; letter-spacing: -0.04em; color: var(--text-primary); }
-.quote-source { font-size: 13px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--text-muted); }
-```
-<!-- @component:quote:end -->
 
 <!-- @component:brand-watermark:start -->
 #### Brand Watermark (.brand-watermark)

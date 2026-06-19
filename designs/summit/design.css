@@ -146,6 +146,21 @@ body { margin: 0; background: var(--bg-frame, #07111f); color: var(--text-primar
 .template-text-panel--color { background: linear-gradient(135deg, #5f82c8 0%, var(--accent-primary) 58%, #18a8d8 115%); color: white; box-shadow: 0 22px 56px rgba(49,94,234,0.24); }
 .template-text-panel--color .template-text-panel-title { color: white; }
 .template-text-panel--color .template-text-panel-body { color: rgba(255,255,255,0.78); }
+.template-text-panel-quote { margin: 2px 0 0; font-size: 22px; line-height: 1.44; font-style: italic; color: var(--text-secondary); }
+.template-text-panel--color .template-text-panel-quote { color: rgba(255,255,255,0.82); }
+.template-text-panel-formula { margin: 0; width: 100%; display: grid; gap: 8px; color: var(--text-primary); }
+.template-text-panel--color .template-text-panel-formula { color: white; }
+.template-text-panel-formula .katex-display { margin: 0; overflow: visible; }
+.template-text-panel-formula .katex { font-size: 1.08em; color: inherit; }
+.template-text-panel-formula-fallback { display: block; white-space: normal; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82em; line-height: 1.35; color: inherit; }
+.template-text-panel-formula-caption { margin: 0; font-size: 14px; line-height: 1.35; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+.template-text-panel--color .template-text-panel-formula-caption { color: rgba(255,255,255,0.72); }
+.text-panel-quote { margin: 0; font-style: italic; line-height: 1.46; color: var(--text-secondary); }
+.text-panel-formula { margin: 0; display: grid; gap: 8px; color: var(--text-primary); }
+.text-panel-formula .katex-display { margin: 0; overflow: visible; }
+.text-panel-formula .katex { color: inherit; }
+.text-panel-formula-fallback { display: block; white-space: normal; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82em; line-height: 1.35; color: inherit; }
+.text-panel-formula-caption { margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
 .template-chart-takeaway-list { display: grid; gap: 22px; width: 100%; }
 .template-chart-takeaway-item { display: grid; gap: 7px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.24); }
 .template-chart-takeaway-item:first-child { padding-top: 0; border-top: 0; }

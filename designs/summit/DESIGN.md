@@ -66,7 +66,7 @@ Accent usage guidance:
 - `--accent-earth` — warm secondary accent, image captions, secondary labels
 - `--accent-olive` — muted structural accent, chart fills, subtle dividers
 - `--accent-stone` — lightest accent, disabled states, faint decorative lines
-- `--accent-sage` — desaturated cool green; use for environmental, sustainability, or positive-signal content (e.g. quote decorations, positive indicators, nature-themed slides)
+- `--accent-sage` — desaturated cool green; use for environmental, sustainability, or positive-signal content (e.g. positive indicators, nature-themed slides)
 - `--accent-danger` — negative indicators, alerts, down-trend markers only
 
 ### Typography
@@ -470,7 +470,7 @@ These rules are mandatory for Summit.
 - **Visual hierarchy is strict:** eyebrow -> heading -> body -> caption.
 - **Content pages need a stable title block.** Except cover, TOC, closing, section divider, and full-bleed hero slides, every normal content slide should include a visible title block from the upper-left safe area. It should contain a compact chapter/section label plus a slide title written as the page's claim or takeaway.
 - **Do not hide the page title inside a card.** Body components may have their own headings, but the slide-level title block should remain separate and easy to scan unless the chosen layout explicitly defines a compact side-title variant.
-- **Text panels are not decorative rule panels.** Do not add a default left border, vertical accent bar, yellow/gold line, or inline rule to `text-panel`. Use typography, spacing, boxes, stats, quotes, or layout-level dividers for emphasis.
+- **Text panels are not decorative rule panels.** Do not add a default left border, vertical accent bar, yellow/gold line, or inline rule to `text-panel`. Use typography, spacing, boxes, stats, italic quote text inside `text-panel`, or layout-level dividers for emphasis.
 - **Titles are Title Case.** Do not set `text-transform:uppercase` on `h1`, `h2`, `h3`, or `h4` titles. Uppercase is reserved for eyebrows, captions, metadata labels, short codes, and date/code-like markers.
 - **Components are transparent by default.** Component primitives should not bring their own paper/background fill. Let `.page`, layout containers, or explicit modifier variants provide background color when needed.
 - **Icon system is Lucide.** For ordinary UI, semantic, status, category, process, and navigation icons, use Lucide (`data-lucide`). Do not hand-write inline SVG for icons. SVG is allowed only for intentional decorative motifs, illustrations, or design-specific artwork. If any `data-lucide` icon is present, load Lucide via CDN and call `lucide.createIcons()` after `SlidePresentation`.
@@ -859,7 +859,7 @@ Structural intent:
 
 Use these components when a page needs repeatable editorial modules inside a larger layout. Components define the block itself, not the page grid around it.
 
-Use this hierarchy: `layout -> box/card -> text-panel + media/chart/table/stat/quote`.
+Use this hierarchy: `layout -> box/card -> text-panel + media/chart/table/stat`.
 
 Component defaults are transparent. Use explicit variants such as `box--paper`, `box--dark`, `text-panel--light`, or `text-panel--dark` only when a component intentionally needs its own reading field. Do not add default fills to component primitives.
 
@@ -867,14 +867,14 @@ Source and citation text should use `.source` or `.source-note`, not `.caption`.
 
 LLM-facing vocabulary:
 - `box` — card/group primitive for one idea, case, evidence item, metric, objection, risk, or action.
-- `text-panel` — language module for title, body text, bullets, and source notes.
+- `text-panel` — language module for title, body text, bullets, italic quote text, formula text, and source notes.
 - `media` — normal image/screenshot/diagram/logo/portrait component; use `hero` for full-bleed covers.
 - `echart-panel` — chart frame with caption/source structure.
 - `data-table` — structured table component for tabular data and source notes.
 - `steps` — process or phase sequence; compatibility implementation may use `.flow-*` classes.
 - `roadmap-horizontal` and `roadmap-vertical` — dated phases, milestones, historical evolution, or future plans; compatibility implementation may use `.tjh` and `.tjv` classes.
 - `hero` — full-bleed cover, section divider, closing, or strong visual statement with overlaid title/subtitle.
-- `stat-card`, `quote`, and `toc` — pattern components for their specific use cases.
+- `stat-card` and `toc` — pattern components for their specific use cases.
 - `page-number` and `brand-watermark` — utility components.
 
 Do not expose `image-title`, `media--cover`, `editorial-*`, `flow-*`, `timeline-journey-*`, or decorative SVG as new component choices. Old classes may remain in CSS as compatibility implementation details.
@@ -884,7 +884,7 @@ Density guidance: normal content slides usually need 2-4 boxes. Evidence slides 
 <!-- @component:box:start -->
 #### Box
 
-Card/group primitive for one idea, case, evidence item, metric, objection, risk, or action. Put `text-panel`, `media`, `echart-panel`, `data-table`, `stat-card`, or `quote` inside a box when they support the same idea.
+Card/group primitive for one idea, case, evidence item, metric, objection, risk, or action. Put `text-panel`, `media`, `echart-panel`, `data-table`, or `stat-card` inside a box when they support the same idea.
 
 ```html
 <div class="box">
@@ -913,9 +913,9 @@ Card/group primitive for one idea, case, evidence item, metric, objection, risk,
 
 <!-- renamed from report-text-panel -->
 
-Unified narrative text container. Use inside any layout slot that needs a self-contained reading surface with heading, body copy, and optional footer metadata. The body zone accepts prose, a bullet list, or both — choose based on content, not convention.
+Unified narrative text container. Use inside any layout slot that needs a self-contained reading surface with heading, body copy, italic quote text, formula text, and optional footer metadata. The body zone accepts prose, a bullet list, quote, formula, or a mix — choose based on content, not convention.
 
-`text-panel` is a neutral language container. Do not add a default left border, vertical accent bar, yellow/gold rule, or decorative stripe to it. Summit may use thin rules at the layout level or in `toc`, but not as a default `text-panel` treatment.
+`text-panel` is a neutral language container. Do not add a default left border, vertical accent bar, yellow/gold rule, or decorative stripe to it. Summit may use thin rules at the layout level or in `toc`, but not as a default `text-panel` treatment. Quotes and formulas are text members inside `.text-panel-body`, not standalone components.
 
 ```html
 <!-- variant A: prose only (--dark) -->
@@ -925,6 +925,11 @@ Unified narrative text container. Use inside any layout slot that needs a self-c
     <h2 style="margin-top:16px;font-size:56px;line-height:1;letter-spacing:-0.03em;color:#f7f4ee;max-width:390px;">Narrative Heading</h2>
     <div class="text-panel-body" style="margin-top:20px;">
       <p style="color:rgba(243,238,230,0.84);max-width:390px;">Use one or two compact paragraphs when continuous prose fits the content better than a list.</p>
+      <blockquote class="text-panel-quote">Italic quote text belongs inside the text panel body.</blockquote>
+      <figure class="text-panel-formula" data-latex="\mathrm{ROI}=\frac{\mathrm{Gain}-\mathrm{Cost}}{\mathrm{Cost}}">
+        <span class="katex">Rendered formula</span>
+        <p class="text-panel-formula-caption">Formula text member</p>
+      </figure>
     </div>
   </div>
   <div class="text-panel-footer" style="color:rgba(243,238,230,0.68);">
@@ -1004,6 +1009,38 @@ Unified narrative text container. Use inside any layout slot that needs a self-c
     gap: 12px;
 }
 
+.text-panel-quote {
+    margin: 0;
+    font-style: italic;
+    line-height: 1.46;
+    color: var(--text-secondary);
+}
+
+.text-panel-formula {
+    margin: 0;
+    display: grid;
+    gap: 8px;
+    color: var(--text-primary);
+}
+
+.text-panel-formula-fallback {
+    display: block;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.82em;
+    line-height: 1.35;
+    color: inherit;
+}
+
+.text-panel-formula-caption {
+    margin: 0;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
 /* renamed from .report-panel-footer */
 .text-panel-footer {
     display: flex;
@@ -1014,7 +1051,7 @@ Unified narrative text container. Use inside any layout slot that needs a self-c
 ```
 
 Rules:
-- `.text-panel-body` is the only required structural child. Place `<p>` elements, an `<ul class="editorial-list">`, or both inside it.
+- `.text-panel-body` is the only required structural child. Place `<p>` elements, an `<ul class="editorial-list">`, `<blockquote class="text-panel-quote">`, `<figure class="text-panel-formula">`, or a deliberate mix inside it. Use `.text-panel-formula-fallback` only inside formula figures when LaTeX cannot be rendered.
 - Eyebrow, heading, and footer are all optional — include them only when the content calls for them.
 - Default text panels should remain transparent. Choose `--dark` or `--light` only when the component intentionally needs its own reading field; do not mix variants within a single panel.
 - Pair with a visually dominant neighbor (image, chart) when the layout needs strong contrast against the text zone.
@@ -2106,110 +2143,6 @@ Minimal table-of-contents slide with a quiet title block on the left and a spaci
 - **No page-number column.** The visible structure is section number plus title only. Do not add trailing page numbers or border dividers unless the user explicitly asks for them.
 - **Left footer stays small.** The footer should read like a restrained production note, not a secondary headline.
 <!-- @component:toc:end -->
-
-<!-- @component:quote:start -->
-#### Quote (.quote-block)
-
-Flat editorial quote block. Wide and short (width > height). Transparent background — place it inside any layout slot. The large decorative quotation mark is CSS-rendered (no icon dependency).
-
-```html
-<div class="quote-block">
-  <div class="quote-mark" aria-hidden="true">“</div>
-  <p class="quote-text">The mountains teach us that progress is measured not in speed, but in the ground gained against resistance.</p>
-  <div class="quote-attribution">
-    <div class="quote-avatar">JD</div><!-- or <img src="avatar.jpg" alt="Jane Doe"> -->
-    <div class="quote-meta">
-      <p class="quote-name">Jane Doe</p>
-      <p class="caption">CEO, Acme Corporation</p>
-    </div>
-  </div>
-</div>
-```
-
-```css
-.quote-block {
-    position: relative;
-    padding: 36px 44px 32px;
-    overflow: hidden;
-}
-
-.quote-mark {
-    position: absolute;
-    top: -18px;
-    left: 28px;
-    font-family: Baskerville, Georgia, serif;
-    font-size: 140px;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--accent-sage);
-    opacity: 0.42;
-    pointer-events: none;
-    user-select: none;
-}
-
-.quote-text {
-    position: relative;
-    font-size: 20px;
-    font-style: italic;
-    line-height: 1.5;
-    color: var(--text-primary);
-    max-width: 860px;
-    padding-top: 48px; /* clears the decorative mark */
-}
-
-.quote-attribution {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-top: 24px;
-}
-
-.quote-avatar {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: var(--bg-page-alt);
-    border: 1px solid var(--line-strong);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--font-display);
-    font-size: var(--font-size-body);
-    font-weight: 700;
-    color: var(--text-muted);
-    flex-shrink: 0;
-    overflow: hidden;
-}
-
-.quote-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.quote-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.quote-name {
-    font-size: var(--font-size-body);
-    font-weight: 600;
-    color: var(--text-primary);
-    line-height: 1.3;
-}
-```
-
-**Tips:**
-
-- **Dark background**: override text colors on the parent slot — `color: var(--bg-page)` for `.quote-text` and `.quote-name`; increase `.quote-mark` opacity to `0.15` (the sage hue reads better against dark at lower opacity).
-- **Avatar with photo**: replace `<div class="quote-avatar">JD</div>` with `<div class="quote-avatar"><img src="path/to/photo.jpg" alt="Jane Doe"></div>`. The `overflow: hidden` + `object-fit: cover` handles any image aspect ratio.
-- **Quote text length**: adjust `font-size` between `18px` (longer quotes, 3+ lines) and `24px` (short punchy quotes, 1 line). Keep `line-height: 1.5`.
-- **Opacity guidance**: on `--bg-page` (warm paper), `.quote-mark` opacity `0.25` works well. On dark `--bg-frame` backgrounds, reduce to `0.15`.
-- **Source-only attribution** (no person): omit `.quote-avatar` entirely and use `.quote-name` for the source text (e.g. a report title or publication name).
-
-<!-- @component:quote:end -->
 
 <!-- @component:brand-watermark:start -->
 #### Brand Watermark

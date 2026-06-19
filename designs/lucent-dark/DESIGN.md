@@ -210,7 +210,7 @@ Lucent agenda component using `.toc-wrap`, `.toc-title`, `.toc-list`, and option
 <!-- @component:toc:end -->
 
 <!-- @component:text-panel:start -->
-Focused text module for setup, reading guidance, and narrative explanation. Use inside report layouts or boxes.
+Focused text module for setup, reading guidance, narrative explanation, italic quote text, and formula text. Use inside report layouts or boxes. Place quotes as `<blockquote class="text-panel-quote">` and formulas as `<figure class="text-panel-formula" data-latex="...">`; use `.text-panel-formula-fallback` only when LaTeX cannot be rendered. Do not model quote or formula as standalone components.
 <!-- @component:text-panel:end -->
 
 <!-- @component:box:start -->

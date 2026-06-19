@@ -281,7 +281,7 @@ describe("starter built-in design", () => {
     expect(Object.keys(parsed.components)).not.toContain("svg-motif")
     expect(Object.keys(parsed.components)).not.toContain("timeline-journey-horizontal")
     expect(Object.keys(parsed.components)).not.toContain("timeline-journey-vertical")
-    expect(Object.keys(parsed.components)).toHaveLength(14)
+    expect(Object.keys(parsed.components)).toHaveLength(13)
     expect(body).toContain("Visual Schema Rules")
     expect(body).toContain("Visual Motif Rules")
     expect(body).toContain("Content pages need a stable title block")
@@ -300,6 +300,8 @@ describe("starter built-in design", () => {
 
     const textPanel = parsed.components["text-panel"] ?? ""
     expect(textPanel).toContain('class="source"')
+    expect(textPanel).toContain("text-panel-quote")
+    expect(textPanel).toContain("text-panel-formula")
 
     const mediaComponent = parsed.components["media"] ?? ""
     expect(mediaComponent).toContain("media-caption source-note")
@@ -368,7 +370,8 @@ describe("summit built-in design", () => {
     expect(Object.keys(parsed.components)).not.toContain("image-title")
     expect(Object.keys(parsed.components)).not.toContain("flow-horizontal")
     expect(Object.keys(parsed.components)).not.toContain("timeline-journey-horizontal")
-    expect(Object.keys(parsed.components)).toHaveLength(14)
+    expect(Object.keys(parsed.components)).not.toContain("quote")
+    expect(Object.keys(parsed.components)).toHaveLength(13)
     expect(body).toContain("Content pages need a stable title block")
     expect(body).toContain("Normal `qa=true` content layouts should start with a slide-level title block")
     expect(body).toContain("Text panels are not decorative rule panels")
@@ -393,6 +396,10 @@ describe("summit built-in design", () => {
     expect(box).toContain(".box { height: 100%; min-height: 0; padding: 28px; background: transparent;")
     expect(box).not.toContain("border: 1px solid var(--line); background: transparent;")
     expect(box).toContain(".box--paper { background: rgba(247,244,238,0.72); }")
+
+    const textPanel = parsed.components["text-panel"] ?? ""
+    expect(textPanel).toContain("text-panel-quote")
+    expect(textPanel).toContain("text-panel-formula")
 
     const media = parsed.components["media"] ?? ""
     expect(media).toContain(".media-frame { position: relative; overflow: hidden; background: transparent;")
@@ -536,6 +543,9 @@ describe("design package authoring", () => {
       expect(html).toContain("template-table-layout")
       expect(html).toContain("template-text-panel--clear")
       expect(html).toContain("template-text-panel--color")
+      expect(html).toContain("template-text-panel-quote")
+      expect(html).toContain("template-text-panel-formula")
+      expect(html).toContain("data-latex=")
       expect(html).toContain("FY2026 Plan")
       expect(html).toContain(">milestone<")
       expect(html).toContain(">timeline<")

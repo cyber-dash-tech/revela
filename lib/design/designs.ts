@@ -1321,7 +1321,7 @@ function inferComponentNesting(name: string): DesignInventoryComponent["nesting"
     return {
       role: "container",
       acceptsChildren: true,
-      allowedChildren: ["text-panel", "media", "echart-panel", "data-table", "stat-card", "quote", "steps", "roadmap-horizontal", "roadmap-vertical", "toc"],
+      allowedChildren: ["text-panel", "media", "echart-panel", "data-table", "stat-card", "steps", "roadmap-horizontal", "roadmap-vertical", "toc"],
     }
   }
   if (name === "hero") return { role: "fullbleed", acceptsChildren: false }

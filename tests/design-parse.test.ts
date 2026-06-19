@@ -486,7 +486,6 @@ describe("generateComponentIndex", () => {
       "data-table",
       "hero",
       "toc",
-      "quote",
       "brand-watermark",
       "page-number",
       "roadmap-horizontal",

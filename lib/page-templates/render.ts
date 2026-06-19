@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "fs"
 import { isAbsolute, normalize, resolve } from "path"
+import katex from "katex"
 import { getPageTemplateVocabulary } from "./vocabulary"
 
 export type PageTemplateStatus = "metadata-only" | "renderable"
@@ -141,6 +142,9 @@ const templates: PageTemplateDefinition[] = [
     field("chartTitle", "string", "Chart title."),
     field("takeawaysTitle", "string", "Title for the interpretation text panel."),
     field("items", "items[]", "Takeaways.", true),
+    field("quote", "string", "Optional italic quote text member inside the text panel."),
+    field("formulaLatex", "string", "Optional LaTeX formula text member inside the text panel."),
+    field("formulaCaption", "string", "Optional formula caption."),
   ], ["Chart area must be explicit and bounded."], ["Chart panel and takeaways both exist."]),
   define("table", "Table", "Explain a structured table with a left reading card and right table region.", [
     field("title", "string", "Slide title.", true),
@@ -278,6 +282,8 @@ export function builtInPreviewFixtures(): BuiltInPreviewFixture[] {
     fixture("chart-takeaways", {
       title: "chart-takeaways",
       takeawaysTitle: "What to read",
+      formulaLatex: "\\mathrm{CAGR}=\\left(\\frac{\\mathrm{FY26\\ Plan}}{\\mathrm{FY25}}\\right)^{1/n}-1",
+      formulaCaption: "Formula text member",
       items: [
         { label: "Trend", description: "Call out the movement or comparison the chart is meant to prove, including the direction and the comparison baseline." },
         { label: "Driver", description: "Name the likely reason without overclaiming; separate observed movement from the interpretation or hypothesis." },
@@ -288,6 +294,7 @@ export function builtInPreviewFixtures(): BuiltInPreviewFixture[] {
       title: "table",
       textTitle: "Financial readout",
       textBody: "Read top-line growth first, then check margin, cash conversion, and retention to see whether the plan is financially durable.",
+      quote: "Durability shows up when growth, margin, and cash all point in the same direction.",
       columns: ["Line item", "FY2025", "FY2026 Plan", "YoY / note"],
       rows: [
         ["Revenue", "$84.2M", "$104.8M", "+24% planned growth"],
@@ -324,6 +331,7 @@ export function builtInPreviewFixtures(): BuiltInPreviewFixture[] {
       title: "timeline",
       insightTitle: "Reading the journey",
       insightBody: "The timeline should show sequence and decision rhythm, while the side panel explains why the milestones matter.",
+      quote: "Sequence is evidence when each step changes what the audience can believe.",
       milestones: [
         { date: "Mar 2019", label: "Launch", description: "Baseline mapping." },
         { date: "Nov 2019", label: "Audit", description: "Evidence sprint." },
@@ -573,6 +581,15 @@ ${lucentClosingBackgroundCss}
 .template-text-panel--color { background: linear-gradient(135deg, #5f82c8 0%, var(--accent-primary) 58%, #18a8d8 115%); color: white; box-shadow: 0 22px 56px rgba(49,94,234,0.24); }
 .template-text-panel--color .template-text-panel-title { color: white; }
 .template-text-panel--color .template-text-panel-body { color: rgba(255,255,255,0.78); }
+.template-text-panel-quote { margin: 2px 0 0; font-size: 22px; line-height: 1.44; font-style: italic; color: var(--text-secondary); }
+.template-text-panel--color .template-text-panel-quote { color: rgba(255,255,255,0.82); }
+.template-text-panel-formula { margin: 0; width: 100%; display: grid; gap: 8px; color: var(--text-primary); }
+.template-text-panel--color .template-text-panel-formula { color: white; }
+.template-text-panel-formula .katex-display { margin: 0; overflow: visible; }
+.template-text-panel-formula .katex { font-size: 1.08em; color: inherit; }
+.template-text-panel-formula-fallback { display: block; white-space: normal; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82em; line-height: 1.35; color: inherit; }
+.template-text-panel-formula-caption { margin: 0; font-size: 14px; line-height: 1.35; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+.template-text-panel--color .template-text-panel-formula-caption { color: rgba(255,255,255,0.72); }
 .template-chart-takeaway-list { display: grid; gap: 22px; width: 100%; }
 .template-chart-takeaway-item { display: grid; gap: 7px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.24); }
 .template-chart-takeaway-item:first-child { padding-top: 0; border-top: 0; }
@@ -1045,6 +1062,7 @@ function chartTakeawayPanel(content: Record<string, any>): string {
   return `<div class="template-text-panel template-text-panel--color template-chart-takeaway-panel" data-template-slot="takeaways">
                     <h2 class="template-text-panel-title">${escapeHtml(title)}</h2>
                     <div class="template-chart-takeaway-list">${takeawayItems.map((item) => `<section class="template-chart-takeaway-item"><h3>${escapeHtml(item.label)}</h3><p>${escapeHtml(item.description)}</p></section>`).join("")}</div>
+                    ${renderTextMembers(content)}
                 </div>`
 }
 
@@ -1080,6 +1098,7 @@ function tablePage(content: Record<string, any>): string {
   const panelContent = {
     insightTitle: stringValue(content.textTitle) || "What to read",
     insightBody: stringValue(content.textBody) || "Use this card to explain the comparison, caveat, or decision implication before the audience scans the table.",
+    quote: stringValue(content.quote),
   }
   return `<div class="template-table-layout">${renderTextPanel(panelContent, "text-card", "clear")}<div class="template-table-region" data-template-slot="table">${table({ ...content, insightTitle: "", insightBody: "" })}</div></div>`
 }
@@ -1137,7 +1156,38 @@ function renderTextPanel(content: Record<string, any>, slot = "insight", variant
   const body = stringValue(content.insightBody)
   if (!body) return ""
   const title = stringValue(content.insightTitle) || "Insight"
-  return `<div class="template-side-panel template-text-panel template-text-panel--${variant}" data-template-slot="${escapeAttribute(slot)}"><h2 class="template-side-panel-title template-text-panel-title">${escapeHtml(title)}</h2><p class="template-side-panel-body template-text-panel-body">${escapeHtml(body)}</p></div>`
+  return `<div class="template-side-panel template-text-panel template-text-panel--${variant}" data-template-slot="${escapeAttribute(slot)}"><h2 class="template-side-panel-title template-text-panel-title">${escapeHtml(title)}</h2><p class="template-side-panel-body template-text-panel-body">${escapeHtml(body)}</p>${renderTextMembers(content)}</div>`
+}
+
+function renderTextMembers(content: Record<string, any>): string {
+  const quote = stringValue(content.quote)
+  const formulaLatex = stringValue(content.formulaLatex)
+  const parts: string[] = []
+  if (quote) parts.push(`<blockquote class="template-text-panel-quote">${escapeHtml(quote)}</blockquote>`)
+  if (formulaLatex) parts.push(renderFormulaMember(formulaLatex, stringValue(content.formulaCaption)))
+  return parts.join("")
+}
+
+function renderFormulaMember(latex: string, caption = ""): string {
+  const escapedLatex = escapeAttribute(latex)
+  const rendered = renderLatex(latex)
+  const captionHtml = caption ? `<p class="template-text-panel-formula-caption">${escapeHtml(caption)}</p>` : ""
+  return `<figure class="template-text-panel-formula" data-latex="${escapedLatex}">${rendered}${captionHtml}</figure>`
+}
+
+function renderLatex(latex: string): string {
+  try {
+    return katex.renderToString(latex, {
+      displayMode: true,
+      output: "mathml",
+      strict: "warn",
+      throwOnError: true,
+      trust: false,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return `<code class="template-text-panel-formula-fallback" data-formula-error="${escapeAttribute(message)}">${escapeHtml(latex)}</code>`
+  }
 }
 
 function imageCard(input: any): string {
@@ -1189,11 +1239,11 @@ function scaffoldSeed(templateId: string, seed: Record<string, any>): Record<str
   if (templateId === "key-message-evidence") return { body: "Replace with the key message the audience should remember.", items: defaultItems(["Evidence 1", "Evidence 2", "Evidence 3"]), ...base }
   if (templateId === "claim-supporting-visual") return { claim: "Replace with one visual claim.", body: "Use this copy to guide how the visual should be read.", items: defaultItems(["Anchor", "Callout"]), ...base }
   if (templateId === "metric-highlight") return { metrics: [{ value: "67%", label: "Metric", description: "Replace with interpretation." }, { value: "3x", label: "Comparison", description: "Replace with reading note." }, { value: "14d", label: "Window", description: "Replace with time context." }], insightTitle: "Read the signal", insightBody: "Replace with the decision implication, caveat, or next reading step.", ...base }
-  if (templateId === "chart-takeaways") return { takeawaysTitle: "What to read", items: defaultItems(["Trend", "Driver", "Decision use"]), ...base }
-  if (templateId === "table") return { textTitle: "Financial readout", textBody: "Replace with the table reading note, caveat, or decision implication.", columns: ["Line item", "FY2025", "FY2026 Plan", "YoY / note"], rows: [["Revenue", "$84.2M", "$104.8M", "+24% planned growth"], ["Gross margin", "68.4%", "71.2%", "+280 bps mix shift"], ["Operating expense", "$42.7M", "$49.1M", "Scale hiring below revenue growth"], ["EBITDA", "$14.9M", "$23.6M", "+58% operating leverage"], ["Free cash flow", "$9.8M", "$16.4M", "Cash conversion improves"], ["Net retention", "116%", "121%", "Expansion supports plan quality"]], ...base }
+  if (templateId === "chart-takeaways") return { takeawaysTitle: "What to read", items: defaultItems(["Trend", "Driver", "Decision use"]), formulaLatex: "\\mathrm{CAGR}=\\left(\\frac{\\mathrm{FY26\\ Plan}}{\\mathrm{FY25}}\\right)^{1/n}-1", formulaCaption: "Formula text member", ...base }
+  if (templateId === "table") return { textTitle: "Financial readout", textBody: "Replace with the table reading note, caveat, or decision implication.", quote: "Durability shows up when growth, margin, and cash all point in the same direction.", columns: ["Line item", "FY2025", "FY2026 Plan", "YoY / note"], rows: [["Revenue", "$84.2M", "$104.8M", "+24% planned growth"], ["Gross margin", "68.4%", "71.2%", "+280 bps mix shift"], ["Operating expense", "$42.7M", "$49.1M", "Scale hiring below revenue growth"], ["EBITDA", "$14.9M", "$23.6M", "+58% operating leverage"], ["Free cash flow", "$9.8M", "$16.4M", "Cash conversion improves"], ["Net retention", "116%", "121%", "Expansion supports plan quality"]], ...base }
   if (templateId === "table-comparison") return { columns: ["Dimension", "Current", "Target"], rows: [["Replace", "Current state", "Target state"], ["Caveat", "Known limit", "Next proof"]], insightTitle: "Insight", insightBody: "Replace with the table reading note or caveat.", ...base }
   if (templateId === "milestone" || templateId === "timeline-roadmap") return { orientation: "horizontal", milestones: [{ date: "2022", label: "Signal", description: "Name the starting condition." }, { date: "2023", label: "Proof", description: "Show the evidence threshold." }, { date: "2024", label: "Inflection", description: "Use the pivotal moment to frame the shift." }, { date: "2025", label: "Scale", description: "Use a taller card for the highlighted milestone.", highlight: true }, { date: "2026", label: "Decision", description: "State what changes next." }], ...base }
-  if (templateId === "timeline") return { orientation: "vertical", insightTitle: "Reading the journey", insightBody: "Replace with the timeline interpretation or caveat.", milestones: [{ date: "Mar 2019", label: "Launch", description: "Name the starting event." }, { date: "Nov 2019", label: "Audit", description: "Show the evidence threshold." }, { date: "May 2020", label: "Scale", description: "Explain the operating cadence." }, { date: "Feb 2021", label: "Review", description: "State what changes next." }], ...base }
+  if (templateId === "timeline") return { orientation: "vertical", insightTitle: "Reading the journey", insightBody: "Replace with the timeline interpretation or caveat.", quote: "Sequence is evidence when each step changes what the audience can believe.", milestones: [{ date: "Mar 2019", label: "Launch", description: "Name the starting event." }, { date: "Nov 2019", label: "Audit", description: "Show the evidence threshold." }, { date: "May 2020", label: "Scale", description: "Explain the operating cadence." }, { date: "Feb 2021", label: "Review", description: "State what changes next." }], ...base }
   if (templateId === "process-steps") return { steps: defaultItems(["Step 1", "Step 2", "Step 3"]), ...base }
   if (templateId === "recommendation-decision") return { recommendation: "Replace with the recommended decision.", items: defaultItems(["Rationale"]), steps: defaultItems(["Pilot", "Validate", "Ship"]), ...base }
   if (templateId === "risks-tradeoffs") return { items: defaultItems(["Risk", "Tradeoff", "Mitigation"]), ...base }

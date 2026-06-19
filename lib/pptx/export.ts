@@ -466,6 +466,48 @@ async function readSlideMeta(
   })
 }
 
+async function rasterizeFormulaNodes(page: Page, diagnostics: string[]): Promise<number> {
+  const handles = await page.$$(".template-text-panel-formula, .text-panel-formula")
+  let rasterized = 0
+
+  for (const handle of handles) {
+    try {
+      const box = await handle.boundingBox()
+      if (!box || box.width <= 0 || box.height <= 0) continue
+
+      const base64 = await (handle as any).screenshot({
+        encoding: "base64",
+        omitBackground: true,
+      })
+
+      await handle.evaluate((node, payload) => {
+        const element = node as HTMLElement
+        const img = document.createElement("img")
+        img.src = `data:image/png;base64,${payload.base64}`
+        img.alt = element.getAttribute("data-latex") || "Formula"
+        img.setAttribute("data-revela-pptx-formula-raster", "true")
+        img.style.width = `${payload.width}px`
+        img.style.height = `${payload.height}px`
+        img.style.maxWidth = "100%"
+        img.style.display = "block"
+        img.style.objectFit = "contain"
+        element.replaceChildren(img)
+      }, {
+        base64,
+        width: Math.ceil(box.width),
+        height: Math.ceil(box.height),
+      })
+
+      rasterized += 1
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      diagnostics.push(`formula rasterize failed: ${message}`)
+    }
+  }
+
+  return rasterized
+}
+
 async function exportSlidePptx(
   page: Page,
   diagnostics: string[],
@@ -961,6 +1003,7 @@ export async function exportToPptx(
   try {
     const pageSetupStart = Date.now()
     const { page, slideCount, diagnostics } = await preparePage(browser, tmpHtmlPath, domToPptxBundlePath)
+    const rasterizedFormulaCount = await rasterizeFormulaNodes(page, diagnostics)
     timingsMs.pageSetupMs = Date.now() - pageSetupStart
     const exported: ExportedSlide[] = []
     const failures: SlideFailure[] = []
@@ -969,7 +1012,9 @@ export async function exportToPptx(
       const slides = applySpeakerNotesOverride(await readSlideMeta(page, slideCount), options?.speakerNotes)
       await emitProgress(options, {
         kind: "stage",
-        message: `Deck ready. Exporting ${slides.length} slide(s) to editable PPTX parts...`,
+        message: rasterizedFormulaCount > 0
+          ? `Deck ready. Rasterized ${rasterizedFormulaCount} formula text member(s). Exporting ${slides.length} slide(s) to editable PPTX parts...`
+          : `Deck ready. Exporting ${slides.length} slide(s) to editable PPTX parts...`,
       })
 
       const slideExportStart = Date.now()
