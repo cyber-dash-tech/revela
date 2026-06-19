@@ -65,6 +65,62 @@ describe("inlineImageAssets", () => {
 })
 
 describe("exportToPptx", () => {
+  it("loads relative design CSS and ignores preview canvas scaling", async () => {
+    const tempRoot = tempWorkspace("revela-pptx-preview-css-test-")
+
+    try {
+      const deck = join(tempRoot, "preview.html")
+      const css = join(tempRoot, "design.css")
+      writeFileSync(css, `
+        html, body { margin: 0; padding: 0; overflow: visible; }
+        .slide { min-height: 100dvh; display: flex; align-items: center; justify-content: center; }
+        .slide-canvas { width: 1920px; height: 1080px; position: relative; overflow: hidden; background: #ffffff; font-family: Arial, sans-serif; }
+        .title { position: absolute; left: 120px; top: 96px; margin: 0; font-size: 64px; color: #102033; }
+        .edge-marker { position: absolute; left: 1500px; top: 900px; width: 320px; height: 96px; font-size: 32px; color: #ffffff; background: linear-gradient(135deg, #315eea, #18a8d8); display: flex; align-items: center; justify-content: center; }
+      `, "utf-8")
+      writeFileSync(deck, `
+        <!doctype html>
+        <html>
+          <head>
+            <link rel="stylesheet" href="./design.css">
+          </head>
+          <body>
+            <section class="slide" data-slide-index="1">
+              <div class="slide-canvas">
+                <h1 class="title">Preview CSS export</h1>
+                <div class="edge-marker">RIGHT EDGE</div>
+              </div>
+            </section>
+            <script>
+              document.querySelectorAll('.slide-canvas').forEach((canvas) => {
+                canvas.style.transform = 'scale(0.25)'
+              })
+            </script>
+          </body>
+        </html>
+      `, "utf-8")
+
+      const result = await exportToPptx(deck)
+      const files = unzipSync(await Bun.file(result.outputPath).bytes())
+      const slideXml = strFromU8(files["ppt/slides/slide1.xml"])
+      const slideRels = strFromU8(files["ppt/slides/_rels/slide1.xml.rels"])
+      const markerShape = slideXml
+        .split("</p:sp>")
+        .find((shape) => shape.includes("<a:t>RIGHT EDGE</a:t>"))
+      const markerOffset = markerShape?.match(/<a:off x="(\d+)" y="(\d+)"\/>/)
+
+      expect(result.slideCount).toBe(1)
+      expect(slideXml).toContain('typeface="Arial"')
+      expect(markerShape).not.toBeNull()
+      expect(Number(markerOffset?.[1] ?? 0)).toBeGreaterThan(6_000_000)
+      expect(slideXml).not.toContain("asvg:svgBlip")
+      expect(slideRels).not.toContain(".svg")
+      expect(Object.keys(files).some((path) => path.endsWith(".svg"))).toBe(false)
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true })
+    }
+  }, 60000)
+
   it("rasterizes formula text members so PPTX preserves formula styling", async () => {
     const tempRoot = tempWorkspace("revela-pptx-formula-test-")
 

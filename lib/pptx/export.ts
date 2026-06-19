@@ -22,6 +22,7 @@ import { basename, dirname, extname, join, posix as pathPosix, resolve } from "p
 import { randomBytes } from "crypto"
 import { pathToFileURL } from "url"
 import { findChromePath, launchChrome } from "../browser/chrome"
+import { withExportBaseHref } from "../export/html"
 
 const CANVAS_W = 1920
 const CANVAS_H = 1080
@@ -344,6 +345,7 @@ async function preparePage(
     document.documentElement.style.scrollSnapType = "none"
     document.documentElement.style.overflow = "visible"
     document.body.style.overflow = "visible"
+    document.body.style.margin = "0"
 
     const slides = Array.from(document.querySelectorAll(".slide")) as HTMLElement[]
     if (slides.length === 0) {
@@ -366,7 +368,24 @@ async function preparePage(
       exportStyle = document.createElement("style")
       exportStyle.id = "revela-pptx-export-style"
       exportStyle.textContent = `
+        html, body {
+          scroll-snap-type: none !important;
+          overflow: visible !important;
+        }
+        .slide {
+          width: 1920px !important;
+          min-width: 1920px !important;
+          height: 1080px !important;
+          min-height: 1080px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          overflow: hidden !important;
+          scroll-snap-align: none !important;
+        }
         .slide-canvas {
+          width: 1920px !important;
+          height: 1080px !important;
           transform: none !important;
           transform-origin: top left !important;
           transition: none !important;
@@ -541,15 +560,47 @@ async function exportSlidePptx(
         })
       }
 
-      target.scrollIntoView({ block: "center", inline: "center" })
       target.style.transform = "none"
       target.style.transformOrigin = "top left"
       target.style.transition = "none"
       target.style.animation = "none"
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
 
+      const host = document.createElement("div")
+      host.id = "revela-pptx-export-root"
+      host.style.position = "fixed"
+      host.style.left = "0"
+      host.style.top = "0"
+      host.style.width = "1920px"
+      host.style.height = "1080px"
+      host.style.overflow = "hidden"
+      host.style.zIndex = "2147483647"
+      host.style.background = "transparent"
+
+      const exportTarget = target.cloneNode(true) as HTMLElement
+      exportTarget.style.width = "1920px"
+      exportTarget.style.height = "1080px"
+      exportTarget.style.position = "relative"
+      exportTarget.style.left = "0"
+      exportTarget.style.top = "0"
+      exportTarget.style.transform = "none"
+      exportTarget.style.transformOrigin = "top left"
+      exportTarget.style.transition = "none"
+      exportTarget.style.animation = "none"
+      host.appendChild(exportTarget)
+      document.body.appendChild(host)
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+
+      const rect = exportTarget.getBoundingClientRect()
+      if (Math.abs(rect.width - 1920) > 2 || Math.abs(rect.height - 1080) > 2) {
+        host.remove()
+        throw new Error(
+          `Slide ${index + 1} export canvas is ${Math.round(rect.width)}x${Math.round(rect.height)}, expected 1920x1080.`
+        )
+      }
+
       await Promise.all(
-        Array.from(target.querySelectorAll("img")).map(async (img) => {
+        Array.from(exportTarget.querySelectorAll("img")).map(async (img) => {
           if (img.complete) return
           await new Promise((resolve) => {
             img.addEventListener("load", resolve, { once: true })
@@ -558,15 +609,19 @@ async function exportSlidePptx(
         })
       )
 
-      const blob: Blob = await domToPptx.exportToPptx(target, {
-        fileName: `slide-${index + 1}.pptx`,
-        skipDownload: true,
-        svgAsVector: false,
-        autoEmbedFonts,
-        width: 10,
-        height: 5.625,
-      })
-      return Array.from(new Uint8Array(await blob.arrayBuffer()))
+      try {
+        const blob: Blob = await domToPptx.exportToPptx(exportTarget, {
+          fileName: `slide-${index + 1}.pptx`,
+          skipDownload: true,
+          svgAsVector: false,
+          autoEmbedFonts,
+          width: 10,
+          height: 5.625,
+        })
+        return Array.from(new Uint8Array(await blob.arrayBuffer()))
+      } finally {
+        host.remove()
+      }
     }, { index: slide.index, autoEmbedFonts: options.autoEmbedFonts })
 
     return {
@@ -759,6 +814,55 @@ function setSpeakerNotes(files: ZipFiles, notesPath: string, notes: string | nul
   files[notesPath] = xmlToBytes(doc)
 }
 
+function stripSvgBlipFallbacks(pptxBytes: Uint8Array): Uint8Array {
+  const files = unzipSync(pptxBytes)
+  const orphanedSvgParts = new Set<string>()
+
+  for (const slidePath of Object.keys(files).filter((path) => /^ppt\/slides\/slide\d+\.xml$/.test(path))) {
+    const slideXml = getFileText(files, slidePath)
+    if (!slideXml.includes("asvg:svgBlip")) continue
+
+    const slideDoc = parseXml(slideXml)
+    const relsPath = relsPathForPart(slidePath)
+    const relsDoc = files[relsPath] ? parseXml(getFileText(files, relsPath)) : null
+    const svgRelIds = new Set<string>()
+
+    for (const svgBlip of Array.from(slideDoc.getElementsByTagName("asvg:svgBlip"))) {
+      const relId = svgBlip.getAttribute("r:embed")
+      if (relId) svgRelIds.add(relId)
+    }
+
+    for (const blip of Array.from(slideDoc.getElementsByTagName("a:blip"))) {
+      for (const extLst of Array.from(blip.getElementsByTagName("a:extLst"))) {
+        if (Array.from(extLst.getElementsByTagName("asvg:svgBlip")).length === 0) continue
+        blip.removeChild(extLst)
+      }
+    }
+
+    if (relsDoc && svgRelIds.size > 0) {
+      const relRoot = relsDoc.getElementsByTagName("Relationships")[0]
+      for (const rel of Array.from(relsDoc.getElementsByTagName("Relationship"))) {
+        const relId = rel.getAttribute("Id")
+        if (!relId || !svgRelIds.has(relId)) continue
+        const target = rel.getAttribute("Target")
+        if (target) orphanedSvgParts.add(resolveRelationshipTarget(slidePath, target))
+        relRoot?.removeChild(rel)
+      }
+      files[relsPath] = xmlToBytes(relsDoc)
+    }
+
+    files[slidePath] = xmlToBytes(slideDoc)
+  }
+
+  for (const partPath of orphanedSvgParts) {
+    if (/^ppt\/media\/.+\.svg$/i.test(partPath)) {
+      delete files[partPath]
+    }
+  }
+
+  return zipSync(files, { level: 0 })
+}
+
 export function applySpeakerNotesToPptx(pptxBytes: Uint8Array, notesBySlide: Array<string | null | undefined>): Uint8Array {
   const files = unzipSync(pptxBytes)
 
@@ -766,7 +870,7 @@ export function applySpeakerNotesToPptx(pptxBytes: Uint8Array, notesBySlide: Arr
     setSpeakerNotes(files, `ppt/notesSlides/notesSlide${index + 1}.xml`, notes ?? null)
   })
 
-  return zipSync(files)
+  return stripSvgBlipFallbacks(zipSync(files))
 }
 
 function updateAppProperties(files: ZipFiles, slideCount: number): void {
@@ -940,7 +1044,7 @@ function mergeSingleSlidePptx(slides: ExportedSlide[]): Uint8Array {
   mergedFiles["ppt/_rels/presentation.xml.rels"] = xmlToBytes(presentationRelsDoc)
   updateAppProperties(mergedFiles, slides.length)
 
-  return zipSync(mergedFiles, { level: 0 })
+  return stripSvgBlipFallbacks(zipSync(mergedFiles, { level: 0 }))
 }
 
 export async function exportToPptx(
@@ -979,7 +1083,7 @@ export async function exportToPptx(
     const prepareStart = Date.now()
     const originalHtml = readFileSync(abs, "utf-8")
     const localized = await localizeExternalImages(originalHtml, tmpDir)
-    const patchedHtml = await inlineImageAssets(localized.html, abs)
+    const patchedHtml = withExportBaseHref(await inlineImageAssets(localized.html, abs), abs)
     tmpHtmlPath = join(tmpDir, "index.html")
     writeFileSync(tmpHtmlPath, patchedHtml, "utf-8")
     timingsMs.prepareMs = Date.now() - prepareStart

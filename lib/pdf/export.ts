@@ -31,6 +31,7 @@ import { randomBytes } from "crypto"
 import { launchChrome } from "../browser/chrome"
 import { detectDeckHtml } from "../html-export/deck-detect"
 import { exportSinglePageHtmlPdf } from "../html-export"
+import { withExportBaseHref } from "../export/html"
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -185,16 +186,6 @@ async function toDataUrlFromRef(ref: string, baseDir: string): Promise<string | 
   } catch {
     return null
   }
-}
-
-function withExportBaseHref(html: string, htmlFilePath: string): string {
-  const baseHref = pathToFileURL(`${dirname(resolve(htmlFilePath))}/`).href
-  const baseTag = `<base href="${baseHref}">`
-  if (/<base\b/i.test(html)) return html
-  if (/<head[^>]*>/i.test(html)) {
-    return html.replace(/<head([^>]*)>/i, `<head$1>\n${baseTag}`)
-  }
-  return `${baseTag}\n${html}`
 }
 
 async function prepareSlidesForExport(page: any): Promise<void> {
