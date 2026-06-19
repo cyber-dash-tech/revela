@@ -65,6 +65,75 @@ describe("inlineImageAssets", () => {
 })
 
 describe("exportToPptx", () => {
+  it("preserves slide-canvas background images and padding", async () => {
+    const tempRoot = tempWorkspace("revela-pptx-canvas-background-test-")
+
+    try {
+      const deck = join(tempRoot, "preview.html")
+      const css = join(tempRoot, "design.css")
+      const bg = join(tempRoot, "hero-bg.png")
+      const png1x1 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
+
+      writeFileSync(bg, png1x1, "base64")
+      writeFileSync(css, `
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; overflow: visible; }
+        .slide { min-height: 100dvh; display: flex; align-items: center; justify-content: center; background: #09111f; }
+        .slide-canvas {
+          width: 1920px;
+          height: 1080px;
+          position: relative;
+          overflow: hidden;
+          padding: 72px;
+          background:
+            linear-gradient(90deg, rgba(7,17,31,0.86), rgba(7,17,31,0.28)),
+            url("./hero-bg.png") center center / cover no-repeat;
+          font-family: Arial, sans-serif;
+        }
+        .title { margin: 0; font-size: 64px; line-height: 1.1; color: #ffffff; }
+      `, "utf-8")
+      writeFileSync(deck, `
+        <!doctype html>
+        <html>
+          <head>
+            <link rel="stylesheet" href="./design.css">
+          </head>
+          <body>
+            <section class="slide" data-slide-index="1">
+              <div class="slide-canvas">
+                <h1 class="title">Padded background export</h1>
+              </div>
+            </section>
+          </body>
+        </html>
+      `, "utf-8")
+
+      const result = await exportToPptx(deck)
+      const files = unzipSync(await Bun.file(result.outputPath).bytes())
+      const slideXml = strFromU8(files["ppt/slides/slide1.xml"])
+      const slideRels = strFromU8(files["ppt/slides/_rels/slide1.xml.rels"])
+      const titleShape = slideXml
+        .split("</p:sp>")
+        .find((shape) => shape.includes("<a:t>Padded background export</a:t>"))
+      const titleOffsets = Array.from(titleShape?.matchAll(/<a:off x="(\d+)" y="(\d+)"\/>/g) ?? [])
+      const titleOffset = titleOffsets.at(-1)
+      const mediaFiles = Object.keys(files).filter((path) => path.startsWith("ppt/media/"))
+
+      expect(result.slideCount).toBe(1)
+      expect(titleShape).not.toBeNull()
+      expect(Number(titleOffset?.[1] ?? 0)).toBeGreaterThan(300_000)
+      expect(Number(titleOffset?.[2] ?? 0)).toBeGreaterThan(300_000)
+      expect(mediaFiles.length).toBeGreaterThan(0)
+      expect(slideXml).toContain("<a:blip")
+      expect(slideRels).toContain("/image")
+      expect(slideXml).not.toContain("asvg:svgBlip")
+      expect(slideRels).not.toContain(".svg")
+      expect(Object.keys(files).some((path) => path.endsWith(".svg"))).toBe(false)
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true })
+    }
+  }, 60000)
+
   it("loads relative design CSS and ignores preview canvas scaling", async () => {
     const tempRoot = tempWorkspace("revela-pptx-preview-css-test-")
 

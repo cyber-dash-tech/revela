@@ -577,25 +577,177 @@ async function exportSlidePptx(
       host.style.zIndex = "2147483647"
       host.style.background = "transparent"
 
-      const exportTarget = target.cloneNode(true) as HTMLElement
+      const exportTarget = targetSlide.cloneNode(true) as HTMLElement
       exportTarget.style.width = "1920px"
+      exportTarget.style.minWidth = "1920px"
       exportTarget.style.height = "1080px"
+      exportTarget.style.minHeight = "1080px"
       exportTarget.style.position = "relative"
       exportTarget.style.left = "0"
       exportTarget.style.top = "0"
+      exportTarget.style.margin = "0"
+      exportTarget.style.display = "flex"
+      exportTarget.style.alignItems = "center"
+      exportTarget.style.justifyContent = "center"
+      exportTarget.style.overflow = "hidden"
       exportTarget.style.transform = "none"
       exportTarget.style.transformOrigin = "top left"
       exportTarget.style.transition = "none"
       exportTarget.style.animation = "none"
+      const exportCanvas = exportTarget.querySelector(".slide-canvas") as HTMLElement | null
+      if (!exportCanvas) {
+        host.remove()
+        throw new Error(`Missing cloned .slide-canvas for slide ${index + 1}`)
+      }
+      exportCanvas.style.width = "1920px"
+      exportCanvas.style.minWidth = "1920px"
+      exportCanvas.style.height = "1080px"
+      exportCanvas.style.minHeight = "1080px"
+      exportCanvas.style.position = "relative"
+      exportCanvas.style.left = "0"
+      exportCanvas.style.top = "0"
+      exportCanvas.style.flexShrink = "0"
+      exportCanvas.style.transform = "none"
+      exportCanvas.style.transformOrigin = "top left"
+      exportCanvas.style.transition = "none"
+      exportCanvas.style.animation = "none"
+
+      const splitCssList = (value: string): string[] => {
+        const parts: string[] = []
+        let depth = 0
+        let quote: string | null = null
+        let start = 0
+        for (let i = 0; i < value.length; i += 1) {
+          const char = value[i]
+          if (quote) {
+            if (char === quote && value[i - 1] !== "\\") quote = null
+            continue
+          }
+          if (char === "\"" || char === "'") {
+            quote = char
+            continue
+          }
+          if (char === "(") depth += 1
+          if (char === ")") depth = Math.max(0, depth - 1)
+          if (char === "," && depth === 0) {
+            parts.push(value.slice(start, i).trim())
+            start = i + 1
+          }
+        }
+        parts.push(value.slice(start).trim())
+        return parts.filter(Boolean)
+      }
+
+      const extractCssUrl = (value: string): string | null => {
+        const match = value.match(/url\((["']?)(.*?)\1\)/i)
+        return match?.[2] ?? null
+      }
+
+      const normalizeBackgroundLayersForPptx = (canvas: HTMLElement, sourceStyle: CSSStyleDeclaration) => {
+        const computed = sourceStyle
+        const imageLayers = splitCssList(computed.backgroundImage)
+        const hasUrlLayer = imageLayers.some((layer) => /url\(/i.test(layer))
+        const paddingLeft = Number.parseFloat(computed.paddingLeft) || 0
+        const paddingRight = Number.parseFloat(computed.paddingRight) || 0
+        const paddingTop = Number.parseFloat(computed.paddingTop) || 0
+        const paddingBottom = Number.parseFloat(computed.paddingBottom) || 0
+        const hasPadding = paddingLeft > 0 || paddingRight > 0 || paddingTop > 0 || paddingBottom > 0
+        if (!hasUrlLayer && !hasPadding) return
+
+        const sizeLayers = splitCssList(computed.backgroundSize)
+        const positionLayers = splitCssList(computed.backgroundPosition)
+        const repeatLayers = splitCssList(computed.backgroundRepeat)
+        const layerCount = imageLayers.length
+        const layers = hasUrlLayer ? document.createElement("div") : null
+        if (layers) {
+          layers.setAttribute("data-revela-pptx-background-layers", "true")
+          layers.style.position = "absolute"
+          layers.style.inset = "0"
+          layers.style.pointerEvents = "none"
+          layers.style.zIndex = "0"
+          layers.style.overflow = "hidden"
+        }
+
+        if (layers) imageLayers.forEach((layer, layerIndex) => {
+          if (layer === "none") return
+          const zIndex = String(layerCount - layerIndex)
+          const url = extractCssUrl(layer)
+          const size = sizeLayers[layerIndex] ?? sizeLayers[0] ?? "auto"
+          const position = positionLayers[layerIndex] ?? positionLayers[0] ?? "50% 50%"
+          const repeat = repeatLayers[layerIndex] ?? repeatLayers[0] ?? "repeat"
+          if (url) {
+            const img = document.createElement("img")
+            img.src = url
+            img.alt = ""
+            img.setAttribute("aria-hidden", "true")
+            img.style.position = "absolute"
+            img.style.inset = "0"
+            img.style.width = "100%"
+            img.style.height = "100%"
+            img.style.display = "block"
+            img.style.zIndex = zIndex
+            img.style.objectFit = size.includes("contain") ? "contain" : "cover"
+            img.style.objectPosition = position
+            if (!repeat.includes("no-repeat") && !size.includes("cover") && !size.includes("contain")) {
+              img.style.objectFit = "fill"
+            }
+            layers.appendChild(img)
+            return
+          }
+
+          const gradient = document.createElement("div")
+          gradient.style.position = "absolute"
+          gradient.style.inset = "0"
+          gradient.style.zIndex = zIndex
+          gradient.style.backgroundImage = layer
+          gradient.style.backgroundSize = size
+          gradient.style.backgroundPosition = position
+          gradient.style.backgroundRepeat = repeat
+          layers.appendChild(gradient)
+        })
+
+        if (layers && !layers.childElementCount) return
+
+        const content = document.createElement("div")
+        content.setAttribute("data-revela-pptx-content-layer", "true")
+        content.style.position = "absolute"
+        content.style.zIndex = String(layerCount + 1)
+        content.style.left = `${paddingLeft}px`
+        content.style.top = `${paddingTop}px`
+        content.style.width = `${Math.max(1, 1920 - paddingLeft - paddingRight)}px`
+        content.style.height = `${Math.max(1, 1080 - paddingTop - paddingBottom)}px`
+        content.style.minHeight = "0"
+        content.style.boxSizing = "border-box"
+        while (canvas.firstChild) {
+          content.appendChild(canvas.firstChild)
+        }
+
+        canvas.style.padding = "0"
+        if (layers) {
+          canvas.style.backgroundImage = "none"
+          canvas.style.backgroundColor = computed.backgroundColor
+          canvas.appendChild(layers)
+        }
+        canvas.appendChild(content)
+      }
+
+      normalizeBackgroundLayersForPptx(exportCanvas, window.getComputedStyle(target))
       host.appendChild(exportTarget)
       document.body.appendChild(host)
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
 
       const rect = exportTarget.getBoundingClientRect()
+      const canvasRect = exportCanvas.getBoundingClientRect()
       if (Math.abs(rect.width - 1920) > 2 || Math.abs(rect.height - 1080) > 2) {
         host.remove()
         throw new Error(
-          `Slide ${index + 1} export canvas is ${Math.round(rect.width)}x${Math.round(rect.height)}, expected 1920x1080.`
+          `Slide ${index + 1} export slide is ${Math.round(rect.width)}x${Math.round(rect.height)}, expected 1920x1080.`
+        )
+      }
+      if (Math.abs(canvasRect.width - 1920) > 2 || Math.abs(canvasRect.height - 1080) > 2) {
+        host.remove()
+        throw new Error(
+          `Slide ${index + 1} export canvas is ${Math.round(canvasRect.width)}x${Math.round(canvasRect.height)}, expected 1920x1080.`
         )
       }
 
