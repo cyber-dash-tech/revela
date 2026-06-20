@@ -42,7 +42,7 @@ describe("runtime facade", () => {
     })
 
     const listed = listPageTemplates()
-    expect(listed.templates).toHaveLength(17)
+    expect(listed.templates).toHaveLength(19)
     expect(listed.templates.every((template) => template.status === "renderable")).toBe(true)
     expect(listed.templates[0]).toHaveProperty("vocabulary")
 
@@ -842,7 +842,7 @@ sources:
       const previewHtml = readFileSync(preview.previewPath, "utf-8")
       expect(preview).toMatchObject({ ok: true, name, source: "draft" })
       expect(preview.files).toEqual(expect.arrayContaining(["preview.html", "design.css", "assets/report-visual.jpg"]))
-      expect(previewHtml.match(/class="slide template-slide"/g)).toHaveLength(17)
+      expect(previewHtml.match(/class="slide template-slide"/g)).toHaveLength(19)
       expect(previewHtml).toContain('data-template="table"')
       expect(previewHtml).toContain("template-text-panel--clear")
       expect(previewHtml).toContain("template-text-panel-quote")

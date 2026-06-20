@@ -5,7 +5,7 @@ import { PAGE_TEMPLATE_CLASSES, builtInPreviewFixtures, getPageTemplateFoundatio
 import { tempWorkspace } from "./helpers/tool-helpers"
 
 describe("page templates", () => {
-  it("exposes seventeen renderable built-in page templates", () => {
+  it("exposes nineteen renderable built-in page templates", () => {
     const listed = listPageTemplates()
 
     expect(listed.templates.map((template) => template.id)).toEqual([
@@ -14,6 +14,7 @@ describe("page templates", () => {
       "closing",
       "agenda",
       "executive-summary",
+      "team",
       "problem-context",
       "key-message-evidence",
       "claim-supporting-visual",
@@ -26,6 +27,7 @@ describe("page templates", () => {
       "process-steps",
       "recommendation-decision",
       "risks-tradeoffs",
+      "free",
     ])
     expect(listed.templates.every((template) => template.status === "renderable")).toBe(true)
     expect(listed.templates[0]).toHaveProperty("vocabulary")
@@ -48,6 +50,12 @@ describe("page templates", () => {
     expect(PAGE_TEMPLATE_CLASSES).toContain("template-text-panel-quote")
     expect(PAGE_TEMPLATE_CLASSES).toContain("template-text-panel-formula")
     expect(PAGE_TEMPLATE_CLASSES).toContain("template-text-panel-formula-fallback")
+    expect(PAGE_TEMPLATE_CLASSES).toContain("template-team-grid")
+    expect(PAGE_TEMPLATE_CLASSES).toContain("template-team-card")
+    expect(PAGE_TEMPLATE_CLASSES).toContain("template-team-photo")
+    expect(PAGE_TEMPLATE_CLASSES).toContain("template-team-education")
+    expect(PAGE_TEMPLATE_CLASSES).toContain("template-free-stage")
+    expect(PAGE_TEMPLATE_CLASSES).toContain("template-free-placeholder")
   })
 
   it("renders scaffold slides from minimal seed content", () => {
@@ -69,10 +77,12 @@ describe("page templates", () => {
     const tracked = readFileSync(previewPath, "utf-8")
     const generated = renderBuiltInPreviewHtml()
 
-    expect(builtInPreviewFixtures()).toHaveLength(17)
+    expect(builtInPreviewFixtures()).toHaveLength(19)
     expect(builtInPreviewFixtures().filter((fixture) => fixture.templateId === "table")).toHaveLength(1)
     expect(builtInPreviewFixtures().filter((fixture) => fixture.templateId === "milestone")).toHaveLength(1)
     expect(builtInPreviewFixtures().filter((fixture) => fixture.templateId === "timeline")).toHaveLength(1)
+    expect(builtInPreviewFixtures().filter((fixture) => fixture.templateId === "team")).toHaveLength(1)
+    expect(builtInPreviewFixtures().filter((fixture) => fixture.templateId === "free")).toHaveLength(1)
     expect(tracked).toBe(generated)
   })
 
@@ -340,6 +350,48 @@ describe("page templates", () => {
 
     expect(rendered.html.match(/class="template-visual-placeholder"/g)).toHaveLength(3)
     expect(rendered.html).toContain("image / chart slot (optional)")
+  })
+
+  it("renders portrait-led team cards with highlights and education", () => {
+    const rendered = renderTemplateSlide({
+      templateId: "team",
+      slideIndex: 1,
+      designName: "summit",
+      content: {
+        title: "Our team",
+        members: [
+          { name: "Maya Chen", role: "Product", image: "./assets/card-lens.jpg", highlights: ["Led enterprise pilots.", "Shipped source-linked QA."], education: "M.S., HCI" },
+          { name: "Jon Bell", role: "Partnerships", highlights: ["Scaled strategic accounts.", "Opened channel partnerships."], education: "MBA" },
+          { name: "Ari Patel", role: "Engineering", highlights: ["Architected artifact QA.", "Built analytics systems."], education: "B.S., Computer Science" },
+        ],
+      },
+    })
+
+    expect(rendered.html).toContain('data-template="team"')
+    expect(rendered.html).toContain('data-template-slot="members"')
+    expect(rendered.html.match(/class="template-team-card"/g)).toHaveLength(3)
+    expect(rendered.html).toContain("template-team-photo")
+    expect(rendered.html).toContain("template-team-highlights")
+    expect(rendered.html).toContain("template-team-education")
+    expect(rendered.html).toContain("M.S., HCI")
+  })
+
+  it("renders free template as one replaceable semantic placeholder", () => {
+    const rendered = renderTemplateScaffold({
+      templateId: "free",
+      slideIndex: 1,
+      designName: "summit",
+      seed: { title: "Plain working page" },
+    })
+
+    expect(rendered.html).toContain('data-template="free"')
+    expect(rendered.html).toContain('data-template-slot="placeholder"')
+    expect(rendered.html).toContain("template-free-stage")
+    expect(rendered.html.match(/class="template-free-placeholder"/g)).toHaveLength(1)
+    expect(rendered.html).toContain("template-free-placeholder-label")
+    expect(rendered.html).toContain("template-free-placeholder-hints")
+    expect(rendered.html).toContain("images")
+    expect(rendered.html).toContain("charts")
   })
 
   it("renders process step cards with visual placeholders", () => {

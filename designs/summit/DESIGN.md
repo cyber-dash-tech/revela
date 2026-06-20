@@ -2604,11 +2604,13 @@ Summit skins Revela built-in page templates with editorial hierarchy, broad whit
 - `cover`, `section-divider`, `closing`: use strong editorial title pages.
 - `agenda`, `executive-summary`, `problem-context`, `key-message-evidence`, `claim-supporting-visual`: use borderless narrative groupings with clear hierarchy.
 - Agenda typography follows design tokens: title and numbers use `--font-display`; item labels and footer use `--font-body`.
+- `team`: use portrait-led member cards with one clear photo, name, role, two project/career highlights, and one highest-education line. Optimize for 3-4 members per page; 5-6 members require short copy and consistent portraits.
 - `metric-highlight`, `chart-takeaways`, `table`, `table-comparison`: use evidence-first data regions without outer container borders.
 - Text panels use explicit variants: `template-text-panel--clear` is transparent with no border or background, `template-text-panel--plain` is theme-neutral, and `template-text-panel--color` is the multicolor emphasis treatment used by chart and timeline reading panels.
 - `milestone`: dots remain milestone anchors inside each horizontal milestone item; do not position detached decorative markers.
 - `timeline`: dots remain event anchors inside each vertical timeline item; do not position detached decorative markers.
 - `process-steps`, `recommendation-decision`, `risks-tradeoffs`: use decisive action panels with minimal framing.
+- `free`: use a plain title plus one semantic placeholder region. The agent may later replace that region with multiple images, charts, text blocks, tables, or mixed content; do not use it as raw arbitrary HTML.
 
 <!-- @design:page-templates:end -->
 

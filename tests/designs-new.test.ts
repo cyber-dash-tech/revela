@@ -535,7 +535,7 @@ describe("design package authoring", () => {
         instructions: expect.stringContaining("Do not open the file:// preview directly."),
       })
       expect(html).toContain('<link rel="stylesheet" href="./design.css">')
-      expect(html.match(/class="slide template-slide"/g)).toHaveLength(17)
+      expect(html.match(/class="slide template-slide"/g)).toHaveLength(19)
       expect(html.match(/data-template="table"/g)).toHaveLength(1)
       expect(html.match(/data-template="milestone"/g)).toHaveLength(1)
       expect(html.match(/data-template="timeline"/g)).toHaveLength(1)

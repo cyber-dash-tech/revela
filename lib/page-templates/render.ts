@@ -7,7 +7,7 @@ export type PageTemplateStatus = "metadata-only" | "renderable"
 
 export interface PageTemplateField {
   name: string
-  type: "string" | "string[]" | "items[]" | "metrics[]" | "milestones[]" | "rows[]" | "steps[]"
+  type: "string" | "string[]" | "items[]" | "metrics[]" | "milestones[]" | "rows[]" | "steps[]" | "members[]" | "placeholder"
   required?: boolean
   description: string
 }
@@ -112,6 +112,10 @@ const templates: PageTemplateDefinition[] = [
     field("title", "string", "Slide title.", true),
     field("items", "items[]", "Summary takeaways.", true),
   ], ["Use 3-4 takeaways.", "Each takeaway needs a short label and support line."], ["Contains summary cards."]),
+  define("team", "Team", "Introduce the people behind the work with portrait-led member cards.", [
+    field("title", "string", "Slide title.", true),
+    field("members", "members[]", "Team members with portrait, role, highlights, and education.", true),
+  ], ["Use 3-4 members for a readable 16:9 page.", "Each member should have one portrait, two concise highlights, and one highest education line."], ["Contains team member cards.", "Each card keeps portrait and credentials distinct."]),
   define("problem-context", "Problem / Context", "Frame why the topic matters now.", [
     field("title", "string", "Slide title.", true),
     field("body", "string", "Context paragraph.", true),
@@ -189,6 +193,10 @@ const templates: PageTemplateDefinition[] = [
     field("title", "string", "Slide title.", true),
     field("items", "items[]", "Risks or caveats.", true),
   ], ["Name uncertainty instead of hiding it."], ["Contains risk/tradeoff cards."]),
+  define("free", "Free / Plain", "Start from a title and one flexible placeholder that can later hold images, charts, text, or mixed content.", [
+    field("title", "string", "Slide title.", true),
+    field("placeholder", "placeholder", "One flexible placeholder region for agent-decided content composition.", true),
+  ], ["Use for pages that need a simple title and one replaceable working area.", "The placeholder may later contain multiple images, charts, text blocks, tables, or mixed content selected by the agent."], ["Contains one free placeholder stage.", "The single placeholder remains visible and replaceable."]),
 ]
 
 export function listPageTemplates(): { ok: true; templates: PageTemplateDefinition[] } {
@@ -239,6 +247,15 @@ export function builtInPreviewFixtures(): BuiltInPreviewFixture[] {
         { label: "Decision is ready", description: "The facts support moving from discussion to selection without adding another analysis cycle." },
         { label: "Risk is bounded", description: "Known caveats are visible, named, and can be managed through rollout gates." },
         { label: "Next step is narrow", description: "A pilot decision creates more learning without overcommitting capital or team capacity." },
+      ],
+    }),
+    fixture("team", {
+      title: "team",
+      members: [
+        { name: "Maya Chen", role: "Product and AI systems", image: "./assets/card-lens.jpg", imageAlt: "Portrait placeholder", highlights: ["Led the decision workspace launch from zero to enterprise pilot.", "Built source-linked review loops for regulated teams."], education: "M.S., Human-Computer Interaction" },
+        { name: "Jon Bell", role: "Go-to-market and partnerships", image: "./assets/report-visual.jpg", imageAlt: "Portrait placeholder", highlights: ["Scaled strategic accounts across finance and healthcare.", "Opened channel partnerships with implementation teams."], education: "MBA, Strategy and Operations" },
+        { name: "Ari Patel", role: "Data and platform engineering", image: "./assets/soft-texture.jpg", imageAlt: "Portrait placeholder", highlights: ["Architected reliable artifact generation and QA pipelines.", "Shipped analytics systems used by executive teams."], education: "B.S., Computer Science" },
+        { name: "Lina Gomez", role: "Research and narrative design", image: "./assets/toc-orb.png", imageAlt: "Portrait placeholder", highlights: ["Directed research synthesis for high-stakes board materials.", "Designed traceable evidence models for complex decisions."], education: "M.A., Communication Design" },
       ],
     }),
     fixture("problem-context", {
@@ -370,6 +387,14 @@ export function builtInPreviewFixtures(): BuiltInPreviewFixture[] {
         { label: "Mitigation", description: "Keep bounded HTML edit flow after scaffold insertion so agents can improve the page directly." },
         { label: "Tradeoff", description: "More structure improves QA, but only if template contracts stay small and semantic." },
       ],
+    }),
+    fixture("free", {
+      title: "free",
+      placeholder: {
+        label: "Flexible content placeholder",
+        description: "Agent may replace this single region with multiple images, charts, text blocks, tables, or a mixed composition.",
+        hints: ["images", "charts", "text", "tables"],
+      },
     }),
   ]
 }
@@ -655,6 +680,25 @@ ${lucentClosingBackgroundCss}
 .template-timeline--vertical .template-timeline-item:nth-child(even) .template-timeline-copy { grid-column: 3; text-align: left; align-self: center; }
 .template-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
 .template-step-number { font-size: 48px; color: var(--accent-primary); font-weight: 800; margin-bottom: 30px; }
+.template-team-grid { height: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
+.template-team-card { min-width: 0; min-height: 0; display: grid; grid-template-rows: 330px minmax(0, 1fr); overflow: hidden; background: rgba(255,255,255,0.86); border: 1px solid var(--line); border-radius: var(--surface-radius); box-shadow: 0 18px 44px var(--shadow-soft); }
+.template-team-photo { margin: 0; width: 100%; height: 100%; overflow: hidden; background: linear-gradient(135deg, var(--accent-soft), rgba(24,168,216,0.16)); display: grid; place-items: center; }
+.template-team-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.template-team-photo span { font-family: var(--font-display); font-size: 72px; line-height: 1; color: var(--accent-primary); font-weight: 800; }
+.template-team-copy { min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 26px; }
+.template-team-name { margin: 0; font-size: 30px; line-height: 1.18; color: var(--text-primary); padding-bottom: 3px; overflow: visible; }
+.template-team-role { margin: 0; font-size: 15px; line-height: 1.35; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-primary); font-weight: 800; }
+.template-team-highlights { margin: 4px 0 0; padding: 0; list-style: none; display: grid; gap: 9px; }
+.template-team-highlights li { position: relative; padding-left: 18px; font-size: 17px; line-height: 1.36; color: var(--text-secondary); }
+.template-team-highlights li::before { content: ""; position: absolute; left: 0; top: 9px; width: 6px; height: 6px; background: var(--accent-primary); border-radius: 999px; }
+.template-team-education { margin: auto 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.35; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); font-weight: 800; }
+.template-free-stage { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr); }
+.template-free-placeholder { min-width: 0; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 16px; padding: 42px; border: 1px dashed var(--line-strong); border-radius: var(--surface-radius); background: linear-gradient(135deg, rgba(49,94,234,0.06), rgba(24,168,216,0.07)); overflow: hidden; }
+.template-free-placeholder-label { align-self: flex-start; font-size: 13px; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-primary); font-weight: 800; }
+.template-free-placeholder h2 { margin: 0; font-size: 38px; line-height: 1.18; color: var(--text-primary); padding-bottom: 4px; overflow: visible; }
+.template-free-placeholder p { margin: 0; max-width: 980px; font-size: 23px; line-height: 1.42; color: var(--text-secondary); }
+.template-free-placeholder-hints { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.template-free-placeholder-hint { display: inline-flex; align-items: center; min-height: 32px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; line-height: 1; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); font-weight: 800; background: rgba(255,255,255,0.58); }
 .template-image-card { width: 100%; margin: 18px 0 0; display: grid; gap: 8px; }
 .template-image-frame { width: 100%; height: 128px; border-radius: var(--surface-radius); overflow: hidden; background: var(--surface-tint, #f1f6fc); border: 1px solid var(--line); }
 .template-image-frame img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -734,6 +778,20 @@ ${lucentClosingBackgroundCss}
 .template-frame--catalog .template-timeline-copy p:last-child { font-size: 15px; line-height: 1.24; }
 .template-frame--catalog .template-steps { gap: 16px; }
 .template-frame--catalog .template-step-number { font-size: 40px; margin-bottom: 20px; }
+.template-frame--catalog .template-team-grid { gap: 16px; }
+.template-frame--catalog .template-team-card { grid-template-rows: 230px minmax(0, 1fr); }
+.template-frame--catalog .template-team-copy { padding: 18px; gap: 8px; }
+.template-frame--catalog .template-team-name { font-size: 22px; line-height: 1.14; }
+.template-frame--catalog .template-team-role { font-size: 11px; line-height: 1.25; }
+.template-frame--catalog .template-team-highlights { gap: 6px; }
+.template-frame--catalog .template-team-highlights li { font-size: 13px; line-height: 1.25; padding-left: 14px; }
+.template-frame--catalog .template-team-highlights li::before { top: 7px; width: 5px; height: 5px; }
+.template-frame--catalog .template-team-education { font-size: 10px; line-height: 1.25; padding-top: 9px; }
+.template-frame--catalog .template-free-placeholder { padding: 28px; gap: 10px; }
+.template-frame--catalog .template-free-placeholder-label { font-size: 10px; }
+.template-frame--catalog .template-free-placeholder h2 { font-size: 28px; line-height: 1.16; }
+.template-frame--catalog .template-free-placeholder p { font-size: 17px; line-height: 1.3; }
+.template-frame--catalog .template-free-placeholder-hint { min-height: 26px; padding: 6px 9px; font-size: 10px; }
 .template-frame--catalog .template-image-frame { height: 86px; }
 .template-frame--catalog .template-image-caption { font-size: 11px; }
 .template-frame--catalog .template-visual-placeholder-frame { height: 110px; }
@@ -1008,6 +1066,7 @@ function renderBody(templateId: string, content: Record<string, any>): string {
   if (["cover", "section-divider", "closing"].includes(templateId)) return `<div data-template-slot="hero">${renderHeader(content, templateId, { hero: true })}</div>`
   if (templateId === "agenda") return renderAgenda(content)
   if (templateId === "executive-summary") return `${renderHeader(content, "Executive Summary")}<div class="template-body template-grid cols-3" data-template-slot="summary-cards">${cards(items(content), "h2", { visualPlaceholder: true })}</div>`
+  if (templateId === "team") return `${renderHeader(content, "Team")}<div class="template-body"><div class="template-team-grid" data-template-slot="members">${teamCards(content.members)}</div></div>`
   if (templateId === "problem-context") return `${renderHeader(content, "Problem / Context")}<div class="template-body template-grid cols-2"><div class="template-card" data-template-slot="context"><p>${escapeHtml(stringValue(content.body))}</p></div><div class="template-card" data-template-slot="supporting-points">${list(items(content))}</div></div>`
   if (templateId === "key-message-evidence") return `${renderHeader(content, "Key Message + Evidence")}<div class="template-body template-grid cols-2">${keyMessagePanel(content)}<div class="template-evidence-grid" data-template-slot="evidence">${evidenceCards(items(content))}</div></div>`
   if (templateId === "claim-supporting-visual") return `${renderHeader(content, "Claim + Supporting Visual")}<div class="template-body template-grid cols-2">${claimTextPanel(content)}${visualSlotPanel()}</div>`
@@ -1021,6 +1080,7 @@ function renderBody(templateId: string, content: Record<string, any>): string {
   if (templateId === "process-steps") return `${renderHeader(content, "Process / Steps")}<div class="template-body"><div class="template-steps" data-template-slot="steps">${steps(content.steps)}</div></div>`
   if (templateId === "recommendation-decision") return `${renderHeader(content, "Recommendation / Decision")}<div class="template-body template-grid cols-3"><div class="template-card" data-template-slot="recommendation"><h2>Recommendation</h2><p>${escapeHtml(stringValue(content.recommendation))}</p>${imageCard(content)}</div><div data-template-slot="rationale">${cards(items(content).slice(0, 1), "h3")}</div><div class="template-card" data-template-slot="next-steps"><h2>Next steps</h2>${orderedSteps(content.steps)}</div></div>`
   if (templateId === "risks-tradeoffs") return `${renderHeader(content, "Risks / Tradeoffs")}<div class="template-body template-grid cols-3" data-template-slot="risks">${cards(items(content), "h3")}</div>`
+  if (templateId === "free") return `${renderHeader(content, "Free / Plain")}<div class="template-body"><div class="template-free-stage" data-template-slot="placeholder">${freePlaceholder(content.placeholder ?? content.placeholders)}</div></div>`
   return renderHeader(content, templateId)
 }
 
@@ -1057,6 +1117,45 @@ function claimTextPanel(content: Record<string, any>): string {
 
 function evidenceCards(items: Array<{ label: string; description: string; image?: string; imageAlt?: string; imageCaption?: string }>): string {
   return items.map((item, index) => `<article class="template-card template-evidence-card"><h3>${escapeHtml(item.label || `Evidence ${index + 1}`)}</h3><p>${escapeHtml(item.description)}</p>${imageCard(item)}</article>`).join("")
+}
+
+function teamCards(input: any): string {
+  const members = Array.isArray(input) ? input : []
+  return members.slice(0, 6).map((member, index) => {
+    const name = stringValue(member?.name) || `Member ${index + 1}`
+    const role = stringValue(member?.role || member?.title)
+    const image = safeImagePath(stringValue(member?.image))
+    const alt = stringValue(member?.imageAlt) || name
+    const highlights = stringArray(member?.highlights).slice(0, 3)
+    const education = stringValue(member?.education || member?.highestEducation)
+    return `<article class="template-team-card">
+                        <figure class="template-team-photo">${image ? `<img src="${escapeAttribute(image)}" alt="${escapeAttribute(alt)}">` : `<span>${escapeHtml(initials(name))}</span>`}</figure>
+                        <div class="template-team-copy">
+                            <h2 class="template-team-name">${escapeHtml(name)}</h2>
+                            ${role ? `<p class="template-team-role">${escapeHtml(role)}</p>` : ""}
+                            ${highlights.length > 0 ? `<ul class="template-team-highlights">${highlights.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
+                            ${education ? `<p class="template-team-education">${escapeHtml(education)}</p>` : ""}
+                        </div>
+                    </article>`
+  }).join("")
+}
+
+function freePlaceholder(input: any): string {
+  const legacy = Array.isArray(input) ? input : []
+  const value = legacy.length > 0 ? {
+    label: "Flexible content placeholder",
+    description: "Agent may replace this single region with multiple images, charts, text blocks, tables, or a mixed composition.",
+    hints: legacy.map((item) => stringValue(item?.type || item?.label)).filter(Boolean),
+  } : input
+  const label = stringValue(value?.label) || "Flexible content placeholder"
+  const description = stringValue(value?.description) || "Agent may decide whether this placeholder becomes multiple images, charts, text blocks, tables, or a mixed composition."
+  const hints = stringArray(value?.hints || value?.accepts).slice(0, 6)
+  return `<section class="template-free-placeholder">
+                        <span class="template-free-placeholder-label">placeholder</span>
+                        <h2>${escapeHtml(label)}</h2>
+                        <p>${escapeHtml(description)}</p>
+                        ${hints.length > 0 ? `<div class="template-free-placeholder-hints">${hints.map((hint) => `<span class="template-free-placeholder-hint">${escapeHtml(hint)}</span>`).join("")}</div>` : ""}
+                    </section>`
 }
 
 function chartTakeawayPanel(content: Record<string, any>): string {
@@ -1230,6 +1329,12 @@ function items(content: Record<string, any>): Array<{ label: string; description
   }))
 }
 
+function stringArray(value: any): string[] {
+  if (Array.isArray(value)) return value.map(stringValue).filter(Boolean)
+  const single = stringValue(value)
+  return single ? [single] : []
+}
+
 function scaffoldSeed(templateId: string, seed: Record<string, any>): Record<string, any> {
   const title = stringValue(seed.title) || getPageTemplate(templateId).title
   const base = { ...seed, title }
@@ -1238,6 +1343,7 @@ function scaffoldSeed(templateId: string, seed: Record<string, any>): Record<str
   if (templateId === "closing") return { ...base }
   if (templateId === "agenda") return { items: defaultItems(["Situation", "Evidence", "Decision"]), ...base }
   if (templateId === "executive-summary") return { items: defaultItems(["Decision is ready", "Risk is bounded", "Next step is narrow"]), ...base }
+  if (templateId === "team") return { members: [{ name: "Member One", role: "Role or function", highlights: ["Replace with a standout project.", "Replace with a standout experience."], education: "Highest education" }, { name: "Member Two", role: "Role or function", highlights: ["Replace with a standout project.", "Replace with a standout experience."], education: "Highest education" }, { name: "Member Three", role: "Role or function", highlights: ["Replace with a standout project.", "Replace with a standout experience."], education: "Highest education" }], ...base }
   if (templateId === "problem-context") return { body: "Replace with context, tension, and why now.", items: defaultItems(["Context", "Implication"]), ...base }
   if (templateId === "key-message-evidence") return { body: "Replace with the key message the audience should remember.", items: defaultItems(["Evidence 1", "Evidence 2", "Evidence 3"]), ...base }
   if (templateId === "claim-supporting-visual") return { claim: "Replace with one visual claim.", body: "Use this copy to guide how the visual should be read.", items: defaultItems(["Anchor", "Callout"]), ...base }
@@ -1250,6 +1356,7 @@ function scaffoldSeed(templateId: string, seed: Record<string, any>): Record<str
   if (templateId === "process-steps") return { steps: defaultItems(["Step 1", "Step 2", "Step 3"]), ...base }
   if (templateId === "recommendation-decision") return { recommendation: "Replace with the recommended decision.", items: defaultItems(["Rationale"]), steps: defaultItems(["Pilot", "Validate", "Ship"]), ...base }
   if (templateId === "risks-tradeoffs") return { items: defaultItems(["Risk", "Tradeoff", "Mitigation"]), ...base }
+  if (templateId === "free") return { placeholder: { label: "Flexible content placeholder", description: "Replace this single region with one or more images, charts, text blocks, tables, or mixed content.", hints: ["images", "charts", "text", "tables"] }, ...base }
   return base
 }
 
@@ -1296,6 +1403,11 @@ function safeImagePath(value: string): string {
   if (parentRefs > 0 && !image.startsWith("../designs/") && !image.startsWith("..\\designs\\")) return ""
   if (parentRefs > 1) return ""
   return image
+}
+
+function initials(value: string): string {
+  const parts = value.split(/\s+/).filter(Boolean)
+  return parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join("") || "?"
 }
 
 function escapeHtml(value: string): string {

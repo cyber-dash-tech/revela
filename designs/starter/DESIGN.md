@@ -903,11 +903,13 @@ Starter skins Revela built-in page templates as a neutral authoring system. The 
 - `cover`, `section-divider`, `closing`: use clear title-first structural pages.
 - `agenda`, `executive-summary`, `problem-context`, `key-message-evidence`, `claim-supporting-visual`: use plain narrative and card-grid surfaces.
 - Agenda typography follows design tokens: title and numbers use `--font-display`; item labels and footer use `--font-body`.
+- `team`: use portrait-led member cards with one photo, name, role, two concise highlights, and one education line. Prefer 3-4 members per page.
 - `metric-highlight`, `chart-takeaways`, `table`, `table-comparison`: use direct data panels with minimal decoration.
 - Text panels use explicit variants: `template-text-panel--clear` is transparent with no border or background, `template-text-panel--plain` is theme-neutral, and `template-text-panel--color` is the multicolor emphasis treatment used by chart and timeline reading panels.
 - `milestone`: dots remain milestone anchors inside each horizontal milestone item; do not position detached decorative markers.
 - `timeline`: dots remain event anchors inside each vertical timeline item; do not position detached decorative markers.
 - `process-steps`, `recommendation-decision`, `risks-tradeoffs`: use simple step and decision panels.
+- `free`: use a plain title plus one semantic placeholder region; the agent may later replace that region with multiple images, charts, text blocks, tables, or mixed content.
 
 <!-- @design:page-templates:end -->
 
