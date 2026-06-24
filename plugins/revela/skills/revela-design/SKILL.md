@@ -26,7 +26,7 @@ Use this skill when the user asks to create, customize, edit, validate, package,
 For status, inspection, activation, or selection:
 
 1. Call `revela_design_list`.
-2. Call `revela_design_read`, `revela_design_inventory`, `revela_design_read_layout`, `revela_design_read_component`, or `revela_page_template_foundation` as needed.
+2. Call `revela_design_read`, `revela_design_inventory`, or `revela_page_template_foundation` as needed.
 3. Call `revela_design_activate` only when the user asks to use a design for future planning/rendering.
 4. For an existing `decks/*.html` artifact, call `revela_switch_deck_design` with the deck file and design name. This refreshes the deck-local active design snapshot and can reopen the deck without rewriting slide content.
 

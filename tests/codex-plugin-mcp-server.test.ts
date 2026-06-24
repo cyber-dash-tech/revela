@@ -33,7 +33,7 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).toContain("revela_read_deck_plan")
     expect(text.stdout).not.toContain("revela_upsert_deck_plan\\\"")
     expect(text.stdout).toContain("revela_upsert_deck_plan_slide")
-    expect(text.stdout).toContain("Compatibility/repair helper")
+    expect(text.stdout).toContain("Template-aware repair helper")
     expect(text.stdout).toContain("revela_list_page_templates")
     expect(text.stdout).toContain("revela_render_template_slide")
     expect(text.stdout).toContain("revela_add_template_slide")
@@ -52,8 +52,8 @@ describe("Codex plugin MCP server", () => {
     expect(text.stdout).not.toContain("revela_bind_research_findings")
     expect(text.stdout).not.toContain("revela_story_read")
     expect(text.stdout).toContain("revela_design_inventory")
-    expect(text.stdout).toContain("revela_design_read_layout")
-    expect(text.stdout).toContain("revela_design_read_component")
+    expect(text.stdout).not.toContain("revela_design_read_layout")
+    expect(text.stdout).not.toContain("revela_design_read_component")
     expect(text.stdout).toContain("revela_design_activate")
     expect(text.stdout).toContain("revela_design_create")
     expect(text.stdout).toContain("revela_design_validate")
@@ -433,31 +433,24 @@ describe("Codex plugin MCP server", () => {
       jsonrpc: "2.0",
       id: 4,
       method: "tools/call",
-      params: { name: "revela_design_read_layout", arguments: { name, layout: "test-layout" } },
-    }))
-    child.stdin.write(frame({
-      jsonrpc: "2.0",
-      id: 5,
-      method: "tools/call",
-      params: { name: "revela_design_read_component", arguments: { name, component: ["test-card", "test-badge"] } },
+      params: { name: "revela_design_read", arguments: { name } },
     }))
 
-    const text = await output.until((item) => item.stdout.includes("\"id\":5") && item.stdout.includes("Component: test-badge"))
+    const text = await output.until((item) => item.stdout.includes("\"id\":4") && item.stdout.includes("assets"))
     child.kill()
 
-    expect(text.stdout).toContain("\\\"ok\\\": true")
-    expect(text.stdout).toContain("\\\"layouts\\\"")
-    expect(text.stdout).toContain("\\\"components\\\"")
-    expect(text.stdout).toContain("\\\"name\\\": \\\"test-layout\\\"")
-    expect(text.stdout).toContain("\\\"slots\\\"")
-    expect(text.stdout).toContain("\\\"nesting\\\"")
-    expect(text.stdout).toContain("\\\"qa\\\": true")
-    expect(text.stdout).toContain("Layout: test-layout")
-    expect(text.stdout).toContain("Component: test-card")
-    expect(text.stdout).toContain("Component: test-badge")
+    const inventoryText = responseTextById(text.stdout, 3)
+    expect(inventoryText).toContain("\\\"ok\\\": true")
+    expect(inventoryText).not.toContain("\\\"layouts\\\"")
+    expect(inventoryText).not.toContain("\\\"components\\\"")
+    expect(inventoryText).toContain("\\\"pageTemplates\\\"")
+    expect(inventoryText).toContain("\\\"templateId\\\": \\\"timeline\\\"")
+    expect(inventoryText).toContain("\\\"slots\\\"")
+    expect(inventoryText).toContain("\\\"requiredClasses\\\"")
+    expect(text.stdout).toContain("Test Layout")
   })
 
-  it("creates and reads one structured deck-plan slide through MCP tools", async () => {
+  it("creates and reads one template deck-plan slide through MCP tools", async () => {
     const root = tempWorkspace("revela-mcp-deck-plan-upsert-")
     writeResearchVault(root)
     const home = tempWorkspace("revela-mcp-deck-plan-upsert-home-")
@@ -484,19 +477,16 @@ describe("Codex plugin MCP server", () => {
           chapter: "Decision",
           narrativeRole: "Show why the bounded pilot is the next decision.",
           structural: false,
-          layout: "narrative",
-          components: [{
-            name: "text-panel",
-            slot: "left",
-            position: "left-top",
-            purpose: "State the decision logic.",
-            content: "Approve a bounded pilot.",
-            claimIds: ["claim-pilot"],
-            evidenceIds: ["evidence-pilot"],
-            sourceNotes: ["Proposal"],
-            renderNotes: ["Use concise heading and body copy."],
-          }],
-          visualIntent: { kind: "copy-led", component: "text-panel" },
+          template: "key-message-evidence",
+          templateContent: {
+            title: "Pilot Proof",
+            body: "Approve a bounded pilot.",
+            items: [
+              { label: "Intent evidence", description: "The proposal states the decision need." },
+              { label: "Bounded ask", description: "The pilot is scoped as a narrow next step." },
+            ],
+          },
+          visualIntent: { kind: "template", brief: "Use the evidence region for source-backed support." },
           sourceLinks: {
             findings: ["researches/pilot.md"],
             urls: ["https://example.com/pilot"],
@@ -524,28 +514,28 @@ describe("Codex plugin MCP server", () => {
           slideIndex: 2,
           title: "Bad",
           chapter: "Decision",
-          narrativeRole: "Invalid component.",
-          layout: "narrative",
-          components: [{ name: "missing-component", slot: "left", position: "left-top", purpose: "Bad.", content: "Bad." }],
-          visualIntent: { kind: "copy-led", component: "missing-component" },
+          narrativeRole: "Invalid template.",
+          template: "missing-template",
+          visualIntent: { kind: "template" },
           sourceLinks: {},
         },
       },
     }))
 
-    const text = await output.until((item) => item.stdout.includes("\"id\":4") && item.stdout.includes("slide_component_unknown"))
+    const text = await output.until((item) => item.stdout.includes("\"id\":4") && item.stdout.includes("slide_template_unknown"))
     child.kill()
 
     expect(text.stdout).toContain("\\\"ok\\\": true")
     expect(text.stdout).toContain("deck-plan.md")
-    expect(text.stdout).toContain("\\\"componentPlan\\\"")
+    expect(text.stdout).toContain("\\\"template\\\": \\\"key-message-evidence\\\"")
+    expect(text.stdout).toContain("\\\"templateContent\\\"")
     expect(text.stdout).toContain("\\\"sourceLinks\\\"")
     expect(text.stdout).toContain("\\\"htmlWritingBatches\\\"")
     expect(text.stdout).toContain("\\\"maxSlides\\\": 5")
-    expect(text.stdout).toContain("\\\"slot\\\": \\\"left\\\"")
-    expect(text.stdout).toContain("\\\"position\\\": \\\"left-top\\\"")
+    expect(text.stdout).not.toContain("\\\"slot\\\": \\\"left\\\"")
     expect(text.stdout).toContain("\\\"ok\\\": false")
-    expect(readFileSync(join(root, "deck-plan.md"), "utf-8")).toContain("#### Design Plan")
+    expect(text.stdout).toContain("slide_template_unknown")
+    expect(readFileSync(join(root, "deck-plan.md"), "utf-8")).toContain("#### Template Content")
   })
 
   it("lists and renders built-in page templates through MCP tools", async () => {
@@ -656,33 +646,20 @@ describe("Codex plugin MCP server", () => {
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "revela_design_read_layout", arguments: { name: "summit", layout: "narrative" } },
-    }))
-    child.stdin.write(frame({
-      jsonrpc: "2.0",
-      id: 4,
-      method: "tools/call",
-      params: { name: "revela_design_read_component", arguments: { name: "summit", component: "text-panel" } },
-    }))
-    child.stdin.write(frame({
-      jsonrpc: "2.0",
-      id: 5,
-      method: "tools/call",
       params: { name: "revela_design_validate", arguments: { name: "summit" } },
     }))
 
-    const text = await output.until((item) => item.stdout.includes("\"id\":5") && item.stdout.includes("text-panel"))
+    const text = await output.until((item) => item.stdout.includes("\"id\":3") && item.stdout.includes("hasDesignMd"))
     child.kill()
 
-    expect(text.stdout).toContain("\\\"ok\\\": true")
-    expect(text.stdout).toContain("\\\"name\\\": \\\"summit\\\"")
-    expect(text.stdout).toContain("\\\"name\\\": \\\"narrative\\\"")
-    expect(text.stdout).toContain("\\\"slots\\\"")
-    expect(text.stdout).toContain("\\\"left\\\"")
-    expect(text.stdout).toContain("\\\"nesting\\\"")
-    expect(text.stdout).toContain("\\\"acceptsChildren\\\"")
-    expect(text.stdout).toContain("Layout: narrative")
-    expect(text.stdout).toContain("Component: text-panel")
+    const inventoryText = responseTextById(text.stdout, 2)
+    expect(inventoryText).toContain("\\\"ok\\\": true")
+    expect(inventoryText).toContain("\\\"name\\\": \\\"summit\\\"")
+    expect(inventoryText).not.toContain("\\\"layouts\\\"")
+    expect(inventoryText).not.toContain("\\\"components\\\"")
+    expect(inventoryText).toContain("\\\"pageTemplates\\\"")
+    expect(inventoryText).toContain("\\\"templateId\\\": \\\"timeline\\\"")
+    expect(inventoryText).toContain("\\\"slots\\\"")
     expect(text.stdout).toContain("\\\"hasDesignMd\\\": true")
     expect(existsSync(join(home, ".config", "revela", "designs"))).toBe(false)
   })
@@ -712,15 +689,17 @@ describe("Codex plugin MCP server", () => {
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "revela_design_read_layout", arguments: { name: "summit", layout: "test-layout" } },
+      params: { name: "revela_design_read", arguments: { name: "summit" } },
     }))
 
-    const text = await output.until((item) => item.stdout.includes("\"id\":3") && item.stdout.includes("Layout: test-layout"))
+    const text = await output.until((item) => item.stdout.includes("\"id\":3") && item.stdout.includes("Test Layout"))
     child.kill()
 
-    expect(text.stdout).toContain("\\\"name\\\": \\\"test-layout\\\"")
-    expect(text.stdout).toContain("Layout: test-layout")
-    expect(text.stdout).not.toContain("\\\"name\\\": \\\"narrative\\\"")
+    const inventoryText = responseTextById(text.stdout, 2)
+    expect(inventoryText).toContain("\\\"pageTemplates\\\"")
+    expect(inventoryText).not.toContain("\\\"layouts\\\"")
+    expect(inventoryText).not.toContain("\\\"components\\\"")
+    expect(text.stdout).toContain("Test Layout")
   })
 
   it("reports missing designs as not installed without creating user config", async () => {
@@ -1126,6 +1105,36 @@ function collectOutput(child: ReturnType<typeof spawn>) {
       })
     },
   }
+}
+
+function responseTextById(stdout: string, id: number): string {
+  const messages = parseJsonRpcMessages(stdout)
+  const message = messages.find((item) => item.id === id)
+  if (!message) throw new Error(`No JSON-RPC response with id ${id}`)
+  return JSON.stringify(message)
+}
+
+function parseJsonRpcMessages(stdout: string): any[] {
+  const messages: any[] = []
+  let cursor = 0
+  while (cursor < stdout.length) {
+    const headerIndex = stdout.indexOf("Content-Length:", cursor)
+    if (headerIndex === -1) break
+    const lengthMatch = /Content-Length:\s*(\d+)/.exec(stdout.slice(headerIndex, headerIndex + 80))
+    if (!lengthMatch) break
+    const bodyStart = stdout.indexOf("\r\n\r\n", headerIndex)
+    if (bodyStart === -1) break
+    const length = Number(lengthMatch[1])
+    const start = bodyStart + 4
+    const body = stdout.slice(start, start + length)
+    try {
+      messages.push(JSON.parse(body))
+    } catch {
+      // Ignore partial frames while the test is still collecting output.
+    }
+    cursor = start + length
+  }
+  return messages
 }
 
 function writeReviewDeck(root: string, outputPath: string): void {

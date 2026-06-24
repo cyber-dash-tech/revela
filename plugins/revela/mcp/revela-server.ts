@@ -71,7 +71,7 @@ const tools = [
   },
   {
     name: "revela_upsert_deck_plan_slide",
-    description: "Compatibility/repair helper for creating or updating one slide block in canonical deck-plan.md with active/requested design vocabulary validation. Normal planning should write deck-plan.md directly and use revela_read_deck_plan for diagnostics.",
+    description: "Template-aware repair helper for creating or updating one slide block in canonical deck-plan.md. Normal planning should write deck-plan.md directly and use revela_read_deck_plan for diagnostics.",
     inputSchema: objectSchema({
       workspaceRoot: stringProp("Optional workspace root."),
       designName: stringProp("Optional design name. Defaults to the active design."),
@@ -82,13 +82,15 @@ const tools = [
       chapter: requiredStringProp("Chapter name."),
       narrativeRole: requiredStringProp("Slide's communication job."),
       structural: booleanProp("Whether this is a structural slide such as cover, TOC, divider, or closing."),
-      layout: requiredStringProp("Design layout name from inventory."),
+      template: stringProp("Built-in page template id from revela_list_page_templates. New slides should use template instead of legacy layout/components."),
+      templateContent: objectProp("Optional template content seed to write into the slide's Template Content JSON block."),
+      layout: stringProp("Legacy design layout name. Compatibility-only for existing no-template slides."),
       components: componentPlanArrayProp(),
       visualIntent: visualIntentProp(),
       sourceLinks: sourceLinksProp(),
       narrativeLinks: narrativeLinksProp(),
       caveats: arrayProp("Optional caveats to keep visible in the slide plan."),
-    }, ["slideIndex", "title", "chapter", "narrativeRole", "layout", "components", "visualIntent"]),
+    }, ["slideIndex", "title", "chapter", "narrativeRole", "visualIntent"]),
   },
   {
     name: "revela_create_deck_foundation",
@@ -217,26 +219,10 @@ const tools = [
   },
   {
     name: "revela_design_inventory",
-    description: "List the active or requested Revela design sections, layouts, and components.",
+    description: "List the active or requested Revela design sections, page templates, template slots, required classes, and assets.",
     inputSchema: objectSchema({
       name: stringProp("Optional design name."),
     }),
-  },
-  {
-    name: "revela_design_read_layout",
-    description: "Read one or more layout blocks from the active or requested Revela design.",
-    inputSchema: objectSchema({
-      name: stringProp("Optional design name."),
-      layout: stringOrArrayProp("Layout name, comma-separated names, or an array of layout names."),
-    }, ["layout"]),
-  },
-  {
-    name: "revela_design_read_component",
-    description: "Read one or more component blocks from the active or requested Revela design.",
-    inputSchema: objectSchema({
-      name: stringProp("Optional design name."),
-      component: stringOrArrayProp("Component name, comma-separated names, or an array of component names."),
-    }, ["component"]),
   },
   {
     name: "revela_design_activate",
@@ -531,8 +517,6 @@ async function callTool(name: string, args: any): Promise<any> {
   if (name === "revela_design_list") return r.designList()
   if (name === "revela_design_read") return r.designRead(args)
   if (name === "revela_design_inventory") return r.designInventory(args)
-  if (name === "revela_design_read_layout") return r.designReadLayout(args)
-  if (name === "revela_design_read_component") return r.designReadComponent(args)
   if (name === "revela_design_activate") return r.designActivate(args)
   if (name === "revela_switch_deck_design") return r.switchDeckDesign(args)
   if (name === "revela_design_create") return r.designCreate(args)

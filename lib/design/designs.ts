@@ -1196,7 +1196,7 @@ export function generateComponentIndex(components: Record<string, string>): stri
     "|---|---|---|",
     ...rows,
     "",
-    "_Use `revela_design_read_component` with `component: \"<name>\"` to get full CSS/HTML and any structure contract for a component._",
+    "_Legacy component blocks are compatibility-only; new Codex deck planning should use built-in page templates._",
   ].join("\n")
 }
 
@@ -1228,7 +1228,7 @@ export function generateLayoutIndex(layouts: Record<string, LayoutInfo>): string
     "|---|---|---|",
     ...rows,
     "",
-    "_Use `revela_design_read_layout` with `layout: \"<name>\"` to get full HTML/CSS for any layout._",
+    "_Legacy layout blocks are compatibility-only; new Codex deck planning should use built-in page templates._",
   ].join("\n")
 }
 

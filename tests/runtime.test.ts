@@ -346,11 +346,11 @@ describe("runtime facade", () => {
     expect(codes).not.toContain("slide_finding_copy_risk")
   })
 
-  it("upserts one structured deck-plan slide and reads its component plan", () => {
-    const root = tempWorkspace("revela-runtime-deck-plan-upsert-")
+  it("upserts one template deck-plan slide without legacy layout components", () => {
+    const root = tempWorkspace("revela-runtime-deck-plan-template-upsert-")
     writeMinimalVault(root)
 
-    const result = upsertDeckPlanSlide(validDeckPlanSlideInput(root))
+    const result = upsertDeckPlanSlide(validTemplateDeckPlanSlideInput(root))
 
     expect(result.ok).toBe(true)
     expect(result.path).toBe("deck-plan.md")
@@ -358,6 +358,36 @@ describe("runtime facade", () => {
     const read = readDeckPlan({ workspaceRoot: root })
     expect(read.ok).toBe(true)
     expect(read.projection?.slides).toHaveLength(1)
+    expect(read.projection?.slides[0]).toMatchObject({
+      slideIndex: 1,
+      id: "slide-pilot-proof",
+      title: "Pilot Proof",
+      template: "key-message-evidence",
+      layout: "",
+      components: [],
+    })
+    expect(read.projection?.slides[0].templateContent).toMatchObject({ title: "Pilot Proof" })
+    expect(read.projection?.slides[0].sourceLinks).toMatchObject({
+      findings: ["researches/pilot.md"],
+      urls: ["https://example.com/pilot"],
+      caveats: [],
+    })
+    expect(read.markdown).toContain("---\nslideIndex: 1")
+    expect(read.markdown).toContain("#### Content Plan")
+    expect(read.markdown).toContain("#### Source Links")
+    expect(read.markdown).toContain("template: key-message-evidence")
+    expect(read.markdown).toContain("#### Template Content")
+    expect(read.markdown).not.toContain("#### Design Plan")
+  })
+
+  it("keeps legacy structured deck-plan upsert compatibility", () => {
+    const root = tempWorkspace("revela-runtime-deck-plan-upsert-")
+    writeMinimalVault(root)
+
+    const result = upsertDeckPlanSlide(validDeckPlanSlideInput(root))
+
+    expect(result.ok).toBe(true)
+    const read = readDeckPlan({ workspaceRoot: root })
     expect(read.projection?.slides[0]).toMatchObject({
       slideIndex: 1,
       id: "slide-pilot-proof",
@@ -371,20 +401,7 @@ describe("runtime facade", () => {
       position: "left-top",
       purpose: "State the decision logic.",
       content: "Approve a bounded pilot.",
-      claimIds: ["claim-pilot"],
-      evidenceIds: ["evidence-pilot"],
-      sourceNotes: ["Proposal"],
-      renderNotes: ["Use concise heading and body copy."],
     })
-    expect(read.projection?.slides[0].sourceLinks).toMatchObject({
-      findings: ["researches/pilot.md"],
-      urls: ["https://example.com/pilot"],
-      caveats: [],
-    })
-    expect(read.markdown).toContain("---\nslideIndex: 1")
-    expect(read.markdown).toContain("#### Content Plan")
-    expect(read.markdown).toContain("#### Source Links")
-    expect(read.markdown).toContain("#### Design Plan")
   })
 
   it("reads deck-plan.md with YAML slide separators", () => {
@@ -1091,8 +1108,8 @@ sources:
     expect(inventory.pageTemplates.find((template) => template.templateId === "table")?.requiredClasses).toContain("template-table-layout")
     expect(inventory.pageTemplates.find((template) => template.templateId === "timeline")?.requiredClasses).toContain("template-timeline-dot")
     expect(inventory.pageTemplates.find((template) => template.templateId === "chart-takeaways")?.contractNotes.join("\n")).toContain("formula text members")
-    expect(inventory.components.map((component) => component.name)).not.toContain("quote")
-    expect(inventory.components.find((component) => component.name === "box")?.nesting?.allowedChildren).not.toContain("quote")
+    expect("layouts" in inventory).toBe(false)
+    expect("components" in inventory).toBe(false)
     expect(readiness).toMatchObject({ ok: true, activeDesign: result.name })
     expect(existsSync(join(root, ".revela", "codex-hooks", "design-rules-read.json"))).toBe(true)
   })
@@ -1523,6 +1540,35 @@ function validDeckPlanSlideInput(root: string) {
       placementNote: "Keep this as the primary reading path.",
     }],
     visualIntent: { kind: "copy-led", component: "text-panel", rationale: "The slide should privilege the decision sentence." },
+    sourceLinks: {
+      findings: ["researches/pilot.md"],
+      urls: ["https://example.com/pilot"],
+      caveats: ["Intent evidence does not prove market demand."],
+    },
+    caveats: ["Intent evidence does not prove market demand."],
+  }
+}
+
+function validTemplateDeckPlanSlideInput(root: string) {
+  return {
+    workspaceRoot: root,
+    designName: "summit",
+    slideIndex: 1,
+    id: "slide-pilot-proof",
+    title: "Pilot Proof",
+    chapter: "Decision",
+    narrativeRole: "Show why the bounded pilot is the next decision.",
+    structural: false,
+    template: "key-message-evidence",
+    templateContent: {
+      title: "Pilot Proof",
+      body: "Approve a bounded pilot.",
+      items: [
+        { label: "Intent evidence", description: "The proposal states the decision need." },
+        { label: "Bounded ask", description: "The pilot is scoped as a narrow next step." },
+      ],
+    },
+    visualIntent: { kind: "template", brief: "Use the template evidence region for source-backed support." },
     sourceLinks: {
       findings: ["researches/pilot.md"],
       urls: ["https://example.com/pilot"],

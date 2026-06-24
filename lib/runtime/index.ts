@@ -435,9 +435,14 @@ export function designRead(input: RuntimeDesignReadInput = {}) {
 }
 
 export function designInventory(input: RuntimeDesignInventoryInput = {}) {
+  const inventory = getDesignInventory(input.name || activeDesign())
   return {
     ok: true,
-    ...getDesignInventory(input.name || activeDesign()),
+    name: inventory.name,
+    sections: inventory.sections.filter((section) => section !== "layouts" && section !== "components"),
+    pageTemplates: inventory.pageTemplates,
+    assets: inventory.assets,
+    hasMarkers: inventory.hasMarkers,
   }
 }
 

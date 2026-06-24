@@ -153,8 +153,10 @@ export interface DeckPlanSlideUpsertInput {
   chapter: string
   narrativeRole: string
   structural?: boolean
-  layout: string
-  components: DeckPlanSlideUpsertComponentInput[]
+  template?: string
+  templateContent?: Record<string, any>
+  layout?: string
+  components?: DeckPlanSlideUpsertComponentInput[]
   visualIntent: {
     kind?: string
     component?: string
@@ -374,7 +376,7 @@ export function upsertDeckPlanSlideArtifact(
 function projectionFromSlideInput(workspaceRoot: string, input: DeckPlanSlideUpsertInput & { id: string }, existing?: DeckPlanSlideProjection): DeckPlanSlideProjection {
   const sourceLinks = sourceLinksForInput(input)
   const caveats = uniqueStrings([...(input.caveats ?? []), ...sourceLinks.caveats])
-  const componentPlan = input.components.map(componentInputToPlan)
+  const componentPlan = (input.components ?? []).map(componentInputToPlan)
   const slide: DeckPlanSlideProjection = {
     path: DECK_PLAN_MARKDOWN_PATH,
     absolutePath: join(workspaceRoot, DECK_PLAN_MARKDOWN_PATH),
@@ -382,7 +384,9 @@ function projectionFromSlideInput(workspaceRoot: string, input: DeckPlanSlideUps
     slideIndex: input.slideIndex,
     title: input.title,
     chapter: input.chapter,
-    layout: input.layout,
+    template: input.template?.trim() || "",
+    templateContent: input.templateContent,
+    layout: input.layout?.trim() || "",
     components: uniqueStrings(componentPlan.flatMap(flattenComponentNames)),
     componentPlan,
     structural: input.structural ?? false,
@@ -494,8 +498,11 @@ function renderDeckPlanSlideBlock(slide: DeckPlanSlideProjection, visualIntent?:
   lines.push(`chapter: ${yamlScalar(slide.chapter || "Unassigned")}`)
   lines.push(`role: ${yamlScalar(slide.narrativeRole || "Not specified")}`)
   lines.push(`structural: ${slide.structural ? "true" : "false"}`)
-  lines.push(`layout: ${slide.layout || "unspecified"}`)
-  lines.push(`components: ${slide.components.join(", ") || "none"}`)
+  if (slide.template) lines.push(`template: ${slide.template}`)
+  else {
+    lines.push(`layout: ${slide.layout || "unspecified"}`)
+    lines.push(`components: ${slide.components.join(", ") || "none"}`)
+  }
   lines.push("---")
   lines.push("")
   lines.push("#### Content Plan")
@@ -508,14 +515,30 @@ function renderDeckPlanSlideBlock(slide: DeckPlanSlideProjection, visualIntent?:
   lines.push("")
   lines.push(renderSourceLinksMarkdown(slide.sourceLinks))
   lines.push("")
-  lines.push("#### Design Plan")
-  lines.push("")
-  lines.push(`- Layout: ${slide.layout || "unspecified"}`)
-  lines.push(`- Components: ${slide.components.join(", ") || "none"}`)
-  lines.push("- Visual intent:")
-  lines.push(...indentMultiline(visualIntent ? renderVisualIntent(visualIntent) : "- Brief: Not specified."))
-  lines.push("")
-  for (const component of slide.componentPlan) lines.push(renderComponentPlanMarkdown(component, 5))
+  if (slide.template) {
+    if (slide.templateContent && Object.keys(slide.templateContent).length > 0) {
+      lines.push("#### Template Content")
+      lines.push("")
+      lines.push("```json")
+      lines.push(JSON.stringify(slide.templateContent, null, 2))
+      lines.push("```")
+      lines.push("")
+    }
+    lines.push("#### Template Plan")
+    lines.push("")
+    lines.push(`- Template: ${slide.template}`)
+    lines.push("- Visual intent:")
+    lines.push(...indentMultiline(visualIntent ? renderVisualIntent(visualIntent) : "- Brief: Not specified."))
+  } else {
+    lines.push("#### Design Plan")
+    lines.push("")
+    lines.push(`- Layout: ${slide.layout || "unspecified"}`)
+    lines.push(`- Components: ${slide.components.join(", ") || "none"}`)
+    lines.push("- Visual intent:")
+    lines.push(...indentMultiline(visualIntent ? renderVisualIntent(visualIntent) : "- Brief: Not specified."))
+    lines.push("")
+    for (const component of slide.componentPlan) lines.push(renderComponentPlanMarkdown(component, 5))
+  }
   lines.push("")
   return lines.join("\n")
 }
@@ -1016,19 +1039,26 @@ function validateDeckPlanSlideUpsert(input: DeckPlanSlideUpsertInput, options: {
   const diagnostics: DeckPlanProjectionDiagnostic[] = []
   const nodeId = input.id?.trim() || `slide-${input.slideIndex}`
   if (!Number.isInteger(input.slideIndex) || input.slideIndex < 1) diagnostics.push(errorDiagnostic("slide_index_invalid", "slideIndex must be a positive 1-based integer.", nodeId))
-  for (const [key, value] of [["title", input.title], ["chapter", input.chapter], ["narrativeRole", input.narrativeRole], ["layout", input.layout]] as const) {
+  for (const [key, value] of [["title", input.title], ["chapter", input.chapter], ["narrativeRole", input.narrativeRole]] as const) {
     if (!String(value || "").trim()) diagnostics.push(errorDiagnostic(`slide_${key}_missing`, `${key} is required.`, nodeId))
   }
-  if (!options.designLayouts.includes(input.layout)) diagnostics.push(errorDiagnostic("slide_layout_unknown", `Layout '${input.layout}' is not in the selected design inventory.`, nodeId))
-  if (!Array.isArray(input.components) || input.components.length === 0) diagnostics.push(errorDiagnostic("slide_components_missing", "At least one component plan entry is required.", nodeId))
+  const template = input.template?.trim()
+  if (template) {
+    const templates = new Set(listPageTemplates().templates.map((item) => item.id))
+    if (!templates.has(template)) diagnostics.push(errorDiagnostic("slide_template_unknown", `Template '${template}' is not a built-in page template.`, nodeId))
+  } else {
+    if (!String(input.layout || "").trim()) diagnostics.push(errorDiagnostic("slide_layout_missing", "layout is required for legacy no-template slides.", nodeId))
+    else if (!options.designLayouts.includes(input.layout || "")) diagnostics.push(errorDiagnostic("slide_layout_unknown", `Layout '${input.layout}' is not in the selected design inventory.`, nodeId))
+    if (!Array.isArray(input.components) || input.components.length === 0) diagnostics.push(errorDiagnostic("slide_components_missing", "At least one component plan entry is required for legacy no-template slides.", nodeId))
+  }
   const componentNames = new Set<string>()
   const positions = new Set<string>()
-  const allowedSlots = options.layoutSlots?.[input.layout]
+  const allowedSlots = input.layout ? options.layoutSlots?.[input.layout] : undefined
   for (const component of input.components ?? []) {
     validateComponentInput(component, { nodeId, componentNames, positions, options, allowedSlots, parentName: undefined, topLevel: true, diagnostics })
   }
   const visual = normalizeVisualIntent(input.visualIntent)
-  if (visual.component && !componentNames.has(visual.component)) diagnostics.push(errorDiagnostic("slide_visual_component_missing", `visualIntent.component '${visual.component}' is not present in component plan.`, nodeId))
+  if (!template && visual.component && !componentNames.has(visual.component)) diagnostics.push(errorDiagnostic("slide_visual_component_missing", `visualIntent.component '${visual.component}' is not present in component plan.`, nodeId))
   const sourceLinks = sourceLinksForInput(input)
   if (!input.structural && linksCount(sourceLinks) === 0) diagnostics.push({ severity: "warning", code: "slide_source_link_missing", message: "Non-structural slides should include at least one material, finding, asset, or URL source link.", nodeId })
   return diagnostics
@@ -1158,7 +1188,7 @@ function normalizeComponentPlan(component: DeckPlanSlideComponentPlan): DeckPlan
 }
 
 function renderDeckPlanSlideMarkdown(input: DeckPlanSlideUpsertInput & { id: string }): string {
-  const components = input.components.map((component) => component.name.trim())
+  const components = (input.components ?? []).map((component) => component.name.trim())
   const lines: string[] = []
   lines.push("---")
   lines.push("type: deck-plan-slide")
@@ -1166,8 +1196,11 @@ function renderDeckPlanSlideMarkdown(input: DeckPlanSlideUpsertInput & { id: str
   lines.push(`slideIndex: ${input.slideIndex}`)
   lines.push(`title: ${yamlScalar(input.title)}`)
   lines.push(`chapter: ${yamlScalar(input.chapter)}`)
-  lines.push(`layout: ${input.layout.trim()}`)
-  lines.push(`components: [${components.map(yamlScalar).join(", ")}]`)
+  if (input.template?.trim()) lines.push(`template: ${input.template.trim()}`)
+  else {
+    lines.push(`layout: ${(input.layout ?? "").trim()}`)
+    lines.push(`components: [${components.map(yamlScalar).join(", ")}]`)
+  }
   lines.push(`structural: ${input.structural ? "true" : "false"}`)
   lines.push(`narrativeRole: ${yamlScalar(input.narrativeRole)}`)
   lines.push("---")
@@ -1182,22 +1215,33 @@ function renderDeckPlanSlideMarkdown(input: DeckPlanSlideUpsertInput & { id: str
   lines.push("")
   lines.push(renderVisualIntent(input.visualIntent))
   lines.push("")
-  lines.push("## Component Plan")
-  lines.push("")
-  for (const component of input.components) {
-    lines.push(`### ${component.name.trim()}`)
+  if (input.template?.trim()) {
+    if (input.templateContent && Object.keys(input.templateContent).length > 0) {
+      lines.push("## Template Content")
+      lines.push("")
+      lines.push("```json")
+      lines.push(JSON.stringify(input.templateContent, null, 2))
+      lines.push("```")
+      lines.push("")
+    }
+  } else {
+    lines.push("## Component Plan")
     lines.push("")
-    lines.push(`- Slot: ${component.slot.trim()}`)
-    lines.push(`- Position: ${component.position.trim()}`)
-    if (component.placementNote?.trim()) lines.push(`- Placement note: ${component.placementNote.trim()}`)
-    lines.push(`- Purpose: ${component.purpose.trim()}`)
-    lines.push("- Content:")
-    lines.push(...indentMultiline(component.content.trim()))
-    lines.push(`- Claim ids: ${formatCsv(component.claimIds)}`)
-    lines.push(`- Evidence ids: ${formatCsv(component.evidenceIds)}`)
-    lines.push(`- Source notes: ${formatListValue(component.sourceNotes)}`)
-    lines.push(`- Render notes: ${formatListValue(component.renderNotes)}`)
-    lines.push("")
+    for (const component of input.components ?? []) {
+      lines.push(`### ${component.name.trim()}`)
+      lines.push("")
+      lines.push(`- Slot: ${component.slot.trim()}`)
+      lines.push(`- Position: ${component.position.trim()}`)
+      if (component.placementNote?.trim()) lines.push(`- Placement note: ${component.placementNote.trim()}`)
+      lines.push(`- Purpose: ${component.purpose.trim()}`)
+      lines.push("- Content:")
+      lines.push(...indentMultiline(component.content.trim()))
+      lines.push(`- Claim ids: ${formatCsv(component.claimIds)}`)
+      lines.push(`- Evidence ids: ${formatCsv(component.evidenceIds)}`)
+      lines.push(`- Source notes: ${formatListValue(component.sourceNotes)}`)
+      lines.push(`- Render notes: ${formatListValue(component.renderNotes)}`)
+      lines.push("")
+    }
   }
   lines.push(renderSourceLinksMarkdown(sourceLinksForInput(input)).replace(/^####/gm, "##"))
   return lines.join("\n")
@@ -1252,7 +1296,12 @@ function renderMinimalDeckPlanIndex(narrativeHash: string | undefined, slides: D
   lines.push("## Slide Plan")
   lines.push("")
   if (slides.length === 0) lines.push("- No slide blocks yet.")
-  else for (const slide of slides) lines.push(`- Slide ${slide.slideIndex}: [[${slide.id}]] - ${slide.title} (${slide.path}); layout ${slide.layout || "unspecified"}; components ${slide.components.join(", ") || "none"}.`)
+  else for (const slide of slides) {
+    const renderPlan = slide.template
+      ? `template ${slide.template}`
+      : `layout ${slide.layout || "unspecified"}; components ${slide.components.join(", ") || "none"}`
+    lines.push(`- Slide ${slide.slideIndex}: [[${slide.id}]] - ${slide.title} (${slide.path}); ${renderPlan}.`)
+  }
   lines.push("")
   lines.push("## Evidence Trace")
   lines.push("")

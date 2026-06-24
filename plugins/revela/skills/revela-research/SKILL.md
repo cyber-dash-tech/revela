@@ -15,7 +15,7 @@ Use this skill when the user asks to start from a goal, inspect local materials,
 - Local materials are only usable after direct text review or extracted read-view review.
 - Active/requested domain guidance informs audience, decision framing, claim standards, evidence expectations, objection/risk interpretation, and research-gap priority.
 - Domain guidance is not evidence and must never be cited as proof for factual claims.
-- Active/requested design tools define valid layouts, slots, components, nesting hints, and deck-plan design vocabulary.
+- Active/requested design tools define page-template vocabulary, template slots, design rules, and deck-plan styling context.
 - `deck-plan.md` is the formal research-to-make-deck handoff when a deck objective is sufficiently supported.
 - Do not create deck artifacts, a Narrative Vault, or canonical evidence bindings during research.
 - Do not invent URLs, quotes, page references, numbers, caveats, or licenses.
@@ -48,11 +48,11 @@ Use this skill when the user asks to start from a goal, inspect local materials,
 11. For deck goals with sufficient materials, run Planning Handoff:
     - Call `revela_design_list`.
     - Call `revela_design_read` with `section: "rules"` for the active/requested design.
-    - Call `revela_design_inventory`.
-    - When a chosen component has a `contract` field, preserve that contract in the visual brief/render notes so Make Deck renders the required internal structure instead of a simplified lookalike.
-    - Write `deck-plan.md` directly from reviewed materials, saved findings, assets, user intent, active domain framing, and active design vocabulary.
+    - Call `revela_design_inventory` and use its `pageTemplates` summary as the public design vocabulary.
+    - Call `revela_list_page_templates` before choosing template ids.
+    - Write `deck-plan.md` directly from reviewed materials, saved findings, assets, user intent, active domain framing, and built-in page templates.
     - Call `revela_read_deck_plan` after writing `deck-plan.md`.
-    - If diagnostics report `sourceLinks`, layout, slot, component, or `children` issues, patch `deck-plan.md` directly and call `revela_read_deck_plan` again.
+    - If diagnostics report `sourceLinks` or template id issues, patch `deck-plan.md` directly and call `revela_read_deck_plan` again.
 
 ## Finding Requirements
 
@@ -126,11 +126,8 @@ Each non-structural slide block must include:
 - `#### Content Plan`
 - In `#### Content Plan`: `Claim`, `Reasoning`, `Audience takeaway`, `Evidence basis`, and `Boundary handling`.
 - `#### Source Links` for materials, finding-level references when available, assets, URLs, and caveats.
-- `#### Design Plan`
-- Selected layout from design inventory.
-- Component plan using component names from design inventory.
-- Valid slots from the selected layout.
-- Valid component nesting hints, including `box.children` when multiple child components support one semantic idea.
+- A `template` field in slide frontmatter using a built-in page template id.
+- Optional `#### Template Content` JSON when a template needs structured seed content.
 - Base slide arguments on `Synthesis` blocks when available; use finding text as evidence/source context, not as default body copy.
 - Use `Display note` for short visible caption/source-note scope.
 - Keep `Evidence boundary` internal unless it is required to avoid a misleading audience conclusion.

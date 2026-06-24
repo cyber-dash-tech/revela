@@ -281,11 +281,11 @@ describe("Codex make deck design guidance", () => {
     expect(skill).toContain('Call `revela_design_read` with `section: "rules"`')
     expect(skill).toContain("Call `revela_design_inventory`")
     expect(skill).toContain("Required: readable `deck-plan.md`")
-    expect(skill).toContain("revela_design_read_layout")
-    expect(skill).toContain("revela_design_read_component")
-    expect(skill).toContain("valid layouts, slots, components")
+    expect(skill).not.toContain("revela_design_read_layout")
+    expect(skill).not.toContain("revela_design_read_component")
+    expect(skill).toContain("page-template styling")
     expect(skill).toContain("Every slide must have exactly one direct `.slide-canvas` child")
-    expect(skill).toContain("Do not use a slot that does not belong to the selected layout")
+    expect(skill).toContain("Do not use legacy design inventory names")
   })
 })
 
@@ -345,8 +345,8 @@ describe("generateLayoutIndex", () => {
   it("includes on-demand usage hint", () => {
     const layouts = { cover: { content: "## Cover", qa: false } }
     const result = generateLayoutIndex(layouts)
-    expect(result).toContain("revela_design_read_layout")
-    expect(result).toContain("layout")
+    expect(result).toContain("Legacy layout blocks are compatibility-only")
+    expect(result).toContain("page templates")
   })
 
   it("handles layout with empty body (no first line)", () => {
@@ -448,8 +448,8 @@ describe("generateComponentIndex", () => {
 
   it("includes on-demand usage hint", () => {
     const result = generateComponentIndex({ x: "#### X" })
-    expect(result).toContain("revela_design_read_component")
-    expect(result).toContain("component")
+    expect(result).toContain("Legacy component blocks are compatibility-only")
+    expect(result).toContain("page templates")
   })
 
   it("marks structured timeline components with a contract indicator", () => {

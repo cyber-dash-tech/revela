@@ -12,7 +12,7 @@ Use this skill when the user asks to make, generate, render, or update a Revela 
 - Deck execution planning comes from canonical `deck-plan.md`.
 - Local materials, material reviews, `researches/`, `assets/`, and user intent provide source context.
 - Slide argument copy comes from `deck-plan.md` `Claim`, `Reasoning`, and `Audience takeaway` fields when present; raw findings are evidence/source context, not default body copy.
-- Active/requested design tools define valid layouts, slots, components, nesting hints, structure contracts, and HTML writing rules.
+- Active/requested design tools define page-template styling, design rules, assets, and HTML writing rules.
 - Built-in page template tools define semantic page templates, foundation/scaffold HTML, editable slots, stable DOM contracts, and template QA contracts.
 - Deck-local `decks/_revela-design/**/design.css` files are generated design snapshots. Do not patch them during deck making; regenerate the deck foundation or enter the design workflow instead.
 - Active/requested domain guidance may inform communication framing, but it is not source evidence.
@@ -44,10 +44,10 @@ Before render preflight:
 
 1. Call `revela_design_list`.
 2. Call `revela_design_read` with `section: "rules"` for the active/requested design.
-3. Call `revela_design_inventory`.
+3. Call `revela_design_inventory` and use its `pageTemplates` summary as the public design vocabulary.
 4. Call `revela_list_page_templates` when the deck-plan uses `template` fields or when adding a new page.
 5. For each template used in the current batch, call `revela_page_template_foundation` before creating or editing scaffold HTML.
-6. Review each component's `contract` field. Components with structure contracts must be planned from structured content and rendered with the required internal DOM/classes, not simplified freehand markup.
+6. Do not plan new slides from legacy design layouts or components.
 
 Before HTML writing:
 
@@ -55,9 +55,8 @@ Before HTML writing:
 2. Read the returned `htmlWritingBatches`.
 3. For new slides with `template`, call `revela_render_template_scaffold` or `revela_add_template_scaffold`, then bounded-edit only the inserted slide's `data-template-slot` regions.
 4. Use `revela_render_template_slide` / `revela_add_template_slide` only as a compatibility path for existing full `Template Content` JSON plans.
-5. For legacy slides without `template`, call `revela_design_read_layout` for each layout used in the current batch.
-6. For legacy slides without `template`, call `revela_design_read_component` for each component used in the current batch. For contract components, treat the returned CSS/HTML as executable grammar and preserve the required root, descendant, item, and alternating classes.
-7. Fetch chart rules before creating or modifying ECharts.
+5. For legacy slides without `template`, report the compatibility diagnostic from `revela_read_deck_plan`; do not fetch hidden layout/component tools.
+6. Fetch chart rules before creating or modifying ECharts.
 
 ## Plan Preflight And Repair
 
@@ -67,8 +66,6 @@ Allowed plan repairs are limited to technical diagnostics from `revela_read_deck
 
 - Broken Markdown/frontmatter structure.
 - Invalid or missing `sourceLinks` field structure, without adding new unsupported source links.
-- Layout, slot, component, or `children` names that do not match `revela_design_inventory`.
-- Component nesting fixes such as using `box.children` when the selected component model requires nested semantic groups.
 - Missing or misspelled built-in `template` ids reported by `revela_read_deck_plan`.
 
 Do not redesign the argument structure, add new slides, remove supported slides, rewrite claims, or add source links that were not reviewed or saved by `revela-research`. If normal plan authoring is needed, stop and send the user back to `revela` routing or `revela-research` Planning Handoff.
@@ -108,8 +105,7 @@ Use this phase when the user asks to make, generate, render, or update an HTML d
 - Do not skip or synthesize `deck-plan.md` for normal decks.
 - Do not claim ownership of normal plan authoring.
 - Do not write a new `deck-plan.md` when it is missing.
-- Do not use design inventory names, slots, or components that were not returned by the active/requested design tools.
-- Do not use a slot that does not belong to the selected layout.
+- Do not use legacy design inventory names, slots, or components for new slides.
 - Do not delete template required classes or slots during bounded edits. If the required structure cannot be satisfied, choose a simpler valid template/component or stop with the contract issue.
 - Do not patch more than 5 slide sections in one HTML write.
 - Do not invent source links, quotes, URLs, page references, caveats, or licenses.
